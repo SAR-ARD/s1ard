@@ -1,0 +1,13 @@
+name: S1_NRB_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - gdal>=3.4.1
+  - click
+  - lxml
+  - pip
+  - pystac
+  - pip:
+    - spatialist @ git+https://github.com/johntruckenbrodt/spatialist.git
+    - pyroSAR @ git+https://github.com/johntruckenbrodt/pyroSAR.git
