@@ -333,7 +333,7 @@ def main(config_file, section_name):
                                 ' terminal for uncaught SNAP errors!'.format(scene=scene))
             except Exception as e:
                 log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene, error=e))
-                raise e
+                continue
     
     ####################################################################################################################
     # NRB - final product generation
@@ -358,4 +358,4 @@ def main(config_file, section_name):
                                                                       time=round((time.time() - start_time), 2)))
                 except Exception as e:
                     log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
-                    raise e
+                    continue
