@@ -215,7 +215,7 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
                              options={'VRTNodata': 'NaN'})
     
     ####################################################################################################################
-    # add external water body mask
+    # modify data mask
     
     dm_path = finder(nrbdir, [r'dm\.tif$'], regex=True)[0]
     ancil.modify_data_mask(dm_path=dm_path, extent=extent, epsg=epsg, driver=driver,
@@ -348,11 +348,11 @@ def main(config_file, section_name):
                     scenes = [scenes]
                 print('###### NRB: {tile} | {scenes}'.format(tile=tile, scenes=[os.path.basename(s) for s in scenes]))
                 start_time = time.time()
-                #try:
-                nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
-                               epsg=epsg, external_wbm=config['ext_wbm_file'], dem_name=geocode_prms['demName'])
-                #    log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
-                #                                                      time=round((time.time() - start_time), 2)))
-                #except Exception as e:
-                #    log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
-                #    continue
+                try:
+                    nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
+                                   epsg=epsg, external_wbm=config['ext_wbm_file'], dem_name=geocode_prms['demName'])
+                    log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
+                                                                      time=round((time.time() - start_time), 2)))
+                except Exception as e:
+                    log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
+                    continue
