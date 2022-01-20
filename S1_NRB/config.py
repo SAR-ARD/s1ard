@@ -62,7 +62,7 @@ def get_config(config_file, section_name='GENERAL'):
             else:
                 v = os.path.join(parser_sec['work_dir'], v)
                 os.makedirs(v, exist_ok=True)
-        if k.endswith('_file'):
+        if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
             else:
