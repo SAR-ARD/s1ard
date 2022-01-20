@@ -48,7 +48,7 @@ def product_xml(meta, target, sources):
     None
     """
     
-    tifs = finder(target, ['*.tif'])
+    tifs = finder(target, ['-[a-z]{2,3}.tif'], regex=True)
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
     timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')

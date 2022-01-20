@@ -27,7 +27,7 @@ def product_json(meta, target):
     None
     """
     
-    tifs = finder(target, ['*.tif'])
+    tifs = finder(target, ['-[a-z]{2,3}.tif'], regex=True)
     scene_id = os.path.basename(target)
     
     outname = os.path.join(target, '{}.json'.format(scene_id))
