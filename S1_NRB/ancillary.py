@@ -4,7 +4,11 @@ import logging
 from datetime import datetime
 from lxml import etree
 import binascii
-from spatialist import gdalbuildvrt
+from time import gmtime, strftime
+import numpy as np
+from osgeo import gdal
+from spatialist import gdalbuildvrt, Raster
+from spatialist.vector import bbox
 from pyroSAR import identify, finder
 from pyroSAR.ancillary import groupbyTime, seconds
 
@@ -132,6 +136,118 @@ def filter_selection(selection, processdir):
         sys.exit(0)
     else:
         return list_out
+
+
+def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, multilayer=False,
+                     wbm=False, wbm_path=None):
+    """
+    Modifies the Data Mask file.
+    
+    Parameters
+    ----------
+    dm_path: str
+        Path to the data mask.
+    extent: dict
+        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+    epsg: int
+        The CRS used for the NRB product; provided as an EPSG code.
+    driver: str
+        GDAL driver to use for raster file creation.
+    creation_opt: list[str]
+        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+    overviews: list[int]
+        Internal overview levels to be created for each raster file.
+    multilayer: bool, optional
+        Should individual masks be written into seperate bands, creating a multi-level raster file? Default is False.
+    wbm: bool, optional
+        Include 'ocean water' information from an external Water Body Mask? Default is False.
+    wbm_path: str, optional
+        Path to the external Water Body Mask file.
+    
+    Returns
+    -------
+    None
+    """
+    ml_cog_out = dm_path.replace('.tif', '_2.tif')
+    nodata = 255
+    
+    dm_bands = {1: {'arr_val': 0,
+                    'name': 'not layover, nor shadow'},
+                2: {'arr_val': 1,
+                    'name': 'layover'},
+                3: {'arr_val': 2,
+                    'name': 'shadow'},
+                4: {'arr_val': 4,
+                    'name': 'ocean water'}}
+    
+    if wbm:
+        assert os.path.isfile(wbm_path), "Water Body Mask '{}' not found".format(wbm_path)
+        
+        with bbox(extent, crs=epsg) as vec:
+            with Raster(wbm_path)[vec] as ras_wbm:
+                with Raster(dm_path) as ras_dm:
+                    rows = ras_dm.rows
+                    cols = ras_dm.cols
+                    geotrans = ras_dm.raster.GetGeoTransform()
+                    proj = ras_dm.raster.GetProjection()
+                    
+                    wbm_arr = ras_wbm.array()
+                    dm_arr = ras_dm.array()
+                    wbm_arr = np.where((wbm_arr == 1), 4, np.nan)
+                    wbm_arr[np.isnan(wbm_arr)] = dm_arr[np.isnan(wbm_arr)]
+                    
+                    mask_arr = wbm_arr
+                    del dm_arr
+                    del wbm_arr
+            vec = None
+    else:
+        with Raster(dm_path) as ras_dm:
+            mask_arr = ras_dm.array()
+        dm_bands.pop(4)
+    
+    # MULTI-LAYER COG
+    if multilayer:
+        outname_tmp = '/vsimem/' + os.path.basename(ml_cog_out) + '.vrt'
+        gdriver = gdal.GetDriverByName('GTiff')
+        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
+                                options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
+        gdriver = None
+        ds_tmp.SetGeoTransform(geotrans)
+        ds_tmp.SetProjection(proj)
+        
+        for k, v in dm_bands.items():
+            band = ds_tmp.GetRasterBand(k)
+            arr_val = v['arr_val']
+            b_name = v['name']
+            
+            if arr_val == 0:
+                arr = np.isnan(mask_arr)
+            elif arr_val in [1, 2]:
+                arr = np.where(((mask_arr == arr_val) | (mask_arr == 3)), 1, 0)
+            elif arr_val == 4:
+                arr = np.where(mask_arr == 4, 1, 0)
+            
+            arr[np.isnan(arr)] = 0
+            arr = arr.astype('uint8')
+            band.WriteArray(arr)
+            del arr
+            band.SetNoDataValue(nodata)
+            band.SetDescription(b_name)
+            band.FlushCache()
+            band = None
+        
+        ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
+        ds_tmp.BuildOverviews('AVERAGE', [2, 4, 8, 16, 32])
+        outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(ml_cog_out, ds_tmp,
+                                                                 strict=1, options=creation_opt)
+        outDataset_cog = None
+        ds_tmp = None
+    
+    # SINGLE-LAYER COG
+    with Raster(dm_path) as ras_dm:
+        ras_dm.write(dm_path, format=driver, array=mask_arr.astype('uint8'), nodata=nodata, overwrite=True,
+                     overviews=overviews, options=creation_opt)
+    del mask_arr
 
 
 def set_logging(config):

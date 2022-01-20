@@ -4,7 +4,6 @@ import time
 import numpy as np
 from osgeo import gdal
 from spatialist import Raster
-from spatialist.vector import bbox
 from spatialist.ancillary import finder
 from spatialist.auxil import gdalwarp
 from pyroSAR import identify, Archive
@@ -218,20 +217,10 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     ####################################################################################################################
     # add external water body mask
     
-    if wbm:
-        dm_name = finder(nrbdir, [r'dm\.tif$'], regex=True)[0]
-        print('---- adding water mask to {}'.format(dm_name))
-        with bbox(extent, crs=epsg) as vec:
-            with Raster(external_wbm)[vec] as ras_wbm:
-                with Raster(dm_name) as ras_dm:
-                    wbm_array = ras_wbm.array()
-                    dm_array = ras_dm.array()
-                    wbm_array = np.where((wbm_array == 1), 4, np.nan)
-                    #wbm_array = np.where(((wbm_array == 2) | (wbm_array == 3)), 4, np.nan)
-                    wbm_array[np.isnan(wbm_array)] = dm_array[np.isnan(wbm_array)]
-                    ras_wbm.write(dm_name, format=driver, array=wbm_array.astype('uint8'), nodata=255, overwrite=True,
-                                  overviews=overviews, options=write_options['layoverShadowMask'])
-            vec = None
+    dm_path = finder(nrbdir, [r'dm\.tif$'], regex=True)[0]
+    ancil.modify_data_mask(dm_path=dm_path, extent=extent, epsg=epsg, driver=driver,
+                           creation_opt=write_options['layoverShadowMask'], overviews=overviews,
+                           multilayer=True, wbm=wbm, wbm_path=external_wbm)
     
     ####################################################################################################################
     # noise power images
@@ -359,11 +348,11 @@ def main(config_file, section_name):
                     scenes = [scenes]
                 print('###### NRB: {tile} | {scenes}'.format(tile=tile, scenes=[os.path.basename(s) for s in scenes]))
                 start_time = time.time()
-                try:
-                    nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
-                                   epsg=epsg, external_wbm=config['ext_wbm_file'], dem_name=geocode_prms['demName'])
-                    log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
-                                                                      time=round((time.time() - start_time), 2)))
-                except Exception as e:
-                    log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
-                    continue
+                #try:
+                nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
+                               epsg=epsg, external_wbm=config['ext_wbm_file'], dem_name=geocode_prms['demName'])
+                #    log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
+                #                                                      time=round((time.time() - start_time), 2)))
+                #except Exception as e:
+                #    log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
+                #    continue
