@@ -1,4 +1,4 @@
-# S1_NRB
+# S1-NRB prototype processor
 
 ## Installation
 
@@ -25,3 +25,4 @@ s1_nrb --help
 ```bash
 s1_nrb -c /path/to/your/config.ini
 ```
+ A description of individual steps can be found [here](https://github.com/johntruckenbrodt/S1_NRB/blob/main/S1_NRB.rst).
