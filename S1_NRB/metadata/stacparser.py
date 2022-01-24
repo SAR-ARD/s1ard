@@ -1,7 +1,6 @@
 import os
 import re
 from datetime import datetime
-from spatialist.ancillary import finder
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
 from pystac.extensions.sat import SatExtension, OrbitState
@@ -11,7 +10,7 @@ from pystac.extensions.view import ViewExtension
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 
 
-def product_json(meta, target):
+def product_json(meta, target, tifs):
     """
     Function to generate product-level metadata for an NRB target product in STAC compliant JSON format.
     
@@ -21,15 +20,14 @@ def product_json(meta, target):
         Metadata dictionary generated with `metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
+    tifs: list[str]
+        List of paths to all GeoTIFF files of the currently processed NRB product.
     
     Returns
     -------
     None
     """
-    
-    tifs = finder(target, ['-[a-z]{2,3}.tif'], regex=True)
     scene_id = os.path.basename(target)
-    
     outname = os.path.join(target, '{}.json'.format(scene_id))
     
     start = meta['prod']['timeStart']
@@ -363,7 +361,7 @@ def source_json(meta, target):
         item.save_object(dest_href=outname)
 
 
-def main(meta, target):
+def main(meta, target, tifs):
     """
     Wrapper for `source_json` and `product_json`.
     
@@ -373,6 +371,8 @@ def main(meta, target):
         Metadata dictionary generated with `metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
+    tifs: list[str]
+        List of paths to all GeoTIFF files of the currently processed NRB product.
     
     Returns
     -------
@@ -380,4 +380,4 @@ def main(meta, target):
     """
     
     source_json(meta=meta, target=target)
-    product_json(meta=meta, target=target)
+    product_json(meta=meta, target=target, tifs=tifs)

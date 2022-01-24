@@ -2,7 +2,6 @@ import os
 import re
 from lxml import etree
 from datetime import datetime
-from spatialist.ancillary import finder
 
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 
@@ -30,7 +29,7 @@ def _get_ref_type(ref_link):
         return 'URL'
 
 
-def product_xml(meta, target, sources):
+def product_xml(meta, target, tifs):
     """
     Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -40,15 +39,13 @@ def product_xml(meta, target, sources):
         Metadata dictionary generated with `metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
-    sources: list[str]
-        A list of paths pointing to the source scenes of the product.
+    tifs: list[str]
+        List of paths to all GeoTIFF files of the currently processed NRB product.
     
     Returns
     -------
     None
     """
-    
-    tifs = finder(target, ['-[a-z]{2,3}.tif'], regex=True)
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
     timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -270,9 +267,9 @@ def product_xml(meta, target, sources):
     processingMode = etree.SubElement(ProcessingInformation, _nsc('eop:processingMode'),
                                       attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     processingMode.text = meta['prod']['processingMode']
-    for source in sources:
+    for src in list(meta['source'].keys()):
         src_target = os.path.join('./source', '{}.xml'.format(
-                                      os.path.basename(source).split('.')[0])).replace('\\', '/')
+                                      os.path.basename(meta['source'][src]['filename']).split('.')[0])).replace('\\', '/')
         sourceProduct = etree.SubElement(ProcessingInformation, _nsc('nrb:sourceProduct'),
                                          attrib={_nsc('xlink:href'): src_target})
     digitalElevationModel = etree.SubElement(ProcessingInformation, _nsc('nrb:ancillaryData'),
@@ -623,7 +620,7 @@ def source_xml(meta, target):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def main(meta, target, sources):
+def main(meta, target, tifs):
     """
     Wrapper for `source_xml` and `product_xml`.
     
@@ -633,13 +630,13 @@ def main(meta, target, sources):
         Metadata dictionary generated with `metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
-    sources: list[str]
-        A list of paths pointing to the source scenes of the product.
-
+    tifs: list[str]
+        List of paths to all GeoTIFF files of the currently processed NRB product.
+    
     Returns
     -------
     None
     """
     
     source_xml(meta=meta, target=target)
-    product_xml(meta=meta, target=target, sources=sources)
+    product_xml(meta=meta, target=target, tifs=tifs)
