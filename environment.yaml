@@ -8,6 +8,7 @@ dependencies:
   - lxml
   - pip
   - pystac
+  - scipy
   - pip:
     - spatialist @ git+https://github.com/johntruckenbrodt/spatialist.git
     - pyroSAR @ git+https://github.com/johntruckenbrodt/pyroSAR.git

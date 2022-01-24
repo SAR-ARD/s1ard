@@ -19,7 +19,8 @@ setup(
                       'click',
                       'lxml',
                       'pystac',
-                      'pyroSAR'],
+                      'pyroSAR',
+                      'scipy'],
     zip_safe=False,
     entry_points={
         'console_scripts': ['s1_nrb=S1_NRB.cli:cli']
