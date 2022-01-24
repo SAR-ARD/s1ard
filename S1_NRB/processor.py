@@ -7,7 +7,7 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.auxil import gdalwarp
 from pyroSAR import identify, Archive
-from pyroSAR.snap import geocode
+from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 
 from S1_NRB.config import get_config, geocode_params
@@ -223,23 +223,6 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
                            multilayer=True, wbm=wbm, wbm_path=external_wbm)
     
     ####################################################################################################################
-    # noise power images
-    
-    for item in measure:
-        pol = re.search('[hv]{2}', item).group()
-        np_name = item.replace('measurement', 'annotation').replace(pol + '-g-lin', 'np-{}'.format(pol))
-        
-        if not os.path.isfile(np_name):
-            print(np_name)
-            with Raster(item) as ras:
-                out = np.random.rand(ras.cols, ras.rows)
-                with Raster(measure[0]) as ref:
-                    ref_arr = ref.array()
-                out[np.isnan(ref_arr)] = np.nan
-                ras.write(np_name, format=driver, array=out.astype('float32'),
-                          overviews=overviews, options=write_options['noisePower'])
-    
-    ####################################################################################################################
     # sigma nought RTC
     
     gs_name = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
@@ -315,7 +298,7 @@ def main(config_file, section_name):
     epsg = epsg_set.pop()
     
     ####################################################################################################################
-    # geocode - SNAP processing
+    # geocode & noise power - SNAP processing
     
     if geocode_flag:
         # Process scenes individually
@@ -334,6 +317,22 @@ def main(config_file, section_name):
                                 ' terminal for uncaught SNAP errors!'.format(scene=scene))
             except Exception as e:
                 log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene, error=e))
+                continue
+            
+            print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene))
+            start_time = time.time()
+            try:
+                noise_power(infile=scene, outdir=config['out_dir'], polarizations=['VV', 'VH'],
+                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
+                            demName=geocode_prms['demName'], externalDEMFile=config['ext_dem_file'],
+                            externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
+                            alignToStandardGrid=geocode_prms['alignToStandardGrid'],
+                            standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
+                            clean_edges=True)
+                t = round((time.time() - start_time), 2)
+                log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene, time=t))
+            except Exception as e:
+                log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene, error=e))
                 continue
     
     ####################################################################################################################
