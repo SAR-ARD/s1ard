@@ -128,8 +128,11 @@ def filter_selection(selection, processdir):
     
     #return list_out
     
-    list_out = [scene for scene in selection if len(finder(processdir, [identify(scene).start], regex=True,
-                                                           recursive=False)) < 3]
+    for scene in selection:
+        list_all = finder(processdir, [identify(scene).start], regex=True, recursive=False)
+        exclude = ['_NEBZ', '_NESZ', '_NEGZ']
+        list_out = [scene for scene in selection if len([item for item in list_all
+                                                         if not any(ex in item for ex in exclude)]) < 3]
     print("### {} scenes skipped, because they have already been processed.\n"
           "### {} scenes in final selection for processing.".format(len(selection)-len(list_out), len(list_out)))
     if len(list_out) == 0:
