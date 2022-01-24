@@ -146,5 +146,6 @@ def geocode_params(config):
             'refarea': ['sigma0', 'gamma0'],
             'externalDEMApplyEGM': False,
             'demResamplingMethod': 'BILINEAR_INTERPOLATION',
+            'clean_edges': True,
             'test': False,
             'cleanup': True}
