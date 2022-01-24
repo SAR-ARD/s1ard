@@ -1,7 +1,6 @@
 import os
 import re
 import time
-import numpy as np
 from osgeo import gdal
 from spatialist import Raster
 from spatialist.ancillary import finder
@@ -110,45 +109,51 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     
     skeleton = '{mission}-{mode}-nrb-{start}-{stop}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
-    suffices = {'VV': 'vv-g-lin',
-                'VH': 'vh-g-lin',
-                'HH': 'hh-g-lin',
-                'HV': 'hv-g-lin',
-                'incidenceAngleFromEllipsoid': 'ei',
-                'layoverShadowMask': 'dm',
-                'localIncidenceAngle': 'li',
-                'scatteringArea': 'lc',
-                'gammaSigmaRatio': 'gs'}
-    
-    # Maximum error threshold on values for LERC* compression.
+    # 'z_error': Maximum error threshold on values for LERC* compression.
     # Will be ignored if a compression algorithm is used that isn't related to LERC.
-    z_errors = {'VV': 1e-4,
-                'VH': 1e-4,
-                'HH': 1e-4,
-                'HV': 1e-4,
-                'incidenceAngleFromEllipsoid': 1e-3,
-                'layoverShadowMask': 0,
-                'localIncidenceAngle': 1e-2,
-                'scatteringArea': 0.1,
-                'noisePower': 2e-5,
-                'gammaSigmaRatio': 1e-4}
+    item_map = {'VV_gamma0': {'suffix': 'vv-g-lin',
+                              'z_error': 1e-4},
+                'VH_gamma0': {'suffix': 'vh-g-lin',
+                              'z_error': 1e-4},
+                'HH_gamma0': {'suffix': 'hh-g-lin',
+                              'z_error': 1e-4},
+                'HV_gamma0': {'suffix': 'hv-g-lin',
+                              'z_error': 1e-4},
+                'incidenceAngleFromEllipsoid': {'suffix': 'ei',
+                                                'z_error': 1e-3},
+                'layoverShadowMask': {'suffix': 'dm',
+                                      'z_error': 0},
+                'localIncidenceAngle': {'suffix': 'li',
+                                        'z_error': 1e-2},
+                'scatteringArea': {'suffix': 'lc',
+                                   'z_error': 0.1},
+                'gammaSigmaRatio': {'suffix': 'gs',
+                                    'z_error': 1e-4},
+                'VV_NEGZ': {'suffix': 'np-vv',
+                            'z_error': 2e-5},
+                'VH_NEGZ': {'suffix': 'np-vh',
+                            'z_error': 2e-5},
+                'HH_NEGZ': {'suffix': 'np-hh',
+                            'z_error': 2e-5},
+                'HV_NEGZ': {'suffix': 'np-hv',
+                            'z_error': 2e-5}}
     
     driver = 'COG'
     write_options_base = ['BLOCKSIZE=512', 'OVERVIEW_RESAMPLING=AVERAGE']
     write_options = dict()
-    for key in z_errors:
+    for key in item_map:
         write_options[key] = write_options_base.copy()
         if compress is not None:
             entry = 'COMPRESS={}'.format(compress)
             write_options[key].append(entry)
             if compress.startswith('LERC'):
-                entry = 'MAX_Z_ERROR={:f}'.format(z_errors[key])
+                entry = 'MAX_Z_ERROR={:f}'.format(item_map[key]['z_error'])
                 write_options[key].append(entry)
-
+    
     ####################################################################################################################
     # format existing datasets found by `pyroSAR.ancillary.find_datasets`
     
-    pattern = '|'.join(suffices.keys())
+    pattern = '|'.join(item_map.keys())
     for i, item in enumerate(files):
         if isinstance(item, str):
             match = re.search(pattern, item)
@@ -165,10 +170,10 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
                 continue
             key = keys[0]
         
-        val = suffices[key]
+        val = item_map[key]['suffix']
         metaL['suffix'] = val
         outname_base = skeleton.format(**metaL)
-        if re.search('[HV]{2}', key):
+        if re.search('_gamma0', key):
             subdir = 'measurement'
         else:
             subdir = 'annotation'
@@ -267,7 +272,7 @@ def main(config_file, section_name):
         nrb_flag = False
     elif config['mode'] == 'nrb':
         geocode_flag = False
-      
+    
     ####################################################################################################################
     # archive / scene selection
     
