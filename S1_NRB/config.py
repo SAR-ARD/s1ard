@@ -28,7 +28,8 @@ def get_config(config_file, section_name='GENERAL'):
     parser_sec = parser[section_name]
     
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'out_dir', 'tmp_dir', 'db_file', 'kml_file', 'ext_dem_file', 'ext_wbm_file']
+                    'work_dir', 'scene_dir', 'out_dir', 'tmp_dir',
+                    'db_file', 'kml_file', 'ext_dem_file', 'ext_wbm_file']
     out_dict = {}
     for k, v in parser_sec.items():
         if k not in allowed_keys:

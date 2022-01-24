@@ -276,7 +276,7 @@ def main(config_file, section_name):
     ####################################################################################################################
     # archive / scene selection
     
-    scenes = finder(config['work_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
+    scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
     if not os.path.isfile(config['db_file']):
         config['db_file'] = os.path.join(config['work_dir'], config['db_file'])
     
