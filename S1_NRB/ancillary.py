@@ -206,6 +206,10 @@ def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, mul
     else:
         with Raster(dm_path) as ras_dm:
             mask_arr = ras_dm.array()
+            rows = ras_dm.rows
+            cols = ras_dm.cols
+            geotrans = ras_dm.raster.GetGeoTransform()
+            proj = ras_dm.raster.GetProjection()
         dm_bands.pop(4)
     
     # MULTI-LAYER COG
