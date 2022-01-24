@@ -133,9 +133,9 @@ def geocode_params(config):
     return {'tr': {'IW': 10,
                    'SM': 10,
                    'EW': 20}[config['acq_mode']],
-            'demName': {'IW': 'Copernicus 30m Global DEM' if config['ext_dem_file'] is None else
+            'demName': {'IW': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else
                               'Copernicus 10m EEA DEM',
-                        'SM': 'Copernicus 30m Global DEM' if config['ext_dem_file'] is None else
+                        'SM': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else
                               'Copernicus 10m EEA DEM',
                         'EW': 'GETASSE30'}[config['acq_mode']],
             'scaling': 'linear',

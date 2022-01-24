@@ -334,8 +334,8 @@ def _log_process_config(logger, config):
     tmp_dir = {config['tmp_dir']}
     db_file = {config['db_file']}
     kml_file = {config['kml_file']}
-    ext_dem_file = {config['ext_dem_file']}
-    ext_wbm_file = {config['ext_wbm_file']}
+    ext_dem_file = {config.get('ext_dem_file')}
+    ext_wbm_file = {config.get('ext_wbm_file')}
     ====================================================================================================================
     SOFTWARE
     

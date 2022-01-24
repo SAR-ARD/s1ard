@@ -313,7 +313,7 @@ def main(config_file, section_name):
             try:
                 geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
                         standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                        externalDEMFile=config['ext_dem_file'], **geocode_prms)
+                        externalDEMFile=config.get('ext_dem_file'), **geocode_prms)
                 
                 t = round((time.time() - start_time), 2)
                 log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene, time=t))
@@ -329,7 +329,7 @@ def main(config_file, section_name):
             try:
                 noise_power(infile=scene, outdir=config['out_dir'], polarizations=['VV', 'VH'],
                             spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
-                            demName=geocode_prms['demName'], externalDEMFile=config['ext_dem_file'],
+                            demName=geocode_prms['demName'], externalDEMFile=config.get('ext_dem_file'),
                             externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
@@ -358,7 +358,7 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
-                                   epsg=epsg, external_wbm=config['ext_wbm_file'], dem_name=geocode_prms['demName'])
+                                   epsg=epsg, external_wbm=config.get('ext_wbm_file'), dem_name=geocode_prms['demName'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))
                 except Exception as e:
