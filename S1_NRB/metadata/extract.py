@@ -435,12 +435,12 @@ def meta_dict(target, sources, dem_name, proc_time):
     meta['prod']['filterWindowSizeCol'] = None
     meta['prod']['filterWindowSizeLine'] = None
     meta['prod']['geoCorrAccuracyEasternBias'] = None
-    meta['prod']['geoCorrAccuracyEasternSTDev'] = '4.4'
+    meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
-    meta['prod']['geoCorrAccuracyNorthernSTDev'] = '0.6'
-    meta['prod']['geoCorrAccuracyRrmse'] = None
+    meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
+    meta['prod']['geoCorrAccuracy_rRMSE'] = None
     meta['prod']['geoCorrAccuracyReference'] = 'https://www.mdpi.com/2072-4292/9/6/607'
-    meta['prod']['geoCorrAccuracyType'] = None
+    meta['prod']['geoCorrAccuracyType'] = 'slant-range'
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
@@ -452,8 +452,8 @@ def meta_dict(target, sources, dem_name, proc_time):
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
     meta['prod']['majorCycleID'] = str(sid0.meta['cycleNumber'])
-    meta['prod']['noiseRemovalApplied'] = False
-    meta['prod']['noiseRemovalAlgorithm'] = None  # 'https://doi.org/10.1109/tgrs.2018.2889381'
+    meta['prod']['noiseRemovalApplied'] = True
+    meta['prod']['noiseRemovalAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberLines'] = str(prod_meta['rows'])
     meta['prod']['numberOfAcquisitions'] = str(len(sources))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']

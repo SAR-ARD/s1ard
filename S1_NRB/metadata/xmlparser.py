@@ -335,9 +335,9 @@ def product_xml(meta, target, tifs):
     geoCorrAccuracyEasternBias = etree.SubElement(ProcessingInformation, _nsc('nrb:geoCorrAccuracyEasternBias'),
                                                   attrib={'uom': 'm'})
     geoCorrAccuracyEasternBias.text = meta['prod']['geoCorrAccuracyEasternBias']
-    geoCorrAccuracyRrmse = etree.SubElement(ProcessingInformation, _nsc('nrb:geoCorrAccuracyRrmse'),
-                                            attrib={'uom': 'm'})
-    geoCorrAccuracyRrmse.text = meta['prod']['geoCorrAccuracyRrmse']
+    geoCorrAccuracy_rRMSE = etree.SubElement(ProcessingInformation, _nsc('nrb:geoCorrAccuracy_rRMSE'),
+                                             attrib={'uom': 'm'})
+    geoCorrAccuracy_rRMSE.text = meta['prod']['geoCorrAccuracy_rRMSE']
     geoCorrAccuracyReference = etree.SubElement(ProcessingInformation, _nsc('nrb:geoCorrAccuracyReference'),
                                                 attrib={'type': _get_ref_type(ref_link=meta['prod']['geoCorrAccuracyReference'])})
     geoCorrAccuracyReference.text = meta['prod']['geoCorrAccuracyReference']

@@ -272,7 +272,7 @@ def source_json(meta, target):
         sat_ext = SatExtension.ext(item)
         view_ext = ViewExtension.ext(item)
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/product.json')
+        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/source.json')
         
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
