@@ -577,10 +577,10 @@ def source_xml(meta, target):
         for swath in meta['source'][uid]['swaths']:
             azimuthResolution = etree.SubElement(EarthObservationMetaData, _nsc('nrb:azimuthResolution'),
                                                  attrib={'uom': 'm', 'beam': swath})
-            azimuthResolution.text = meta['source'][uid]['azimuthResolution_xml'][swath]
+            azimuthResolution.text = meta['source'][uid]['azimuthResolution'][swath]
             rangeResolution = etree.SubElement(EarthObservationMetaData, _nsc('nrb:rangeResolution'),
                                                attrib={'uom': 'm', 'beam': swath})
-            rangeResolution.text = meta['source'][uid]['rangeResolution_xml'][swath]
+            rangeResolution.text = meta['source'][uid]['rangeResolution'][swath]
         
         performance = etree.SubElement(EarthObservationMetaData, _nsc('nrb:performance'))
         PerformanceIndicators = etree.SubElement(performance, _nsc('nrb:PerformanceIndicators'))

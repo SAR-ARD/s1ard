@@ -279,8 +279,8 @@ def source_json(meta, target):
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
                       center_frequency=float(meta['common']['radarCenterFreq']),
-                      resolution_range=float(meta['source'][uid]['rangeResolution_stac']),
-                      resolution_azimuth=float(meta['source'][uid]['azimuthResolution_stac']),
+                      resolution_range=float(min(meta['source'][uid]['rangeResolution'].values())),
+                      resolution_azimuth=float(min(meta['source'][uid]['azimuthResolution'].values())),
                       pixel_spacing_range=float(meta['source'][uid]['rangePixelSpacing']),
                       pixel_spacing_azimuth=float(meta['source'][uid]['azimuthPixelSpacing']),
                       looks_range=int(meta['source'][uid]['rangeNumberOfLooks']),
@@ -309,6 +309,10 @@ def source_json(meta, target):
                                                                       meta['source'][uid]['rangeLookBandwidth'],
                                                                   'azimuth_look_bandwidth':
                                                                       meta['source'][uid]['azimuthLookBandwidth']}
+        for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
+                              ['rangeResolution', 'azimuthResolution']):
+            for k, v in meta['source'][uid][key]:
+                item.properties[field] = {k: float(v)}
         item.properties['card4l:source_geometry'] = meta['source'][uid]['dataGeometry']
         item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
         item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']

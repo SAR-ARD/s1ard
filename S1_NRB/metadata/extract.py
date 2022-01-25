@@ -509,8 +509,7 @@ def meta_dict(target, sources, dem_name, proc_time):
                                          pattern='.//azimuthPixelSpacing',
                                          single=False, out_type='float')
             meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
-        meta['source'][uid]['azimuthResolution_stac'] = RES_MAP[meta['common']['operationalMode']]['STAC']['azimuthResolution']
-        meta['source'][uid]['azimuthResolution_xml'] = RES_MAP[meta['common']['operationalMode']]['XML']['azimuthResolution']
+        meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
         meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
@@ -570,8 +569,7 @@ def meta_dict(target, sources, dem_name, proc_time):
                                          pattern='.//rangePixelSpacing',
                                          single=False, out_type='float')
             meta['source'][uid]['rangePixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
-        meta['source'][uid]['rangeResolution_stac'] = RES_MAP[meta['common']['operationalMode']]['STAC']['rangeResolution']
-        meta['source'][uid]['rangeResolution_xml'] = RES_MAP[meta['common']['operationalMode']]['XML']['rangeResolution']
+        meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
