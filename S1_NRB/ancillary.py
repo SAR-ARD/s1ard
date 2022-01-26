@@ -133,12 +133,11 @@ def filter_selection(selection, processdir):
         exclude = ['_NEBZ', '_NESZ', '_NEGZ']
         list_out = [scene for scene in selection if len([item for item in list_all
                                                          if not any(ex in item for ex in exclude)]) < 3]
-    print("### {} scenes skipped, because they have already been processed.\n"
-          "### {} scenes in final selection for processing.".format(len(selection)-len(list_out), len(list_out)))
-    if len(list_out) == 0:
-        sys.exit(0)
-    else:
-        return list_out
+    n_skipped = len(selection)-len(list_out)
+    if n_skipped > 0:
+        print("### {} scenes skipped, because they have already been processed.\n".format(n_skipped))
+    print("### {} scenes in final selection for processing.".format(len(list_out)))
+    return list_out
 
 
 def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, multilayer=False,

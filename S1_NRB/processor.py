@@ -294,6 +294,12 @@ def main(config_file, section_name):
     if config['mode'] != 'nrb':
         selection = ancil.filter_selection(selection=selection, processdir=config['out_dir'])
     
+    if len(selection) == 0:
+        raise RuntimeError("No scenes could be found for acquisition mode '{acq_mode}', mindate '{mindate}' "
+                           "and maxdate '{maxdate}' in directory '{scene_dir}'.".format(acq_mode=config['acq_mode'],
+                                                                                        mindate=config['mindate'],
+                                                                                        maxdate=config['maxdate'],
+                                                                                        scene_dir=config['scene_dir']))
     ####################################################################################################################
     # geometry handling
     
