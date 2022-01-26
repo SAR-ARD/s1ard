@@ -148,5 +148,6 @@ def geocode_params(config):
             'externalDEMApplyEGM': False,
             'demResamplingMethod': 'BILINEAR_INTERPOLATION',
             'clean_edges': True,
+            'clean_edges_npixels': 3,
             'test': False,
             'cleanup': True}
