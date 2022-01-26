@@ -558,6 +558,7 @@ def source_xml(meta, target):
             azimuthLookBandwidth = etree.SubElement(ProcessingInformation, _nsc('nrb:azimuthLookBandwidth'),
                                                     attrib={'uom': 'Hz', 'beam': swath})
             azimuthLookBandwidth.text = str(meta['source'][uid]['azimuthLookBandwidth'][swath])
+        for swath in meta['source'][uid]['swaths']:
             rangeLookBandwidth = etree.SubElement(ProcessingInformation, _nsc('nrb:rangeLookBandwidth'),
                                                   attrib={'uom': 'Hz', 'beam': swath})
             rangeLookBandwidth.text = str(meta['source'][uid]['rangeLookBandwidth'][swath])
@@ -578,6 +579,7 @@ def source_xml(meta, target):
             azimuthResolution = etree.SubElement(EarthObservationMetaData, _nsc('nrb:azimuthResolution'),
                                                  attrib={'uom': 'm', 'beam': swath})
             azimuthResolution.text = meta['source'][uid]['azimuthResolution'][swath]
+        for swath in meta['source'][uid]['swaths']:
             rangeResolution = etree.SubElement(EarthObservationMetaData, _nsc('nrb:rangeResolution'),
                                                attrib={'uom': 'm', 'beam': swath})
             rangeResolution.text = meta['source'][uid]['rangeResolution'][swath]
@@ -586,16 +588,22 @@ def source_xml(meta, target):
         PerformanceIndicators = etree.SubElement(performance, _nsc('nrb:PerformanceIndicators'))
         noiseEquivalentIntensity = etree.SubElement(PerformanceIndicators, _nsc('nrb:noiseEquivalentIntensity'),
                                                     attrib={'uom': 'dB', 'type': str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])})
-        noiseEquivalentIntensity.text = meta['source'][uid]['perfNoiseEquivalentIntensity']
-        estimatesMin = etree.SubElement(PerformanceIndicators, _nsc('nrb:estimates'),
-                                        attrib={'type': 'min'})
-        estimatesMin.text = meta['source'][uid]['perfEstimatesMin']
-        estimatesMax = etree.SubElement(PerformanceIndicators, _nsc('nrb:estimates'),
-                                        attrib={'type': 'max'})
-        estimatesMax.text = meta['source'][uid]['perfEstimatesMax']
-        estimatesMean = etree.SubElement(PerformanceIndicators, _nsc('nrb:estimates'),
-                                         attrib={'type': 'mean'})
-        estimatesMean.text = meta['source'][uid]['perfEstimatesMean']
+        for pol in meta['common']['polarisationChannels']:
+            estimatesMin = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+                                            attrib={'type': 'min', 'pol': pol})
+            estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['min'])
+            estimatesMax = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+                                            attrib={'type': 'max', 'pol': pol})
+            estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['max'])
+            estimatesMean = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+                                             attrib={'type': 'mean', 'pol': pol})
+            estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
+            estimatesSTDev = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+                                              attrib={'type': 'stdev', 'pol': pol})
+            estimatesSTDev.text = str(meta['source'][uid]['perfEstimates'][pol]['stdev'])
+            estimatesVar = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+                                            attrib={'type': 'variance', 'pol': pol})
+            estimatesVar.text = str(meta['source'][uid]['perfEstimates'][pol]['var'])
         equivalentNumberOfLooks = etree.SubElement(PerformanceIndicators, _nsc('nrb:equivalentNumberOfLooks'))
         equivalentNumberOfLooks.text = meta['source'][uid]['perfEquivalentNumberOfLooks']
         peakSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:peakSideLobeRatio'))

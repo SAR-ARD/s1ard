@@ -100,10 +100,14 @@ def product_json(meta, target, tifs):
     item.properties['card4l:resampling_method'] = meta['prod']['geoCorrResamplingMethod']
     item.properties['card4l:dem_resampling_method'] = meta['prod']['demResamplingMethod']
     item.properties['card4l:egm_resampling_method'] = meta['prod']['demEgmResamplingMethod']
-    item.properties['card4l:northern_geometric_accuracy'] = float(meta['prod']['geoCorrAccuracyNorthernSTDev']) if \
-        meta['prod']['geoCorrAccuracyNorthernSTDev'] is not None else None
-    item.properties['card4l:eastern_geometric_accuracy'] = float(meta['prod']['geoCorrAccuracyEasternSTDev']) if \
-        meta['prod']['geoCorrAccuracyEasternSTDev'] is not None else None
+    item.properties['card4l:geometric_accuracy_type'] = meta['prod']['geoCorrAccuracyType']
+    for x in ['Northern', 'Eastern']:
+        key = ['geoCorrAccuracy{}{}'.format(x, y) for y in ['STDev', 'Bias']]
+        stddev = float(meta['prod'][key[0]]) if meta['prod'][key[0]] is not None else None
+        bias = float(meta['prod'][key[1]]) if meta['prod'][key[1]] is not None else None
+        item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias,
+                                                                             'stddev': stddev}
+    item.properties['card4l:geometric_accuracy_radial_rmse'] = meta['prod']['geoCorrAccuracy_rRMSE']
     
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
@@ -274,6 +278,7 @@ def source_json(meta, target):
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
         item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/source.json')
         
+        enl = meta['source'][uid]['perfEquivalentNumberOfLooks']
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
@@ -285,6 +290,7 @@ def source_json(meta, target):
                       pixel_spacing_azimuth=float(meta['source'][uid]['azimuthPixelSpacing']),
                       looks_range=int(meta['source'][uid]['rangeNumberOfLooks']),
                       looks_azimuth=int(meta['source'][uid]['azimuthNumberOfLooks']),
+                      looks_equivalent_number=float(enl) if enl is not None else None,
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         
         sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
@@ -311,12 +317,14 @@ def source_json(meta, target):
                                                                       meta['source'][uid]['azimuthLookBandwidth']}
         for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
                               ['rangeResolution', 'azimuthResolution']):
-            for k, v in meta['source'][uid][key]:
-                item.properties[field] = {k: float(v)}
+            res = {}
+            for k, v in meta['source'][uid][key].items():
+                res[k] = float(v)
+            item.properties[field] = res
         item.properties['card4l:source_geometry'] = meta['source'][uid]['dataGeometry']
         item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
         item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
-        item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfNoiseEquivalentIntensity']
+        item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
         item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid]['perfNoiseEquivalentIntensityType']
         item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
         item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
