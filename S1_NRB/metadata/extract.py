@@ -5,7 +5,7 @@ from datetime import datetime
 from pyroSAR import identify
 from spatialist import Raster
 from spatialist.ancillary import finder
-from spatialist.vector import wkt2vector
+from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from math import isclose
 import numpy as np
@@ -317,6 +317,48 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         return out
 
 
+def calc_performance_estimates(files, ref_tif):
+    """
+    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all gamma0 backscatter source files.
+    
+    Parameters
+    ----------
+    files: list[str]
+        List of paths pointing to the source gamma0 backscatter files the estimates should be calculated for.
+    ref_tif: str
+        A path pointing to a product GeoTIFF file, which is used to get spatial information about the MGRS tile.
+    
+    Returns
+    -------
+    out: dict
+        Dictionary containing the calculated estimates for each available polarization.
+    """
+    out = {}
+    with Raster(ref_tif) as ref:
+        ext = ref.extent
+        epsg = ref.epsg
+    
+    for f in files:
+        pol = re.search('[VH]{2}', f).group().upper()
+        with bbox(ext, crs=epsg) as vec:
+            with Raster(f)[vec] as ras:
+                arr = ras.array()
+                # The following need to be of type float, not numpy.float32 in order to be JSON serializable.
+                _min = float(np.nanmin(arr))
+                _max = float(np.nanmax(arr))
+                _mean = float(np.nanmean(arr))
+                _stdev = float(np.nanstd(arr))
+                _var = float(np.nanvar(arr))
+                del arr
+            vec = None
+        out[pol] = {'min': _min,
+                    'max': _max,
+                    'mean': _mean,
+                    'stdev': _stdev,
+                    'var': _var}
+    return out
+
+
 def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
@@ -537,9 +579,8 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        meta['source'][uid]['perfEstimatesMax'] = None
-        meta['source'][uid]['perfEstimatesMean'] = None
-        meta['source'][uid]['perfEstimatesMin'] = None
+        gamma0_files = [f for f in src_files if re.search('gamma0-rtc', f) is not None]
+        meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=gamma0_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = None
         #meta['source'][uid]['perfIndicatorsURL'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF'
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = None
