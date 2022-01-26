@@ -352,11 +352,11 @@ def calc_performance_estimates(files, ref_tif):
                 _var = float(np.nanvar(arr))
                 del arr
             vec = None
-        out[pol] = {'min': _min,
-                    'max': _max,
+        out[pol] = {'minimum': _min,
+                    'maximum': _max,
                     'mean': _mean,
-                    'stdev': _stdev,
-                    'var': _var}
+                    'stddev': _stdev,
+                    'variance': _var}
     return out
 
 
