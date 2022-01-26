@@ -253,9 +253,13 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     
     ####################################################################################################################
     # metadata
-    
+    if type(files[0]) == tuple:
+        src_files = [item for tup in files for item in tup]
+    else:
+        src_files = files
     tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True)
-    meta = extract.meta_dict(target=nrbdir, sources=scenes, dem_name=dem_name, proc_time=proc_time)
+    meta = extract.meta_dict(target=nrbdir, src_scenes=scenes, src_files=src_files,
+                             dem_name=dem_name, proc_time=proc_time)
     xmlparser.main(meta=meta, target=nrbdir, tifs=tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=tifs)
 

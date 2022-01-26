@@ -317,7 +317,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         return out
 
 
-def meta_dict(target, sources, dem_name, proc_time):
+def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -327,8 +327,10 @@ def meta_dict(target, sources, dem_name, proc_time):
     ----------
     target: str
         A path pointing to the root directory of a product scene.
-    sources: list[str]
+    src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
+    src_files: list[str]
+        A list of paths pointing to the SNAP processed datasets of the product.
     dem_name: str
         Name of the DEM used for processing.
     proc_time: datetime.datetime
@@ -346,12 +348,12 @@ def meta_dict(target, sources, dem_name, proc_time):
     
     product_id = os.path.basename(target)
     tif = finder(target, ['vh-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, sources=sources)
+    prod_meta = get_prod_meta(product_id=product_id, tif=tif, sources=src_scenes)
     
     src_sid = {}
     src_xml = {}
-    for i in range(len(sources)):
-        uid, sid = get_uid_sid(filepath=sources[i])
+    for i in range(len(src_scenes)):
+        uid, sid = get_uid_sid(filepath=src_scenes[i])
         src_sid[uid] = sid
         src_xml[uid] = etree_from_sid(sid=sid)
     
@@ -455,7 +457,7 @@ def meta_dict(target, sources, dem_name, proc_time):
     meta['prod']['noiseRemovalApplied'] = True
     meta['prod']['noiseRemovalAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberLines'] = str(prod_meta['rows'])
-    meta['prod']['numberOfAcquisitions'] = str(len(sources))
+    meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'pixel ULC'
@@ -541,7 +543,6 @@ def meta_dict(target, sources, dem_name, proc_time):
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = None
         #meta['source'][uid]['perfIndicatorsURL'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF'
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = None
-        meta['source'][uid]['perfNoiseEquivalentIntensity'] = None
         meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'gamma0'
         meta['source'][uid]['perfPeakSideLobeRatio'] = None
         meta['source'][uid]['polCalMatrices'] = None
