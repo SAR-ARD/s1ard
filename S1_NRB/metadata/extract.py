@@ -319,14 +319,15 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
 
 def calc_performance_estimates(files, ref_tif):
     """
-    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all gamma0 backscatter source files.
+    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images for the current
+    MGRS tile.
     
     Parameters
     ----------
     files: list[str]
-        List of paths pointing to the source gamma0 backscatter files the estimates should be calculated for.
+        List of paths pointing to the noise power images the estimates should be calculated for.
     ref_tif: str
-        A path pointing to a product GeoTIFF file, which is used to get spatial information about the MGRS tile.
+        A path pointing to a product GeoTIFF file, which is used to get spatial information about the current MGRS tile.
     
     Returns
     -------
@@ -579,8 +580,8 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        gamma0_files = [f for f in src_files if re.search('gamma0-rtc', f) is not None]
-        meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=gamma0_files, ref_tif=tif)
+        np_files = [f for f in src_files if re.search('_NEGZ', f) is not None]
+        meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = None
         #meta['source'][uid]['perfIndicatorsURL'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF'
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = None
