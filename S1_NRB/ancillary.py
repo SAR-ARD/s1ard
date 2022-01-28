@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import logging
 from datetime import datetime
@@ -7,8 +8,7 @@ import binascii
 from time import gmtime, strftime
 import numpy as np
 from osgeo import gdal
-from spatialist import gdalbuildvrt, Raster
-from spatialist.vector import bbox
+from spatialist import gdalbuildvrt, Raster, boundary, rasterize, vectorize, bbox
 from pyroSAR import identify, finder
 from pyroSAR.ancillary import groupbyTime, seconds
 
@@ -254,6 +254,88 @@ def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, mul
         ras_dm.write(dm_path, format=driver, array=mask_arr.astype('uint8'), nodata=nodata, overwrite=True,
                      overviews=overviews, options=creation_opt)
     del mask_arr
+
+
+def create_acq_id_image(outdir, ref_tif, src_scenes, src_files, driver, creation_opt, overviews):
+    """
+    Creation of the acquisition ID image described in CARD4L NRB 2.8
+    
+    Parameters
+    ----------
+    outdir: str
+        A path pointing to the root directory of the current product.
+    ref_tif: str
+        Path to a reference product GeoTIFF file.
+    src_scenes: list[str]
+        A list of paths pointing to the source scenes of the product.
+    src_files: list[str]
+        A list of paths pointing to the SNAP processed datasets of the product.
+    driver: str
+        GDAL driver to use for raster file creation.
+    creation_opt: list[str]
+        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+    overviews: list[int]
+        Internal overview levels to be created for each raster file.
+    
+    Returns
+    -------
+    None
+    """
+    out_name = ref_tif.replace('-dm.tif', '-id.tif')
+    out_nodata = 255
+    out_type = 'uint8'
+    
+    gamma0_vh = [f for f in src_files if re.search('_VH_gamma0', f) is not None]
+    if len(gamma0_vh) == 2:
+        start0 = datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', gamma0_vh[0]).group(), '%Y%m%dT%H%M%S')
+        start1 = datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', gamma0_vh[1]).group(), '%Y%m%dT%H%M%S')
+        if start0 > start1:
+            gamma0_vh_new = [gamma0_vh[1]]
+            gamma0_vh_new.append(gamma0_vh[0])
+            gamma0_vh = gamma0_vh_new
+    elif len(gamma0_vh) > 2:
+        raise RuntimeError('Expected to find 1 or 2 gamma0 backscatter files. '
+                           'Found {} files instead.'.format(len(gamma0_vh)))
+    
+    start_str = [re.search('[0-9]{8}T[0-9]{6}', f).group() for f in gamma0_vh]
+    src_scenes = [os.path.basename(s).replace('.SAFE', '').replace('.zip', '') for s in src_scenes
+                  if any(re.search(start, s) for start in start_str) is not None]
+    
+    with Raster(ref_tif) as ref:
+        ext = ref.extent
+        bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+        with ref.bbox() as ref_vec:
+            arr_list = []
+            for file in gamma0_vh:
+                vrt_tmp = '/vsimem/' + outdir + 'mosaic.vrt'
+                gdalbuildvrt(file, vrt_tmp, options={'outputBounds': bounds}, void=False)
+                
+                with Raster(vrt_tmp)[ref_vec] as vrt_ras:
+                    vrt_arr = vrt_ras.array()
+                    arr_tmp = ~np.isnan(vrt_arr)
+                    del vrt_arr
+                    
+                    with vectorize(target=arr_tmp, reference=ref) as vec:
+                        with boundary(vec, expression="value=1") as bounds:
+                            with rasterize(vectorobject=bounds, reference=ref, nodata=None) as new:
+                                arr = new.array()
+                                arr_list.append(arr)
+                                del arr
+                            bounds = None
+                        vec = None
+            
+            tag = '\n1: {src1}'.format(src1=src_scenes[0])
+            out_arr = np.tile(255, arr_list[0].shape)
+            if len(arr_list) == 2:
+                out_arr[arr_list[1] == 1] = 2
+                tag = '\n1: {src1}\n2: {src2}'.format(src1=src_scenes[0], src2=src_scenes[1])
+            
+            out_arr[arr_list[0] == 1] = 1
+            creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
+            
+            ref.write(out_name, format=driver, array=out_arr.astype(out_type), nodata=out_nodata, overwrite=True,
+                      overviews=overviews, options=creation_opt)
+            ref_vec = None
 
 
 def set_logging(config):
