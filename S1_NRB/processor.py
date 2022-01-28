@@ -129,6 +129,8 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
                                    'z_error': 0.1},
                 'gammaSigmaRatio': {'suffix': 'gs',
                                     'z_error': 1e-4},
+                'acquisitionImage': {'suffix': 'id',
+                                     'z_error': 0},
                 'VV_NEGZ': {'suffix': 'np-vv',
                             'z_error': 2e-5},
                 'VH_NEGZ': {'suffix': 'np-vh',
@@ -205,6 +207,11 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     os.rename(nrbdir, nrbdir_new)
     nrbdir = nrbdir_new
     
+    if type(files[0]) == tuple:
+        src_files = [item for tup in files for item in tup]
+    else:
+        src_files = files
+    
     ####################################################################################################################
     # log-scaled gamma nought
     
@@ -226,6 +233,12 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     ancil.modify_data_mask(dm_path=dm_path, extent=extent, epsg=epsg, driver=driver,
                            creation_opt=write_options['layoverShadowMask'], overviews=overviews,
                            multilayer=True, wbm=wbm, wbm_path=external_wbm)
+    
+    ####################################################################################################################
+    # Acquisition ID image
+    ancil.create_acq_id_image(outdir=os.path.join(nrbdir, 'annotation'), ref_tif=dm_path, src_scenes=scenes,
+                              src_files=src_files, driver=driver, creation_opt=write_options['acquisitionImage'],
+                              overviews=overviews)
     
     ####################################################################################################################
     # sigma nought RTC
@@ -253,10 +266,6 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     
     ####################################################################################################################
     # metadata
-    if type(files[0]) == tuple:
-        src_files = [item for tup in files for item in tup]
-    else:
-        src_files = files
     tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True)
     meta = extract.meta_dict(target=nrbdir, src_scenes=scenes, src_files=src_files,
                              dem_name=dem_name, proc_time=proc_time)
