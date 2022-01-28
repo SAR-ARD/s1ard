@@ -194,8 +194,16 @@ def product_json(meta, target, tifs):
         elif 'annotation' in tif:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
             
-            if key == '-dm.tif':
-                raster_bands = {'values': [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()],
+            if key in ['-dm.tif', '-id.tif']:
+                if key == '-id.tif':
+                    src_list = list(meta['source'].keys())
+                    src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
+                                  for src in src_list]
+                    values = [{'value': [i+1], 'summary': s} for i, s in enumerate(src_target)]
+                else:
+                    values = [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()]
+                
+                raster_bands = {'values': values,
                                 'nodata': 255,
                                 'data_type': 'uint8',
                                 'bits_per_sample': 8}

@@ -195,15 +195,24 @@ def product_xml(meta, target, tifs):
         if 'annotation' in tif:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
             
-            if key == '-dm.tif':
+            if key in ['-dm.tif', '-id.tif']:
                 dataType.text = 'UINT'
                 bitsPerSample.text = '8'
                 noDataVal.text = '255'
                 
-                for val in SAMPLE_MAP[key]['values']:
-                    bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
-                                                attrib={'name': SAMPLE_MAP[key]['values'][val]})
-                    bitValue.text = str(val)
+                if key == '-dm.tif':
+                    for val in SAMPLE_MAP[key]['values']:
+                        bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
+                                                    attrib={'name': SAMPLE_MAP[key]['values'][val]})
+                        bitValue.text = str(val)
+                else:
+                    src_list = list(meta['source'].keys())
+                    src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
+                                  for src in src_list]
+                    for i, s in enumerate(src_target):
+                        bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
+                                                    attrib={'name': s})
+                        bitValue.text = str(i+1)
             
             if key == '-ei.tif':
                 ellipsoidalHeight = etree.SubElement(ProductInformation, _nsc('nrb:ellipsoidalHeight'),
