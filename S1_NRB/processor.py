@@ -1,11 +1,12 @@
 import os
 import re
 import time
+import numpy as np
 from osgeo import gdal
-from spatialist import Raster
+from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
 from spatialist.ancillary import finder
 from spatialist.auxil import gdalwarp
-from pyroSAR import identify, Archive
+from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 
@@ -17,8 +18,8 @@ from S1_NRB.metadata import extract, xmlparser, stacparser
 gdal.UseExceptions()
 
 
-def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_ZSTD', overviews=None, recursive=False,
-                   external_wbm=None):
+def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compress='LERC_ZSTD',
+                   overviews=None, recursive=False, external_wbm=None):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
     have been executed. This includes the following:
@@ -31,6 +32,8 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     ----------
     scenes: list[str]
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
+    datadir: str
+        the directory containing the datasets processed from the scenes using pyroSAR.
     outdir: str
         The directory to write the final files to.
     tile: str
@@ -65,23 +68,57 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
         if not os.path.isfile(external_wbm):
             raise FileNotFoundError('External water body mask could not be found: {}'.format(external_wbm))
     
-    id = identify(scenes[0])
+    ids = identify_many(scenes)
     
-    start = id.start
-    if len(scenes) == 2:
-        id2 = identify(scenes[1])
-        start2 = id2.start
-        stop = id2.stop
-    else:
-        start2 = None
-        stop = id.stop
+    datasets = [find_datasets(directory=datadir,
+                              recursive=recursive,
+                              start=id.start, stop=id.start)
+                for id in ids]
     
-    meta = {'mission': id.sensor,
-            'mode': id.meta['acquisition_mode'],
-            'start': start,
-            'orbitnumber': id.meta['orbitNumbers_abs']['start'],
-            'datatake': hex(id.meta['frameNumber']).replace('x', '').upper(),
-            'stop': stop,
+    if len(datasets) == 0:
+        raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
+    
+    pattern = '[VH]{2}_gamma0-rtc'
+    
+    for i in range(len(datasets)):
+        pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
+        datamask_ras = re.sub(pattern, 'datamask', pols[0])
+        datamask_vec = datamask_ras.replace('.tif', '.gpkg')
+        
+        if not all([os.path.isfile(x) for x in [datamask_ras, datamask_vec]]):
+            with Raster(pols[0]) as ras:
+                arr = ras.array()
+                mask = ~np.isnan(arr)
+                with vectorize(target=mask, reference=ras) as vec:
+                    with boundary(vec, expression="value=1") as bounds:
+                        if not os.path.isfile(datamask_ras):
+                            print('creating raster mask', i)
+                            rasterize(vectorobject=bounds, reference=ras, outname=datamask_ras)
+                        if not os.path.isfile(datamask_vec):
+                            print('creating vector mask', i)
+                            bounds.write(outfile=datamask_vec)
+        
+        with Vector(datamask_vec) as bounds:
+            with bbox(extent, epsg) as tile_geom:
+                inter = intersect(bounds, tile_geom)
+                if inter is None:
+                    print('removing dataset', i)
+                    del ids[0]
+                    del datasets[0]
+                inter.close()
+    
+    if len(ids) == 0:
+        raise RuntimeError('none of the scenes overlaps with the tile')
+    
+    starts = [id.start for id in ids]
+    stops = [id.stop for id in ids]
+    
+    meta = {'mission': ids[0].sensor,
+            'mode': ids[0].meta['acquisition_mode'],
+            'start': min(starts),
+            'orbitnumber': ids[0].meta['orbitNumbers_abs']['start'],
+            'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
+            'stop': max(stops),
             'tile': tile,
             'id': 'ABCD'}
     
@@ -94,18 +131,6 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     for key, val in metaL.items():
         if not isinstance(val, int):
             metaL[key] = val.lower()
-    
-    files1 = find_datasets(directory=os.path.dirname(outdir), recursive=recursive,
-                           start=start, stop=start)
-    if start2 is not None:
-        files2 = find_datasets(directory=os.path.dirname(outdir), recursive=recursive,
-                               start=start2, stop=start2)
-        files = list(zip(files1, files2))
-    else:
-        files = files1
-    
-    if len(files) == 0:
-        raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(os.path.dirname(outdir)))
     
     skeleton = '{mission}-{mode}-nrb-{start}-{stop}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
@@ -154,6 +179,11 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
     
     ####################################################################################################################
     # format existing datasets found by `pyroSAR.ancillary.find_datasets`
+    
+    if len(datasets) > 0:
+        files = list(zip(*datasets))
+    else:
+        files = datasets[0]
     
     pattern = '|'.join(item_map.keys())
     for i, item in enumerate(files):
@@ -274,7 +304,6 @@ def nrb_processing(scenes, outdir, tile, extent, epsg, dem_name, compress='LERC_
 
 
 def main(config_file, section_name):
-    
     config = get_config(config_file=config_file, section_name=section_name)
     log = ancil.set_logging(config=config)
     geocode_prms = geocode_params(config=config)
@@ -376,7 +405,8 @@ def main(config_file, section_name):
                 print('###### NRB: {tile} | {scenes}'.format(tile=tile, scenes=[os.path.basename(s) for s in scenes]))
                 start_time = time.time()
                 try:
-                    nrb_processing(scenes=scenes, outdir=outdir, tile=tile, extent=geo_dict[tile]['ext'],
+                    nrb_processing(scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir, tile=tile,
+                                   extent=geo_dict[tile]['ext'],
                                    epsg=epsg, external_wbm=config.get('ext_wbm_file'), dem_name=geocode_prms['demName'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))

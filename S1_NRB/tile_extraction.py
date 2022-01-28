@@ -55,7 +55,7 @@ def extract_tile(kml, tile):
     
     Returns
     -------
-    spatialist.vector.Vector object
+    spatialist.vector.Vector
     """
     with Vector(kml, driver='KML') as vec:
         feat = vec.getFeatureByAttribute('Name', tile)
