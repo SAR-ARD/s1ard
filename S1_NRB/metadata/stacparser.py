@@ -29,6 +29,7 @@ def product_json(meta, target, tifs):
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.json'.format(scene_id))
+    print(outname)
     
     start = meta['prod']['timeStart']
     stop = meta['prod']['timeStop']
@@ -259,6 +260,7 @@ def source_json(meta, target):
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.json'.format(scene))
+        print(outname)
         
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
