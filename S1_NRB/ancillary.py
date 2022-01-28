@@ -170,6 +170,7 @@ def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, mul
     -------
     None
     """
+    print(dm_path)
     ml_cog_out = dm_path.replace('.tif', '_2.tif')
     nodata = 255
     
@@ -282,6 +283,7 @@ def create_acq_id_image(outdir, ref_tif, src_scenes, src_files, driver, creation
     None
     """
     out_name = ref_tif.replace('-dm.tif', '-id.tif')
+    print(out_name)
     out_nodata = 255
     out_type = 'uint8'
     
