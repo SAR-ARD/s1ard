@@ -80,7 +80,8 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     pattern = '[VH]{2}_gamma0-rtc'
     
-    for i in range(len(datasets)):
+    i = 0
+    while i < len(datasets):
         pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
         datamask_ras = re.sub(pattern, 'datamask', pols[0])
         datamask_vec = datamask_ras.replace('.tif', '.gpkg')
@@ -103,9 +104,11 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                 inter = intersect(bounds, tile_geom)
                 if inter is None:
                     print('removing dataset', i)
-                    del ids[0]
-                    del datasets[0]
-                inter.close()
+                    del ids[i]
+                    del datasets[i]
+                else:
+                    i += 1
+                    inter.close()
     
     if len(ids) == 0:
         raise RuntimeError('none of the scenes overlaps with the tile')
