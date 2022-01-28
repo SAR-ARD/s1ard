@@ -81,6 +81,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     pattern = '[VH]{2}_gamma0-rtc'
     
     i = 0
+    datamask_ras_list = []
     while i < len(datasets):
         pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
         datamask_ras = re.sub(pattern, 'datamask', pols[0])
@@ -107,6 +108,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                     del ids[i]
                     del datasets[i]
                 else:
+                    datamask_ras_list.append(datamask_ras)
                     i += 1
                     inter.close()
     
@@ -263,9 +265,9 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     # modify data mask
     
     dm_path = finder(nrbdir, [r'dm\.tif$'], regex=True)[0]
-    ancil.modify_data_mask(dm_path=dm_path, extent=extent, epsg=epsg, driver=driver,
-                           creation_opt=write_options['layoverShadowMask'], overviews=overviews,
-                           multilayer=True, wbm=wbm, wbm_path=external_wbm)
+    ancil.modify_data_mask(dm_path=dm_path, mask_list=datamask_ras_list, src_files=src_files, extent=extent,
+                           epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
+                           overviews=overviews, multilayer=True, wbm=wbm, wbm_path=external_wbm)
     
     ####################################################################################################################
     # Acquisition ID image

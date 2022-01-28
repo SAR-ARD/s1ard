@@ -140,7 +140,7 @@ def filter_selection(selection, processdir):
     return list_out
 
 
-def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, multilayer=False,
+def modify_data_mask(dm_path, mask_list, src_files, extent, epsg, driver, creation_opt, overviews, multilayer=False,
                      wbm=False, wbm_path=None):
     """
     Modifies the Data Mask file.
@@ -149,6 +149,10 @@ def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, mul
     ----------
     dm_path: str
         Path to the data mask.
+    mask_list: list[str]
+        A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
+    src_files: list[str]
+        A list of paths pointing to the SNAP processed datasets of the product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -211,6 +215,22 @@ def modify_data_mask(dm_path, extent, epsg, driver, creation_opt, overviews, mul
             geotrans = ras_dm.raster.GetGeoTransform()
             proj = ras_dm.raster.GetProjection()
         dm_bands.pop(4)
+
+    # Extend the shadow classification of the data mask with nodata values from backscatter data
+    bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
+    gamma0_vh = [f for f in src_files if re.search('_VH_gamma0', f) is not None]
+    with bbox(extent, crs=epsg) as vec:
+        vrt_mask = '/vsimem/' + os.path.dirname(dm_path) + 'mask.vrt'
+        vrt_gamma0 = '/vsimem/' + os.path.dirname(dm_path) + 'gamma0.vrt'
+        gdalbuildvrt(mask_list, vrt_mask, options={'outputBounds': bounds}, void=False)
+        gdalbuildvrt(gamma0_vh, vrt_gamma0, options={'outputBounds': bounds}, void=False)
+        
+        with Raster(vrt_mask)[vec] as ras_m:
+            with Raster(vrt_gamma0)[vec] as ras_g:
+                arr_m = ras_m.array()
+                arr_g = ras_g.array()
+                mask_arr = np.where(((arr_m == 1) & (np.isnan(arr_g)) & (mask_arr != 4)), 2, mask_arr)
+        vec = None
     
     # MULTI-LAYER COG
     if multilayer:
