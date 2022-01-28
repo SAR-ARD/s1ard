@@ -600,19 +600,19 @@ def source_xml(meta, target):
         for pol in meta['common']['polarisationChannels']:
             estimatesMin = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                             attrib={'type': 'min', 'pol': pol})
-            estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['min'])
+            estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['minimum'])
             estimatesMax = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                             attrib={'type': 'max', 'pol': pol})
-            estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['max'])
+            estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['maximum'])
             estimatesMean = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                              attrib={'type': 'mean', 'pol': pol})
             estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
             estimatesSTDev = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                               attrib={'type': 'stdev', 'pol': pol})
-            estimatesSTDev.text = str(meta['source'][uid]['perfEstimates'][pol]['stdev'])
+            estimatesSTDev.text = str(meta['source'][uid]['perfEstimates'][pol]['stddev'])
             estimatesVar = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                             attrib={'type': 'variance', 'pol': pol})
-            estimatesVar.text = str(meta['source'][uid]['perfEstimates'][pol]['var'])
+            estimatesVar.text = str(meta['source'][uid]['perfEstimates'][pol]['variance'])
         equivalentNumberOfLooks = etree.SubElement(PerformanceIndicators, _nsc('nrb:equivalentNumberOfLooks'))
         equivalentNumberOfLooks.text = meta['source'][uid]['perfEquivalentNumberOfLooks']
         peakSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:peakSideLobeRatio'))
