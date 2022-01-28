@@ -183,7 +183,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     ####################################################################################################################
     # format existing datasets found by `pyroSAR.ancillary.find_datasets`
     
-    if len(datasets) > 0:
+    if len(datasets) > 1:
         files = list(zip(*datasets))
     else:
         files = datasets[0]
