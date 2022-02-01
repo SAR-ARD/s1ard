@@ -279,21 +279,22 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         tile_vec = None
 
 
-
-def create_acq_id_image(outdir, ref_tif, src_scenes, src_files, driver, creation_opt, overviews):
+def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driver, creation_opt, overviews):
     """
     Creation of the acquisition ID image described in CARD4L NRB 2.8
     
     Parameters
     ----------
-    outdir: str
-        A path pointing to the root directory of the current product.
     ref_tif: str
-        Path to a reference product GeoTIFF file.
+        Full path to a reference GeoTIFF file of the product.
+    valid_mask_list: list[str]
+        A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
     src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
-    src_files: list[str]
-        A list of paths pointing to the SNAP processed datasets of the product.
+    extent: dict
+        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+    epsg: int
+        The CRS used for the NRB product; provided as an EPSG code.
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]
@@ -305,62 +306,52 @@ def create_acq_id_image(outdir, ref_tif, src_scenes, src_files, driver, creation
     -------
     None
     """
-    out_name = ref_tif.replace('-dm.tif', '-id.tif')
-    print(out_name)
+    outname = ref_tif.replace('-gs.tif', '-id.tif')
+    print(outname)
     out_nodata = 255
-    out_type = 'uint8'
     
-    gamma0_vh = [f for f in src_files if re.search('_VH_gamma0', f) is not None]
-    if len(gamma0_vh) == 2:
-        start0 = datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', gamma0_vh[0]).group(), '%Y%m%dT%H%M%S')
-        start1 = datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', gamma0_vh[1]).group(), '%Y%m%dT%H%M%S')
-        if start0 > start1:
-            gamma0_vh_new = [gamma0_vh[1]]
-            gamma0_vh_new.append(gamma0_vh[0])
-            gamma0_vh = gamma0_vh_new
-    elif len(gamma0_vh) > 2:
-        raise RuntimeError('Expected to find 1 or 2 gamma0 backscatter files. '
-                           'Found {} files instead.'.format(len(gamma0_vh)))
+    # If there are two source scenes, make sure that the order in the relevant lists is correct!
+    if len(src_scenes) == 2:
+        starts = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
+        if starts[0] > starts[1]:
+            src_scenes_new = [src_scenes[1]]
+            src_scenes_new.append(src_scenes[0])
+            src_scenes = src_scenes_new
+            starts = [identify(f).start for f in src_scenes]
+        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', f).group(),
+                                         '%Y%m%dT%H%M%S') for f in valid_mask_list]
+        if start_valid[0] != starts[0]:
+            valid_mask_list_new = [valid_mask_list[1]]
+            valid_mask_list_new.append(valid_mask_list[0])
+            valid_mask_list = valid_mask_list_new
     
-    start_str = [re.search('[0-9]{8}T[0-9]{6}', f).group() for f in gamma0_vh]
-    src_scenes = [os.path.basename(s).replace('.SAFE', '').replace('.zip', '') for s in src_scenes
-                  if any(re.search(start, s) for start in start_str) is not None]
+    tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
-    with Raster(ref_tif) as ref:
-        ext = ref.extent
-        bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-        with ref.bbox() as ref_vec:
-            arr_list = []
-            for file in gamma0_vh:
-                vrt_tmp = '/vsimem/' + outdir + 'mosaic.vrt'
-                gdalbuildvrt(file, vrt_tmp, options={'outputBounds': bounds}, void=False)
-                
-                with Raster(vrt_tmp)[ref_vec] as vrt_ras:
-                    vrt_arr = vrt_ras.array()
-                    arr_tmp = ~np.isnan(vrt_arr)
-                    del vrt_arr
-                    
-                    with vectorize(target=arr_tmp, reference=ref) as vec:
-                        with boundary(vec, expression="value=1") as bounds:
-                            with rasterize(vectorobject=bounds, reference=ref, nodata=None) as new:
-                                arr = new.array()
-                                arr_list.append(arr)
-                                del arr
-                            bounds = None
-                        vec = None
-            
-            tag = '\n1: {src1}'.format(src1=src_scenes[0])
-            out_arr = np.tile(255, arr_list[0].shape)
-            if len(arr_list) == 2:
-                out_arr[arr_list[1] == 1] = 2
-                tag = '\n1: {src1}\n2: {src2}'.format(src1=src_scenes[0], src2=src_scenes[1])
-            
-            out_arr[arr_list[0] == 1] = 1
-            creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
-            
-            ref.write(out_name, format=driver, array=out_arr.astype(out_type), nodata=out_nodata, overwrite=True,
+    arr_list = []
+    for file in valid_mask_list:
+        vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
+        gdalbuildvrt(file, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
+        
+        with bbox(extent, crs=epsg) as tile_vec:
+            with Raster(vrt_snap_valid)[tile_vec] as vrt_ras:
+                vrt_arr = vrt_ras.array()
+                arr_list.append(vrt_arr)
+                del vrt_arr
+            tile_vec = None
+    
+    src_scenes_clean = [os.path.basename(src).replace('.zip', '').replace('.SAFE', '') for src in src_scenes]
+    tag = '\n1: {src1}'.format(src1=src_scenes_clean[0])
+    out_arr = np.full(arr_list[0].shape, out_nodata)
+    if len(arr_list) == 2:
+        out_arr[arr_list[1] == 1] = 2
+        tag = '\n1: {src1}\n2: {src2}'.format(src1=src_scenes_clean[0], src2=src_scenes_clean[1])
+    
+    out_arr[arr_list[0] == 1] = 1
+    creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
+    
+    with Raster(ref_tif) as ref_ras:
+        ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
-            ref_vec = None
 
 
 def set_logging(config):

@@ -273,8 +273,8 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     ####################################################################################################################
     # Acquisition ID image
-    ancil.create_acq_id_image(outdir=os.path.join(nrbdir, 'annotation'), ref_tif=dm_path, src_scenes=scenes,
-                              src_files=src_files, driver=driver, creation_opt=write_options['acquisitionImage'],
+    ancil.create_acq_id_image(ref_tif=gs_path, valid_mask_list=snap_dm_tile_overlap, src_scenes=src_scenes,
+                              extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
                               overviews=overviews)
     
     ####################################################################################################################
