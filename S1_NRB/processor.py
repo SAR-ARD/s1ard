@@ -81,26 +81,26 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     pattern = '[VH]{2}_gamma0-rtc'
     
     i = 0
-    datamask_ras_list = []
+    snap_dm_tile_overlap = []
     while i < len(datasets):
         pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
-        datamask_ras = re.sub(pattern, 'datamask', pols[0])
-        datamask_vec = datamask_ras.replace('.tif', '.gpkg')
+        snap_dm_ras = re.sub(pattern, 'datamask', pols[0])
+        snap_dm_vec = snap_dm_ras.replace('.tif', '.gpkg')
         
-        if not all([os.path.isfile(x) for x in [datamask_ras, datamask_vec]]):
+        if not all([os.path.isfile(x) for x in [snap_dm_ras, snap_dm_vec]]):
             with Raster(pols[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
-                        if not os.path.isfile(datamask_ras):
+                        if not os.path.isfile(snap_dm_ras):
                             print('creating raster mask', i)
-                            rasterize(vectorobject=bounds, reference=ras, outname=datamask_ras)
-                        if not os.path.isfile(datamask_vec):
+                            rasterize(vectorobject=bounds, reference=ras, outname=snap_dm_ras)
+                        if not os.path.isfile(snap_dm_vec):
                             print('creating vector mask', i)
-                            bounds.write(outfile=datamask_vec)
+                            bounds.write(outfile=snap_dm_vec)
         
-        with Vector(datamask_vec) as bounds:
+        with Vector(snap_dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
                 if inter is None:
@@ -108,12 +108,14 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                     del ids[i]
                     del datasets[i]
                 else:
-                    datamask_ras_list.append(datamask_ras)
+                    # Add snap_dm_ras to list if it overlaps with the current tile
+                    snap_dm_tile_overlap.append(snap_dm_ras)
                     i += 1
                     inter.close()
     
     if len(ids) == 0:
-        raise RuntimeError('none of the scenes overlaps with the tile')
+        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
+                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     
     starts = [id.start for id in ids]
     stops = [id.stop for id in ids]
@@ -184,7 +186,6 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     ####################################################################################################################
     # format existing datasets found by `pyroSAR.ancillary.find_datasets`
-    
     if len(datasets) > 1:
         files = list(zip(*datasets))
     else:
@@ -207,8 +208,11 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                 continue
             key = keys[0]
         
-        val = item_map[key]['suffix']
-        metaL['suffix'] = val
+        if key == 'layoverShadowMask':
+            # The data mask will be created later on in the processing workflow.
+            continue
+        
+        metaL['suffix'] = item_map[key]['suffix']
         outname_base = skeleton.format(**metaL)
         if re.search('_gamma0', key):
             subdir = 'measurement'
@@ -243,15 +247,14 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     nrbdir = nrbdir_new
     
     if type(files[0]) == tuple:
-        src_files = [item for tup in files for item in tup]
-    else:
-        src_files = files
+        files = [item for tup in files for item in tup]
+    src_scenes = [i.scene for i in ids]
+    gs_path = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
+    measure_paths = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
     
     ####################################################################################################################
     # log-scaled gamma nought
-    
-    measure = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
-    for item in measure:
+    for item in measure_paths:
         log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(log):
             print(log)
@@ -277,15 +280,13 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     ####################################################################################################################
     # sigma nought RTC
-    
-    gs_name = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
-    for item in measure:
+    for item in measure_paths:
         sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
         sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            ancil.vrt_pixfun(src=[item, gs_name],
+            ancil.vrt_pixfun(src=[item, gs_path],
                              dst=sigma0_rtc_lin,
                              fun='mul',
                              options={'VRTNodata': 'NaN'})
@@ -301,11 +302,11 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     ####################################################################################################################
     # metadata
-    tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True)
-    meta = extract.meta_dict(target=nrbdir, src_scenes=scenes, src_files=src_files,
+    nrb_tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True, recursive=True)
+    meta = extract.meta_dict(target=nrbdir, src_scenes=src_scenes, src_files=files,
                              dem_name=dem_name, proc_time=proc_time)
-    xmlparser.main(meta=meta, target=nrbdir, tifs=tifs)
-    stacparser.main(meta=meta, target=nrbdir, tifs=tifs)
+    xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
+    stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 
 
 def main(config_file, section_name):
