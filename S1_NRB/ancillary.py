@@ -140,16 +140,16 @@ def filter_selection(selection, processdir):
     return list_out
 
 
-def modify_data_mask(dm_path, mask_list, src_files, extent, epsg, driver, creation_opt, overviews, multilayer=False,
-                     wbm=False, wbm_path=None):
+def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
+                     multilayer=False, wbm=False, wbm_path=None):
     """
-    Modifies the Data Mask file.
+    Creates the Data Mask file.
     
     Parameters
     ----------
-    dm_path: str
-        Path to the data mask.
-    mask_list: list[str]
+    outname: str
+        Full path to the output data mask file.
+    valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
     src_files: list[str]
         A list of paths pointing to the SNAP processed datasets of the product.
@@ -164,19 +164,22 @@ def modify_data_mask(dm_path, mask_list, src_files, extent, epsg, driver, creati
     overviews: list[int]
         Internal overview levels to be created for each raster file.
     multilayer: bool, optional
-        Should individual masks be written into seperate bands, creating a multi-level raster file? Default is False.
+        Should individual masks be written into separate bands, creating a multi-level raster file? Default is False.
     wbm: bool, optional
         Include 'ocean water' information from an external Water Body Mask? Default is False.
     wbm_path: str, optional
-        Path to the external Water Body Mask file.
+        Path to the external Water Body Mask file. Ignored if `wbm=False`.
     
     Returns
     -------
     None
     """
-    print(dm_path)
-    ml_cog_out = dm_path.replace('.tif', '_2.tif')
-    nodata = 255
+    print(outname)
+    outname_ml = outname.replace('.tif', '_2.tif')
+    out_nodata = 255
+    
+    snap_gamma0_vh = [f for f in src_files if re.search('VH_gamma0', f) is not None]
+    snap_ls_mask = [f for f in src_files if re.search('layoverShadowMask', f) is not None]
     
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
@@ -186,95 +189,95 @@ def modify_data_mask(dm_path, mask_list, src_files, extent, epsg, driver, creati
                     'name': 'shadow'},
                 4: {'arr_val': 4,
                     'name': 'ocean water'}}
-    
-    if wbm:
-        assert os.path.isfile(wbm_path), "Water Body Mask '{}' not found".format(wbm_path)
-        
-        with bbox(extent, crs=epsg) as vec:
-            with Raster(wbm_path)[vec] as ras_wbm:
-                with Raster(dm_path) as ras_dm:
-                    rows = ras_dm.rows
-                    cols = ras_dm.cols
-                    geotrans = ras_dm.raster.GetGeoTransform()
-                    proj = ras_dm.raster.GetProjection()
-                    
-                    wbm_arr = ras_wbm.array()
-                    dm_arr = ras_dm.array()
-                    wbm_arr = np.where((wbm_arr == 1), 4, np.nan)
-                    wbm_arr[np.isnan(wbm_arr)] = dm_arr[np.isnan(wbm_arr)]
-                    
-                    mask_arr = wbm_arr
-                    del dm_arr
-                    del wbm_arr
-            vec = None
-    else:
-        with Raster(dm_path) as ras_dm:
-            mask_arr = ras_dm.array()
-            rows = ras_dm.rows
-            cols = ras_dm.cols
-            geotrans = ras_dm.raster.GetGeoTransform()
-            proj = ras_dm.raster.GetProjection()
-        dm_bands.pop(4)
 
-    # Extend the shadow classification of the data mask with nodata values from backscatter data
-    bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
-    gamma0_vh = [f for f in src_files if re.search('_VH_gamma0', f) is not None]
-    with bbox(extent, crs=epsg) as vec:
-        vrt_mask = '/vsimem/' + os.path.dirname(dm_path) + 'mask.vrt'
-        vrt_gamma0 = '/vsimem/' + os.path.dirname(dm_path) + 'gamma0.vrt'
-        gdalbuildvrt(mask_list, vrt_mask, options={'outputBounds': bounds}, void=False)
-        gdalbuildvrt(gamma0_vh, vrt_gamma0, options={'outputBounds': bounds}, void=False)
-        
-        with Raster(vrt_mask)[vec] as ras_m:
-            with Raster(vrt_gamma0)[vec] as ras_g:
-                arr_m = ras_m.array()
-                arr_g = ras_g.array()
-                mask_arr = np.where(((arr_m == 1) & (np.isnan(arr_g)) & (mask_arr != 4)), 2, mask_arr)
-        vec = None
+    tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
-    # MULTI-LAYER COG
-    if multilayer:
-        outname_tmp = '/vsimem/' + os.path.basename(ml_cog_out) + '.vrt'
-        gdriver = gdal.GetDriverByName('GTiff')
-        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
-                                options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
-        gdriver = None
-        ds_tmp.SetGeoTransform(geotrans)
-        ds_tmp.SetProjection(proj)
-        
-        for k, v in dm_bands.items():
-            band = ds_tmp.GetRasterBand(k)
-            arr_val = v['arr_val']
-            b_name = v['name']
-            
-            if arr_val == 0:
-                arr = np.isnan(mask_arr)
-            elif arr_val in [1, 2]:
-                arr = np.where(((mask_arr == arr_val) | (mask_arr == 3)), 1, 0)
-            elif arr_val == 4:
-                arr = np.where(mask_arr == 4, 1, 0)
-            
-            arr[np.isnan(arr)] = 0
-            arr = arr.astype('uint8')
-            band.WriteArray(arr)
-            del arr
-            band.SetNoDataValue(nodata)
-            band.SetDescription(b_name)
-            band.FlushCache()
-            band = None
-        
-        ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
-        ds_tmp.BuildOverviews('AVERAGE', [2, 4, 8, 16, 32])
-        outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(ml_cog_out, ds_tmp,
-                                                                 strict=1, options=creation_opt)
-        outDataset_cog = None
-        ds_tmp = None
+    vrt_snap_ls = '/vsimem/' + os.path.dirname(outname) + 'snap_ls.vrt'
+    vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'snap_valid.vrt'
+    vrt_snap_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'snap_gamma0.vrt'
+    gdalbuildvrt(snap_ls_mask, vrt_snap_ls, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(valid_mask_list, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(snap_gamma0_vh, vrt_snap_gamma0, options={'outputBounds': tile_bounds}, void=False)
     
-    # SINGLE-LAYER COG
-    with Raster(dm_path) as ras_dm:
-        ras_dm.write(dm_path, format=driver, array=mask_arr.astype('uint8'), nodata=nodata, overwrite=True,
-                     overviews=overviews, options=creation_opt)
-    del mask_arr
+    with Raster(vrt_snap_ls) as ras_snap_ls:
+        with bbox(extent, crs=epsg) as tile_vec:
+            rows = ras_snap_ls.rows
+            cols = ras_snap_ls.cols
+            geotrans = ras_snap_ls.raster.GetGeoTransform()
+            proj = ras_snap_ls.raster.GetProjection()
+            arr_snap_dm = ras_snap_ls.array()
+            
+            # Add Water Body Mask if wbm=True and wbm_path exists
+            if wbm and not os.path.isfile(wbm_path):
+                print('Water Body Mask not found. Will continue without.')
+                wbm = False
+            if wbm:
+                with Raster(wbm_path)[tile_vec] as ras_wbm:
+                    arr_wbm = ras_wbm.array()
+                    out_arr = np.where((arr_wbm == 1), 4, arr_snap_dm)
+                    del arr_wbm
+            else:
+                out_arr = arr_snap_dm
+                dm_bands.pop(4)
+            del arr_snap_dm
+            
+            # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
+            with Raster(vrt_snap_valid)[tile_vec] as ras_snap_valid:
+                with Raster(vrt_snap_gamma0)[tile_vec] as ras_snap_gamma0:
+                    arr_snap_valid = ras_snap_valid.array()
+                    arr_snap_gamma0 = ras_snap_gamma0.array()
+                    
+                    out_arr = np.nan_to_num(out_arr)
+                    out_arr = np.where(((arr_snap_valid == 1) & (np.isnan(arr_snap_gamma0)) & (out_arr != 4)), 2,
+                                       out_arr)
+                    out_arr[np.isnan(arr_snap_valid)] = out_nodata
+                    del arr_snap_gamma0
+                    del arr_snap_valid
+        
+        # SINGLE-LAYER COG
+        ras_snap_ls.write(outname, format=driver,
+                          array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True, overviews=overviews,
+                          options=creation_opt)
+        
+        # MULTI-LAYER COG
+        if multilayer:
+            outname_tmp = '/vsimem/' + os.path.basename(outname_ml) + '.vrt'
+            gdriver = gdal.GetDriverByName('GTiff')
+            ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
+                                    options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
+            gdriver = None
+            ds_tmp.SetGeoTransform(geotrans)
+            ds_tmp.SetProjection(proj)
+            
+            for k, v in dm_bands.items():
+                band = ds_tmp.GetRasterBand(k)
+                arr_val = v['arr_val']
+                b_name = v['name']
+                
+                arr = np.full((rows, cols), out_nodata)
+                if arr_val == 0:
+                    arr[out_arr == 0] = 1
+                elif arr_val in [1, 2]:
+                    arr[(out_arr == arr_val) | (out_arr == 3)] = 1
+                elif arr_val == 4:
+                    arr[out_arr == 4] = 1
+                
+                arr = arr.astype('uint8')
+                band.WriteArray(arr)
+                band.SetNoDataValue(out_nodata)
+                band.SetDescription(b_name)
+                band.FlushCache()
+                band = None
+                del arr
+            
+            ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
+            ds_tmp.BuildOverviews('AVERAGE', [2, 4, 8, 16, 32])
+            outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(outname_ml, ds_tmp,
+                                                                     strict=1, options=creation_opt)
+            outDataset_cog = None
+            ds_tmp = None
+        tile_vec = None
+
 
 
 def create_acq_id_image(outdir, ref_tif, src_scenes, src_files, driver, creation_opt, overviews):

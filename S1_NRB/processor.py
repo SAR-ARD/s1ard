@@ -265,11 +265,10 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                              options={'VRTNodata': 'NaN'})
     
     ####################################################################################################################
-    # modify data mask
-    
-    dm_path = finder(nrbdir, [r'dm\.tif$'], regex=True)[0]
-    ancil.modify_data_mask(dm_path=dm_path, mask_list=datamask_ras_list, src_files=src_files, extent=extent,
-                           epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
+    # Data mask
+    dm_path = gs_path.replace('-gs.tif', '-dm.tif')
+    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
+                           extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
                            overviews=overviews, multilayer=True, wbm=wbm, wbm_path=external_wbm)
     
     ####################################################################################################################
