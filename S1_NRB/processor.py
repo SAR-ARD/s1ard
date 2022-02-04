@@ -33,7 +33,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     scenes: list[str]
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
-        the directory containing the datasets processed from the scenes using pyroSAR.
+        The directory containing the datasets processed from the source scenes using pyroSAR.
     outdir: str
         The directory to write the final files to.
     tile: str
@@ -44,7 +44,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
         The CRS used for the NRB product; provided as an EPSG code.
     dem_name: str
         Name of the DEM used for processing. Must match with supported options listed by `pyroSAR.snap.util.geocode`
-    compress: str
+    compress: str, optional
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int], optional
@@ -58,7 +58,6 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     -------
     None
     """
-    
     if overviews is None:
         overviews = [2, 4, 8, 16, 32]
     
@@ -99,7 +98,6 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                         if not os.path.isfile(snap_dm_vec):
                             print('creating vector mask', i)
                             bounds.write(outfile=snap_dm_vec)
-        
         with Vector(snap_dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
@@ -117,15 +115,15 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     
-    starts = [id.start for id in ids]
-    stops = [id.stop for id in ids]
+    src_scenes = [i.scene for i in ids]
+    product_start, product_stop = ancil.calc_product_start_stop(src_scenes=src_scenes, extent=extent, epsg=epsg)
     
     meta = {'mission': ids[0].sensor,
             'mode': ids[0].meta['acquisition_mode'],
-            'start': min(starts),
+            'start': product_start,
             'orbitnumber': ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
-            'stop': max(stops),
+            'stop': product_stop,
             'tile': tile,
             'id': 'ABCD'}
     
@@ -248,7 +246,6 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     if type(files[0]) == tuple:
         files = [item for tup in files for item in tup]
-    src_scenes = [i.scene for i in ids]
     gs_path = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
     measure_paths = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
     
@@ -322,7 +319,6 @@ def main(config_file, section_name):
     
     ####################################################################################################################
     # archive / scene selection
-    
     scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
     if not os.path.isfile(config['db_file']):
         config['db_file'] = os.path.join(config['work_dir'], config['db_file'])
@@ -345,7 +341,6 @@ def main(config_file, section_name):
                                                                                         scene_dir=config['scene_dir']))
     ####################################################################################################################
     # geometry handling
-    
     geo_dict, align_dict = tile_ex.main(config=config, tr=geocode_prms['tr'])
     tiles = list(geo_dict.keys())
     
@@ -357,9 +352,7 @@ def main(config_file, section_name):
     
     ####################################################################################################################
     # geocode & noise power - SNAP processing
-    
     if geocode_flag:
-        # Process scenes individually
         for scene in selection:
             print('###### SNAP GEOCODE: {scene}'.format(scene=scene))
             start_time = time.time()
@@ -395,9 +388,7 @@ def main(config_file, section_name):
     
     ####################################################################################################################
     # NRB - final product generation
-    
     if nrb_flag:
-        # Group consecutive acquisitions
         selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
         
         for tile in tiles:
