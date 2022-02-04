@@ -199,7 +199,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     if len(uids) == 2:
         starts = [datetime.strptime(slc_dict[key]['sid'].start, '%Y%m%dT%H%M%S') for key in slc_dict.keys()]
         if starts[0] > starts[1]:
-            az_time = np.concatenate([slc_dict[uids[1]]['az_time'], slc_dict[uids[0]]['z']])
+            az_time = np.concatenate([slc_dict[uids[1]]['az_time'], slc_dict[uids[0]]['az_time']])
             gridpts = np.concatenate([slc_dict[uids[1]]['gridpts'], slc_dict[uids[0]]['gridpts']])
         else:
             az_time = np.concatenate([slc_dict[key]['az_time'] for key in slc_dict.keys()])
