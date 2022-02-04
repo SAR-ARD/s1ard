@@ -8,9 +8,12 @@ import binascii
 from time import gmtime, strftime
 import numpy as np
 from osgeo import gdal
+from scipy.interpolate import griddata
 from spatialist import gdalbuildvrt, Raster, bbox
 from pyroSAR import identify, finder
 from pyroSAR.ancillary import groupbyTime, seconds
+
+from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
 def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None):
@@ -138,6 +141,87 @@ def filter_selection(selection, processdir):
         print("### {} scenes skipped, because they have already been processed.\n".format(n_skipped))
     print("### {} scenes in final selection for processing.".format(len(list_out)))
     return list_out
+
+
+def calc_product_start_stop(src_scenes, extent, epsg):
+    """
+    Calculates the start and stop times of the current product. The geolocation grid points including their azimuth time
+    information are extracted first from the metadata of each source SLC. These grid points are then used to interpolate
+    the azimuth time for the lower right and upper left (Ascending) or upper right and lower left (Descending) corners
+    of the MGRS tile of the current product.
+    
+    Parameters
+    ----------
+    src_scenes: list[str]
+        A list of paths pointing to the source scenes of the product.
+    extent: dict
+        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+    epsg: int
+        The CRS used for the NRB product; provided as an EPSG code.
+    
+    Returns
+    -------
+    start: str
+        Start time of the current product formatted as %Y%m%dT%H%M%S.
+    stop: str
+        Stop time of the current product formatted as %Y%m%dT%H%M%S.
+    """
+    with bbox(extent, epsg) as tile_geom:
+        tile_geom.reproject(4326)
+        ext = tile_geom.extent
+        ul = (ext['xmin'], ext['ymax'])
+        ur = (ext['xmax'], ext['ymax'])
+        lr = (ext['xmax'], ext['ymin'])
+        ll = (ext['xmin'], ext['ymin'])
+        tile_geom = None
+    
+    slc_dict = {}
+    for i in range(len(src_scenes)):
+        uid, sid = get_uid_sid(src_scenes[i])
+        slc_dict[uid] = etree_from_sid(sid)
+        slc_dict[uid]['sid'] = sid
+    
+    uids = list(slc_dict.keys())
+    swaths = list(slc_dict[uids[0]]['annotation'].keys())
+    
+    for uid in uids:
+        t = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/azimuthTime')
+        y = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/latitude')
+        x = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/longitude')
+        t_flat = np.asarray([datetime.fromisoformat(item).timestamp() for sublist in [t[swath] for swath in swaths]
+                             for item in sublist])
+        y_flat = np.asarray([float(item) for sublist in [y[swath] for swath in swaths] for item in sublist])
+        x_flat = np.asarray([float(item) for sublist in [x[swath] for swath in swaths] for item in sublist])
+        g = np.asarray([(x, y) for x, y in zip(x_flat, y_flat)])
+        slc_dict[uid]['az_time'] = t_flat
+        slc_dict[uid]['gridpts'] = g
+    
+    if len(uids) == 2:
+        starts = [datetime.strptime(slc_dict[key]['sid'].start, '%Y%m%dT%H%M%S') for key in slc_dict.keys()]
+        if starts[0] > starts[1]:
+            az_time = np.concatenate([slc_dict[uids[1]]['az_time'], slc_dict[uids[0]]['z']])
+            gridpts = np.concatenate([slc_dict[uids[1]]['gridpts'], slc_dict[uids[0]]['gridpts']])
+        else:
+            az_time = np.concatenate([slc_dict[key]['az_time'] for key in slc_dict.keys()])
+            gridpts = np.concatenate([slc_dict[key]['gridpts'] for key in slc_dict.keys()])
+    else:
+        az_time = slc_dict[uids[0]]['az_time']
+        gridpts = slc_dict[uids[0]]['gridpts']
+    
+    if slc_dict[uids[0]]['sid'].orbit == 'A':
+        coord1 = lr
+        coord2 = ul
+    else:
+        coord1 = ur
+        coord2 = ll
+    
+    method = 'linear'
+    t1 = datetime.fromtimestamp(float(griddata(gridpts, az_time, coord1, method=method)))
+    t2 = datetime.fromtimestamp(float(griddata(gridpts, az_time, coord2, method=method)))
+    start = datetime.strftime(t1, '%Y%m%dT%H%M%S')
+    stop = datetime.strftime(t2, '%Y%m%dT%H%M%S')
+    
+    return start, stop
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
