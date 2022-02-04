@@ -8,7 +8,7 @@ import binascii
 from time import gmtime, strftime
 import numpy as np
 from osgeo import gdal
-from spatialist import gdalbuildvrt, Raster, boundary, rasterize, vectorize, bbox
+from spatialist import gdalbuildvrt, Raster, bbox
 from pyroSAR import identify, finder
 from pyroSAR.ancillary import groupbyTime, seconds
 
@@ -178,8 +178,11 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     outname_ml = outname.replace('.tif', '_2.tif')
     out_nodata = 255
     
-    snap_gamma0_vh = [f for f in src_files if re.search('VH_gamma0', f) is not None]
-    snap_ls_mask = [f for f in src_files if re.search('layoverShadowMask', f) is not None]
+    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in src_files if
+                                re.search('[VH]{2}', os.path.basename(x)) is not None])]
+    pattern = pols[0] + '_gamma0-rtc'
+    snap_gamma0 = [x for x in src_files if re.search(pattern, os.path.basename(x))]
+    snap_ls_mask = [x for x in src_files if re.search('layoverShadowMask', os.path.basename(x))]
     
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
@@ -197,7 +200,7 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     vrt_snap_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'snap_gamma0.vrt'
     gdalbuildvrt(snap_ls_mask, vrt_snap_ls, options={'outputBounds': tile_bounds}, void=False)
     gdalbuildvrt(valid_mask_list, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(snap_gamma0_vh, vrt_snap_gamma0, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(snap_gamma0, vrt_snap_gamma0, options={'outputBounds': tile_bounds}, void=False)
     
     with Raster(vrt_snap_ls) as ras_snap_ls:
         with bbox(extent, crs=epsg) as tile_vec:
@@ -207,10 +210,7 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
             proj = ras_snap_ls.raster.GetProjection()
             arr_snap_dm = ras_snap_ls.array()
             
-            # Add Water Body Mask if wbm=True and wbm_path exists
-            if wbm and not os.path.isfile(wbm_path):
-                print('Water Body Mask not found. Will continue without.')
-                wbm = False
+            # Add Water Body Mask if wbm=True
             if wbm:
                 with Raster(wbm_path)[tile_vec] as ras_wbm:
                     arr_wbm = ras_wbm.array()
@@ -318,7 +318,7 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
             src_scenes_new.append(src_scenes[0])
             src_scenes = src_scenes_new
             starts = [identify(f).start for f in src_scenes]
-        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', f).group(),
+        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(),
                                          '%Y%m%dT%H%M%S') for f in valid_mask_list]
         if start_valid[0] != starts[0]:
             valid_mask_list_new = [valid_mask_list[1]]
