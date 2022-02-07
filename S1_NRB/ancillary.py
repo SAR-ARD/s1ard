@@ -216,10 +216,23 @@ def calc_product_start_stop(src_scenes, extent, epsg):
         coord2 = ll
     
     method = 'linear'
-    t1 = datetime.fromtimestamp(float(griddata(gridpts, az_time, coord1, method=method)))
-    t2 = datetime.fromtimestamp(float(griddata(gridpts, az_time, coord2, method=method)))
-    start = datetime.strftime(t1, '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(t2, '%Y%m%dT%H%M%S')
+    res = [griddata(gridpts, az_time, coord1, method=method),
+           griddata(gridpts, az_time, coord2, method=method)]
+
+    min_start = min([datetime.strptime(slc_dict[uid]['sid'].start, '%Y%m%dT%H%M%S') for uid in uids])
+    max_stop = max([datetime.strptime(slc_dict[uid]['sid'].stop, '%Y%m%dT%H%M%S') for uid in uids])
+    res_t = []
+    for i, r in enumerate(res):
+        if np.isnan(r):
+            if i == 0:
+                res_t.append(min_start)
+            else:
+                res_t.append(max_stop)
+        else:
+            res_t.append(datetime.fromtimestamp(float(r)))
+    
+    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
+    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
     
     return start, stop
 
