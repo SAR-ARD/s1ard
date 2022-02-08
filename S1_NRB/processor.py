@@ -407,5 +407,5 @@ def main(config_file, section_name):
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))
                 except Exception as e:
-                    log.error('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
+                    log.exception('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
                     continue
