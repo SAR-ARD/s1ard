@@ -342,7 +342,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
                 arr_val = v['arr_val']
                 b_name = v['name']
                 
-                arr = np.full((rows, cols), out_nodata)
+                arr = np.full((rows, cols), 0)
+                arr[out_arr == out_nodata] = out_nodata
                 if arr_val == 0:
                     arr[out_arr == 0] = 1
                 elif arr_val in [1, 2]:
