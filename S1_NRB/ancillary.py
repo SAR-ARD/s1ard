@@ -120,22 +120,13 @@ def filter_selection(selection, processdir):
     list_out: list[str]
         The filtered selection of scenes.
     """
-    #consecutive_acq = [x for x in groupbyTime(images=selection, function=seconds, time=60) if isinstance(x, list)]
-    
-    #list_out = []
-    #for scene in selection:
-    #    sid = identify(scene)
-    #    if len(finder(processdir, [sid.start], regex=True, recursive=False)) < 3 \
-    #            and not any(scene in sublist for sublist in consecutive_acq):
-    #        list_out.append(scene)
-    
-    #return list_out
-    
+    list_out = []
     for scene in selection:
-        list_all = finder(processdir, [identify(scene).start], regex=True, recursive=False)
+        list_processed = finder(processdir, [identify(scene).start], regex=True, recursive=False)
         exclude = ['_NEBZ', '_NESZ', '_NEGZ']
-        list_out = [scene for scene in selection if len([item for item in list_all
-                                                         if not any(ex in item for ex in exclude)]) < 3]
+        if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 3:
+            list_out.append(scene)
+    
     n_skipped = len(selection)-len(list_out)
     if n_skipped > 0:
         print("### {} scenes skipped, because they have already been processed.\n".format(n_skipped))
