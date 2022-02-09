@@ -3,6 +3,7 @@ import re
 import sys
 import logging
 from datetime import datetime
+from copy import deepcopy
 from lxml import etree
 import binascii
 from time import gmtime, strftime
@@ -80,6 +81,74 @@ def vrt_relpath(vrt):
     test.text = repl
     test.attrib['relativeToVRT'] = '1'
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
+
+
+def create_rgb_vrt(outname, measure_paths, overviews):
+    """
+    Creates the RGB VRT file.
+    
+    Parameters
+    ----------
+    outname: str
+        Full path to the output RGB VRT file.
+    measure_paths: list[str]
+        A list of paths pointing to the backscatter measurement files for all available polarizations.
+    overviews: list[int]
+        Internal overview levels to be defined for the created VRT file.
+    
+    Returns
+    -------
+    None
+    """
+    print(outname)
+    
+    # make sure order is right and VV polarization is first
+    measure_paths_reorder = []
+    for i, m_path in enumerate(measure_paths):
+        pol = re.search('[hv]{2}', os.path.basename(m_path)).group()
+        if i == 1 and pol == 'vv':
+            measure_paths_reorder.append(m_path)
+            measure_paths_reorder.append(measure_paths[0])
+            measure_paths = measure_paths_reorder
+    
+    # create VRT and change its content
+    gdalbuildvrt(src=measure_paths, dst=outname, options={'VRTNodata': 'NaN', 'separate': True})
+    
+    tree = etree.parse(outname)
+    root = tree.getroot()
+    bands = tree.findall('VRTRasterBand')
+    
+    new_band = etree.SubElement(root, 'VRTRasterBand',
+                                attrib={'dataType': 'Float32', 'band': '3', 'subClass': 'VRTDerivedRasterBand'})
+    vrt_nodata = etree.SubElement(new_band, 'NoDataValue')
+    vrt_nodata.text = 'nan'
+    new_band.insert(1, deepcopy(bands[0].find('ComplexSource')))
+    new_band.insert(2, deepcopy(bands[1].find('ComplexSource')))
+    pxfun_language = etree.SubElement(new_band, 'PixelFunctionLanguage')
+    pxfun_language.text = 'Python'
+    pxfun_type = etree.SubElement(new_band, 'PixelFunctionType')
+    pxfun_type.text = 'div'
+    pxfun_code = etree.SubElement(new_band, 'PixelFunctionCode')
+    pxfun_code.text = etree.CDATA("""
+    import numpy as np
+    def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
+        np.divide(in_ar[0], in_ar[1], out=out_ar, where=in_ar[1]!=0, dtype='float32')
+    """)
+    
+    bands = tree.findall('VRTRasterBand')
+    for band, col in zip(bands, ['Red', 'Green', 'Blue']):
+        color = etree.Element('ColorInterp')
+        color.text = col
+        band.insert(1, color)
+    
+    ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': 'nearest'})
+    ov = str(overviews)
+    for x in ['[', ']', ',']:
+        ov = ov.replace(x, '')
+    ovr.text = ov
+    
+    etree.indent(root)
+    tree.write(outname, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
 def generate_product_id():
