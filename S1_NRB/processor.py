@@ -260,6 +260,10 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                              fun='log10',
                              scale=10,
                              options={'VRTNodata': 'NaN'})
+    ####################################################################################################################
+    # RGB VRT
+    rgb_path = re.sub('[hv]{2}', 'rgb', measure_paths[0]).replace('.tif', '.vrt')
+    ancil.create_rgb_vrt(outname=rgb_path, measure_paths=measure_paths, overviews=overviews)
     
     ####################################################################################################################
     # Data mask
