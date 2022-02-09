@@ -601,16 +601,16 @@ def source_xml(meta, target):
                                                     attrib={'uom': 'dB', 'type': str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])})
         for pol in meta['common']['polarisationChannels']:
             estimatesMin = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
-                                            attrib={'type': 'min', 'pol': pol})
+                                            attrib={'type': 'minimum', 'pol': pol})
             estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['minimum'])
             estimatesMax = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
-                                            attrib={'type': 'max', 'pol': pol})
+                                            attrib={'type': 'maximum', 'pol': pol})
             estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['maximum'])
             estimatesMean = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                              attrib={'type': 'mean', 'pol': pol})
             estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
             estimatesSTDev = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
-                                              attrib={'type': 'stdev', 'pol': pol})
+                                              attrib={'type': 'stddev', 'pol': pol})
             estimatesSTDev.text = str(meta['source'][uid]['perfEstimates'][pol]['stddev'])
             estimatesVar = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
                                             attrib={'type': 'variance', 'pol': pol})
