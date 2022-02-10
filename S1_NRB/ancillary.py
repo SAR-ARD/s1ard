@@ -58,7 +58,7 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None):
         off.text = str(offset)
     complexSrc = band.find('ComplexSource')
     nodata = complexSrc.find('NODATA')
-    nodata.text = '0'
+    nodata.text = 'nan'
     tree.write(dst, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
