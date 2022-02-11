@@ -377,7 +377,7 @@ def main(config_file, section_name):
             print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene))
             start_time = time.time()
             try:
-                noise_power(infile=scene, outdir=config['out_dir'], polarizations=['VV', 'VH'],
+                noise_power(infile=scene, outdir=config['out_dir'], polarizations=scene.polarizations,
                             spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
                             demName=geocode_prms['demName'], externalDEMFile=config.get('ext_dem_file'),
                             externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
