@@ -59,11 +59,31 @@ def extract_tile(kml, tile):
     """
     with Vector(kml, driver='KML') as vec:
         feat = vec.getFeatureByAttribute('Name', tile)
-        attrib = html.fromstring(feat.GetFieldAsString(1))
-        attrib = [x for x in attrib.xpath('//tr/td//text()') if x != ' ']
-        attrib = dict(zip(attrib[0::2], attrib[1::2]))
+        attrib = description2dict(feat.GetField('Description'))
         feat = None
-    return wkt2vector(attrib['UTM_WKT'], int(attrib['EPSG']))
+    return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+
+
+def description2dict(description):
+    """
+    convert the HTML description field of the MGRS tile KML file to a dictionary.
+
+    Parameters
+    ----------
+    description: str
+        the plain text of the `Description` field
+
+    Returns
+    -------
+    dict
+        a dictionary with keys 'TILE_ID', 'EPSG', 'MGRS_REF', 'UTM_WKT' and 'LL_WKT'.
+        The value of field 'EPSG' is of type integer, all others are strings.
+    """
+    attrib = html.fromstring(description)
+    attrib = [x for x in attrib.xpath('//tr/td//text()') if x != ' ']
+    attrib = dict(zip(attrib[0::2], attrib[1::2]))
+    attrib['EPSG'] = int(attrib['EPSG'])
+    return attrib
 
 
 def main(config, tr):
