@@ -59,7 +59,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     None
     """
     if overviews is None:
-        overviews = [2, 4, 8, 16, 32]
+        overviews = [2, 4, 9, 18, 36]
     
     wbm = False
     if external_wbm is not None:
@@ -171,7 +171,8 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                             'z_error': 2e-5}}
     
     driver = 'COG'
-    write_options_base = ['BLOCKSIZE=512', 'OVERVIEW_RESAMPLING=AVERAGE']
+    ovr_resampling = 'AVERAGE'
+    write_options_base = ['BLOCKSIZE=512', 'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
     write_options = dict()
     for key in item_map:
         write_options[key] = write_options_base.copy()
@@ -230,13 +231,19 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
                 with Raster(list(item), list_separate=False) as ras:
                     source = ras.filename
             
-            if outname.endswith('-dm.tif'):
-                dstnodata = 255
-            else:
-                dstnodata = 'nan'
+            # modify temporary VRT to make sure overview levels and resampling are properly applied
+            tree = etree.parse(source)
+            root = tree.getroot()
+            ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': ovr_resampling.lower()})
+            ov = str(overviews)
+            for x in ['[', ']', ',']:
+                ov = ov.replace(x, '')
+            ovr.text = ov
+            etree.indent(root)
+            tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
             gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': 0, 'dstNodata': dstnodata,
+                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': 0, 'dstNodata': 'nan',
                               'creationOptions': write_options[key]})
     
     product_id, proc_time = ancil.generate_product_id()
