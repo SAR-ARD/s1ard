@@ -28,8 +28,9 @@ def get_config(config_file, section_name='GENERAL'):
     parser_sec = parser[section_name]
     
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'out_dir', 'tmp_dir',
-                    'db_file', 'kml_file', 'ext_dem_file', 'ext_wbm_file']
+                    'work_dir', 'scene_dir', 'out_dir', 'tmp_dir', 'wbm_dir',
+                    'db_file', 'kml_file', 'ext_dem_file', 'ext_wbm_file',
+                    'dem_dir', 'dem_type', 'dem_threads']
     out_dict = {}
     for k, v in parser_sec.items():
         if k not in allowed_keys:
@@ -69,8 +70,13 @@ def get_config(config_file, section_name='GENERAL'):
             else:
                 v = os.path.join(parser_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+        if k == 'dem_threads':
+            v = int(v)
+        if k == 'dem_type':
+            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II', 'Copernicus 90m Global DEM II']
+            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         out_dict[k] = v
-        
+    
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
     
     return out_dict
@@ -133,11 +139,10 @@ def geocode_params(config):
     return {'tr': {'IW': 10,
                    'SM': 10,
                    'EW': 20}[config['acq_mode']],
-            'demName': {'IW': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else
-                              'Copernicus 10m EEA DEM',
-                        'SM': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else
-                              'Copernicus 10m EEA DEM',
-                        'EW': 'GETASSE30'}[config['acq_mode']],
+            'demName':
+                {'IW': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else 'Copernicus 10m EEA DEM',
+                 'SM': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else 'Copernicus 10m EEA DEM',
+                 'EW': 'GETASSE30'}[config['acq_mode']],
             'scaling': 'linear',
             'groupsize': 1,
             'allow_RES_OSV': True,
