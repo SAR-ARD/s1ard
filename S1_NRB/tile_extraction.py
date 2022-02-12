@@ -1,44 +1,46 @@
-import os
 from lxml import html
-from spatialist import ogr2ogr
 from spatialist.vector import Vector, wkt2vector
 
 
-def tiles_from_aoi(filename, kml):
+def tiles_from_aoi(vectorobject, kml, epsg=None):
     """
-    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a vector file.
+    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a vector object.
     
     Parameters
     -------
-    filename: str
-        The vector file to read. The following file extensions are auto-detected:
-            .geojson (GeoJSON)
-            .gpkg (GPKG)
-            .kml (KML)
-            .shp (ESRI Shapefile)
+    vectorobject: spatialist.vector.Vector
+        The vector object to read.
     kml: str
         Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
         https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
+    epsg: int or list[int]
+        define which EPSG code(s) are allowed for the tile selection.
     
     Returns
     -------
     tiles: list[str]
         A list of unique UTM tile IDs.
     """
-    out = os.path.join(os.path.dirname(kml), 'tmp.gpkg')
-    
-    with Vector(filename) as aoi:
-        if aoi.getProjection('epsg') != 4326:
-            aoi.reproject(4326)
-        ext = aoi.extent
-        spat = (ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax'])
-        ogr2ogr(src=kml, dst=out, options={'format': 'GPKG', 'layers': ['Features'], 'spatFilter': spat})
-    
-    with Vector(out, driver='GPKG') as vec:
-        tiles = vec.getUniqueAttributes('Name')
-    
-    os.remove(out)
-    return tiles
+    if isinstance(epsg, int):
+        epsg = [epsg]
+    with Vector(kml, driver='KML') as vec:
+        tilenames = []
+        vectorobject.layer.ResetReading()
+        for item in vectorobject.layer:
+            geom = item.GetGeometryRef()
+            vec.layer.SetSpatialFilter(geom)
+            for tile in vec.layer:
+                tilename = tile.GetField('Name')
+                if tilename not in tilenames:
+                    attrib = description2dict(tile.GetField('Description'))
+                    if epsg is not None and attrib['EPSG'] not in epsg:
+                        continue
+                    tilenames.append(tilename)
+        vectorobject.layer.ResetReading()
+        tile = None
+        geom = None
+        item = None
+        return sorted(tilenames)
 
 
 def extract_tile(kml, tile):
@@ -59,11 +61,31 @@ def extract_tile(kml, tile):
     """
     with Vector(kml, driver='KML') as vec:
         feat = vec.getFeatureByAttribute('Name', tile)
-        attrib = html.fromstring(feat.GetFieldAsString(1))
-        attrib = [x for x in attrib.xpath('//tr/td//text()') if x != ' ']
-        attrib = dict(zip(attrib[0::2], attrib[1::2]))
+        attrib = description2dict(feat.GetField('Description'))
         feat = None
-    return wkt2vector(attrib['UTM_WKT'], int(attrib['EPSG']))
+    return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+
+
+def description2dict(description):
+    """
+    convert the HTML description field of the MGRS tile KML file to a dictionary.
+
+    Parameters
+    ----------
+    description: str
+        the plain text of the `Description` field
+
+    Returns
+    -------
+    dict
+        a dictionary with keys 'TILE_ID', 'EPSG', 'MGRS_REF', 'UTM_WKT' and 'LL_WKT'.
+        The value of field 'EPSG' is of type integer, all others are strings.
+    """
+    attrib = html.fromstring(description)
+    attrib = [x for x in attrib.xpath('//tr/td//text()') if x != ' ']
+    attrib = dict(zip(attrib[0::2], attrib[1::2]))
+    attrib['EPSG'] = int(attrib['EPSG'])
+    return attrib
 
 
 def main(config, tr):
@@ -88,8 +110,9 @@ def main(config, tr):
     if config['aoi_tiles'] is not None:
         tiles = config['aoi_tiles']
     elif config['aoi_tiles'] is None and config['aoi_geometry'] is not None:
-        tiles = tiles_from_aoi(filename=config['aoi_geometry'], kml=config['kml_file'])
-    elif config['aoi_tiles'] is None and config['aoi_geometry'] is None:
+        with Vector(config['aoi_geometry']) as aoi:
+            tiles = tiles_from_aoi(aoi, kml=config['kml_file'])
+    else:
         raise RuntimeError("Either 'aoi_tiles' or 'aoi_geometry' need to be provided!")
     
     geo_dict = {}

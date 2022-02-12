@@ -9,7 +9,7 @@ from spatialist.auxil import gdalwarp
 from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
-
+from pyroSAR.auxdata import dem_autoload, dem_create
 from S1_NRB.config import get_config, geocode_params
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
@@ -362,39 +362,100 @@ def main(config_file, section_name):
     epsg = epsg_set.pop()
     
     ####################################################################################################################
+    # DEM preparation
+    
+    ids = identify_many(selection)
+    boxes = [x.bbox() for x in ids]
+    
+    # fname_dem_tmp = os.path.join(dem_dir, 'DEM_{}.vrt'.format(datetime.now().strftime('%Y%m%dT%H%M%S')))
+    fname_dem_tmp = os.path.join(config['dem_dir'], 'DEM.vrt')
+    fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
+    
+    username = input('Please enter your DEM access username:')
+    password = input('Please enter your DEM access password:')
+    
+    if not os.path.isfile(fname_dem_tmp):
+        dem_autoload(boxes, demType=config['dem_type'],
+                     vrt=fname_dem_tmp, buffer=1.5, product='dem',
+                     username=username, password=password)
+    
+    if not os.path.isfile(fname_wbm_tmp):
+        dem_autoload(boxes, demType=config['dem_type'],
+                     vrt=fname_wbm_tmp, buffer=1.5, product='wbm',
+                     username=username, password=password,
+                     nodata=1, hide_nodata=True)
+    
+    dem_names = []
+    
+    for scene in ids:
+        dem_names_scene = []
+        with scene.bbox() as box:
+            tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
+            for tilename in tiles:
+                dem_tile = os.path.join(config['dem_dir'], '{}_DEM.tif'.format(tilename))
+                wbm_tile = os.path.join(config['wbm_dir'], '{}_WBM.tif'.format(tilename))
+                dem_names_scene.append(dem_tile)
+                if not os.path.isfile(dem_tile) or not os.path.isfile(wbm_tile):
+                    with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
+                        ext = tile.extent
+                        bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+                        if not os.path.isfile(dem_tile):
+                            dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
+                                       geoid_convert=True, geoid='EGM2008', pbar=True,
+                                       outputBounds=bounds, threads=config['dem_threads'])
+                        if not os.path.isfile(wbm_tile):
+                            dem_create(src=fname_wbm_tmp, dst=wbm_tile, t_srs=epsg, tr=(10, 10),
+                                       resampling_method='mode', pbar=True,
+                                       outputBounds=bounds, threads=config['dem_threads'])
+        dem_names.append(dem_names_scene)
+    boxes = None  # make sure all bounding box Vector objects are deleted
+    ####################################################################################################################
     # geocode & noise power - SNAP processing
     if geocode_flag:
-        for scene in selection:
-            print('###### SNAP GEOCODE: {scene}'.format(scene=scene))
+        for i, scene in enumerate(ids):
+            print('###### SNAP GEOCODE: {scene}'.format(scene=scene.scene))
             start_time = time.time()
+            dem_buffer = 200  # meters
+            fname_dem = os.path.join(config['tmp_dir'], scene.outname_base() + '_DEM.tif')
+            if not os.path.isfile(fname_dem):
+                with scene.geometry() as footprint:
+                    footprint.reproject(epsg)
+                    extent = footprint.extent
+                    extent['xmin'] -= dem_buffer
+                    extent['ymin'] -= dem_buffer
+                    extent['xmax'] += dem_buffer
+                    extent['ymax'] += dem_buffer
+                    with bbox(extent, epsg) as dem_box:
+                        with Raster(dem_names[i], list_separate=False)[dem_box] as dem_mosaic:
+                            dem_mosaic.write(fname_dem, format='GTiff')
             try:
                 geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
                         standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                        externalDEMFile=config.get('ext_dem_file'), **geocode_prms)
+                        externalDEMFile=fname_dem, **geocode_prms)
                 
                 t = round((time.time() - start_time), 2)
-                log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene, time=t))
+                log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
                 if t <= 500:
                     log.warning('[GEOCODE] -- {scene} -- Processing might have terminated prematurely. Check'
-                                ' terminal for uncaught SNAP errors!'.format(scene=scene))
+                                ' terminal for uncaught SNAP errors!'.format(scene=scene.scene))
             except Exception as e:
-                log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene, error=e))
+                log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                 continue
             
-            print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene))
+            print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene.scene))
             start_time = time.time()
             try:
-                noise_power(infile=scene, outdir=config['out_dir'], polarizations=['VV', 'VH'],
+                noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
                             spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
-                            demName=geocode_prms['demName'], externalDEMFile=config.get('ext_dem_file'),
+                            demName=geocode_prms['demName'], externalDEMFile=fname_dem,
                             externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
                             clean_edges=True)
                 t = round((time.time() - start_time), 2)
-                log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene, time=t))
+                log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
             except Exception as e:
-                log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene, error=e))
+                log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                 continue
     
     ####################################################################################################################
