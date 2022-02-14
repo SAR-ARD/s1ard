@@ -568,6 +568,40 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
                       overviews=overviews, options=creation_opt)
 
 
+def get_max_ext(boxes, buffer=None):
+    """
+    
+    Parameters
+    ----------
+    boxes: list[spatialist.vector.Vector objects]
+        List of vector objects.
+    buffer: float, optional
+        The buffer to apply to the extent.
+    Returns
+    -------
+    max_ext: dict
+        The maximum extent of the selected vector objects including buffer.
+    """
+    max_ext = {}
+    for geo in boxes:
+        if len(max_ext.keys()) == 0:
+            max_ext = geo.extent
+        else:
+            for key in ['xmin', 'ymin']:
+                if geo.extent[key] < max_ext[key]:
+                    max_ext[key] = geo.extent[key]
+            for key in ['xmax', 'ymax']:
+                if geo.extent[key] > max_ext[key]:
+                    max_ext[key] = geo.extent[key]
+    max_ext = dict(max_ext)
+    if buffer is not None:
+        max_ext['xmin'] -= buffer
+        max_ext['xmax'] += buffer
+        max_ext['ymin'] -= buffer
+        max_ext['ymax'] += buffer
+    return max_ext
+
+
 def set_logging(config):
     """
     Set logging for the current process.
