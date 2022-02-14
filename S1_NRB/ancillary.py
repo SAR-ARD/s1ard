@@ -210,8 +210,6 @@ def generate_unique_id(encoded_str):
     -------
     p_id: str
         The unique product identifier.
-    t: datetime.datetime
-        The datetime object used to generate the unique product identifier from.
     """
     crc = binascii.crc_hqx(encoded_str, 0xffff)
     p_id = '{:04X}'.format(crc & 0xffff)
