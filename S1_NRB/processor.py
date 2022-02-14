@@ -16,6 +16,7 @@ from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
+from getpass import getpass
 
 gdal.UseExceptions()
 
@@ -371,7 +372,7 @@ def main(config_file, section_name):
     wbm = False
     if not config['dem_type'] == 'GETASSE30':
         username = input('Please enter your DEM access username:')
-        password = input('Please enter your DEM access password:')
+        password = getpass('Please enter your DEM access password:')
         wbm = True
         fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
         if not os.path.isfile(fname_wbm_tmp):
