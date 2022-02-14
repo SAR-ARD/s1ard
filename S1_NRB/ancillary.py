@@ -12,7 +12,6 @@ from osgeo import gdal
 from scipy.interpolate import griddata
 from spatialist import gdalbuildvrt, Raster, bbox
 from pyroSAR import identify, finder
-from pyroSAR.ancillary import groupbyTime, seconds
 
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
@@ -589,12 +588,15 @@ def _log_process_config(logger, config):
     acq_mode = {config['acq_mode']}
     
     work_dir = {config['work_dir']}
+    scene_dir = {config['scene_dir']}
     out_dir = {config['out_dir']}
     tmp_dir = {config['tmp_dir']}
+    dem_dir = {config['dem_dir']}
+    wbm_dir = {config['wbm_dir']}
     db_file = {config['db_file']}
     kml_file = {config['kml_file']}
-    ext_dem_file = {config.get('ext_dem_file')}
-    ext_wbm_file = {config.get('ext_wbm_file')}
+    dem_type = {config.get('dem_type')}
+    
     ====================================================================================================================
     SOFTWARE
     
@@ -603,6 +605,7 @@ def _log_process_config(logger, config):
     python: {sys.version}
     python-pyroSAR: {pyroSAR.__version__}
     python-GDAL: {gdal.__version__}
+    gdal_threads = {config.get('gdal_threads')}
     
     ====================================================================================================================
     """
