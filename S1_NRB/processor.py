@@ -10,7 +10,7 @@ from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 from pyroSAR.auxdata import dem_autoload, dem_create
-from S1_NRB.config import get_config, geocode_params
+from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
@@ -78,7 +78,6 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
         raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
     
     pattern = '[VH]{2}_gamma0-rtc'
-    
     i = 0
     snap_dm_tile_overlap = []
     while i < len(datasets):
@@ -319,7 +318,8 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
 def main(config_file, section_name):
     config = get_config(config_file=config_file, section_name=section_name)
     log = ancil.set_logging(config=config)
-    geocode_prms = geocode_params(config=config)
+    geocode_prms = geocode_conf(config=config)
+    gdal_prms = gdal_conf(config=config)
     
     geocode_flag = True
     nrb_flag = True
@@ -350,10 +350,11 @@ def main(config_file, section_name):
                                                                                         mindate=config['mindate'],
                                                                                         maxdate=config['maxdate'],
                                                                                         scene_dir=config['scene_dir']))
+    
     ####################################################################################################################
     # geometry handling
     geo_dict, align_dict = tile_ex.main(config=config, tr=geocode_prms['tr'])
-    tiles = list(geo_dict.keys())
+    aoi_tiles = list(geo_dict.keys())
     
     epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys())])
     if len(epsg_set) != 1:
@@ -367,54 +368,62 @@ def main(config_file, section_name):
     ids = identify_many(selection)
     boxes = [x.bbox() for x in ids]
     
+    username = None
+    password = None
+    wbm = False
+    if not config['dem_type'] == 'GETASSE30':
+        username = input('Please enter your DEM access username:')
+        password = input('Please enter your DEM access password:')
+        wbm = True
+        fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
+        if not os.path.isfile(fname_wbm_tmp):
+            dem_autoload(boxes, demType=config['dem_type'],
+                         vrt=fname_wbm_tmp, buffer=1.5, product='wbm',
+                         username=username, password=password,
+                         nodata=1, hide_nodata=True)
+    
     # fname_dem_tmp = os.path.join(dem_dir, 'DEM_{}.vrt'.format(datetime.now().strftime('%Y%m%dT%H%M%S')))
     fname_dem_tmp = os.path.join(config['dem_dir'], 'DEM.vrt')
-    fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
-    
-    username = input('Please enter your DEM access username:')
-    password = input('Please enter your DEM access password:')
-    
     if not os.path.isfile(fname_dem_tmp):
         dem_autoload(boxes, demType=config['dem_type'],
                      vrt=fname_dem_tmp, buffer=1.5, product='dem',
                      username=username, password=password)
     
-    if not os.path.isfile(fname_wbm_tmp):
-        dem_autoload(boxes, demType=config['dem_type'],
-                     vrt=fname_wbm_tmp, buffer=1.5, product='wbm',
-                     username=username, password=password,
-                     nodata=1, hide_nodata=True)
-    
     dem_names = []
-    
     for scene in ids:
         dem_names_scene = []
         with scene.bbox() as box:
             tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
             for tilename in tiles:
                 dem_tile = os.path.join(config['dem_dir'], '{}_DEM.tif'.format(tilename))
-                wbm_tile = os.path.join(config['wbm_dir'], '{}_WBM.tif'.format(tilename))
                 dem_names_scene.append(dem_tile)
-                if not os.path.isfile(dem_tile) or not os.path.isfile(wbm_tile):
+                if not os.path.isfile(dem_tile):
                     with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
                         ext = tile.extent
                         bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-                        if not os.path.isfile(dem_tile):
-                            dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
-                                       geoid_convert=True, geoid='EGM2008', pbar=True,
-                                       outputBounds=bounds, threads=config['dem_threads'])
-                        if not os.path.isfile(wbm_tile):
+                        dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
+                                   geoid_convert=True, geoid='EGM2008', pbar=True,
+                                   outputBounds=bounds, threads=gdal_prms['threads'])
+            if wbm:
+                for tilename in tiles:
+                    wbm_tile = os.path.join(config['wbm_dir'], '{}_WBM.tif'.format(tilename))
+                    if not os.path.isfile(wbm_tile):
+                        with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
+                            ext = tile.extent
+                            bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
                             dem_create(src=fname_wbm_tmp, dst=wbm_tile, t_srs=epsg, tr=(10, 10),
                                        resampling_method='mode', pbar=True,
-                                       outputBounds=bounds, threads=config['dem_threads'])
+                                       outputBounds=bounds, threads=gdal_prms['threads'])
         dem_names.append(dem_names_scene)
     boxes = None  # make sure all bounding box Vector objects are deleted
+    
     ####################################################################################################################
     # geocode & noise power - SNAP processing
     if geocode_flag:
         for i, scene in enumerate(ids):
             print('###### SNAP GEOCODE: {scene}'.format(scene=scene.scene))
             start_time = time.time()
+            
             dem_buffer = 200  # meters
             fname_dem = os.path.join(config['tmp_dir'], scene.outname_base() + '_DEM.tif')
             if not os.path.isfile(fname_dem):
@@ -447,8 +456,7 @@ def main(config_file, section_name):
             try:
                 noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
                             spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
-                            demName=geocode_prms['demName'], externalDEMFile=fname_dem,
-                            externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
+                            externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
                             clean_edges=True)
@@ -463,7 +471,7 @@ def main(config_file, section_name):
     if nrb_flag:
         selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
         
-        for tile in tiles:
+        for tile in aoi_tiles:
             outdir = os.path.join(config['out_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
             
