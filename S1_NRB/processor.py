@@ -22,7 +22,7 @@ from getpass import getpass
 gdal.UseExceptions()
 
 
-def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithread=True,
+def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm_path=None, multithread=True,
                    compress='LERC_ZSTD', overviews=None, recursive=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
@@ -48,6 +48,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
+    wbm_path: str, optional
+        Path to a water body mask file.
     multithread: bool, optional
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         config.ini file with the parameter `gdal_threads`.
@@ -273,18 +275,13 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
     
     ####################################################################################################################
     # Data mask
-    wbm = False
-    wbm_path = None
-    if not config['dem_type'] == 'GETASSE30':
-        wbm = True
-        wbm_path = os.path.join(config['wbm_dir'], 'WBM.vrt')
-        if not os.path.isfile(wbm_path):
-            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm_path))
+    if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm_path):
+        raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm_path))
     
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, wbm_path=wbm_path)
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm_path=wbm_path)
     
     ####################################################################################################################
     # Acquisition ID image
@@ -369,26 +366,33 @@ def main(config_file, section_name):
     
     ids = identify_many(selection)
     boxes = [x.bbox() for x in ids]
+    buffer = 1.5
+    max_ext = ancil.get_max_ext(boxes=boxes, buffer=buffer)
+    ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
     
+    wbm_dir = os.path.join(config['wbm_dir'], config['dem_type'])
+    dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
     username = None
     password = None
     wbm = False
+    fname_wbm_tmp = None
     if not config['dem_type'] == 'GETASSE30':
         username = input('Please enter your DEM access username:')
         password = getpass('Please enter your DEM access password:')
         wbm = True
-        fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
+        os.makedirs(wbm_dir, exist_ok=True)
+        fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
         if not os.path.isfile(fname_wbm_tmp):
             dem_autoload(boxes, demType=config['dem_type'],
-                         vrt=fname_wbm_tmp, buffer=1.5, product='wbm',
+                         vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
                          username=username, password=password,
                          nodata=1, hide_nodata=True)
     
-    # fname_dem_tmp = os.path.join(dem_dir, 'DEM_{}.vrt'.format(datetime.now().strftime('%Y%m%dT%H%M%S')))
-    fname_dem_tmp = os.path.join(config['dem_dir'], 'DEM.vrt')
+    os.makedirs(dem_dir, exist_ok=True)
+    fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
     if not os.path.isfile(fname_dem_tmp):
         dem_autoload(boxes, demType=config['dem_type'],
-                     vrt=fname_dem_tmp, buffer=1.5, product='dem',
+                     vrt=fname_dem_tmp, buffer=buffer, product='dem',
                      username=username, password=password)
     
     dem_names = []
@@ -484,7 +488,7 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
-                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg,
+                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm_path=fname_wbm_tmp,
                                    multithread=gdal_prms['multithread'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))

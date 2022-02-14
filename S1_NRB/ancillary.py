@@ -346,7 +346,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
-                     overview_resampling, out_format=None, wbm=False, wbm_path=None):
+                     overview_resampling, out_format=None, wbm_path=None):
     """
     Creates the Data Mask file.
     
@@ -426,8 +426,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
             proj = ras_snap_ls.raster.GetProjection()
             arr_snap_dm = ras_snap_ls.array()
             
-            # Add Water Body Mask if wbm=True
-            if wbm:
+            # Add Water Body Mask
+            if wbm_path is not None:
                 with Raster(wbm_path)[tile_vec] as ras_wbm:
                     arr_wbm = ras_wbm.array()
                     out_arr = np.where((arr_wbm == 1), 4, arr_snap_dm)
