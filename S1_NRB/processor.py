@@ -20,8 +20,8 @@ from S1_NRB.metadata import extract, xmlparser, stacparser
 gdal.UseExceptions()
 
 
-def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compress='LERC_ZSTD',
-                   overviews=None, recursive=False, external_wbm=None):
+def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithread=True,
+                   compress='LERC_ZSTD', overviews=None, recursive=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
     have been executed. This includes the following:
@@ -32,6 +32,8 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     
     Parameters
     ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
     scenes: list[str]
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
@@ -44,8 +46,9 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
-    dem_name: str
-        Name of the DEM used for processing. Must match with supported options listed by `pyroSAR.snap.util.geocode`
+    multithread: bool, optional
+        Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
+        config.ini file with the parameter `gdal_threads`.
     compress: str, optional
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
@@ -241,9 +244,10 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
             etree.indent(root)
             tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
+            snap_nodata = 0
             gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': 0, 'dstNodata': 'nan',
-                              'creationOptions': write_options[key]})
+                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': snap_nodata, 'dstNodata': 'nan',
+                              'multithread': multithread, 'creationOptions': write_options[key]})
     
     product_id, proc_time = ancil.generate_product_id()
     nrbdir_new = nrbdir.replace('ABCD', product_id)
@@ -309,8 +313,7 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
     ####################################################################################################################
     # metadata
     nrb_tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True, recursive=True)
-    meta = extract.meta_dict(target=nrbdir, src_scenes=src_scenes, src_files=files,
-                             dem_name=dem_name, proc_time=proc_time)
+    meta = extract.meta_dict(config=config, target=nrbdir, src_scenes=src_scenes, src_files=files, proc_time=proc_time)
     xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 
@@ -481,11 +484,13 @@ def main(config_file, section_name):
                 print('###### NRB: {tile} | {scenes}'.format(tile=tile, scenes=[os.path.basename(s) for s in scenes]))
                 start_time = time.time()
                 try:
-                    nrb_processing(scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir, tile=tile,
-                                   extent=geo_dict[tile]['ext'],
-                                   epsg=epsg, external_wbm=config.get('ext_wbm_file'), dem_name=geocode_prms['demName'])
+                    nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
+                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg,
+                                   multithread=gdal_prms['multithread'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))
                 except Exception as e:
                     log.exception('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
                     continue
+        
+        gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
