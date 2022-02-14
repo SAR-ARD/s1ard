@@ -297,7 +297,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
-                     multilayer=False, wbm=False, wbm_path=None):
+                     overview_resampling, out_format=None, wbm=False, wbm_path=None):
     """
     Creates the Data Mask file.
     
@@ -319,8 +319,14 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         GDAL creation options to use for raster file creation. Should match specified GDAL driver.
     overviews: list[int]
         Internal overview levels to be created for each raster file.
-    multilayer: bool, optional
-        Should individual masks be written into separate bands, creating a multi-level raster file? Default is False.
+    overview_resampling: str
+        Resampling method for overview levels.
+    out_format: str
+        The desired output format of the data mask. The following options are possible:
+        - 'single-layer': Individual masks will be merged into a single-layer raster file, where each mask is encoded
+        as its initial bit-value.
+        - 'multi-layer' (Default): Individual masks will be written into seperate bands encoded with 1 where the mask
+        information is True and 0 where it is False, creating a multi-layer raster file.
     wbm: bool, optional
         Include 'ocean water' information from an external Water Body Mask? Default is False.
     wbm_path: str, optional
@@ -331,8 +337,13 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     None
     """
     print(outname)
-    outname_ml = outname.replace('.tif', '_2.tif')
     out_nodata = 255
+    
+    if out_format is None:
+        out_format = 'multi-layer'
+    else:
+        if not out_format == 'single-layer':
+            raise RuntimeError("format can only be 'single-layer' or 'multi-layer'!")
     
     pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in src_files if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
@@ -390,14 +401,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
                     del arr_snap_gamma0
                     del arr_snap_valid
         
-        # SINGLE-LAYER COG
-        ras_snap_ls.write(outname, format=driver,
-                          array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True, overviews=overviews,
-                          options=creation_opt)
-        
-        # MULTI-LAYER COG
-        if multilayer:
-            outname_tmp = '/vsimem/' + os.path.basename(outname_ml) + '.vrt'
+        if out_format == 'multi-layer':
+            outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
             gdriver = gdal.GetDriverByName('GTiff')
             ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
                                     options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
@@ -428,11 +433,14 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
                 del arr
             
             ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
-            ds_tmp.BuildOverviews('AVERAGE', [2, 4, 8, 16, 32])
-            outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(outname_ml, ds_tmp,
-                                                                     strict=1, options=creation_opt)
+            ds_tmp.BuildOverviews(overview_resampling, overviews)
+            outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(outname, ds_tmp, strict=1, options=creation_opt)
             outDataset_cog = None
             ds_tmp = None
+        elif out_format == 'single-layer':
+            ras_snap_ls.write(outname, format=driver,
+                              array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True, overviews=overviews,
+                              options=creation_opt)
         tile_vec = None
 
 

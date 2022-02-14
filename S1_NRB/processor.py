@@ -64,14 +64,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
     if overviews is None:
         overviews = [2, 4, 9, 18, 36]
     
-    wbm = False
-    if external_wbm is not None:
-        wbm = True
-        if not os.path.isfile(external_wbm):
-            raise FileNotFoundError('External water body mask could not be found: {}'.format(external_wbm))
-    
     ids = identify_many(scenes)
-    
     datasets = [find_datasets(directory=datadir,
                               recursive=recursive,
                               start=id.start, stop=id.start)
@@ -277,10 +270,18 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
     
     ####################################################################################################################
     # Data mask
+    wbm = False
+    wbm_path = None
+    if not config['dem_type'] == 'GETASSE30':
+        wbm = True
+        wbm_path = os.path.join(config['wbm_dir'], 'WBM.vrt')
+        if not os.path.isfile(wbm_path):
+            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm_path))
+    
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, multilayer=True, wbm=wbm, wbm_path=external_wbm)
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, wbm_path=wbm_path)
     
     ####################################################################################################################
     # Acquisition ID image
