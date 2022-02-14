@@ -374,7 +374,6 @@ def main(config_file, section_name):
     dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
     username = None
     password = None
-    wbm = False
     fname_wbm_tmp = None
     if not config['dem_type'] == 'GETASSE30':
         username = input('Please enter your DEM access username:')
@@ -401,7 +400,7 @@ def main(config_file, section_name):
         with scene.bbox() as box:
             tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
             for tilename in tiles:
-                dem_tile = os.path.join(config['dem_dir'], '{}_DEM.tif'.format(tilename))
+                dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
                 dem_names_scene.append(dem_tile)
                 if not os.path.isfile(dem_tile):
                     with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
@@ -410,9 +409,9 @@ def main(config_file, section_name):
                         dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
                                    geoid_convert=True, geoid='EGM2008', pbar=True,
                                    outputBounds=bounds, threads=gdal_prms['threads'])
-            if wbm:
+            if fname_wbm_tmp is not None:
                 for tilename in tiles:
-                    wbm_tile = os.path.join(config['wbm_dir'], '{}_WBM.tif'.format(tilename))
+                    wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
                     if not os.path.isfile(wbm_tile):
                         with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
                             ext = tile.extent
