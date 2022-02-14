@@ -386,8 +386,6 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         A list of paths pointing to the source scenes of the product.
     src_files: list[str]
         A list of paths pointing to the SNAP processed datasets of the product.
-    dem_name: str
-        Name of the DEM used for processing.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
     
@@ -425,14 +423,20 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
                              'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
                              'type': 'elevation',
                              'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
-               'Copernicus 10m EEA DEM': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/',
+               'Copernicus 10m EEA DEM': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
                                           'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
                                           'type': 'surface',
                                           'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 30m Global DEM': {'url': 'https://registry.opendata.aws/copernicus-dem/',
-                                             'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                             'type': 'surface',
-                                             'egm': 'https://doi.org/10.1029/2011JB008916'}}
+               'Copernicus 30m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
+                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+                                                'type': 'surface',
+                                                'egm': 'https://doi.org/10.1029/2011JB008916'},
+               'Copernicus 90m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
+                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+                                                'type': 'surface',
+                                                'egm': 'https://doi.org/10.1029/2011JB008916'}
+               }
+    dem_name = config['dem_type']
     dem_url = dem_map[dem_name]['url']
     dem_ref = dem_map[dem_name]['ref']
     dem_type = dem_map[dem_name]['type']
@@ -519,7 +523,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'pixel ULC'
     meta['prod']['processingCenter'] = 'FSU'
-    meta['prod']['processingLevel'] = 'L2'
+    meta['prod']['processingLevel'] = 'L1C'
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = '0.1'
