@@ -1,11 +1,13 @@
 import os
 import re
 import time
+from lxml import etree
+import tempfile
 import numpy as np
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
 from spatialist.ancillary import finder
-from spatialist.auxil import gdalwarp
+from spatialist.auxil import gdalwarp, gdalbuildvrt
 from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
@@ -48,11 +50,9 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int], optional
-        Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 8, 16, 32]
+        Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
     recursive: bool, optional
-        Find datasets recursively in the directory specified with the parameter 'outdir'? Default is False.
-    external_wbm: str, optional
-        Path to the COP-DEM water body mask.
+        Find datasets recursively in the directory specified with the parameter `datadir`? Default is False.
     
     Returns
     -------
@@ -223,12 +223,12 @@ def nrb_processing(scenes, datadir, outdir, tile, extent, epsg, dem_name, compre
             print(outname)
             bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
             
-            if isinstance(item, str):
-                source = item
-            else:
-                # mosaic files in temporary VRT
+            if isinstance(item, tuple):
                 with Raster(list(item), list_separate=False) as ras:
                     source = ras.filename
+            elif isinstance(item, str):
+                source = tempfile.NamedTemporaryFile(suffix='.vrt').name
+                gdalbuildvrt(item, source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             tree = etree.parse(source)
