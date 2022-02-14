@@ -298,7 +298,10 @@ def product_xml(meta, target, tifs):
     egmReference.text = meta['prod']['demEgmReference']
     egmResamplingMethod = etree.SubElement(ProcessingInformation, _nsc('nrb:egmResamplingMethod'))
     egmResamplingMethod.text = meta['prod']['demEgmResamplingMethod'].upper()
-    
+    azimuthNumberOfLooks = etree.SubElement(ProcessingInformation, _nsc('nrb:azimuthNumberOfLooks'))
+    azimuthNumberOfLooks.text = meta['prod']['azimuthNumberOfLooks']
+    rangeNumberOfLooks = etree.SubElement(ProcessingInformation, _nsc('nrb:rangeNumberOfLooks'))
+    rangeNumberOfLooks.text = meta['prod']['rangeNumberOfLooks']
     filterApplied = etree.SubElement(ProcessingInformation, _nsc('nrb:filterApplied'))
     filterApplied.text = str(meta['prod']['filterApplied']).lower()
     if meta['prod']['filterApplied']:

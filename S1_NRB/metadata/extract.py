@@ -3,6 +3,7 @@ import re
 from lxml import etree
 from datetime import datetime
 from pyroSAR import identify
+from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
@@ -13,7 +14,7 @@ import numpy as np
 from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
 
 
-def get_prod_meta(product_id, tif, sources):
+def get_prod_meta(product_id, tif, src_scenes, src_dir):
     """
     Returns a metadata dictionary, which is generated from the ID of a product scene using a regular expression pattern
     and from a measurement GeoTIFF file of the same product scene using spatialist's Raster class.
@@ -24,8 +25,10 @@ def get_prod_meta(product_id, tif, sources):
         The product ID (filename) of the product scene.
     tif: str
         The paths to a measurement GeoTIFF file of the product scene.
-    sources: list[str]
+    src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
+    src_dir: str
+        A paths pointing to the SNAP processed datasets of the product.
     
     Returns
     -------
@@ -34,7 +37,7 @@ def get_prod_meta(product_id, tif, sources):
     """
     
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
-    coord_list = [identify(src).meta['coordinates'] for src in sources]
+    coord_list = [identify(src).meta['coordinates'] for src in src_scenes]
     
     with vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
@@ -62,6 +65,13 @@ def get_prod_meta(product_id, tif, sources):
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
+        srcvec = None
+    
+    pat = 'S1[AB]__(IW|EW|S[1-6]{1})___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
+    wf_path = finder(src_dir, [pat], regex=True)[0]
+    wf = parse_recipe(wf_path)
+    out['ML_nRgLooks'] = wf['Multilook'].parameters['nRgLooks']
+    out['ML_nAzLooks'] = wf['Multilook'].parameters['nAzLooks']
     
     return out
 
@@ -360,7 +370,7 @@ def calc_performance_estimates(files, ref_tif):
     return out
 
 
-def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
+def meta_dict(config, target, src_scenes, src_files, proc_time):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -368,6 +378,8 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
     
     Parameters
     ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
     target: str
         A path pointing to the root directory of a product scene.
     src_scenes: list[str]
@@ -390,8 +402,9 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
             'common': {}}
     
     product_id = os.path.basename(target)
-    tif = finder(target, ['vh-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, sources=src_scenes)
+    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
+                              src_dir=os.path.dirname(src_files[0]))
     
     src_sid = {}
     src_xml = {}
@@ -453,6 +466,7 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
     meta['prod']['ancillaryData1'] = None
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ascendingNodeDate'] = manifest0.find('.//s1:ascendingNodeTime', nsmap0).text
+    meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0'
@@ -515,6 +529,7 @@ def meta_dict(target, src_scenes, src_files, dem_name, proc_time):
     meta['prod']['radiometricAccuracyAbsolute'] = None
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
+    meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['status'] = 'PROTOTYPE'
     meta['prod']['timeCreated'] = proc_time
