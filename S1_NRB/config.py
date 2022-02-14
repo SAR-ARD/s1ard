@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import configparser
+from osgeo import gdal
 
 
 def get_config(config_file, section_name='GENERAL'):
@@ -28,9 +29,8 @@ def get_config(config_file, section_name='GENERAL'):
     parser_sec = parser[section_name]
     
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'out_dir', 'tmp_dir', 'wbm_dir',
-                    'db_file', 'kml_file', 'ext_dem_file', 'ext_wbm_file',
-                    'dem_dir', 'dem_type', 'dem_threads']
+                    'work_dir', 'scene_dir', 'out_dir', 'tmp_dir', 'dem_dir', 'wbm_dir',
+                    'db_file', 'kml_file', 'dem_type', 'gdal_threads']
     out_dict = {}
     for k, v in parser_sec.items():
         if k not in allowed_keys:
@@ -70,10 +70,11 @@ def get_config(config_file, section_name='GENERAL'):
             else:
                 v = os.path.join(parser_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
-        if k == 'dem_threads':
+        if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
-            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II', 'Copernicus 90m Global DEM II']
+            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II', 'Copernicus 90m Global DEM II',
+                       'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         out_dict[k] = v
     
@@ -117,7 +118,7 @@ def _val_cleanup(val):
     return val.replace('"', '').replace("'", "")
 
 
-def geocode_params(config):
+def geocode_conf(config):
     """
     Returns a dictionary of additional parameters for `pyroSAR.snap.util.geocode` based on processing configurations
     provided by the config file.
@@ -139,10 +140,6 @@ def geocode_params(config):
     return {'tr': {'IW': 10,
                    'SM': 10,
                    'EW': 20}[config['acq_mode']],
-            'demName':
-                {'IW': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else 'Copernicus 10m EEA DEM',
-                 'SM': 'Copernicus 30m Global DEM' if config.get('ext_dem_file') is None else 'Copernicus 10m EEA DEM',
-                 'EW': 'GETASSE30'}[config['acq_mode']],
             'scaling': 'linear',
             'groupsize': 1,
             'allow_RES_OSV': True,
@@ -156,3 +153,27 @@ def geocode_params(config):
             'clean_edges_npixels': 3,
             'test': False,
             'cleanup': True}
+
+
+def dem_type_short(dem_type):
+    return {'Copernicus 10m EEA DEM': 'COP-EEA10',
+            'Copernicus 30m Global DEM II': 'COP-GLO30',
+            'Copernicus 90m Global DEM II': 'COP-GLO90',
+            'GETASSE30': 'GETASSE30'}[dem_type]
+
+
+def gdal_conf(config):
+    threads = config['gdal_threads']
+    threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
+    if not isinstance(threads, int):
+        raise TypeError("'threads' must be of type int")
+    if threads == 1:
+        multithread = False
+    elif threads > 1:
+        multithread = True
+        gdal.SetConfigOption('GDAL_NUM_THREADS', str(threads))
+    else:
+        raise ValueError("'threads' must be >= 1")
+    
+    return {'threads': threads, 'threads_before': threads_before,
+            'multithread': multithread}
