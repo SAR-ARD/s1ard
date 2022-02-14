@@ -120,7 +120,7 @@ def vrt_relpath(vrt):
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def create_rgb_vrt(outname, measure_paths, overviews):
+def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     """
     Creates the RGB VRT file.
     
@@ -128,10 +128,12 @@ def create_rgb_vrt(outname, measure_paths, overviews):
     ----------
     outname: str
         Full path to the output RGB VRT file.
-    measure_paths: list[str]
-        A list of paths pointing to the backscatter measurement files for all available polarizations.
+    infiles: list[str]
+        A list of paths.
     overviews: list[int]
         Internal overview levels to be defined for the created VRT file.
+    overview_resampling: str
+        Resampling method for overview levels.
     
     Returns
     -------
@@ -140,16 +142,16 @@ def create_rgb_vrt(outname, measure_paths, overviews):
     print(outname)
     
     # make sure order is right and VV polarization is first
-    measure_paths_reorder = []
-    for i, m_path in enumerate(measure_paths):
-        pol = re.search('[hv]{2}', os.path.basename(m_path)).group()
+    paths_reorder = []
+    for i, f in enumerate(infiles):
+        pol = re.search('[hv]{2}', os.path.basename(f)).group()
         if i == 1 and pol == 'vv':
-            measure_paths_reorder.append(m_path)
-            measure_paths_reorder.append(measure_paths[0])
-            measure_paths = measure_paths_reorder
+            paths_reorder.append(f)
+            paths_reorder.append(infiles[0])
+            infiles = paths_reorder
     
     # create VRT and change its content
-    gdalbuildvrt(src=measure_paths, dst=outname, options={'VRTNodata': 'NaN', 'separate': True})
+    gdalbuildvrt(src=infiles, dst=outname, options={'separate': True})
     
     tree = etree.parse(outname)
     root = tree.getroot()
@@ -161,15 +163,17 @@ def create_rgb_vrt(outname, measure_paths, overviews):
     vrt_nodata.text = 'nan'
     new_band.insert(1, deepcopy(bands[0].find('ComplexSource')))
     new_band.insert(2, deepcopy(bands[1].find('ComplexSource')))
+    # pxfun_type = etree.SubElement(new_band, 'PixelFunctionType')
+    # pxfun_type.text = 'diff'
     pxfun_language = etree.SubElement(new_band, 'PixelFunctionLanguage')
     pxfun_language.text = 'Python'
     pxfun_type = etree.SubElement(new_band, 'PixelFunctionType')
     pxfun_type.text = 'div'
     pxfun_code = etree.SubElement(new_band, 'PixelFunctionCode')
     pxfun_code.text = etree.CDATA("""
-    import numpy as np
-    def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
-        np.divide(in_ar[0], in_ar[1], out=out_ar, where=in_ar[1]!=0, dtype='float32')
+import numpy as np
+def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
+    np.divide(in_ar[0], in_ar[1], out=out_ar, where=in_ar[1]!=0, dtype='float32')
     """)
     
     bands = tree.findall('VRTRasterBand')
@@ -178,7 +182,7 @@ def create_rgb_vrt(outname, measure_paths, overviews):
         color.text = col
         band.insert(1, color)
     
-    ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': 'nearest'})
+    ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': overview_resampling.lower()})
     ov = str(overviews)
     for x in ['[', ']', ',']:
         ov = ov.replace(x, '')
