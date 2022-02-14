@@ -16,7 +16,7 @@ from pyroSAR import identify, finder
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
-def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None):
+def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=None, overview_resampling=None):
     """
     Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
     when opening the VRT file.
@@ -31,13 +31,21 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None):
         A PixelFunctionType that should be applied on the fly when opening the VRT file. The function is applied to a
         band that derives its pixel information from the source bands. A list of possible options can be found here:
         https://gdal.org/drivers/raster/vrt.html#default-pixel-functions
+        Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
+        Python code for decibel conversion (10*log10).
     scale: int, optional
          The scale that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
+         Will be ignored if `fun='decibel'`.
     offset: float, optional
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
+        Will be ignored if `fun='decibel'`.
     options: dict, optional
         Additional parameters passed to gdal.BuildVRT. For possible options see:
         https://gdal.org/python/osgeo.gdal-module.html#BuildVRTOptions
+    overviews: list[int], optional
+        Internal overview levels to be created for each raster file.
+    overview_resampling: str, optional
+        Resampling method for overview levels.
     
     Returns
     -------
@@ -45,19 +53,48 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None):
     """
     gdalbuildvrt(src=src, dst=dst, options=options)
     tree = etree.parse(dst)
+    root = tree.getroot()
     band = tree.find('VRTRasterBand')
     band.attrib['subClass'] = 'VRTDerivedRasterBand'
-    pixfun = etree.SubElement(band, 'PixelFunctionType')
-    pixfun.text = fun
-    if scale is not None:
-        sc = etree.SubElement(band, 'Scale')
-        sc.text = str(scale)
-    if offset is not None:
-        off = etree.SubElement(band, 'Offset')
-        off.text = str(offset)
+    
+    if fun == 'decibel':
+        pxfun_language = etree.SubElement(band, 'PixelFunctionLanguage')
+        pxfun_language.text = 'Python'
+        pxfun_type = etree.SubElement(band, 'PixelFunctionType')
+        pxfun_type.text = fun
+        pxfun_code = etree.SubElement(band, 'PixelFunctionCode')
+        pxfun_code.text = etree.CDATA("""
+    import numpy as np
+    def decibel(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
+        np.multiply(np.log10(in_ar[0], where=in_ar[0]>0.0, out=out_ar, dtype='float32'), 10.0, out=out_ar, dtype='float32')
+        """)
+    else:
+        pixfun_type = etree.SubElement(band, 'PixelFunctionType')
+        pixfun_type.text = fun
+        if scale is not None:
+            sc = etree.SubElement(band, 'Scale')
+            sc.text = str(scale)
+        if offset is not None:
+            off = etree.SubElement(band, 'Offset')
+            off.text = str(offset)
+    
     complexSrc = band.find('ComplexSource')
     nodata = complexSrc.find('NODATA')
     nodata.text = 'nan'
+    
+    if any([overviews, overview_resampling]) is not None:
+        ovr = tree.find('OverviewList')
+        if ovr is None:
+            ovr = etree.SubElement(root, 'OverviewList')
+        if overview_resampling is not None:
+            ovr.attrib['resampling'] = overview_resampling.lower()
+        if overviews is not None:
+            ov = str(overviews)
+            for x in ['[', ']', ',']:
+                ov = ov.replace(x, '')
+            ovr.text = ov
+    
+    etree.indent(root)
     tree.write(dst, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
@@ -79,6 +116,7 @@ def vrt_relpath(vrt):
     repl = '../annotation/' + os.path.basename(test.text.replace('\\', '\\\\'))
     test.text = repl
     test.attrib['relativeToVRT'] = '1'
+    etree.indent(tree.getroot())
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 

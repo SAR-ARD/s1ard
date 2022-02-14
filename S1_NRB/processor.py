@@ -297,19 +297,14 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            ancil.vrt_pixfun(src=[item, gs_path],
-                             dst=sigma0_rtc_lin,
-                             fun='mul',
-                             options={'VRTNodata': 'NaN'})
+            ancil.vrt_pixfun(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
+                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
             ancil.vrt_relpath(sigma0_rtc_lin)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
-            ancil.vrt_pixfun(src=sigma0_rtc_lin,
-                             dst=sigma0_rtc_log,
-                             fun='log10',
-                             scale=10,
-                             options={'VRTNodata': 'NaN'})
+            ancil.vrt_pixfun(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
+                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
     
     ####################################################################################################################
     # metadata
