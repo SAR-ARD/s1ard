@@ -181,6 +181,9 @@ def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf
         color = etree.Element('ColorInterp')
         color.text = col
         band.insert(1, color)
+        if band.attrib['band'] in ['1', '2']:
+            ndv = band.find('NoDataValue')
+            band.remove(ndv)
     
     ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': overview_resampling.lower()})
     ov = str(overviews)
