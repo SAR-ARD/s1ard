@@ -195,10 +195,16 @@ def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf
     tree.write(outname, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def generate_product_id():
+def generate_unique_id(encoded_str):
     """
     Returns a unique product identifier as a hexa-decimal string generated from the time of execution in isoformat.
     The CRC-16 algorithm used to compute the unique identifier is CRC-CCITT (0xFFFF).
+    
+    Parameters
+    ----------
+    encoded_str: bytes
+        A string that should be used to generate a unique id from. The string needs to be encoded; e.g.:
+        `'abc'.encode()`
     
     Returns
     -------
@@ -207,12 +213,10 @@ def generate_product_id():
     t: datetime.datetime
         The datetime object used to generate the unique product identifier from.
     """
-    t = datetime.now()
-    tie = t.isoformat().encode()
-    crc = binascii.crc_hqx(tie, 0xffff)
+    crc = binascii.crc_hqx(encoded_str, 0xffff)
     p_id = '{:04X}'.format(crc & 0xffff)
     
-    return p_id, t
+    return p_id
 
 
 def filter_selection(selection, processdir):

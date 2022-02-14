@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from datetime import datetime
 from lxml import etree
 import tempfile
 import numpy as np
@@ -243,7 +244,9 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': snap_nodata, 'dstNodata': 'nan',
                               'multithread': multithread, 'creationOptions': write_options[key]})
     
-    product_id, proc_time = ancil.generate_product_id()
+    proc_time = datetime.now()
+    t = proc_time.isoformat().encode()
+    product_id = ancil.generate_unique_id(encoded_str=t)
     nrbdir_new = nrbdir.replace('ABCD', product_id)
     os.rename(nrbdir, nrbdir_new)
     nrbdir = nrbdir_new
