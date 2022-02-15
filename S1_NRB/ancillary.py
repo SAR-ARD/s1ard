@@ -10,6 +10,7 @@ from time import gmtime, strftime
 import numpy as np
 from osgeo import gdal
 from scipy.interpolate import griddata
+import spatialist
 from spatialist import gdalbuildvrt, Raster, bbox
 from pyroSAR import identify, finder
 
@@ -691,6 +692,7 @@ def _log_process_config(logger, config):
     snap-s1tbx: {s1tbx['version']} | {s1tbx['date']}
     python: {sys.version}
     python-pyroSAR: {pyroSAR.__version__}
+    python-spatialist: {spatialist.__version__}
     python-GDAL: {gdal.__version__}
     gdal_threads = {config.get('gdal_threads')}
     
