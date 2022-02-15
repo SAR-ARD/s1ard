@@ -229,6 +229,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             elif isinstance(item, str):
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
                 gdalbuildvrt(item, source)
+            else:
+                raise TypeError('type {} is not supported: {}'.format(type(item), item))
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             tree = etree.parse(source)
@@ -504,6 +506,3 @@ def main(config_file, section_name):
                     continue
         
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
-
-# if __name__ == '__main__':
-#     main('Z:\\test\\copa\\config.ini', 'GENERAL')
