@@ -375,21 +375,23 @@ def main(config_file, section_name):
     dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
     username = None
     password = None
-    fname_wbm_tmp = None
-    if not config['dem_type'] == 'GETASSE30':
-        username = input('Please enter your DEM access username:')
-        password = getpass('Please enter your DEM access password:')
-        wbm = True
+    wbm_dems = ['Copernicus 10m EEA DEM',
+                'Copernicus 30m Global DEM II',
+                'Copernicus 90m Global DEM II']
+    fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
+    fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
+    
+    if config['dem_type'] == wbm_dems:
+        if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
+            username = input('Please enter your DEM access username:')
+            password = getpass('Please enter your DEM access password:')
         os.makedirs(wbm_dir, exist_ok=True)
-        fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
         if not os.path.isfile(fname_wbm_tmp):
             dem_autoload(boxes, demType=config['dem_type'],
                          vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
                          username=username, password=password,
                          nodata=1, hide_nodata=True)
-    
     os.makedirs(dem_dir, exist_ok=True)
-    fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
     if not os.path.isfile(fname_dem_tmp):
         dem_autoload(boxes, demType=config['dem_type'],
                      vrt=fname_dem_tmp, buffer=buffer, product='dem',
@@ -410,7 +412,7 @@ def main(config_file, section_name):
                         dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
                                    geoid_convert=True, geoid='EGM2008', pbar=True,
                                    outputBounds=bounds, threads=gdal_prms['threads'])
-            if fname_wbm_tmp is not None:
+            if os.path.isfile(fname_wbm_tmp):
                 for tilename in tiles:
                     wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
                     if not os.path.isfile(wbm_tile):
@@ -483,6 +485,8 @@ def main(config_file, section_name):
             os.makedirs(outdir, exist_ok=True)
             
             wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
+            if not os.path.isfile(wbm):
+                wbm = None
             
             for scenes in selection_grouped:
                 if isinstance(scenes, str):
