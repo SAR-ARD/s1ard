@@ -22,7 +22,7 @@ from getpass import getpass
 gdal.UseExceptions()
 
 
-def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm_path=None, multithread=True,
+def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None, multithread=True,
                    compress='LERC_ZSTD', overviews=None, recursive=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
@@ -48,8 +48,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm_path
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
-    wbm_path: str, optional
-        Path to a water body mask file.
+    wbm: str, optional
+        Path to a water body mask file with the dimensions of an MGRS tile.
     multithread: bool, optional
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         config.ini file with the parameter `gdal_threads`.
@@ -271,17 +271,18 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm_path
     
     cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
     # cc_path = re.sub('[hv]{2}', 'cc', log_vrts[0])
-    ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews, overview_resampling=ovr_resampling)
+    ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
+                         overview_resampling=ovr_resampling)
     
     ####################################################################################################################
     # Data mask
-    if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm_path):
-        raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm_path))
+    if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+        raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm_path=wbm_path)
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
     
     ####################################################################################################################
     # Acquisition ID image
@@ -480,6 +481,8 @@ def main(config_file, section_name):
             outdir = os.path.join(config['out_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
             
+            wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
+            
             for scenes in selection_grouped:
                 if isinstance(scenes, str):
                     scenes = [scenes]
@@ -487,7 +490,7 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
-                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm_path=fname_wbm_tmp,
+                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                    multithread=gdal_prms['multithread'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))

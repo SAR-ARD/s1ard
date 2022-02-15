@@ -344,7 +344,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
-                     overview_resampling, out_format=None, wbm_path=None):
+                     overview_resampling, out_format=None, wbm=None):
     """
     Creates the Data Mask file.
     
@@ -374,10 +374,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         as its initial bit-value.
         - 'multi-layer' (Default): Individual masks will be written into seperate bands encoded with 1 where the mask
         information is True and 0 where it is False, creating a multi-layer raster file.
-    wbm: bool, optional
-        Include 'ocean water' information from an external Water Body Mask? Default is False.
-    wbm_path: str, optional
-        Path to the external Water Body Mask file. Ignored if `wbm=False`.
+    wbm: str, optional
+        Path to a water body mask file with the dimensions of an MGRS tile.
     
     Returns
     -------
@@ -425,8 +423,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
             arr_snap_dm = ras_snap_ls.array()
             
             # Add Water Body Mask
-            if wbm_path is not None:
-                with Raster(wbm_path)[tile_vec] as ras_wbm:
+            if wbm is not None:
+                with Raster(wbm) as ras_wbm:
                     arr_wbm = ras_wbm.array()
                     out_arr = np.where((arr_wbm == 1), 4, arr_snap_dm)
                     del arr_wbm
