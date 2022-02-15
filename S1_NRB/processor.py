@@ -465,7 +465,8 @@ def main(config_file, section_name):
                             externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                            clean_edges=True)
+                            clean_edges=geocode_prms['clean_edges'],
+                            clean_edges_npixels=geocode_prms['clean_edges_npixels'])
                 t = round((time.time() - start_time), 2)
                 log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
             except Exception as e:
@@ -499,3 +500,6 @@ def main(config_file, section_name):
                     continue
         
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
+
+# if __name__ == '__main__':
+#     main('Z:\\test\\copa\\config.ini', 'GENERAL')
