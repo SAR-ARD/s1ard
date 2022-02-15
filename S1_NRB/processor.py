@@ -382,8 +382,7 @@ def main(config_file, section_name):
                 'Copernicus 90m Global DEM II']
     fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
     fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
-    
-    if config['dem_type'] == wbm_dems:
+    if config['dem_type'] in wbm_dems:
         if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
             username = input('Please enter your DEM access username:')
             password = getpass('Please enter your DEM access password:')
