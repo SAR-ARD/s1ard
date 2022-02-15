@@ -4,8 +4,8 @@
 
 - Install and then activate conda environment: 
 ```bash
-conda env create -f environment.yaml
-conda activate S1_NRB_env
+conda env create --file environment.yaml
+conda activate nrb_env
 ```
 
 - Install this package into the environment:
