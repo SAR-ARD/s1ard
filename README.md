@@ -25,4 +25,5 @@ s1_nrb --help
 ```bash
 s1_nrb -c /path/to/your/config.ini
 ```
- A description of individual steps can be found [here](https://github.com/johntruckenbrodt/S1_NRB/blob/main/S1_NRB.rst).
+ A description of individual steps can be found [here](https://github.com/SAR-ARD/S1_NRB/blob/main/S1_NRB.rst).
+ 
