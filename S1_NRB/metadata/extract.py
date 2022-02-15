@@ -361,7 +361,6 @@ def calc_performance_estimates(files, ref_tif):
                 _stdev = float(np.nanstd(arr))
                 _var = float(np.nanvar(arr))
                 del arr
-            vec = None
         out[pol] = {'minimum': _min,
                     'maximum': _max,
                     'mean': _mean,
@@ -599,7 +598,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        np_files = [f for f in src_files if re.search('_NEGZ', f) is not None]
+        np_files = [f for f in src_files if re.search('_NE[BGS]Z', f) is not None]
         meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = None
         #meta['source'][uid]['perfIndicatorsURL'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF'

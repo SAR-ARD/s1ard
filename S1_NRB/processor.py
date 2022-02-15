@@ -160,13 +160,13 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                                     'z_error': 1e-4},
                 'acquisitionImage': {'suffix': 'id',
                                      'z_error': 0},
-                'VV_NEGZ': {'suffix': 'np-vv',
+                'VV_NESZ': {'suffix': 'np-vv',
                             'z_error': 2e-5},
-                'VH_NEGZ': {'suffix': 'np-vh',
+                'VH_NESZ': {'suffix': 'np-vh',
                             'z_error': 2e-5},
-                'HH_NEGZ': {'suffix': 'np-hh',
+                'HH_NESZ': {'suffix': 'np-hh',
                             'z_error': 2e-5},
-                'HV_NEGZ': {'suffix': 'np-hv',
+                'HV_NESZ': {'suffix': 'np-hv',
                             'z_error': 2e-5}}
     
     driver = 'COG'
@@ -461,7 +461,7 @@ def main(config_file, section_name):
             start_time = time.time()
             try:
                 noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
+                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='sigma0', tmpdir=config['tmp_dir'],
                             externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
