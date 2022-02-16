@@ -4,8 +4,8 @@
 
 - Install and then activate conda environment: 
 ```bash
-conda env create -f environment.yaml
-conda activate S1_NRB_env
+conda env create --file environment.yaml
+conda activate nrb_env
 ```
 
 - Install this package into the environment:
@@ -25,4 +25,5 @@ s1_nrb --help
 ```bash
 s1_nrb -c /path/to/your/config.ini
 ```
- A description of individual steps can be found [here](https://github.com/johntruckenbrodt/S1_NRB/blob/main/S1_NRB.rst).
+ A description of individual steps can be found [here](https://github.com/SAR-ARD/S1_NRB/blob/main/S1_NRB.rst).
+ 

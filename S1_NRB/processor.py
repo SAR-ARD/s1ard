@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from datetime import datetime
 from lxml import etree
 import tempfile
 import numpy as np
@@ -16,11 +17,12 @@ from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
+from getpass import getpass
 
 gdal.UseExceptions()
 
 
-def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithread=True,
+def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None, multithread=True,
                    compress='LERC_ZSTD', overviews=None, recursive=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
@@ -46,6 +48,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
+    wbm: str, optional
+        Path to a water body mask file with the dimensions of an MGRS tile.
     multithread: bool, optional
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         config.ini file with the parameter `gdal_threads`.
@@ -156,13 +160,13 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
                                     'z_error': 1e-4},
                 'acquisitionImage': {'suffix': 'id',
                                      'z_error': 0},
-                'VV_NEGZ': {'suffix': 'np-vv',
+                'VV_NESZ': {'suffix': 'np-vv',
                             'z_error': 2e-5},
-                'VH_NEGZ': {'suffix': 'np-vh',
+                'VH_NESZ': {'suffix': 'np-vh',
                             'z_error': 2e-5},
-                'HH_NEGZ': {'suffix': 'np-hh',
+                'HH_NESZ': {'suffix': 'np-hh',
                             'z_error': 2e-5},
-                'HV_NEGZ': {'suffix': 'np-hv',
+                'HV_NESZ': {'suffix': 'np-hv',
                             'z_error': 2e-5}}
     
     driver = 'COG'
@@ -225,6 +229,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
             elif isinstance(item, str):
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
                 gdalbuildvrt(item, source)
+            else:
+                raise TypeError('type {} is not supported: {}'.format(type(item), item))
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             tree = etree.parse(source)
@@ -242,7 +248,9 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': snap_nodata, 'dstNodata': 'nan',
                               'multithread': multithread, 'creationOptions': write_options[key]})
     
-    product_id, proc_time = ancil.generate_product_id()
+    proc_time = datetime.now()
+    t = proc_time.isoformat().encode()
+    product_id = ancil.generate_unique_id(encoded_str=t)
     nrbdir_new = nrbdir.replace('ABCD', product_id)
     os.rename(nrbdir, nrbdir_new)
     nrbdir = nrbdir_new
@@ -265,22 +273,18 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, multithr
     
     cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
     # cc_path = re.sub('[hv]{2}', 'cc', log_vrts[0])
-    ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews, overview_resampling=ovr_resampling)
+    ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
+                         overview_resampling=ovr_resampling)
     
     ####################################################################################################################
     # Data mask
-    wbm = False
-    wbm_path = None
-    if not config['dem_type'] == 'GETASSE30':
-        wbm = True
-        wbm_path = os.path.join(config['wbm_dir'], 'WBM.vrt')
-        if not os.path.isfile(wbm_path):
-            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm_path))
+    if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+        raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, wbm_path=wbm_path)
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
     
     ####################################################################################################################
     # Acquisition ID image
@@ -365,26 +369,33 @@ def main(config_file, section_name):
     
     ids = identify_many(selection)
     boxes = [x.bbox() for x in ids]
+    buffer = 1.5
+    max_ext = ancil.get_max_ext(boxes=boxes, buffer=buffer)
+    ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
     
+    wbm_dir = os.path.join(config['wbm_dir'], config['dem_type'])
+    dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
     username = None
     password = None
-    wbm = False
-    if not config['dem_type'] == 'GETASSE30':
-        username = input('Please enter your DEM access username:')
-        password = input('Please enter your DEM access password:')
-        wbm = True
-        fname_wbm_tmp = os.path.join(config['wbm_dir'], 'WBM.vrt')
+    wbm_dems = ['Copernicus 10m EEA DEM',
+                'Copernicus 30m Global DEM II',
+                'Copernicus 90m Global DEM II']
+    fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
+    fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
+    if config['dem_type'] in wbm_dems:
+        if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
+            username = input('Please enter your DEM access username:')
+            password = getpass('Please enter your DEM access password:')
+        os.makedirs(wbm_dir, exist_ok=True)
         if not os.path.isfile(fname_wbm_tmp):
             dem_autoload(boxes, demType=config['dem_type'],
-                         vrt=fname_wbm_tmp, buffer=1.5, product='wbm',
+                         vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
                          username=username, password=password,
                          nodata=1, hide_nodata=True)
-    
-    # fname_dem_tmp = os.path.join(dem_dir, 'DEM_{}.vrt'.format(datetime.now().strftime('%Y%m%dT%H%M%S')))
-    fname_dem_tmp = os.path.join(config['dem_dir'], 'DEM.vrt')
+    os.makedirs(dem_dir, exist_ok=True)
     if not os.path.isfile(fname_dem_tmp):
         dem_autoload(boxes, demType=config['dem_type'],
-                     vrt=fname_dem_tmp, buffer=1.5, product='dem',
+                     vrt=fname_dem_tmp, buffer=buffer, product='dem',
                      username=username, password=password)
     
     dem_names = []
@@ -393,7 +404,7 @@ def main(config_file, section_name):
         with scene.bbox() as box:
             tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
             for tilename in tiles:
-                dem_tile = os.path.join(config['dem_dir'], '{}_DEM.tif'.format(tilename))
+                dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
                 dem_names_scene.append(dem_tile)
                 if not os.path.isfile(dem_tile):
                     with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
@@ -402,9 +413,9 @@ def main(config_file, section_name):
                         dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(10, 10),
                                    geoid_convert=True, geoid='EGM2008', pbar=True,
                                    outputBounds=bounds, threads=gdal_prms['threads'])
-            if wbm:
+            if os.path.isfile(fname_wbm_tmp):
                 for tilename in tiles:
-                    wbm_tile = os.path.join(config['wbm_dir'], '{}_WBM.tif'.format(tilename))
+                    wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
                     if not os.path.isfile(wbm_tile):
                         with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
                             ext = tile.extent
@@ -453,11 +464,12 @@ def main(config_file, section_name):
             start_time = time.time()
             try:
                 noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='gamma0', tmpdir=config['tmp_dir'],
+                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='sigma0', tmpdir=config['tmp_dir'],
                             externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                             alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                            clean_edges=True)
+                            clean_edges=geocode_prms['clean_edges'],
+                            clean_edges_npixels=geocode_prms['clean_edges_npixels'])
                 t = round((time.time() - start_time), 2)
                 log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
             except Exception as e:
@@ -473,6 +485,10 @@ def main(config_file, section_name):
             outdir = os.path.join(config['out_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
             
+            wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
+            if not os.path.isfile(wbm):
+                wbm = None
+            
             for scenes in selection_grouped:
                 if isinstance(scenes, str):
                     scenes = [scenes]
@@ -480,7 +496,7 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
-                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg,
+                                   tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                    multithread=gdal_prms['multithread'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
                                                                       time=round((time.time() - start_time), 2)))

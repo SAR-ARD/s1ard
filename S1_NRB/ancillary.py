@@ -10,6 +10,7 @@ from time import gmtime, strftime
 import numpy as np
 from osgeo import gdal
 from scipy.interpolate import griddata
+import spatialist
 from spatialist import gdalbuildvrt, Raster, bbox
 from pyroSAR import identify, finder
 
@@ -195,24 +196,26 @@ def div(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf
     tree.write(outname, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def generate_product_id():
+def generate_unique_id(encoded_str):
     """
     Returns a unique product identifier as a hexa-decimal string generated from the time of execution in isoformat.
     The CRC-16 algorithm used to compute the unique identifier is CRC-CCITT (0xFFFF).
+    
+    Parameters
+    ----------
+    encoded_str: bytes
+        A string that should be used to generate a unique id from. The string needs to be encoded; e.g.:
+        `'abc'.encode()`
     
     Returns
     -------
     p_id: str
         The unique product identifier.
-    t: datetime.datetime
-        The datetime object used to generate the unique product identifier from.
     """
-    t = datetime.now()
-    tie = t.isoformat().encode()
-    crc = binascii.crc_hqx(tie, 0xffff)
+    crc = binascii.crc_hqx(encoded_str, 0xffff)
     p_id = '{:04X}'.format(crc & 0xffff)
     
-    return p_id, t
+    return p_id
 
 
 def filter_selection(selection, processdir):
@@ -342,7 +345,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
-                     overview_resampling, out_format=None, wbm=False, wbm_path=None):
+                     overview_resampling, out_format=None, wbm=None):
     """
     Creates the Data Mask file.
     
@@ -372,10 +375,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         as its initial bit-value.
         - 'multi-layer' (Default): Individual masks will be written into seperate bands encoded with 1 where the mask
         information is True and 0 where it is False, creating a multi-layer raster file.
-    wbm: bool, optional
-        Include 'ocean water' information from an external Water Body Mask? Default is False.
-    wbm_path: str, optional
-        Path to the external Water Body Mask file. Ignored if `wbm=False`.
+    wbm: str, optional
+        Path to a water body mask file with the dimensions of an MGRS tile.
     
     Returns
     -------
@@ -422,9 +423,9 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
             proj = ras_snap_ls.raster.GetProjection()
             arr_snap_dm = ras_snap_ls.array()
             
-            # Add Water Body Mask if wbm=True
-            if wbm:
-                with Raster(wbm_path)[tile_vec] as ras_wbm:
+            # Add Water Body Mask
+            if wbm is not None:
+                with Raster(wbm) as ras_wbm:
                     arr_wbm = ras_wbm.array()
                     out_arr = np.where((arr_wbm == 1), 4, arr_snap_dm)
                     del arr_wbm
@@ -564,6 +565,40 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
                       overviews=overviews, options=creation_opt)
 
 
+def get_max_ext(boxes, buffer=None):
+    """
+    
+    Parameters
+    ----------
+    boxes: list[spatialist.vector.Vector objects]
+        List of vector objects.
+    buffer: float, optional
+        The buffer to apply to the extent.
+    Returns
+    -------
+    max_ext: dict
+        The maximum extent of the selected vector objects including buffer.
+    """
+    max_ext = {}
+    for geo in boxes:
+        if len(max_ext.keys()) == 0:
+            max_ext = geo.extent
+        else:
+            for key in ['xmin', 'ymin']:
+                if geo.extent[key] < max_ext[key]:
+                    max_ext[key] = geo.extent[key]
+            for key in ['xmax', 'ymax']:
+                if geo.extent[key] > max_ext[key]:
+                    max_ext[key] = geo.extent[key]
+    max_ext = dict(max_ext)
+    if buffer is not None:
+        max_ext['xmin'] -= buffer
+        max_ext['xmax'] += buffer
+        max_ext['ymin'] -= buffer
+        max_ext['ymax'] += buffer
+    return max_ext
+
+
 def set_logging(config):
     """
     Set logging for the current process.
@@ -657,6 +692,7 @@ def _log_process_config(logger, config):
     snap-s1tbx: {s1tbx['version']} | {s1tbx['date']}
     python: {sys.version}
     python-pyroSAR: {pyroSAR.__version__}
+    python-spatialist: {spatialist.__version__}
     python-GDAL: {gdal.__version__}
     gdal_threads = {config.get('gdal_threads')}
     

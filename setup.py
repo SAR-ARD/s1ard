@@ -10,7 +10,7 @@ setup(
     description="Prototype processor for the Sentinel-1 Normalized Radar Backscatter (S1 NRB) product",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url="https://github.com/johntruckenbrodt/S1_NRB",
+    url="https://github.com/SAR-ARD/S1_NRB",
     author="John Truckenbrodt, Marco Wolsza",
     author_email="marco.wolsza@uni-jena.de",
     packages=find_packages(where='.'),
@@ -21,6 +21,7 @@ setup(
                       'pystac',
                       'pyroSAR',
                       'scipy'],
+    python_requires='>=3.6',
     zip_safe=False,
     entry_points={
         'console_scripts': ['s1_nrb=S1_NRB.cli:cli']
