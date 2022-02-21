@@ -551,11 +551,11 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
             tile_vec = None
     
     src_scenes_clean = [os.path.basename(src).replace('.zip', '').replace('.SAFE', '') for src in src_scenes]
-    tag = '\n1: {src1}'.format(src1=src_scenes_clean[0])
+    tag = '{{"{src1}": 1}}'.format(src1=src_scenes_clean[0])
     out_arr = np.full(arr_list[0].shape, out_nodata)
     if len(arr_list) == 2:
         out_arr[arr_list[1] == 1] = 2
-        tag = '\n1: {src1}\n2: {src2}'.format(src1=src_scenes_clean[0], src2=src_scenes_clean[1])
+        tag = '{{"{src1}": 1, "{src2}": 2}}'.format(src1=src_scenes_clean[0], src2=src_scenes_clean[1])
     
     out_arr[arr_list[0] == 1] = 1
     creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
