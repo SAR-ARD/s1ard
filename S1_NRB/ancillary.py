@@ -2,18 +2,18 @@ import os
 import re
 import sys
 import logging
-from datetime import datetime
-from copy import deepcopy
-from lxml import etree
 import binascii
 from time import gmtime, strftime
+from copy import deepcopy
+from datetime import datetime
+from lxml import etree
 import numpy as np
 from osgeo import gdal
 from scipy.interpolate import griddata
 import spatialist
 from spatialist import gdalbuildvrt, Raster, bbox
-from pyroSAR import identify, finder
-
+import pyroSAR
+from pyroSAR import identify, finder, examine
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
@@ -613,7 +613,6 @@ def set_logging(config):
     log_local: logging.Logger
         The log handler for the current process.
     """
-    
     # pyroSAR logging as sys.stdout
     log_pyro = logging.getLogger('pyroSAR')
     log_pyro.setLevel(logging.INFO)
@@ -656,13 +655,8 @@ def _log_process_config(logger, config):
     -------
     None
     """
-    
-    import pyroSAR
-    from pyroSAR.examine import ExamineSnap
-    from osgeo import gdal
-    
-    core = ExamineSnap().get_version('core')
-    s1tbx = ExamineSnap().get_version('s1tbx')
+    core = examine.ExamineSnap().get_version('core')
+    s1tbx = examine.ExamineSnap().get_version('s1tbx')
     
     header = f"""
     ====================================================================================================================

@@ -1,9 +1,10 @@
 import os
 import re
 import time
+import tempfile
+from getpass import getpass
 from datetime import datetime
 from lxml import etree
-import tempfile
 import numpy as np
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
@@ -17,8 +18,6 @@ from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
-from getpass import getpass
-
 gdal.UseExceptions()
 
 

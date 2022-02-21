@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
 import configparser
+from datetime import datetime
 from osgeo import gdal
 
 

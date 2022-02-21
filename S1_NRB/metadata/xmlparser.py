@@ -2,8 +2,8 @@ import os
 import re
 from lxml import etree
 from datetime import datetime
-
 from S1_NRB.metadata.mapping import SAMPLE_MAP
+
 
 nsmap_out = {'nrb': 'http://earth.esa.int/sentinel-1/nrb/1.0',
              'eop': 'http://www.opengis.net/eop/2.1',

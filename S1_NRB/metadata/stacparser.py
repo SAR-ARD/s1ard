@@ -6,7 +6,6 @@ from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, Obs
 from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
-
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 
 

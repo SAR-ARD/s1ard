@@ -1,16 +1,15 @@
 import os
 import re
+from math import isclose
 from lxml import etree
 from datetime import datetime
+import numpy as np
 from pyroSAR import identify
 from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
-from math import isclose
-import numpy as np
-
 from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
 
 
