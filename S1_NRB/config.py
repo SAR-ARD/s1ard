@@ -132,10 +132,6 @@ def geocode_conf(config):
     -------
     dict
         Dictionary of parameters that can be passed to `pyroSAR.snap.util.geocode`
-    
-    Notes
-    -----
-    EGM correction for external DEMs should best be done outside of SNAP. E.g. using `pyroSAR.auxdata.dem_create`
     """
     return {'tr': {'IW': 10,
                    'SM': 10,
@@ -155,14 +151,20 @@ def geocode_conf(config):
             'cleanup': True}
 
 
-def dem_type_short(dem_type):
-    return {'Copernicus 10m EEA DEM': 'COP-EEA10',
-            'Copernicus 30m Global DEM II': 'COP-GLO30',
-            'Copernicus 90m Global DEM II': 'COP-GLO90',
-            'GETASSE30': 'GETASSE30'}[dem_type]
-
-
 def gdal_conf(config):
+    """
+    Stores GDAL configuration options for the current process.
+    
+    Parameters
+    ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
+    
+    Returns
+    -------
+    dict
+        Dictionary containing GDAL configuration options for the current process.
+    """
     threads = config['gdal_threads']
     threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
     if not isinstance(threads, int):
