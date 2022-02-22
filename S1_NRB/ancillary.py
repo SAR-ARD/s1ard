@@ -218,38 +218,6 @@ def generate_unique_id(encoded_str):
     return p_id
 
 
-def filter_selection(selection, processdir):
-    """
-    Filters a selection of scenes that should be processed. Returns only those scenes that have not been (successfully)
-    processed before. If more than 3 files belonging to a scene are found, it is assumed that it was successfully
-    processed before and filtered from the selection.
-    
-    Parameters
-    ----------
-    selection: list[str]
-        The selection of scenes that should be filtered.
-    processdir: str
-        The directory to scan for already processed scenes.
-    
-    Returns
-    -------
-    list_out: list[str]
-        The filtered selection of scenes.
-    """
-    list_out = []
-    for scene in selection:
-        list_processed = finder(processdir, [identify(scene).start], regex=True, recursive=False)
-        exclude = ['_NEBZ', '_NESZ', '_NEGZ']
-        if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 3:
-            list_out.append(scene)
-    
-    n_skipped = len(selection)-len(list_out)
-    if n_skipped > 0:
-        print("### {} scenes skipped, because they have already been processed.\n".format(n_skipped))
-    print("### {} scenes in final selection for processing.".format(len(list_out)))
-    return list_out
-
-
 def calc_product_start_stop(src_scenes, extent, epsg):
     """
     Calculates the start and stop times of the current product. The geolocation grid points including their azimuth time

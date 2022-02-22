@@ -322,12 +322,12 @@ def main(config_file, section_name):
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
-    geocode_flag = True
+    snap_flag = True
     nrb_flag = True
     if config['mode'] == 'snap':
         nrb_flag = False
     elif config['mode'] == 'nrb':
-        geocode_flag = False
+        snap_flag = False
     
     ####################################################################################################################
     # archive / scene selection
@@ -340,10 +340,6 @@ def main(config_file, section_name):
         selection = archive.select(product='SLC',
                                    acquisition_mode=config['acq_mode'],
                                    mindate=config['mindate'], maxdate=config['maxdate'])
-    
-    # avoid reprocessing of already (successfully) SNAP processed scenes when modes 'all' or 'snap' are used
-    if config['mode'] != 'nrb':
-        selection = ancil.filter_selection(selection=selection, processdir=config['out_dir'])
     
     if len(selection) == 0:
         raise RuntimeError("No scenes could be found for acquisition mode '{acq_mode}', mindate '{mindate}' "
@@ -427,11 +423,11 @@ def main(config_file, section_name):
     
     ####################################################################################################################
     # geocode & noise power - SNAP processing
-    if geocode_flag:
+    np_dict = {'sigma0': 'NESZ', 'beta0': 'NEBZ', 'gamma0': 'NEGZ'}
+    np_refarea = 'sigma0'
+    
+    if snap_flag:
         for i, scene in enumerate(ids):
-            print('###### SNAP GEOCODE: {scene}'.format(scene=scene.scene))
-            start_time = time.time()
-            
             dem_buffer = 200  # meters
             fname_dem = os.path.join(config['tmp_dir'], scene.outname_base() + '_DEM.tif')
             if not os.path.isfile(fname_dem):
@@ -445,35 +441,46 @@ def main(config_file, section_name):
                     with bbox(extent, epsg) as dem_box:
                         with Raster(dem_names[i], list_separate=False)[dem_box] as dem_mosaic:
                             dem_mosaic.write(fname_dem, format='GTiff')
-            try:
-                geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
-                        standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                        externalDEMFile=fname_dem, **geocode_prms)
-                
-                t = round((time.time() - start_time), 2)
-                log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
-                if t <= 500:
-                    log.warning('[GEOCODE] -- {scene} -- Processing might have terminated prematurely. Check'
-                                ' terminal for uncaught SNAP errors!'.format(scene=scene.scene))
-            except Exception as e:
-                log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
-                continue
             
-            print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene.scene))
-            start_time = time.time()
-            try:
-                noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                            spacing=geocode_prms['tr'], t_srs=epsg, refarea='sigma0', tmpdir=config['tmp_dir'],
-                            externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
-                            alignToStandardGrid=geocode_prms['alignToStandardGrid'],
+            list_processed = finder(config['out_dir'], [scene.start], regex=True, recursive=False)
+            exclude = list(np_dict.values())
+            if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 3:
+                print('###### SNAP GEOCODE: {scene}'.format(scene=scene.scene))
+                start_time = time.time()
+                try:
+                    geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                            clean_edges=geocode_prms['clean_edges'],
-                            clean_edges_npixels=geocode_prms['clean_edges_npixels'])
-                t = round((time.time() - start_time), 2)
-                log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
-            except Exception as e:
-                log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
-                continue
+                            externalDEMFile=fname_dem, **geocode_prms)
+                    
+                    t = round((time.time() - start_time), 2)
+                    log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+                    if t <= 500:
+                        log.warning('[GEOCODE] -- {scene} -- Processing might have terminated prematurely. Check'
+                                    ' terminal for uncaught SNAP errors!'.format(scene=scene.scene))
+                except Exception as e:
+                    log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    continue
+            else:
+                log.info('[GEOCODE] -- {scene} -- {msg}'.format(scene=scene.scene, msg='Already processed - Skip!'))
+            
+            if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
+                print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene.scene))
+                start_time = time.time()
+                try:
+                    noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
+                                spacing=geocode_prms['tr'], t_srs=epsg, refarea=np_refarea, tmpdir=config['tmp_dir'],
+                                externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
+                                alignToStandardGrid=geocode_prms['alignToStandardGrid'],
+                                standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
+                                clean_edges=geocode_prms['clean_edges'],
+                                clean_edges_npixels=geocode_prms['clean_edges_npixels'])
+                    t = round((time.time() - start_time), 2)
+                    log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+                except Exception as e:
+                    log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    continue
+            else:
+                log.info('[NOISE_P] -- {scene} -- {msg}'.format(scene=scene.scene, msg='Already processed - Skip!'))
     
     ####################################################################################################################
     # NRB - final product generation
