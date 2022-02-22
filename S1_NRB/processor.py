@@ -444,8 +444,9 @@ def main(config_file, section_name):
             
             list_processed = finder(config['out_dir'], [scene.start], regex=True, recursive=False)
             exclude = list(np_dict.values())
+            print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i+1, s_total=len(ids),
+                                                                         scene=scene.scene))
             if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 3:
-                print('###### SNAP GEOCODE: {scene}'.format(scene=scene.scene))
                 start_time = time.time()
                 try:
                     geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
@@ -461,10 +462,13 @@ def main(config_file, section_name):
                     log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                     continue
             else:
-                log.info('[GEOCODE] -- {scene} -- {msg}'.format(scene=scene.scene, msg='Already processed - Skip!'))
+                msg = 'Already processed - Skip!'
+                print('### ' + msg)
+                log.info('[GEOCODE] -- {scene} -- {msg}'.format(scene=scene.scene, msg=msg))
             
+            print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i+1, s_total=len(ids),
+                                                                         scene=scene.scene))
             if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
-                print('###### SNAP NOISE_POWER: {scene}'.format(scene=scene.scene))
                 start_time = time.time()
                 try:
                     noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
@@ -480,25 +484,28 @@ def main(config_file, section_name):
                     log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                     continue
             else:
-                log.info('[NOISE_P] -- {scene} -- {msg}'.format(scene=scene.scene, msg='Already processed - Skip!'))
+                msg = 'Already processed - Skip!'
+                print('### ' + msg)
+                log.info('[NOISE_P] -- {scene} -- {msg}'.format(scene=scene.scene, msg=msg))
     
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
         selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
-        
-        for tile in aoi_tiles:
+        for t, tile in enumerate(aoi_tiles):
             outdir = os.path.join(config['out_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
-            
             wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
             if not os.path.isfile(wbm):
                 wbm = None
             
-            for scenes in selection_grouped:
+            for s, scenes in enumerate(selection_grouped):
                 if isinstance(scenes, str):
                     scenes = [scenes]
-                print('###### NRB: {tile} | {scenes}'.format(tile=tile, scenes=[os.path.basename(s) for s in scenes]))
+                print('###### [NRB] Tile {t}/{t_total}: {tile} | '
+                      'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t+1, t_total=len(aoi_tiles),
+                                                               scenes=[os.path.basename(s) for s in scenes],
+                                                               s=s+1, s_total=len(selection_grouped)))
                 start_time = time.time()
                 try:
                     nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
