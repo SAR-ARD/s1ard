@@ -2,6 +2,7 @@ import os
 import re
 from lxml import etree
 from datetime import datetime
+from spatialist import Raster
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 
 
@@ -202,11 +203,26 @@ def product_xml(meta, target, tifs):
                 noDataVal.text = '255'
                 
                 if key == '-dm.tif':
-                    for val in SAMPLE_MAP[key]['values']:
-                        bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
-                                                    attrib={'name': SAMPLE_MAP[key]['values'][val]})
-                        bitValue.text = str(val)
-                else:
+                    with Raster(tif) as dm_ras:
+                        bands = dm_ras.bands
+                    if bands > 1:   # multi-band data mask (default)
+                        samples = list(SAMPLE_MAP[key]['values'].values())
+                        samples.remove('layover and shadow')
+                        if bands != len(samples):
+                            raise RuntimeError('Mismatch between number of bands ({nbands}) of the '
+                                               'multi-band data mask file and the number of keys '
+                                               'in SAMPLE_MAP ({nkeys}).'.format(nbands=bands, nkeys=len(samples)))
+                        for i in range(bands):
+                            bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
+                                                        attrib={'band': str(i+1), 'name': samples[i]})
+                            bitValue.text = '1'
+                        pass
+                    else:  # single-band data mask
+                        for val in SAMPLE_MAP[key]['values']:
+                            bitValue = etree.SubElement(ProductInformation, _nsc('nrb:bitValue'),
+                                                        attrib={'band': '1', 'name': SAMPLE_MAP[key]['values'][val]})
+                            bitValue.text = str(val)
+                else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
                                   for src in src_list]

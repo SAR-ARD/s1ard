@@ -1,11 +1,13 @@
 import os
 import re
+from copy import deepcopy
 from datetime import datetime
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
 from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
+from spatialist import Raster
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 
 
@@ -195,18 +197,42 @@ def product_json(meta, target, tifs):
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
             
             if key in ['-dm.tif', '-id.tif']:
-                if key == '-id.tif':
+                ras_bands_base = {'nodata': 255,
+                                  'data_type': 'uint8',
+                                  'bits_per_sample': 8}
+                raster_bands = []
+                if key == '-dm.tif':
+                    with Raster(tif) as dm_ras:
+                        bands = dm_ras.bands
+                    if bands > 1:  # multi-band data mask (default)
+                        samples = list(SAMPLE_MAP[key]['values'].values())
+                        samples.remove('layover and shadow')
+                        if bands != len(samples):
+                            raise RuntimeError('Mismatch between number of bands ({nbands}) of the '
+                                               'multi-band data mask file and the number of keys '
+                                               'in SAMPLE_MAP ({nkeys}).'.format(nbands=bands, nkeys=len(samples)))
+                        for i in range(bands):
+                            vals = {'values': [{'value': 1, 'summary': samples[i]}]}
+                            band_dict = deepcopy(ras_bands_base)
+                            band_dict.update(vals)
+                            raster_bands.append(band_dict)
+                    else:  # single-band data mask
+                        vals = {'values': [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()]}
+                else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
                                   for src in src_list]
-                    values = [{'value': [i+1], 'summary': s} for i, s in enumerate(src_target)]
-                else:
-                    values = [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()]
+                    vals = {'values': [{'value': [i+1], 'summary': s} for i, s in enumerate(src_target)]}
                 
-                raster_bands = {'values': values,
-                                'nodata': 255,
-                                'data_type': 'uint8',
-                                'bits_per_sample': 8}
+                if len(raster_bands) == 0:
+                    band_dict = deepcopy(ras_bands_base)
+                    band_dict.update(vals)
+                    raster_bands = [band_dict]
+                
+                extra_fields = {'raster:bands': raster_bands,
+                                'file:byte_order': meta['prod']['fileByteOrder'],
+                                'file:header_size': os.path.getsize(tif)}
+            
             else:
                 raster_bands = {'unit': SAMPLE_MAP[key]['unit'],
                                 'nodata': 'NaN',
@@ -216,13 +242,13 @@ def product_json(meta, target, tifs):
                 
                 if raster_bands['unit'] is None:
                     raster_bands.pop('unit')
-            
-            extra_fields = {'raster:bands': [raster_bands],
-                            'file:byte_order': meta['prod']['fileByteOrder'],
-                            'file:header_size': os.path.getsize(tif)}
-            
-            if key == '-ei.tif':
-                extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
+                
+                extra_fields = {'raster:bands': [raster_bands],
+                                'file:byte_order': meta['prod']['fileByteOrder'],
+                                'file:header_size': os.path.getsize(tif)}
+                
+                if key == '-ei.tif':
+                    extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
             if SAMPLE_MAP[key]['role'] == 'noise-power':
                 asset_key = SAMPLE_MAP[key]['title'].lower().replace(' ', '-')
