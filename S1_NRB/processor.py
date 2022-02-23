@@ -509,7 +509,8 @@ def main(config_file, section_name):
                                 alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                                 standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
                                 clean_edges=geocode_prms['clean_edges'],
-                                clean_edges_npixels=geocode_prms['clean_edges_npixels'])
+                                clean_edges_npixels=geocode_prms['clean_edges_npixels'],
+                                rlks=geocode_prms['rlks'], azlks=geocode_prms['azlks'])
                     t = round((time.time() - start_time), 2)
                     log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
                 except Exception as e:

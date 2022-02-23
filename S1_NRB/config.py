@@ -148,7 +148,9 @@ def geocode_conf(config):
             'clean_edges': True,
             'clean_edges_npixels': 3,
             'test': False,
-            'cleanup': True}
+            'cleanup': True,
+            'rlks': 5,
+            'azlks': 1}
 
 
 def gdal_conf(config):
