@@ -340,6 +340,11 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
     dem_names: list[list[str]]
         List of lists containing paths to DEM tiles for each scene to be processed.
     """
+    if config['dem_type'] == 'GETASSE30':
+        geoid = 'WGS84'
+    else:
+        geoid = 'EGM2008'
+    
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II',
                 'Copernicus 90m Global DEM II']
@@ -383,7 +388,7 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
                         ext = tile.extent
                         bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
                         dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(tr, tr),
-                                   geoid_convert=True, geoid='EGM2008', pbar=True,
+                                   geoid_convert=True, geoid=geoid, pbar=True,
                                    outputBounds=bounds, threads=threads)
             if os.path.isfile(fname_wbm_tmp):
                 for tilename in tiles:
