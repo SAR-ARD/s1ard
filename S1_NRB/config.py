@@ -73,8 +73,8 @@ def get_config(config_file, section_name='GENERAL'):
         if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
-            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II', 'Copernicus 90m Global DEM II',
-                       'GETASSE30']
+            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
+                       'Copernicus 30m Global DEM', 'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         out_dict[k] = v
     
