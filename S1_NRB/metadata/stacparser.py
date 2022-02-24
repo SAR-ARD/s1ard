@@ -361,6 +361,8 @@ def source_json(meta, target):
         item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
         item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
         item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid]['perfNoiseEquivalentIntensityType']
+        item.properties['card4l:peak_sidelobe_ratio'] = meta['source'][uid]['perfPeakSideLobeRatio']
+        item.properties['card4l:integrated_sidelobe_ratio'] = meta['source'][uid]['perfIntegratedSideLobeRatio']
         item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
         item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
         

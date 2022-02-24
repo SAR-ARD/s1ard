@@ -635,11 +635,13 @@ def source_xml(meta, target):
                                             attrib={'type': 'variance', 'pol': pol})
             estimatesVar.text = str(meta['source'][uid]['perfEstimates'][pol]['variance'])
         equivalentNumberOfLooks = etree.SubElement(PerformanceIndicators, _nsc('nrb:equivalentNumberOfLooks'))
-        equivalentNumberOfLooks.text = meta['source'][uid]['perfEquivalentNumberOfLooks']
-        peakSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:peakSideLobeRatio'))
-        peakSideLobeRatio.text = meta['source'][uid]['perfPeakSideLobeRatio']
-        integratedSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:integratedSideLobeRatio'))
-        integratedSideLobeRatio.text = meta['source'][uid]['perfIntegratedSideLobeRatio']
+        equivalentNumberOfLooks.text = str(meta['source'][uid]['perfEquivalentNumberOfLooks'])
+        peakSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:peakSideLobeRatio'),
+                                             attrib={'uom': 'dB'})
+        peakSideLobeRatio.text = str(meta['source'][uid]['perfPeakSideLobeRatio'])
+        integratedSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:integratedSideLobeRatio'),
+                                             attrib={'uom': 'dB'})
+        integratedSideLobeRatio.text = str(meta['source'][uid]['perfIntegratedSideLobeRatio'])
         
         polCalMatrices = etree.SubElement(EarthObservationMetaData, _nsc('nrb:polCalMatrices'))
         polCalMatrices.text = meta['source'][uid]['polCalMatrices']

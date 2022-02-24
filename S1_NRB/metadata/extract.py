@@ -368,6 +368,40 @@ def calc_performance_estimates(files, ref_tif):
     return out
 
 
+def extract_pslr_islr(annotation_dict):
+    """
+    Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated Side Lobe Ratio (ISLR) from the annotation
+    metadata of a scene and calculates the mean value for all swaths.
+    
+    Parameters
+    ----------
+    annotation_dict: dict
+        A dict of annotation files in the form: {'swath ID': lxml.etree._Element object}
+    Returns
+    -------
+    pslr: float
+        Mean PSLR value for all swaths of the scene.
+    islr: float
+        Mean ISLR value for all swaths of the scene.
+    """
+    swaths = list(annotation_dict.keys())
+    pslr_dict = find_in_annotation(annotation_dict=annotation_dict, pattern='.//crossCorrelationPslr', out_type='float')
+    islr_dict = find_in_annotation(annotation_dict=annotation_dict, pattern='.//crossCorrelationIslr', out_type='float')
+    
+    # Mean values per swath
+    pslr_mean = {}
+    islr_mean = {}
+    for swath in swaths:
+        pslr_mean[swath] = np.nanmean(pslr_dict[swath])
+        islr_mean[swath] = np.nanmean(islr_dict[swath])
+    
+    # Return mean value for all swaths
+    pslr = np.nanmean(list(pslr_mean.values()))
+    islr = np.nanmean(list(islr_mean.values()))
+    
+    return pslr, islr
+
+
 def meta_dict(config, target, src_scenes, src_files, proc_time):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
@@ -597,13 +631,14 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
+        
+        pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
         np_files = [f for f in src_files if re.search('_NE[BGS]Z', f) is not None]
         meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
-        meta['source'][uid]['perfEquivalentNumberOfLooks'] = None
-        #meta['source'][uid]['perfIndicatorsURL'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF'
-        meta['source'][uid]['perfIntegratedSideLobeRatio'] = None
-        meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'gamma0'
-        meta['source'][uid]['perfPeakSideLobeRatio'] = None
+        meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
+        meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
+        meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
+        meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
         meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']}, " \
                                                   f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}, " \
