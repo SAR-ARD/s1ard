@@ -623,8 +623,14 @@ def _log_process_config(logger, config):
     -------
     None
     """
-    core = examine.ExamineSnap().get_version('core')
-    s1tbx = examine.ExamineSnap().get_version('s1tbx')
+    try:
+        core = examine.ExamineSnap().get_version('core')
+        s1tbx = examine.ExamineSnap().get_version('s1tbx')
+        snap_core = f"{core['version']} | {core['date']}"
+        snap_s1tbx = f"{s1tbx['version']} | {s1tbx['date']}"
+    except RuntimeError:
+        snap_core = 'unknown'
+        snap_s1tbx = 'unknown'
     
     header = f"""
     ====================================================================================================================
@@ -650,8 +656,8 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     SOFTWARE
     
-    snap-core: {core['version']} | {core['date']}
-    snap-s1tbx: {s1tbx['version']} | {s1tbx['date']}
+    snap-core: {snap_core}
+    snap-s1tbx: {snap_s1tbx}
     python: {sys.version}
     python-pyroSAR: {pyroSAR.__version__}
     python-spatialist: {spatialist.__version__}
