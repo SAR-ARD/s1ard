@@ -346,8 +346,7 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
         geoid = 'EGM2008'
     
     wbm_dems = ['Copernicus 10m EEA DEM',
-                'Copernicus 30m Global DEM II',
-                'Copernicus 90m Global DEM II']
+                'Copernicus 30m Global DEM II']
     wbm_dir = os.path.join(config['wbm_dir'], config['dem_type'])
     dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
     username = None

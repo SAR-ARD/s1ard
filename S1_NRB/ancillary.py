@@ -541,11 +541,11 @@ def get_max_ext(boxes, buffer=None):
     boxes: list[spatialist.vector.Vector objects]
         List of vector objects.
     buffer: float, optional
-        The buffer to apply to the extent.
+        The buffer in degrees to add to the extent.
     Returns
     -------
     max_ext: dict
-        The maximum extent of the selected vector objects including buffer.
+        The maximum extent of the selected vector objects including the chosen buffer.
     """
     max_ext = {}
     for geo in boxes:

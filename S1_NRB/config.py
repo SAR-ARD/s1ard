@@ -54,13 +54,10 @@ def get_config(config_file, section_name='GENERAL'):
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
-            assert os.path.isdir(v), "Parameter '{}': Directory {} must be an existing directory".format(k, v)
+            assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
         if k.endswith('_dir') and not k == 'work_dir':
             if any(x in v for x in ['/', '\\']):
-                assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory. Make sure " \
-                                         "the directory already exists OR provide a directory name (excluding any " \
-                                         "back- or forward slashes), which will automatically be created as a " \
-                                         "subdirectory of 'work_dir'".format(k, v)
+                assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
                 v = os.path.join(parser_sec['work_dir'], v)
                 os.makedirs(v, exist_ok=True)
