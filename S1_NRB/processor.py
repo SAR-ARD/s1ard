@@ -379,9 +379,11 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
         dem_names_scene = []
         with scene.bbox() as box:
             tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
-            for tilename in tiles:
+            for i, tilename in enumerate(tiles):
                 dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
                 dem_names_scene.append(dem_tile)
+                print('{dem_tile} ({n}/{n_total})'.format(dem_tile=os.path.basename(dem_tile),
+                                                          n=i+1, n_total=len(tiles)))
                 if not os.path.isfile(dem_tile):
                     with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
                         ext = tile.extent
@@ -390,8 +392,10 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
                                    geoid_convert=True, geoid=geoid, pbar=True,
                                    outputBounds=bounds, threads=threads)
             if os.path.isfile(fname_wbm_tmp):
-                for tilename in tiles:
+                for i, tilename in enumerate(tiles):
                     wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
+                    print('{wbm_tile} ({n}/{n_total})'.format(wbm_tile=os.path.basename(wbm_tile),
+                                                              n=i+1, n_total=len(tiles)))
                     if not os.path.isfile(wbm_tile):
                         with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
                             ext = tile.extent
