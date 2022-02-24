@@ -27,3 +27,9 @@ s1_nrb -c /path/to/your/config.ini
 ```
 
 A description of individual steps can be found [here](https://github.com/SAR-ARD/S1_NRB/blob/main/docs/S1_NRB.rst).
+
+## Update
+The latest states of `pyroSAR` and `spatialist`, which are developed alongside `S1_NRB`, can be updated like this:
+````shell
+pip install git+https://github.com/johntruckenbrodt/spatialist.git --upgrade --no-deps --force-reinstall
+````
