@@ -316,7 +316,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 
 
-def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
+def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
     """
     Downloads and prepares the chosen DEM for the NRB processing workflow.
     
@@ -330,7 +330,7 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
         The number of threads to pass to `pyroSAR.auxdata.dem_create`.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
-    tr: int
+    spacing: int
         The target resolution to pass to `pyroSAR.auxdata.dem_create`.
     buffer: float, optional
         A buffer in degrees to pass to `pyroSAR.auxdata.dem_autoload`.
@@ -345,6 +345,7 @@ def prepare_dem(id_list, config, threads, epsg, tr, buffer=None):
     else:
         geoid = 'EGM2008'
     
+    tr = spacing
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
     wbm_dir = os.path.join(config['wbm_dir'], config['dem_type'])
@@ -444,7 +445,7 @@ def main(config_file, section_name):
     
     ####################################################################################################################
     # geometry and DEM handling
-    geo_dict, align_dict = tile_ex.main(config=config, tr=geocode_prms['tr'])
+    geo_dict, align_dict = tile_ex.main(config=config, spacing=geocode_prms['spacing'])
     aoi_tiles = list(geo_dict.keys())
     
     epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys())])
@@ -454,7 +455,7 @@ def main(config_file, section_name):
     epsg = epsg_set.pop()
     
     dem_names = prepare_dem(id_list=ids, config=config, threads=gdal_prms['threads'], epsg=epsg,
-                            tr=geocode_prms['tr'], buffer=1.5)
+                            spacing=geocode_prms['spacing'], buffer=1.5)
     
     ####################################################################################################################
     # geocode & noise power - SNAP processing
@@ -507,7 +508,7 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                                spacing=geocode_prms['tr'], t_srs=epsg, refarea=np_refarea, tmpdir=config['tmp_dir'],
+                                spacing=geocode_prms['spacing'], t_srs=epsg, refarea=np_refarea, tmpdir=config['tmp_dir'],
                                 externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                                 alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                                 standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
