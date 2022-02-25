@@ -130,9 +130,9 @@ def geocode_conf(config):
     dict
         Dictionary of parameters that can be passed to `pyroSAR.snap.util.geocode`
     """
-    return {'tr': {'IW': 10,
-                   'SM': 10,
-                   'EW': 20}[config['acq_mode']],
+    return {'spacing': {'IW': 10,
+                        'SM': 10,
+                        'EW': 20}[config['acq_mode']],
             'scaling': 'linear',
             'groupsize': 1,
             'allow_RES_OSV': True,
