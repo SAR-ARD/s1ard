@@ -9,6 +9,6 @@ dependencies:
   - pip
   - pystac
   - scipy
+  - spatialist>=0.10.0
   - pip:
-    - spatialist @ git+https://github.com/johntruckenbrodt/spatialist.git
     - pyroSAR @ git+https://github.com/johntruckenbrodt/pyroSAR.git
