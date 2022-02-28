@@ -457,6 +457,11 @@ def main(config_file, section_name):
     dem_names = prepare_dem(id_list=ids, config=config, threads=gdal_prms['threads'], epsg=epsg,
                             spacing=geocode_prms['spacing'], buffer=1.5)
     
+    if config['dem_type'] == 'Copernicus 30m Global DEM':
+        ex_dem_nodata = -99
+    else:
+        ex_dem_nodata = None
+    
     ####################################################################################################################
     # geocode & noise power - SNAP processing
     np_dict = {'sigma0': 'NESZ', 'beta0': 'NEBZ', 'gamma0': 'NEGZ'}
@@ -487,7 +492,7 @@ def main(config_file, section_name):
                 try:
                     geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
-                            externalDEMFile=fname_dem, **geocode_prms)
+                            externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
                     
                     t = round((time.time() - start_time), 2)
                     log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
@@ -508,8 +513,9 @@ def main(config_file, section_name):
                 start_time = time.time()
                 try:
                     noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                                spacing=geocode_prms['spacing'], t_srs=epsg, refarea=np_refarea, tmpdir=config['tmp_dir'],
-                                externalDEMFile=fname_dem, externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
+                                spacing=geocode_prms['spacing'], refarea=np_refarea, tmpdir=config['tmp_dir'],
+                                externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, t_srs=epsg,
+                                externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                                 alignToStandardGrid=geocode_prms['alignToStandardGrid'],
                                 standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
                                 clean_edges=geocode_prms['clean_edges'],
