@@ -482,7 +482,7 @@ def main(config_file, section_name):
             exclude = list(np_dict.values())
             print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i+1, s_total=len(ids),
                                                                          scene=scene.scene))
-            if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 3:
+            if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 4:
                 start_time = time.time()
                 try:
                     geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
