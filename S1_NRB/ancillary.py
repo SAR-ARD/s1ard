@@ -591,7 +591,7 @@ def set_logging(config):
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)
-    log_file = os.path.join(config['work_dir'], 'log', f"{now}_process.log")
+    log_file = os.path.join(config['out_dir'], 'log', f"{now}_process.log")
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     fh = logging.FileHandler(filename=log_file, mode='a')
     log_local.addHandler(fh)
