@@ -1,5 +1,7 @@
 # S1-NRB prototype processor
 
+https://sentinel.esa.int/web/sentinel/sentinel-1-ard-normalised-radar-backscatter-nrb-product
+
 ## Installation
 
 - Install and then activate conda environment: 
