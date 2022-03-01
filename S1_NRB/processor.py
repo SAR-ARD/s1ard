@@ -118,6 +118,10 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     meta = {'mission': ids[0].sensor,
             'mode': ids[0].meta['acquisition_mode'],
+            'polarization': {"['HH']": 'SH',
+                             "['VV']": 'SV',
+                             "['HH', 'HV']": 'DH',
+                             "['VV', 'VH']": 'DV'}[str(ids[0].polarizations)],
             'start': product_start,
             'orbitnumber': ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
@@ -125,7 +129,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             'tile': tile,
             'id': 'ABCD'}
     
-    skeleton = '{mission}_{mode}_NRB__1SDV_{start}_{stop}_{orbitnumber:06}_{datatake}_{tile}_{id}'
+    skeleton = '{mission}_{mode}_NRB__1S{polarization}_{start}_{stop}_{orbitnumber:06}_{datatake}_{tile}_{id}'
     
     nrbdir = os.path.join(outdir, skeleton.format(**meta))
     os.makedirs(nrbdir, exist_ok=True)
