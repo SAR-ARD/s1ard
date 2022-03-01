@@ -281,8 +281,9 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     ####################################################################################################################
     # Data mask
-    if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
-        raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
+    if wbm is not None:
+        if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
