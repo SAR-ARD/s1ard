@@ -10,6 +10,7 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
+import S1_NRB
 from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
 
 
@@ -562,7 +563,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['processingLevel'] = 'L1C'
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
-    meta['prod']['processorVersion'] = '0.1'
+    meta['prod']['processorVersion'] = S1_NRB.__version__
     meta['prod']['productName'] = 'NORMALISED RADAR BACKSCATTER'
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])

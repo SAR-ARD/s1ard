@@ -13,7 +13,8 @@ from scipy.interpolate import griddata
 import spatialist
 from spatialist import gdalbuildvrt, Raster, bbox
 import pyroSAR
-from pyroSAR import identify, finder, examine
+from pyroSAR import identify, examine
+import S1_NRB
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
@@ -661,6 +662,7 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     SOFTWARE
     
+    S1_NRB: {S1_NRB.__version__}
     snap-core: {snap_core}
     snap-s1tbx: {snap_s1tbx}
     python: {sys.version}
