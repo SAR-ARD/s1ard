@@ -567,7 +567,7 @@ def get_max_ext(boxes, buffer=None):
     return max_ext
 
 
-def set_logging(config):
+def set_logging(config, debug=False):
     """
     Set logging for the current process.
     
@@ -575,6 +575,8 @@ def set_logging(config):
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
+    debug: bool, optional
+        Set pyroSAR logging level to DEBUG? Default is False.
     
     Returns
     -------
@@ -583,7 +585,10 @@ def set_logging(config):
     """
     # pyroSAR logging as sys.stdout
     log_pyro = logging.getLogger('pyroSAR')
-    log_pyro.setLevel(logging.INFO)
+    if debug:
+        log_pyro.setLevel(logging.DEBUG)
+    else:
+        log_pyro.setLevel(logging.INFO)
     sh = logging.StreamHandler(sys.stdout)
     log_pyro.addHandler(sh)
     

@@ -415,9 +415,9 @@ def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
     return dem_names
 
 
-def main(config_file, section_name):
+def main(config_file, section_name, debug=False):
     config = get_config(config_file=config_file, section_name=section_name)
-    log = ancil.set_logging(config=config)
+    log = ancil.set_logging(config=config, debug=debug)
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
