@@ -21,7 +21,7 @@ setup(
                       'lxml',
                       'pystac',
                       'pyroSAR @ git+https://github.com/johntruckenbrodt/pyroSAR.git',
-                      'spatialist>=0.10.0',
+                      'spatialist>=0.10.1',
                       'scipy'],
     python_requires='>=3.8',
     zip_safe=False,
