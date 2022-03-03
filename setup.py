@@ -13,7 +13,7 @@ setup(
     long_description_content_type='text/markdown',
     url="https://github.com/SAR-ARD/S1_NRB",
     author="John Truckenbrodt, Marco Wolsza",
-    author_email="marco.wolsza@uni-jena.de",
+    author_email="john.truckenbrodt@uni-jena.de",
     packages=find_packages(where='.'),
     include_package_data=True,
     install_requires=['gdal>=3.4.1',
