@@ -246,13 +246,6 @@ def product_xml(meta, target, tifs):
             numBorderPixels.text = str(meta['prod']['numBorderPixels'])
             polarization = etree.SubElement(ProductInformation, _nsc('nrb:polarization'))
             polarization.text = re.search('[vh]{2}', tif).group().upper()
-            backscatterMeasurement = etree.SubElement(ProductInformation, _nsc('nrb:backscatterMeasurement'))
-            backscatterMeasurement.text = meta['prod']['backscatterMeasurement']
-            backscatterConvention = etree.SubElement(ProductInformation, _nsc('nrb:backscatterConvention'))
-            backscatterConvention.text = meta['prod']['backscatterConvention']
-            backscatterConversionEq = etree.SubElement(ProductInformation, _nsc('nrb:backscatterConversionEq'),
-                                                       attrib={'uom': 'dB'})
-            backscatterConversionEq.text = meta['prod']['backscatterConversionEq']
     
     ####################################################################################################################
     metaDataProperty = etree.SubElement(root, _nsc('eop:metaDataProperty'))
@@ -357,6 +350,13 @@ def product_xml(meta, target, tifs):
     rowSpacing.text = meta['prod']['pxSpacingRow']
     pixelCoordinateConvention = etree.SubElement(EarthObservationMetaData, _nsc('nrb:pixelCoordinateConvention'))
     pixelCoordinateConvention.text = meta['prod']['pixelCoordinateConvention']
+    backscatterMeasurement = etree.SubElement(EarthObservationMetaData, _nsc('nrb:backscatterMeasurement'))
+    backscatterMeasurement.text = meta['prod']['backscatterMeasurement']
+    backscatterConvention = etree.SubElement(EarthObservationMetaData, _nsc('nrb:backscatterConvention'))
+    backscatterConvention.text = meta['prod']['backscatterConvention']
+    backscatterConversionEq = etree.SubElement(EarthObservationMetaData, _nsc('nrb:backscatterConversionEq'),
+                                               attrib={'uom': 'dB'})
+    backscatterConversionEq.text = meta['prod']['backscatterConversionEq']
     griddingConvention = etree.SubElement(EarthObservationMetaData, _nsc('nrb:griddingConvention'),
                                           attrib={_nsc('xlink:href'): meta['prod']['griddingConventionURL']})
     crsEPSG = etree.SubElement(EarthObservationMetaData, _nsc('nrb:crsEPSG'))
