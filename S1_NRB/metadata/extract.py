@@ -488,8 +488,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['orbit'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
     meta['common']['orbitNumbers_abs'] = sid0.meta['orbitNumbers_abs']
     meta['common']['orbitNumbers_rel'] = sid0.meta['orbitNumbers_rel']
-    meta['common']['orbitNumber_start'] = str(meta['common']['orbitNumbers_abs']['start'])
-    meta['common']['orbitNumber_stop'] = str(meta['common']['orbitNumbers_abs']['stop'])
+    meta['common']['orbitNumber'] = str(meta['common']['orbitNumbers_abs']['stop'])
     meta['common']['platformIdentifier'] = {'S1A': '1A', 'S1B': '1B'}[sid0.sensor]
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
@@ -497,10 +496,11 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['platformReference'] = {'sentinel-1a': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
                                            'sentinel-1b': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=576'}[meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
-    meta['common']['polarisationMode'] = prod_meta['pols']
+    meta['common']['polarisationMode'] = prod_meta['pols'][0]
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = '{:.3e}'.format(5405000000)
     meta['common']['sensorType'] = 'RADAR'
+    meta['common']['wrsLongitudeGrid'] = str(meta['common']['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
@@ -579,7 +579,6 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['timeStart'] = datetime.strptime(prod_meta['start'], '%Y%m%dT%H%M%S')
     meta['prod']['timeStop'] = datetime.strptime(prod_meta['stop'], '%Y%m%dT%H%M%S')
     meta['prod']['transform'] = prod_meta['transform']
-    meta['prod']['wrsLongitudeGrid'] = str(meta['common']['orbitNumbers_rel']['start'])
     
     # Source metadata
     for uid in list(src_sid.keys()):

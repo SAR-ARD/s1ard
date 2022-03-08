@@ -74,15 +74,6 @@ def product_xml(meta, target, tifs):
     timePosition.text = timeStop
     
     ####################################################################################################################
-    validTime = etree.SubElement(root, _nsc('om:validTime'))
-    TimePeriod = etree.SubElement(validTime, _nsc('gml:TimePeriod'),
-                                  attrib={_nsc('gml:id'): scene_id + '_4'})
-    beginPosition = etree.SubElement(TimePeriod, _nsc('gml:beginPosition'))
-    beginPosition.text = timeStart
-    endPosition = etree.SubElement(TimePeriod, _nsc('gml:endPosition'))
-    endPosition.text = timeStop
-    
-    ####################################################################################################################
     procedure = etree.SubElement(root, _nsc('om:procedure'))
     EarthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
                                                  attrib={_nsc('gml:id'): scene_id + '_5'})
@@ -120,12 +111,10 @@ def product_xml(meta, target, tifs):
     orbitDirection = etree.SubElement(Acquisition, _nsc('eop:orbitDirection'))
     orbitDirection.text = meta['common']['orbit'].upper()
     orbitNumber = etree.SubElement(Acquisition, _nsc('eop:orbitNumber'))
-    orbitNumber.text = meta['common']['orbitNumber_start']
-    lastOrbitNumber = etree.SubElement(Acquisition, _nsc('eop:lastOrbitNumber'))
-    lastOrbitNumber.text = meta['common']['orbitNumber_stop']
+    orbitNumber.text = meta['common']['orbitNumber']
     wrsLongitudeGrid = etree.SubElement(Acquisition, _nsc('eop:wrsLongitudeGrid'),
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
-    wrsLongitudeGrid.text = meta['prod']['wrsLongitudeGrid']
+    wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     ascendingNodeDate = etree.SubElement(Acquisition, _nsc('eop:ascendingNodeDate'))
     ascendingNodeDate.text = meta['prod']['ascendingNodeDate']
     startTimeFromAscendingNode = etree.SubElement(Acquisition, _nsc('eop:startTimeFromAscendingNode'),
@@ -158,7 +147,7 @@ def product_xml(meta, target, tifs):
     
     centerOf = etree.SubElement(Footprint, _nsc('eop:centerOf'))
     Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene_id + '_9'})
-    pos = etree.SubElement(Point, _nsc('gml:pos'))
+    pos = etree.SubElement(Point, _nsc('gml:pos'), attrib={'uom': 'deg'})
     pos.text = meta['prod']['geom_xml_center']
     
     ####################################################################################################################
@@ -442,15 +431,6 @@ def source_xml(meta, target):
         timePosition.text = timeStop
         
         ################################################################################################################
-        validTime = etree.SubElement(root, _nsc('om:validTime'))
-        TimePeriod = etree.SubElement(validTime, _nsc('gml:TimePeriod'),
-                                      attrib={_nsc('gml:id'): scene + '_4'})
-        beginPosition = etree.SubElement(TimePeriod, _nsc('gml:beginPosition'))
-        beginPosition.text = timeStart
-        endPosition = etree.SubElement(TimePeriod, _nsc('gml:endPosition'))
-        endPosition.text = timeStop
-        
-        ################################################################################################################
         procedure = etree.SubElement(root, _nsc('om:procedure'))
         EarthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
                                                      attrib={_nsc('gml:id'): scene + '_5'})
@@ -499,9 +479,10 @@ def source_xml(meta, target):
         orbitDirection = etree.SubElement(Acquisition, _nsc('eop:orbitDirection'))
         orbitDirection.text = meta['common']['orbit'].upper()
         orbitNumber = etree.SubElement(Acquisition, _nsc('eop:orbitNumber'))
-        orbitNumber.text = meta['common']['orbitNumber_start']
-        lastOrbitNumber = etree.SubElement(Acquisition, _nsc('eop:lastOrbitNumber'))
-        lastOrbitNumber.text = meta['common']['orbitNumber_stop']
+        orbitNumber.text = meta['common']['orbitNumber']
+        wrsLongitudeGrid = etree.SubElement(Acquisition, _nsc('eop:wrsLongitudeGrid'),
+                                            attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
+        wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
         orbitDataSource = etree.SubElement(Acquisition, _nsc('eop:orbitDataSource'))
         orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
         orbitMeanAltitude = etree.SubElement(Acquisition, _nsc('nrb:orbitMeanAltitude'), attrib={'uom': 'm'})
@@ -527,12 +508,12 @@ def source_xml(meta, target):
         Polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene + '_8'})
         exterior = etree.SubElement(Polygon, _nsc('gml:exterior'))
         LinearRing = etree.SubElement(exterior, _nsc('gml:LinearRing'))
-        posList = etree.SubElement(LinearRing, _nsc('gml:posList'))
+        posList = etree.SubElement(LinearRing, _nsc('gml:posList'), attrib={'uom': 'deg'})
         posList.text = meta['source'][uid]['geom_xml_envelop']
         
         centerOf = etree.SubElement(Footprint, _nsc('eop:centerOf'))
         Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene + '_9'})
-        pos = etree.SubElement(Point, _nsc('gml:pos'))
+        pos = etree.SubElement(Point, _nsc('gml:pos'), attrib={'uom': 'deg'})
         pos.text = meta['source'][uid]['geom_xml_center']
         
         ################################################################################################################
@@ -555,10 +536,10 @@ def source_xml(meta, target):
         identifier.text = scene
         doi = etree.SubElement(EarthObservationMetaData, _nsc('eop:doi'))
         doi.text = meta['source'][uid]['doi']
-        acquisitionType = etree.SubElement(EarthObservationMetaData, _nsc('eop:acquisitionType'))
-        acquisitionType.text = meta['source'][uid]['acquisitionType']
         status = etree.SubElement(EarthObservationMetaData, _nsc('eop:status'))
         status.text = meta['source'][uid]['status']
+        acquisitionType = etree.SubElement(EarthObservationMetaData, _nsc('eop:acquisitionType'))
+        acquisitionType.text = meta['source'][uid]['acquisitionType']
         
         processing = etree.SubElement(EarthObservationMetaData, _nsc('nrb:processing'))
         ProcessingInformation = etree.SubElement(processing, _nsc('nrb:ProcessingInformation'))
@@ -579,11 +560,6 @@ def source_xml(meta, target):
         orbitStateVector = etree.SubElement(ProcessingInformation, _nsc('nrb:orbitStateVector'),
                                             attrib={'access': meta['source'][uid]['orbitDataAccess']})
         orbitStateVector.text = meta['source'][uid]['orbitStateVector']
-        azimuthNumberOfLooks = etree.SubElement(ProcessingInformation, _nsc('nrb:azimuthNumberOfLooks'))
-        azimuthNumberOfLooks.text = meta['source'][uid]['azimuthNumberOfLooks']
-        rangeNumberOfLooks = etree.SubElement(ProcessingInformation, _nsc('nrb:rangeNumberOfLooks'))
-        rangeNumberOfLooks.text = meta['source'][uid]['rangeNumberOfLooks']
-        
         for swath in meta['source'][uid]['swaths']:
             azimuthLookBandwidth = etree.SubElement(ProcessingInformation, _nsc('nrb:azimuthLookBandwidth'),
                                                     attrib={'uom': 'Hz', 'beam': swath})
@@ -596,6 +572,10 @@ def source_xml(meta, target):
         lutApplied = etree.SubElement(ProcessingInformation, _nsc('nrb:lutApplied'))
         lutApplied.text = meta['source'][uid]['lutApplied']
         
+        azimuthNumberOfLooks = etree.SubElement(EarthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks'))
+        azimuthNumberOfLooks.text = meta['source'][uid]['azimuthNumberOfLooks']
+        rangeNumberOfLooks = etree.SubElement(EarthObservationMetaData, _nsc('nrb:rangeNumberOfLooks'))
+        rangeNumberOfLooks.text = meta['source'][uid]['rangeNumberOfLooks']
         dataGeometry = etree.SubElement(EarthObservationMetaData, _nsc('nrb:dataGeometry'))
         dataGeometry.text = meta['source'][uid]['dataGeometry'].upper()
         azimuthPixelSpacing = etree.SubElement(EarthObservationMetaData, _nsc('nrb:azimuthPixelSpacing'),
@@ -640,7 +620,7 @@ def source_xml(meta, target):
                                              attrib={'uom': 'dB'})
         peakSideLobeRatio.text = str(meta['source'][uid]['perfPeakSideLobeRatio'])
         integratedSideLobeRatio = etree.SubElement(PerformanceIndicators, _nsc('nrb:integratedSideLobeRatio'),
-                                             attrib={'uom': 'dB'})
+                                                   attrib={'uom': 'dB'})
         integratedSideLobeRatio.text = str(meta['source'][uid]['perfIntegratedSideLobeRatio'])
         
         polCalMatrices = etree.SubElement(EarthObservationMetaData, _nsc('nrb:polCalMatrices'))

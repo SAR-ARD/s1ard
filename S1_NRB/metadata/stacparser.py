@@ -65,7 +65,9 @@ def product_json(meta, target, tifs):
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
-                  product_type=meta['prod']['card4l-name'])
+                  product_type=meta['prod']['card4l-name'],
+                  looks_range=int(meta['prod']['rangeNumberOfLooks']),
+                  looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']))
     
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
