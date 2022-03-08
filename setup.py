@@ -8,7 +8,7 @@ setup(
     name='S1_NRB',
     setup_requires=['setuptools_scm'],
     use_scm_version=True,
-    description="Prototype processor for the Sentinel-1 Normalized Radar Backscatter (S1 NRB) product",
+    description="Prototype processor for the Sentinel-1 Normalised Radar Backscatter (S1 NRB) product",
     long_description=long_description,
     long_description_content_type='text/markdown',
     url="https://github.com/SAR-ARD/S1_NRB",
