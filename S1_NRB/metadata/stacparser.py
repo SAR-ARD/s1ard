@@ -180,7 +180,7 @@ def product_json(meta, target, tifs):
                                                                          meta['prod']['fileBitsPerSample']),
                                               'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
                             'file:byte_order': meta['prod']['fileByteOrder'],
-                            'file:header_size': os.path.getsize(tif),
+                            'file:size': os.path.getsize(tif),
                             'card4l:border_pixels': meta['prod']['numBorderPixels']}
             
             item.add_asset(key=pol,
@@ -235,7 +235,7 @@ def product_json(meta, target, tifs):
                 
                 extra_fields = {'raster:bands': raster_bands,
                                 'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:header_size': os.path.getsize(tif)}
+                                'file:size': os.path.getsize(tif)}
             
             else:
                 raster_bands = {'unit': SAMPLE_MAP[key]['unit'],
@@ -249,7 +249,7 @@ def product_json(meta, target, tifs):
                 
                 extra_fields = {'raster:bands': [raster_bands],
                                 'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:header_size': os.path.getsize(tif)}
+                                'file:size': os.path.getsize(tif)}
                 
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
