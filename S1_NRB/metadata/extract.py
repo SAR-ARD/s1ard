@@ -452,32 +452,33 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     stac_bbox_4326, stac_geometry_4326 = convert_spatialist_extent(extent=prod_meta['extent_4326'])
     stac_bbox_native = convert_spatialist_extent(extent=prod_meta['extent'])[0]
     
-    dem_map = {'GETASSE30': {'url': 'https://step.esa.int/auxdata/dem/GETASSE30',
-                             'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
-                             'type': 'elevation',
-                             'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
-               'Copernicus 10m EEA DEM': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
+    dem_map = \
+        {'GETASSE30': {'access': 'https://step.esa.int/auxdata/dem/GETASSE30',
+                       'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
+                       'type': 'elevation',
+                       'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
+         'Copernicus 10m EEA DEM': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
+                                    'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+                                    'type': 'surface',
+                                    'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+         'Copernicus 30m Global DEM': {'access': 'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
+                                       'ref': 'https://copernicus-dem-30m.s3.amazonaws.com/readme.html',
+                                       'type': 'surface',
+                                       'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+         'Copernicus 30m Global DEM II': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
                                           'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
                                           'type': 'surface',
-                                          'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 30m Global DEM': {'url': 'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
-                                             'ref': 'https://copernicus-dem-30m.s3.amazonaws.com/readme.html',
-                                             'type': 'surface',
-                                             'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 30m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
-                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                                'type': 'surface',
-                                                'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 90m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
-                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                                'type': 'surface',
-                                                'egm': 'https://doi.org/10.1029/2011JB008916'}
-               }
+                                          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+         'Copernicus 90m Global DEM II': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
+                                          'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+                                          'type': 'surface',
+                                          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
+         }
     dem_name = config['dem_type']
-    dem_url = dem_map[dem_name]['url']
+    dem_access = dem_map[dem_name]['access']
     dem_ref = dem_map[dem_name]['ref']
     dem_type = dem_map[dem_name]['type']
-    dem_egm = dem_map[dem_name]['egm']
+    egm_ref = dem_map[dem_name]['egm']
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -512,28 +513,24 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0'
     meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
-    meta['prod']['card4l-name'] = 'NRB'
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['datatakeID'] = manifest0.find('.//s1sarl1:missionDataTakeID', nsmap0).text
-    meta['prod']['demEgmReference'] = dem_egm
-    meta['prod']['demEgmResamplingMethod'] = 'bilinear'
+    meta['prod']['demEGMReference'] = egm_ref
+    meta['prod']['demEGMResamplingMethod'] = 'bilinear'
     meta['prod']['demName'] = dem_name
     meta['prod']['demReference'] = dem_ref
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = dem_type
-    meta['prod']['demURL'] = dem_url
+    meta['prod']['demAccess'] = dem_access
     meta['prod']['doi'] = None
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['fileBitsPerSample'] = '32'
     meta['prod']['fileByteOrder'] = 'little-endian'
     meta['prod']['fileDataType'] = 'float'
     meta['prod']['fileFormat'] = 'COG'
-    meta['prod']['filterApplied'] = False
-    meta['prod']['filterType'] = None
-    meta['prod']['filterWindowSizeCol'] = None
-    meta['prod']['filterWindowSizeLine'] = None
+    meta['prod']['speckleFilterApplied'] = False
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
@@ -552,8 +549,8 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
     meta['prod']['majorCycleID'] = str(sid0.meta['cycleNumber'])
-    meta['prod']['noiseRemovalApplied'] = True
-    meta['prod']['noiseRemovalAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
+    meta['prod']['NRApplied'] = True
+    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberLines'] = str(prod_meta['rows'])
     meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
@@ -565,6 +562,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
     meta['prod']['productName'] = 'NORMALISED RADAR BACKSCATTER'
+    meta['prod']['productName-short'] = 'NRB'
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None

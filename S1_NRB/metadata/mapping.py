@@ -4,7 +4,7 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<resolution>_)' \
               r'(?P<processingLevel>1)' \
               r'(?P<category>S)' \
-              r'(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_' \
+              r'(?P<pols>SH|SV|DH|DV)_' \
               r'(?P<start>[0-9]{8}T[0-9]{6})_' \
               r'(?P<stop>[0-9]{8}T[0-9]{6})_' \
               r'(?P<orbitNumber>[0-9]{6})_' \
@@ -59,7 +59,7 @@ ORB_MAP = {'PREORB': 'predicted',
            'RESORB': 'restituted',
            'POEORB': 'precise'}
 
-SAMPLE_MAP = {'-dm.tif': {'type': 'mask',
+SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': None,
                           'role': 'data-mask',
                           'title': 'Data Mask Image',
@@ -68,39 +68,27 @@ SAMPLE_MAP = {'-dm.tif': {'type': 'mask',
                                      2: 'shadow',
                                      3: 'layover and shadow',
                                      4: 'ocean water'}},
-              '-ei.tif': {'type': 'angle',
+              '-ei.tif': {'type': 'Angle',
                           'unit': 'deg',
                           'role': 'ellipsoid-incidence-angle',
                           'title': 'Ellipsoid Incidence Angle'},
-              '-lc.tif': {'type': 'scattering area',
+              '-lc.tif': {'type': 'Scattering Area',
                           'unit': 'square_meters',
                           'role': 'contributing-area',
                           'title': 'Local Contributing Area'},
-              '-li.tif': {'type': 'angle',
+              '-li.tif': {'type': 'Angle',
                           'unit': 'deg',
                           'role': 'local-incidence-angle',
                           'title': 'Local Incidence Angle'},
-              '-gs.tif': {'type': 'ratio',
+              '-gs.tif': {'type': 'Ratio',
                           'unit': None,
                           'role': 'gamma-sigma-ratio',
                           'title': 'Gamma0 RTC to sigma0 RTC ratio'},
-              '-id.tif': {'type': 'mask',
+              '-id.tif': {'type': 'AcqID',
                           'unit': None,
                           'role': 'acquisition-id',
                           'title': 'Acquisition ID Image'},
-              '-np-vv.tif': {'type': 'noise power VV',
-                             'unit': None,
-                             'role': 'noise-power',
-                             'title': 'Noise Power VV'},
-              '-np-vh.tif': {'type': 'noise power VH',
-                             'unit': None,
-                             'role': 'noise-power',
-                             'title': 'Noise Power VH'},
-              '-np-hh.tif': {'type': 'noise power HH',
-                             'unit': None,
-                             'role': 'noise-power',
-                             'title': 'Noise Power HH'},
-              '-np-hv.tif': {'type': 'noise power HV',
-                             'unit': None,
-                             'role': 'noise-power',
-                             'title': 'Noise Power HV'}}
+              '-np-[vh]{2}.tif': {'type': 'Sigma-0',
+                                  'unit': 'dB',
+                                  'role': 'noise-power',
+                                  'title': 'Noise Power'}}
