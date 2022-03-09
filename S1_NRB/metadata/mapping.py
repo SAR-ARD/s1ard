@@ -1,5 +1,5 @@
 NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
-              r'(?P<mode>IW|EW)_' \
+              r'(?P<mode>IW|EW|SM)_' \
               r'(?P<product>NRB)_' \
               r'(?P<resolution>_)' \
               r'(?P<processingLevel>1)' \
@@ -9,18 +9,7 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<stop>[0-9]{8}T[0-9]{6})_' \
               r'(?P<orbitNumber>[0-9]{6})_' \
               r'(?P<dataTakeID>[0-9A-F]{6})_' \
-              r'(?P<mgrsTile>[0-9A-Z]{5})'
-
-SRC_PATTERN = r'^(?P<sensor>S1[AB])_' \
-              r'(?P<mode>IW|EW|S[1-6]{1})_' \
-              r'(?P<product>GRDH|SLC_)_' \
-              r'(?P<processingLevel>1)' \
-              r'(?P<category>S)' \
-              r'(?P<pols>SH|SV|DH|DV|VV|HH|HV|VH)_' \
-              r'(?P<start>[0-9]{8}T[0-9]{6})_' \
-              r'(?P<stop>[0-9]{8}T[0-9]{6})_' \
-              r'(?P<orbitNumber>[0-9]{6})_' \
-              r'(?P<dataTakeID>[0-9A-F]{6})_' \
+              r'(?P<mgrsTile>[0-9A-Z]{5})_' \
               r'(?P<ID>[0-9A-Z]{4})'
 
 # Source data resolution
