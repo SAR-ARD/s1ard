@@ -427,27 +427,21 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta: dict
         A dictionary containing an extensive collection of metadata for product as well as source scenes.
     """
-    
     meta = {'prod': {},
             'source': {},
             'common': {}}
-    
-    product_id = os.path.basename(target)
-    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
-                              src_dir=os.path.dirname(src_files[0]))
-    
     src_sid = {}
     src_xml = {}
     for i in range(len(src_scenes)):
         uid, sid = get_uid_sid(filepath=src_scenes[i])
         src_sid[uid] = sid
         src_xml[uid] = etree_from_sid(sid=sid)
+    sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
-    src0 = list(src_sid.keys())[0]  # first key/first file
-    sid0 = src_sid[src0]
-    manifest0 = src_xml[src0]['manifest']
-    nsmap0 = src_xml[src0]['manifest'].nsmap
+    product_id = os.path.basename(target)
+    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
+                              src_dir=os.path.dirname(src_files[0]))
     
     stac_bbox_4326, stac_geometry_4326 = convert_spatialist_extent(extent=prod_meta['extent_4326'])
     stac_bbox_native = convert_spatialist_extent(extent=prod_meta['extent'])[0]
@@ -579,11 +573,12 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     for uid in list(src_sid.keys()):
         nsmap = src_xml[uid]['manifest'].nsmap
         
+        swaths = list(src_xml[uid]['annotation'].keys())
         osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
+        
         coords = src_sid[uid].meta['coordinates']
         xml_envelop, xml_center = convert_id_coordinates(coords=coords)
         stac_bbox, stac_geometry = convert_id_coordinates(coords=coords, stac=True)
-        swaths = list(src_xml[uid]['annotation'].keys())
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
@@ -676,5 +671,4 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
         meta['source'][uid]['swaths'] = swaths
     
-    # return meta, m_sid, m_src
     return meta
