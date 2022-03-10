@@ -76,7 +76,7 @@ def product_xml(meta, target, tifs):
     ####################################################################################################################
     procedure = etree.SubElement(root, _nsc('om:procedure'))
     EarthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                 attrib={_nsc('gml:id'): scene_id + '_5'})
+                                                 attrib={_nsc('gml:id'): scene_id + '_4'})
     
     platform = etree.SubElement(EarthObservationEquipment, _nsc('eop:platform'))
     Platform = etree.SubElement(platform, _nsc('eop:Platform'))
@@ -112,7 +112,7 @@ def product_xml(meta, target, tifs):
     polarisationChannels = etree.SubElement(Acquisition, _nsc('sar:polarisationChannels'))
     polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
     orbitDirection = etree.SubElement(Acquisition, _nsc('eop:orbitDirection'))
-    orbitDirection.text = meta['common']['orbit'].upper()
+    orbitDirection.text = meta['common']['orbitDirection'].upper()
     orbitNumber = etree.SubElement(Acquisition, _nsc('eop:orbitNumber'))
     orbitNumber.text = meta['common']['orbitNumber']
     wrsLongitudeGrid = etree.SubElement(Acquisition, _nsc('eop:wrsLongitudeGrid'),
@@ -125,31 +125,32 @@ def product_xml(meta, target, tifs):
     
     ####################################################################################################################
     featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest'))
-    Footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint'), attrib={_nsc('gml:id'): scene_id + '_6'})
+    Footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint'), attrib={_nsc('gml:id'): scene_id + '_5'})
     
     multiExtentOf = etree.SubElement(Footprint, _nsc('eop:multiExtentOf'))
-    MultiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface'), attrib={_nsc('gml:id'): scene_id + '_7'})
+    MultiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface'), attrib={_nsc('gml:id'): scene_id + '_6'})
     surfaceMember = etree.SubElement(MultiSurface, _nsc('gml:surfaceMember'))
-    Polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene_id + '_8'})
+    Polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene_id + '_7'})
     exterior = etree.SubElement(Polygon, _nsc('gml:exterior'))
     LinearRing = etree.SubElement(exterior, _nsc('gml:LinearRing'))
     posList = etree.SubElement(LinearRing, _nsc('gml:posList'), attrib={'uom': 'deg'})
     posList.text = meta['prod']['geom_xml_envelope']
     
     centerOf = etree.SubElement(Footprint, _nsc('eop:centerOf'))
-    Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene_id + '_9'})
+    Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene_id + '_8'})
     pos = etree.SubElement(Point, _nsc('gml:pos'), attrib={'uom': 'deg'})
     pos.text = meta['prod']['geom_xml_center']
     
     ####################################################################################################################
     result = etree.SubElement(root, _nsc('om:result'))
     EarthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult'),
-                                              attrib={_nsc('gml:id'): scene_id + '_10'})
+                                              attrib={_nsc('gml:id'): scene_id + '_9'})
     
     product = etree.SubElement(EarthObservationResult, _nsc('eop:product'))
     ProductInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))
     fileName = etree.SubElement(ProductInformation, _nsc('eop:fileName'))
-    ServiceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'), attrib={_nsc('xlink:href'): scene_id})
+    ServiceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'),
+                                        attrib={_nsc('xlink:href'): scene_id})
     RequestMessage = etree.SubElement(ServiceReference, _nsc('ows:RequestMessage'))
     version = etree.SubElement(ProductInformation, _nsc('eop:size'))
     
@@ -158,7 +159,8 @@ def product_xml(meta, target, tifs):
         product = etree.SubElement(EarthObservationResult, _nsc('eop:product'))
         ProductInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))
         fileName = etree.SubElement(ProductInformation, _nsc('eop:fileName'))
-        ServiceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'), attrib={_nsc('xlink:href'): relpath})
+        ServiceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'),
+                                            attrib={_nsc('xlink:href'): relpath})
         RequestMessage = etree.SubElement(ServiceReference, _nsc('ows:RequestMessage'))
         size = etree.SubElement(ProductInformation, _nsc('eop:size'), attrib={'uom': 'bytes'})
         size.text = str(os.path.getsize(tif))
@@ -408,7 +410,7 @@ def source_xml(meta, target):
         ################################################################################################################
         procedure = etree.SubElement(root, _nsc('om:procedure'))
         EarthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                     attrib={_nsc('gml:id'): scene + '_5'})
+                                                     attrib={_nsc('gml:id'): scene + '_4'})
         
         platform = etree.SubElement(EarthObservationEquipment, _nsc('eop:platform'))
         Platform = etree.SubElement(platform, _nsc('eop:Platform'))
@@ -450,7 +452,7 @@ def source_xml(meta, target):
         polarisationChannels = etree.SubElement(Acquisition, _nsc('sar:polarisationChannels'))
         polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
         orbitDirection = etree.SubElement(Acquisition, _nsc('eop:orbitDirection'))
-        orbitDirection.text = meta['common']['orbit'].upper()
+        orbitDirection.text = meta['common']['orbitDirection'].upper()
         orbitNumber = etree.SubElement(Acquisition, _nsc('eop:orbitNumber'))
         orbitNumber.text = meta['common']['orbitNumber']
         wrsLongitudeGrid = etree.SubElement(Acquisition, _nsc('eop:wrsLongitudeGrid'),
@@ -491,26 +493,26 @@ def source_xml(meta, target):
         
         ################################################################################################################
         featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest'))
-        Footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint'), attrib={_nsc('gml:id'): scene + '_6'})
+        Footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint'), attrib={_nsc('gml:id'): scene + '_5'})
         
         multiExtentOf = etree.SubElement(Footprint, _nsc('eop:multiExtentOf'))
-        MultiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface'), attrib={_nsc('gml:id'): scene + '_7'})
+        MultiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface'), attrib={_nsc('gml:id'): scene + '_6'})
         surfaceMember = etree.SubElement(MultiSurface, _nsc('gml:surfaceMember'))
-        Polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene + '_8'})
+        Polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene + '_7'})
         exterior = etree.SubElement(Polygon, _nsc('gml:exterior'))
         LinearRing = etree.SubElement(exterior, _nsc('gml:LinearRing'))
         posList = etree.SubElement(LinearRing, _nsc('gml:posList'), attrib={'uom': 'deg'})
         posList.text = meta['source'][uid]['geom_xml_envelop']
         
         centerOf = etree.SubElement(Footprint, _nsc('eop:centerOf'))
-        Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene + '_9'})
+        Point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene + '_8'})
         pos = etree.SubElement(Point, _nsc('gml:pos'), attrib={'uom': 'deg'})
         pos.text = meta['source'][uid]['geom_xml_center']
         
         ################################################################################################################
         result = etree.SubElement(root, _nsc('om:result'))
         EarthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult'),
-                                                  attrib={_nsc('gml:id'): scene + '_10'})
+                                                  attrib={_nsc('gml:id'): scene + '_9'})
         
         product = etree.SubElement(EarthObservationResult, _nsc('eop:product'))
         ProductInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))

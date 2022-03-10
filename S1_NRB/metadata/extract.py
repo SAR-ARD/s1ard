@@ -485,11 +485,11 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['constellation'] = 'sentinel-1'
     meta['common']['instrumentShortName'] = 'C-SAR'
     meta['common']['operationalMode'] = prod_meta['mode']
+    meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
-    meta['common']['orbit'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
+    meta['common']['orbitNumber'] = str(sid0.meta['orbitNumbers_abs']['stop'])
     meta['common']['orbitNumbers_abs'] = sid0.meta['orbitNumbers_abs']
     meta['common']['orbitNumbers_rel'] = sid0.meta['orbitNumbers_rel']
-    meta['common']['orbitNumber'] = str(meta['common']['orbitNumbers_abs']['stop'])
     meta['common']['platformIdentifier'] = {'S1A': '1A', 'S1B': '1B'}[sid0.sensor]
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
@@ -499,11 +499,11 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['polarisationChannels'] = sid0.polarizations
     meta['common']['polarisationMode'] = prod_meta['pols'][0]
     meta['common']['radarBand'] = 'C'
-    meta['common']['radarCenterFreq'] = '{:.3e}'.format(5405000000)
+    meta['common']['radarCenterFreq'] = 5405000000
     meta['common']['sensorType'] = 'RADAR'
     meta['common']['swathIdentifier'] = re.search('_(IW|EW|S[1-6])_',
                                                   os.path.basename(sid0.file)).group().replace('_', '')
-    meta['common']['wrsLongitudeGrid'] = str(meta['common']['orbitNumbers_rel']['start'])
+    meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None

@@ -69,7 +69,7 @@ def product_json(meta, target, tifs):
                   looks_range=int(meta['prod']['rangeNumberOfLooks']),
                   looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']))
     
-    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
+    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
                   absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
     
@@ -318,7 +318,7 @@ def source_json(meta, target):
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
-                      center_frequency=float(meta['common']['radarCenterFreq']),
+                      center_frequency=float(meta['common']['radarCenterFreq']/1e9),
                       resolution_range=float(min(meta['source'][uid]['rangeResolution'].values())),
                       resolution_azimuth=float(min(meta['source'][uid]['azimuthResolution'].values())),
                       pixel_spacing_range=float(meta['source'][uid]['rangePixelSpacing']),
@@ -328,9 +328,10 @@ def source_json(meta, target):
                       looks_equivalent_number=float(enl) if enl is not None else None,
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         
-        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
+        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                       relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
+                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
         
         view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
                        azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
@@ -345,11 +346,11 @@ def source_json(meta, target):
         item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
         item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
         item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
+        range_look_bandwidth = {k: v/1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
+        azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
         item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
-                                                                  'range_look_bandwidth':
-                                                                      meta['source'][uid]['rangeLookBandwidth'],
-                                                                  'azimuth_look_bandwidth':
-                                                                      meta['source'][uid]['azimuthLookBandwidth']}
+                                                                  'range_look_bandwidth': range_look_bandwidth,
+                                                                  'azimuth_look_bandwidth': azimuth_look_bandwidth}
         for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
                               ['rangeResolution', 'azimuthResolution']):
             res = {}
