@@ -14,7 +14,7 @@ import S1_NRB
 from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
 
 
-def get_prod_meta(product_id, tif, src_scenes, src_dir):
+def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     """
     Returns a metadata dictionary, which is generated from the ID of a product scene using a regular expression pattern
     and from a measurement GeoTIFF file of the same product scene using spatialist's Raster class.
@@ -27,8 +27,8 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
         The paths to a measurement GeoTIFF file of the product scene.
     src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
-    src_dir: str
-        A paths pointing to the SNAP processed datasets of the product.
+    snap_outdir: str
+        A path pointing to the SNAP processed datasets of the product.
     
     Returns
     -------
@@ -68,7 +68,7 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
         srcvec = None
     
     pat = 'S1[AB]__(IW|EW|S[1-6]{1})___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
-    wf_path = finder(src_dir, [pat], regex=True)[0]
+    wf_path = finder(snap_outdir, [pat], regex=True)[0]
     wf = parse_recipe(wf_path)
     out['ML_nRgLooks'] = wf['Multilook'].parameters['nRgLooks']
     out['ML_nAzLooks'] = wf['Multilook'].parameters['nAzLooks']
@@ -403,7 +403,7 @@ def extract_pslr_islr(annotation_dict):
     return pslr, islr
 
 
-def meta_dict(config, target, src_scenes, src_files, proc_time):
+def meta_dict(config, target, src_scenes, snap_files, proc_time):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -417,7 +417,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         A path pointing to the root directory of a product scene.
     src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
-    src_files: list[str]
+    snap_files: list[str]
         A list of paths pointing to the SNAP processed datasets of the product.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
@@ -441,7 +441,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     product_id = os.path.basename(target)
     tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
     prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
-                              src_dir=os.path.dirname(src_files[0]))
+                              snap_outdir=os.path.dirname(snap_files[0]))
     
     stac_bbox_4326, stac_geometry_4326 = convert_spatialist_extent(extent=prod_meta['extent_4326'])
     stac_bbox_native = convert_spatialist_extent(extent=prod_meta['extent'])[0]
@@ -630,7 +630,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         
         pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        np_files = [f for f in src_files if re.search('_NE[BGS]Z', f) is not None]
+        np_files = [f for f in snap_files if re.search('_NE[BGS]Z', f) is not None]
         meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
