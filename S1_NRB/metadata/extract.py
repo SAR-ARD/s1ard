@@ -358,14 +358,14 @@ def calc_performance_estimates(files, ref_tif):
                 _min = float(np.nanmin(arr))
                 _max = float(np.nanmax(arr))
                 _mean = float(np.nanmean(arr))
-                _stdev = float(np.nanstd(arr))
-                _var = float(np.nanvar(arr))
+                # _stdev = float(np.nanstd(arr))
+                # _var = float(np.nanvar(arr))
                 del arr
         out[pol] = {'minimum': _min,
                     'maximum': _max,
-                    'mean': _mean,
-                    'stddev': _stdev,
-                    'variance': _var}
+                    'mean': _mean}
+                    # 'stddev': _stdev,
+                    # 'variance': _var}
     return out
 
 
@@ -501,13 +501,14 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = '{:.3e}'.format(5405000000)
     meta['common']['sensorType'] = 'RADAR'
+    meta['common']['swathIdentifier'] = re.search('_(IW|EW|S[1-6])_',
+                                                  os.path.basename(sid0.file)).group().replace('_', '')
     meta['common']['wrsLongitudeGrid'] = str(meta['common']['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
     meta['prod']['ancillaryData1'] = None
     meta['prod']['acquisitionType'] = 'NOMINAL'
-    meta['prod']['ascendingNodeDate'] = manifest0.find('.//s1:ascendingNodeTime', nsmap0).text
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
@@ -516,7 +517,6 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
-    meta['prod']['datatakeID'] = manifest0.find('.//s1sarl1:missionDataTakeID', nsmap0).text
     meta['prod']['demEGMReference'] = egm_ref
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
     meta['prod']['demName'] = dem_name
@@ -548,7 +548,6 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
-    meta['prod']['majorCycleID'] = str(sid0.meta['cycleNumber'])
     meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberLines'] = str(prod_meta['rows'])
@@ -572,8 +571,6 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['status'] = 'PROTOTYPE'
     meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeCompletionFromAscendingNode'] = str(float(manifest0.find('.//s1:stopTimeANX', nsmap0).text))
-    meta['prod']['timeStartFromAscendingNode'] = str(float(manifest0.find('.//s1:startTimeANX', nsmap0).text))
     meta['prod']['timeStart'] = datetime.strptime(prod_meta['start'], '%Y%m%dT%H%M%S')
     meta['prod']['timeStop'] = datetime.strptime(prod_meta['stop'], '%Y%m%dT%H%M%S')
     meta['prod']['transform'] = prod_meta['transform']
@@ -592,6 +589,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = 'https://scihub.copernicus.eu'
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
+        meta['source'][uid]['ascendingNodeDate'] = src_xml[uid]['manifest'].find('.//s1:ascendingNodeTime', nsmap).text
         meta['source'][uid]['azimuthLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                                          pattern='.//azimuthProcessing/lookBandwidth',
                                                                          out_type='float')
@@ -609,6 +607,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
             meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
         meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
         meta['source'][uid]['dataGeometry'] = 'slant range'
+        meta['source'][uid]['datatakeID'] = src_xml[uid]['manifest'].find('.//s1sarl1:missionDataTakeID', nsmap).text
         meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
@@ -628,6 +627,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['lutApplied'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                                pattern='.//applicationLutId',
                                                                single=True)
+        meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for orb in list(ORB_MAP.keys()):
             if orb in meta['source'][uid]['orbitStateVector']:
@@ -669,9 +669,10 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
+        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest'].find('.//s1:stopTimeANX', nsmap).text))
+        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest'].find('.//s1:startTimeANX', nsmap).text))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['swathIdentifier'] = re.search('_IW|EW|S[1-6]{1}_', os.path.basename(src_sid[uid].file)).group().replace('_', '')
         meta['source'][uid]['swaths'] = swaths
     
     # return meta, m_sid, m_src

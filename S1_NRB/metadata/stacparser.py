@@ -85,6 +85,7 @@ def product_json(meta, target, tifs):
     
     item.properties['card4l:specification'] = meta['prod']['productName-short']
     item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
+    item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
     item.properties['card4l:measurement_type'] = meta['prod']['backscatterMeasurement']
     item.properties['card4l:measurement_convention'] = meta['prod']['backscatterConvention']
     item.properties['card4l:pixel_coordinate_convention'] = {'pixel center': 'center',
@@ -341,7 +342,7 @@ def source_json(meta, target):
         
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
-        item.properties['card4l:beam_id'] = meta['source'][uid]['swathIdentifier']
+        item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
         item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
         item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
         item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
