@@ -498,6 +498,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
                                            'sentinel-1b': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=576'}[meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
     meta['common']['polarisationMode'] = prod_meta['pols'][0]
+    meta['common']['processingLevel'] = 'L1C'
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = 5405000000
     meta['common']['sensorType'] = 'RADAR'
@@ -550,17 +551,16 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['licence'] = None
     meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
-    meta['prod']['numberLines'] = str(prod_meta['rows'])
     meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
+    meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
-    meta['prod']['pixelCoordinateConvention'] = 'pixel ULC'
+    meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     meta['prod']['processingCenter'] = 'FSU'
-    meta['prod']['processingLevel'] = 'L1C'
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
-    meta['prod']['productName'] = 'NORMALISED RADAR BACKSCATTER'
+    meta['prod']['productName'] = 'Normalised Radar Backscatter'
     meta['prod']['productName-short'] = 'NRB'
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
@@ -650,6 +650,7 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['processingLevel'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['name']
         meta['source'][uid]['processorName'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['name']
         meta['source'][uid]['processorVersion'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['version']
+        meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
         meta['source'][uid]['rangeLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                                        pattern='.//rangeProcessing/lookBandwidth',

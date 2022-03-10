@@ -76,22 +76,19 @@ def product_json(meta, target, tifs):
     proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
                    wkt2=meta['prod']['crsWKT'],
                    bbox=meta['prod']['geom_stac_bbox_native'],
-                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numberLines'])],
+                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
                    transform=meta['prod']['transform'])
     
     item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
-    item.properties['processing:level'] = meta['prod']['processingLevel']
+    item.properties['processing:level'] = meta['common']['processingLevel']
     
     item.properties['card4l:specification'] = meta['prod']['productName-short']
     item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
     item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
     item.properties['card4l:measurement_type'] = meta['prod']['backscatterMeasurement']
     item.properties['card4l:measurement_convention'] = meta['prod']['backscatterConvention']
-    item.properties['card4l:pixel_coordinate_convention'] = {'pixel center': 'center',
-                                                             'pixel ULC': 'upper-left',
-                                                             'pixel LLC': 'lower-left'
-                                                             }[meta['prod']['pixelCoordinateConvention']]
+    item.properties['card4l:pixel_coordinate_convention'] = meta['prod']['pixelCoordinateConvention']
     item.properties['card4l:speckle_filtering'] = meta['prod']['speckleFilterApplied']
     item.properties['card4l:noise_removal_applied'] = meta['prod']['NRApplied']
     item.properties['card4l:conversion_eq'] = meta['prod']['backscatterConversionEq']
@@ -176,7 +173,8 @@ def product_json(meta, target, tifs):
             pol = re.search('[vh]{2}', tif).group().lower()
             created = datetime.fromtimestamp(os.path.getctime(tif)).isoformat()
             extra_fields = {'created': created,
-                            'raster:bands': [{'nodata': 'NaN',
+                            'raster:bands': [{'unit': 'natural',
+                                              'nodata': 'NaN',
                                               'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                                          meta['prod']['fileBitsPerSample']),
                                               'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
@@ -202,7 +200,8 @@ def product_json(meta, target, tifs):
                 asset_key = SAMPLE_MAP[key]['role']
             
             if key in ['-dm.tif', '-id.tif']:
-                ras_bands_base = {'nodata': 255,
+                ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
+                                  'nodata': 255,
                                   'data_type': 'uint8',
                                   'bits_per_sample': 8}
                 raster_bands = []
@@ -246,7 +245,7 @@ def product_json(meta, target, tifs):
                                 'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}
                 
                 if raster_bands['unit'] is None:
-                    raster_bands.pop('unit')
+                    raster_bands['unit'] = 'None'
                 
                 extra_fields = {'raster:bands': [raster_bands],
                                 'file:byte_order': meta['prod']['fileByteOrder'],
@@ -339,7 +338,7 @@ def source_json(meta, target):
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
                                                   meta['source'][uid]['processorVersion']}
-        item.properties['processing:level'] = meta['source'][uid]['processingLevel']
+        item.properties['processing:level'] = meta['common']['processingLevel']
         
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
