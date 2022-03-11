@@ -73,12 +73,6 @@ def product_json(meta, target, tifs):
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
                   absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
     
-    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
-                   wkt2=meta['prod']['crsWKT'],
-                   bbox=meta['prod']['geom_stac_bbox_native'],
-                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
-                   transform=meta['prod']['transform'])
-    
     item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
     item.properties['processing:level'] = meta['common']['processingLevel']
@@ -102,25 +96,28 @@ def product_json(meta, target, tifs):
         key = ['geoCorrAccuracy{}{}'.format(x, y) for y in ['STDev', 'Bias']]
         stddev = float(meta['prod'][key[0]]) if meta['prod'][key[0]] is not None else None
         bias = float(meta['prod'][key[1]]) if meta['prod'][key[1]] is not None else None
-        item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias,
-                                                                             'stddev': stddev}
+        item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias, 'stddev': stddev}
     item.properties['card4l:geometric_accuracy_radial_rmse'] = meta['prod']['geoCorrAccuracy_rRMSE']
+    
+    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
+                   wkt2=meta['prod']['crsWKT'],
+                   bbox=meta['prod']['geom_stac_bbox_native'],
+                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
+                   transform=meta['prod']['transform'])
     
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'.format(
-                                       meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                         ''.format(meta['prod']['card4l-version'])))
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'],
                                    media_type='application/pdf',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'.format(
-                                       meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                         ''.format(meta['prod']['card4l-version'])))
     for src in list(meta['source'].keys()):
-        src_target = os.path.join('./source',
-                                  '{}.json'.format(
-                                      os.path.basename(meta['source'][src]['filename']).split('.')[0])).replace('\\',
-                                                                                                                '/')
+        x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
+        src_target = os.path.join('./source', '{}.json'.format(x)).replace('\\', '/')
         item.add_link(link=pystac.Link(rel='derived_from',
                                        target=src_target,
                                        media_type='application/json',
@@ -152,7 +149,8 @@ def product_json(meta, target, tifs):
                                    title=meta['prod']['demName']))
     item.add_link(link=pystac.Link(rel='earth-gravitational-model',
                                    target=meta['prod']['demEGMReference'],
-                                   title='Reference to the Earth Gravitational Model (EGM) used for Geometric Correction.'))
+                                   title='Reference to the Earth Gravitational Model (EGM) used for Geometric '
+                                         'Correction.'))
     item.add_link(link=pystac.Link(rel='geometric-accuracy',
                                    target=meta['prod']['geoCorrAccuracyReference'],
                                    title='Reference documenting the estimate of absolute localization error.'))
