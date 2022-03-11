@@ -286,7 +286,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     ####################################################################################################################
     # metadata
     nrb_tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True, recursive=True)
-    meta = extract.meta_dict(config=config, target=nrbdir, src_scenes=src_scenes, snap_files=files, proc_time=proc_time)
+    meta = extract.meta_dict(config=config, target=nrbdir, src_scenes=src_scenes, snap_files=files,
+                             proc_time=proc_time, compression=compress)
     xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 

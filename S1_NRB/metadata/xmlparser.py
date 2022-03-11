@@ -172,6 +172,10 @@ def product_xml(meta, target, tifs):
     
     for tif in tifs:
         relpath = './' + os.path.relpath(tif, target).replace('\\', '/')
+        z_errors = meta['prod']['compression_zerrors']
+        pattern = '|'.join(z_errors.keys())
+        match = re.search(pattern, os.path.basename(tif))
+        
         product = etree.SubElement(earthObservationResult, _nsc('eop:product'))
         productInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))
         fileName = etree.SubElement(productInformation, _nsc('eop:fileName'))
@@ -192,6 +196,12 @@ def product_xml(meta, target, tifs):
         bitsPerSample.text = meta['prod']['fileBitsPerSample']
         noDataVal = etree.SubElement(productInformation, _nsc('nrb:noDataValue'))
         noDataVal.text = 'NaN'
+        compressionType = etree.SubElement(productInformation, _nsc('nrb:compressionType'))
+        compressionType.text = meta['prod']['compression_type']
+        if match is not None:
+            k = match.group()
+            compressionzError = etree.SubElement(productInformation, _nsc('nrb:compressionZError'))
+            compressionzError.text = str(z_errors[k])
         
         if 'annotation' in tif:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()

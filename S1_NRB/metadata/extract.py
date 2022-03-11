@@ -12,7 +12,7 @@ from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP, DEM_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
 
 
 def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
@@ -436,7 +436,7 @@ def _get_block_offset(band):
     return 0
 
 
-def meta_dict(config, target, src_scenes, snap_files, proc_time):
+def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -454,6 +454,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
         A list of paths pointing to the SNAP processed datasets of the product.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
+    compression: str
+        The compression type applied to raster files of the product.
     
     Returns
     -------
@@ -485,6 +487,9 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     dem_ref = DEM_MAP[dem_name]['ref']
     dem_type = DEM_MAP[dem_name]['type']
     egm_ref = DEM_MAP[dem_name]['egm']
+
+    tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
+    z_err_dict = dict(tups)
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -524,6 +529,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
+    meta['prod']['compression_type'] = compression
+    meta['prod']['compression_zerrors'] = z_err_dict
     meta['prod']['demEGMReference'] = egm_ref
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
     meta['prod']['demName'] = dem_name
