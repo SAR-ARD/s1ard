@@ -136,8 +136,9 @@ def product_json(meta, target, tifs):
                                    target=meta['prod']['access'],
                                    title='Product Definition Reference.'))
     item.add_link(link=pystac.Link(rel='related',
-                                   target=meta['prod']['ancillaryData1'],
-                                   title='Reference to ancillary data used in the generation process.'))
+                                   target=meta['prod']['ancillaryData_KML'],
+                                   title='KML file of the Sentinel-2 Military Grid Reference System (MGRS) tiling grid '
+                                         'used during processing.'))
     if meta['prod']['NRApplied']:
         item.add_link(link=pystac.Link(rel='noise-removal',
                                        target=meta['prod']['NRAlgorithm'],

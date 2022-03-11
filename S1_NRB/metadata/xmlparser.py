@@ -304,6 +304,8 @@ def product_xml(meta, target, tifs):
         src_target = os.path.join('./source', src_path).replace('\\', '/')
         sourceProduct = etree.SubElement(processingInformation, _nsc('nrb:sourceProduct'),
                                          attrib={_nsc('xlink:href'): src_target})
+    auxData1 = etree.SubElement(processingInformation, _nsc('eop:auxiliaryDataSetFileName'),
+                                attrib={_nsc('xlink:href'): meta['prod']['ancillaryData_KML']})
     speckleFilterApplied = etree.SubElement(processingInformation, _nsc('nrb:speckleFilterApplied'))
     speckleFilterApplied.text = str(meta['prod']['speckleFilterApplied']).lower()
     nrApplied = etree.SubElement(processingInformation, _nsc('nrb:NRApplied'))
