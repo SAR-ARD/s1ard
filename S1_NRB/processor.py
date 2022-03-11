@@ -3,7 +3,7 @@ import re
 import time
 import tempfile
 from getpass import getpass
-from datetime import datetime
+from datetime import datetime, timezone
 from lxml import etree
 import numpy as np
 from osgeo import gdal
@@ -251,7 +251,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': snap_nodata, 'dstNodata': 'nan',
                               'multithread': multithread, 'creationOptions': write_options[key]})
     
-    proc_time = datetime.now()
+    proc_time = datetime.now(timezone.utc)
     t = proc_time.isoformat().encode()
     product_id = ancil.generate_unique_id(encoded_str=t)
     nrbdir_new = nrbdir.replace('ABCD', product_id)
