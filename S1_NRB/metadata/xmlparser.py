@@ -106,22 +106,18 @@ def product_xml(meta, target, tifs):
     
     ####################################################################################################################
     phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime'))
-    timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod'),
-                                  attrib={_nsc('gml:id'): scene_id + '_2'})
+    timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod'), attrib={_nsc('gml:id'): scene_id + '_2'})
     beginPosition = etree.SubElement(timePeriod, _nsc('gml:beginPosition'))
     beginPosition.text = timeStart
     endPosition = etree.SubElement(timePeriod, _nsc('gml:endPosition'))
     endPosition.text = timeStop
     
-    ####################################################################################################################
     resultTime = etree.SubElement(root, _nsc('om:resultTime'))
-    timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant'),
-                                   attrib={_nsc('gml:id'): scene_id + '_3'})
+    timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant'), attrib={_nsc('gml:id'): scene_id + '_3'})
     timePosition = etree.SubElement(timeInstant, _nsc('gml:timePosition'))
     timePosition.text = timeStop
     
     ####################################################################################################################
-
     platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene_id, meta=meta)
     
     numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions'))
@@ -153,12 +149,10 @@ def product_xml(meta, target, tifs):
     result = etree.SubElement(root, _nsc('om:result'))
     earthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult'),
                                               attrib={_nsc('gml:id'): scene_id + '_9'})
-    
     product = etree.SubElement(earthObservationResult, _nsc('eop:product'))
     productInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))
     fileName = etree.SubElement(productInformation, _nsc('eop:fileName'))
-    serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'),
-                                        attrib={_nsc('xlink:href'): scene_id})
+    serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'), attrib={_nsc('xlink:href'): scene_id})
     requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage'))
     
     for tif in tifs:
@@ -173,6 +167,7 @@ def product_xml(meta, target, tifs):
         serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'),
                                             attrib={_nsc('xlink:href'): relpath})
         requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage'))
+        
         size = etree.SubElement(productInformation, _nsc('eop:size'), attrib={'uom': 'bytes'})
         size.text = str(os.path.getsize(tif))
         headerSize = etree.SubElement(productInformation, _nsc('nrb:headerSize'), attrib={'uom': 'bytes'})
@@ -329,8 +324,9 @@ def product_xml(meta, target, tifs):
     radiometricAccuracyAbsolute = etree.SubElement(earthObservationMetaData, _nsc('nrb:radiometricAccuracyAbsolute'),
                                                    attrib={'uom': 'dB'})
     radiometricAccuracyAbsolute.text = meta['prod']['radiometricAccuracyAbsolute']
+    radacc_ref = str(meta['prod']['radiometricAccuracyReference'])
     radiometricAccuracyReference = etree.SubElement(earthObservationMetaData, _nsc('nrb:radiometricAccuracyReference'),
-                                                    attrib={_nsc('xlink:href'): str(meta['prod']['radiometricAccuracyReference'])})
+                                                    attrib={_nsc('xlink:href'): radacc_ref})
     geoCorrAccuracyType = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyType'))
     geoCorrAccuracyType.text = meta['prod']['geoCorrAccuracyType']
     geoCorrAccuracyNorthernSTDev = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyNorthernSTDev'),
@@ -375,8 +371,7 @@ def product_xml(meta, target, tifs):
                                           attrib={_nsc('xlink:href'): meta['prod']['griddingConventionURL']})
     mgrsID = etree.SubElement(earthObservationMetaData, _nsc('nrb:mgrsID'))
     mgrsID.text = meta['prod']['mgrsID']
-    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsEPSG'),
-                               attrib={'codespace': 'urn:esa:eop:crs'})
+    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsEPSG'), attrib={'codespace': 'urn:esa:eop:crs'})
     crsEPSG.text = meta['prod']['crsEPSG']
     crsWKT = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsWKT'))
     crsWKT.text = meta['prod']['crsWKT']
@@ -417,17 +412,14 @@ def source_xml(meta, target):
         
         ################################################################################################################
         phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime'))
-        timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod'),
-                                      attrib={_nsc('gml:id'): scene + '_2'})
+        timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod'), attrib={_nsc('gml:id'): scene + '_2'})
         beginPosition = etree.SubElement(timePeriod, _nsc('gml:beginPosition'))
         beginPosition.text = timeStart
         endPosition = etree.SubElement(timePeriod, _nsc('gml:endPosition'))
         endPosition.text = timeStop
         
-        ################################################################################################################
         resultTime = etree.SubElement(root, _nsc('om:resultTime'))
-        timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant'),
-                                       attrib={_nsc('gml:id'): scene + '_3'})
+        timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant'), attrib={_nsc('gml:id'): scene + '_3'})
         timePosition = etree.SubElement(timeInstant, _nsc('gml:timePosition'))
         timePosition.text = timeStop
         
@@ -498,12 +490,10 @@ def source_xml(meta, target):
         result = etree.SubElement(root, _nsc('om:result'))
         earthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult'),
                                                   attrib={_nsc('gml:id'): scene + '_9'})
-        
         product = etree.SubElement(earthObservationResult, _nsc('eop:product'))
         productInformation = etree.SubElement(product, _nsc('nrb:ProductInformation'))
         fileName = etree.SubElement(productInformation, _nsc('eop:fileName'))
-        serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'),
-                                            attrib={_nsc('xlink:href'): scene})
+        serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference'), attrib={_nsc('xlink:href'): scene})
         requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage'))
         
         ################################################################################################################
@@ -548,7 +538,6 @@ def source_xml(meta, target):
             rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('nrb:rangeLookBandwidth'),
                                                   attrib={'uom': 'Hz', 'beam': swath})
             rangeLookBandwidth.text = str(meta['source'][uid]['rangeLookBandwidth'][swath])
-        
         lutApplied = etree.SubElement(processingInformation, _nsc('nrb:lutApplied'))
         lutApplied.text = meta['source'][uid]['lutApplied']
         
@@ -630,6 +619,5 @@ def main(meta, target, tifs):
     -------
     None
     """
-    
     source_xml(meta=meta, target=target)
     product_xml(meta=meta, target=target, tifs=tifs)

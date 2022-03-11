@@ -438,6 +438,5 @@ def main(meta, target, tifs):
     -------
     None
     """
-    
     source_json(meta=meta, target=target)
     product_json(meta=meta, target=target, tifs=tifs)
