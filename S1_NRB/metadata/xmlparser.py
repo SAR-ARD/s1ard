@@ -3,22 +3,12 @@ import re
 from lxml import etree
 from datetime import datetime
 from spatialist import Raster
-from S1_NRB.metadata.mapping import SAMPLE_MAP
-
-
-nsmap_out = {'nrb': 'http://earth.esa.int/sentinel-1/nrb/1.0',
-             'eop': 'http://www.opengis.net/eop/2.1',
-             'gml': 'http://www.opengis.net/gml/3.2',
-             'om': 'http://www.opengis.net/om/2.0',
-             'ows': 'http://www.opengis.net/ows/2.0',
-             'sar': 'http://www.opengis.net/sar/2.1',
-             'xlink': 'http://www.w3.org/1999/xlink',
-             'xsi': 'http://www.w3.org/2001/XMLSchema-instance'}
+from S1_NRB.metadata.mapping import SAMPLE_MAP, NS_MAP
 
 
 def _nsc(text):
     ns, key = text.split(':')
-    return '{{{0}}}{1}'.format(nsmap_out[ns], key)
+    return '{{{0}}}{1}'.format(NS_MAP[ns], key)
 
 
 def _get_ref_type(ref_link):
@@ -54,7 +44,7 @@ def product_xml(meta, target, tifs):
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
     
-    root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=nsmap_out,
+    root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=NS_MAP,
                          attrib={_nsc('gml:id'): scene_id + '_1'})
     
     ####################################################################################################################
@@ -391,7 +381,7 @@ def source_xml(meta, target):
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
         
-        root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=nsmap_out,
+        root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=NS_MAP,
                              attrib={_nsc('gml:id'): scene + '_1'})
         
         ################################################################################################################

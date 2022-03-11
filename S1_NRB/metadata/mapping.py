@@ -76,6 +76,15 @@ DEM_MAP = {
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
     }
 
+NS_MAP = {'nrb': 'http://earth.esa.int/sentinel-1/nrb/1.0',
+          'eop': 'http://www.opengis.net/eop/2.1',
+          'gml': 'http://www.opengis.net/gml/3.2',
+          'om': 'http://www.opengis.net/om/2.0',
+          'ows': 'http://www.opengis.net/ows/2.0',
+          'sar': 'http://www.opengis.net/sar/2.1',
+          'xlink': 'http://www.w3.org/1999/xlink',
+          'xsi': 'http://www.w3.org/2001/XMLSchema-instance'}
+
 SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': None,
                           'role': 'data-mask',
