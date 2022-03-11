@@ -477,7 +477,7 @@ def source_xml(meta, target):
         featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest'))
         footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint'), attrib={_nsc('gml:id'): scene + '_5'})
         
-        multiExtentOf = etree.SubElement(acquisition, _nsc('eop:multiExtentOf'))
+        multiExtentOf = etree.SubElement(footprint, _nsc('eop:multiExtentOf'))
         multiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface'), attrib={_nsc('gml:id'): scene + '_6'})
         surfaceMember = etree.SubElement(multiSurface, _nsc('gml:surfaceMember'))
         polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon'), attrib={_nsc('gml:id'): scene + '_7'})
@@ -486,7 +486,7 @@ def source_xml(meta, target):
         posList = etree.SubElement(linearRing, _nsc('gml:posList'), attrib={'uom': 'deg'})
         posList.text = meta['source'][uid]['geom_xml_envelop']
         
-        centerOf = etree.SubElement(acquisition, _nsc('eop:centerOf'))
+        centerOf = etree.SubElement(footprint, _nsc('eop:centerOf'))
         point = etree.SubElement(centerOf, _nsc('gml:Point'), attrib={_nsc('gml:id'): scene + '_8'})
         pos = etree.SubElement(point, _nsc('gml:pos'), attrib={'uom': 'deg'})
         pos.text = meta['source'][uid]['geom_xml_center']
