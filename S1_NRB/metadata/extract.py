@@ -126,16 +126,19 @@ def etree_from_sid(sid):
                 'annotation': annotation_dict}
 
 
-def convert_id_coordinates(coords, stac=False):
+def convert_coordinates(coords, stac=False):
     """
-    Converts a list of coordinate pairs as retrieved by pyroSAR's identify function to either envelop and center for
-    usage in the XML metadata files or bbox and geometry for usage in STAC metadata files. The latter is returned if the
-    optional parameter 'stac' is set to True, else the former is returned.
+    Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes using
+    `pyroSAR.drivers.identify` OR extent coordinates that have been retrieved using `spatialist.vector.Vector.extent`
+    to either envelop and center for usage in the XML metadata files or bbox and geometry for usage in STAC
+    metadata files. The latter is returned if the optional parameter `stac` is set to True, else the former is returned.
     
     Parameters
     ----------
-    coords: list[tuple(float, float)]
-        List of coordinate pairs as retrieved by `pyroSAR.drivers.identify` from source scenes
+    coords: list[tuple(float, float)] or dict
+        List of coordinate tuple pairs as retrieved by `pyroSAR.drivers.identify` from source scenes OR the extent of a
+        product scene or MGRS tile, which can be retrieved by spatialist's Raster and Vector classes in the form of a
+        dictionary with keys xmin, xmax, ymin, ymax.
     stac: bool, optional
         If set to True, bbox and geometry are returned for usage in STAC Items. If set to False (default) envelop and
         center are returned for usage in XML metadata files.
@@ -143,9 +146,9 @@ def convert_id_coordinates(coords, stac=False):
     Returns
     -------
     envelop: str
-        Acquisition footprint coordinates for the XML field 'multiExtentOf' in 'eop:Footprint'
+        Acquisition footprint coordinates for the XML element 'eop:Footprint/multiExtentOf'
     center: str
-        Acquisition center coordinates for the XML field 'centerOf' in 'eop:Footprint'
+        Acquisition center coordinates for the XML element 'eop:Footprint/centerOf'
     
     Notes
     -------
@@ -158,62 +161,36 @@ def convert_id_coordinates(coords, stac=False):
         Acquisition footprint geometry for usage in STAC Items. Formatted in accordance with RFC 7946, section 3.1.:
         https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
     """
-    c = coords
-    
-    lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
-    lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
-    envelop = '{} {},{} {},{} {},{} {},{} {}'.format(lon[0], lat[0],
-                                                     lon[1], lat[1],
-                                                     lon[2], lat[2],
-                                                     lon[3], lat[3],
-                                                     lon[0], lat[0])
-    
-    lon_c = (max(lon) + min(lon)) / 2
-    lat_c = (max(lat) + min(lat)) / 2
-    center = '{} {}'.format(lon_c, lat_c)
+    if isinstance(coords, (list, tuple)) and len(coords) == 4:
+        c = coords
+        x = [c[0][0], c[1][0], c[2][0], c[3][0]]
+        y = [c[0][1], c[1][1], c[2][1], c[3][1]]
+        xmin = min(x)
+        xmax = max(x)
+        ymin = min(y)
+        ymax = max(y)
+    elif isinstance(coords, dict) and len(coords.keys()) == 4:
+        xmin = coords['xmin']
+        xmax = coords['xmax']
+        ymin = coords['ymin']
+        ymax = coords['ymax']
+        x = [xmin, xmin, xmax, xmax]
+        y = [ymin, ymax, ymax, ymin]
+    else:
+        raise RuntimeError('Coordinates must be provided as a list of coordinate tuples OR as a dictionary with '
+                           'keys xmin, xmax, ymin, ymax')
     
     if stac:
-        bbox = [min(lon), min(lat), max(lon), max(lat)]
-        geometry = {'type': 'Polygon', 'coordinates': (((lon[0], lat[0]),
-                                                        (lon[1], lat[1]),
-                                                        (lon[2], lat[2]),
-                                                        (lon[3], lat[3]),
-                                                        (lon[0], lat[0])),)}
+        bbox = [xmin, ymin, xmax, ymax]
+        geometry = {'type': 'Polygon', 'coordinates': (((x[0], y[0]), (x[1], y[1]), (x[2], y[2]), (x[3], y[3]),
+                                                        (x[0], y[0])),)}
         return bbox, geometry
     else:
-        return envelop, center
-
-
-def convert_spatialist_extent(extent):
-    """
-    Converts the extent of a spatialist vector object to bbox and geometry as required for the usage in STAC Items:
-    https://github.com/radiantearth/stac-spec/blob/master/item-spec/item-spec.md#item-fields
-    
-    Parameters
-    ----------
-    extent: dict
-        The extent of a vector object as returned by `spatialist.vector.Vector.extent`
-    
-    Returns
-    -------
-    bbox: list[float]
-        Formatted in accordance with RFC 7946, section 5: https://datatracker.ietf.org/doc/html/rfc7946#section-5
-    geometry: GeoJSON Geometry Object
-        Formatted in accordance with RFC 7946, section 3.1.: https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
-    """
-    xmin = extent['xmin']
-    xmax = extent['xmax']
-    ymin = extent['ymin']
-    ymax = extent['ymax']
-    
-    bbox = [xmin, ymin, xmax, ymax]
-    geometry = {'type': 'Polygon', 'coordinates': (((xmin, ymin),
-                                                    (xmin, ymax),
-                                                    (xmax, ymax),
-                                                    (xmax, ymin),
-                                                    (xmin, ymin)),)}
-    
-    return bbox, geometry
+        x_c = (xmax + xmin) / 2
+        y_c = (ymax + ymin) / 2
+        center = '{} {}'.format(y_c, x_c)
+        envelop = '{} {},{} {},{} {},{} {},{} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
+        return center, envelop
 
 
 def vec_from_srccoords(coord_list):
@@ -443,8 +420,9 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
                               snap_outdir=os.path.dirname(snap_files[0]))
     
-    stac_bbox_4326, stac_geometry_4326 = convert_spatialist_extent(extent=prod_meta['extent_4326'])
-    stac_bbox_native = convert_spatialist_extent(extent=prod_meta['extent'])[0]
+    xml_center, xml_envelop = convert_coordinates(coords=prod_meta['extent_4326'])
+    stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
+    stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
     dem_map = \
         {'GETASSE30': {'access': 'https://step.esa.int/auxdata/dem/GETASSE30',
@@ -536,10 +514,10 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
-    meta['prod']['geom_stac_bbox_4326'] = stac_bbox_4326
-    meta['prod']['geom_stac_geometry_4326'] = stac_geometry_4326
-    meta['prod']['geom_xml_center'] = re.search(r'\(([-*0-9 .,]+)\)', prod_meta['wkt_pt']).group(1)
-    meta['prod']['geom_xml_envelope'] = re.search(r'\(([-*0-9 .,]+)\)', prod_meta['wkt_env']).group(1)
+    meta['prod']['geom_stac_bbox_4326'] = stac_bbox
+    meta['prod']['geom_stac_geometry_4326'] = stac_geometry
+    meta['prod']['geom_xml_center'] = xml_center
+    meta['prod']['geom_xml_envelope'] = xml_envelop
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
@@ -577,8 +555,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
         osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
         
         coords = src_sid[uid].meta['coordinates']
-        xml_envelop, xml_center = convert_id_coordinates(coords=coords)
-        stac_bbox, stac_geometry = convert_id_coordinates(coords=coords, stac=True)
+        xml_center, xml_envelop = convert_coordinates(coords=coords)
+        stac_bbox, stac_geometry = convert_coordinates(coords=coords, stac=True)
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
