@@ -9,7 +9,7 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<stop>[0-9]{8}T[0-9]{6})_' \
               r'(?P<orbitNumber>[0-9]{6})_' \
               r'(?P<dataTakeID>[0-9A-F]{6})_' \
-              r'(?P<mgrsTile>[0-9A-Z]{5})_' \
+              r'(?P<mgrsID>[0-9A-Z]{5})_' \
               r'(?P<ID>[0-9A-Z]{4})'
 
 # Source data resolution

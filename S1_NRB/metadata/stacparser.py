@@ -61,6 +61,7 @@ def product_json(meta, target, tifs):
     item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
     item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/mgrs/v1.0.0/schema.json')
     
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
@@ -104,6 +105,11 @@ def product_json(meta, target, tifs):
                    bbox=meta['prod']['geom_stac_bbox_native'],
                    shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
                    transform=meta['prod']['transform'])
+    
+    mgrs = meta['prod']['mgrsID']
+    item.properties['mgrs:utm_zone'] = int(mgrs[:2])
+    item.properties['mgrs:latitude_band'] = mgrs[2:3]
+    item.properties['mgrs:grid_square'] = mgrs[3:]
     
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),

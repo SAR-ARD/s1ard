@@ -515,6 +515,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
+    meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))

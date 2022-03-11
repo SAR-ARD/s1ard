@@ -352,6 +352,8 @@ def product_xml(meta, target, tifs):
     backscatterConversionEq.text = meta['prod']['backscatterConversionEq']
     griddingConvention = etree.SubElement(EarthObservationMetaData, _nsc('nrb:griddingConvention'),
                                           attrib={_nsc('xlink:href'): meta['prod']['griddingConventionURL']})
+    mgrsID = etree.SubElement(EarthObservationMetaData, _nsc('nrb:mgrsID'))
+    mgrsID.text = meta['prod']['mgrsID']
     crsEPSG = etree.SubElement(EarthObservationMetaData, _nsc('nrb:crsEPSG'),
                                attrib={'codespace': 'urn:esa:eop:crs'})
     crsEPSG.text = meta['prod']['crsEPSG']
