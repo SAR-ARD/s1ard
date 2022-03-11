@@ -10,6 +10,7 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
+from osgeo import gdal
 import S1_NRB
 from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP, DEM_MAP
 
@@ -372,6 +373,67 @@ def extract_pslr_islr(annotation_dict):
     islr = np.nanmean(list(islr_mean.values()))
     
     return pslr, islr
+
+
+def get_header_size(tif):
+    """
+    Gets the header size of a GeoTIFF file in bytes.
+    
+    The code used in this function and its helper function `_get_block_offset` were extracted from the the following
+    source: https://github.com/OSGeo/gdal/blob/master/swig/python/gdal-utils/osgeo_utils/samples/validate_cloud_optimized_geotiff.py
+    
+    # *****************************************************************************
+    #  Copyright (c) 2017, Even Rouault
+    #
+    #  Permission is hereby granted, free of charge, to any person obtaining a
+    #  copy of this software and associated documentation files (the "Software"),
+    #  to deal in the Software without restriction, including without limitation
+    #  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    #  and/or sell copies of the Software, and to permit persons to whom the
+    #  Software is furnished to do so, subject to the following conditions:
+    #
+    #  The above copyright notice and this permission notice shall be included
+    #  in all copies or substantial portions of the Software.
+    # *****************************************************************************
+    
+    Parameters
+    ----------
+    tif: str
+        A path to a GeoTIFF file of the currently processed NRB product.
+    
+    Returns
+    -------
+    header_size: int
+        The size of all IFD headers of the GeoTIFF file in bytes.
+    """
+    
+    details = {}
+    ds = gdal.Open(tif)
+    main_band = ds.GetRasterBand(1)
+    ovr_count = main_band.GetOverviewCount()
+    
+    block_offset = _get_block_offset(band=main_band)
+    details['data_offsets'] = {}
+    details['data_offsets']['main'] = block_offset
+    for i in range(ovr_count):
+        ovr_band = ds.GetRasterBand(1).GetOverview(i)
+        block_offset = _get_block_offset(band=ovr_band)
+        details['data_offsets']['overview_%d' % i] = block_offset
+    
+    headers_size = min(details['data_offsets'][k] for k in details['data_offsets'])
+    if headers_size == 0:
+        headers_size = gdal.VSIStatL(tif).size
+    return headers_size
+
+
+def _get_block_offset(band):
+    blockxsize, blockysize = band.GetBlockSize()
+    for y in range(int((band.YSize + blockysize - 1) / blockysize)):
+        for x in range(int((band.XSize + blockxsize - 1) / blockxsize)):
+            block_offset = band.GetMetadataItem('BLOCK_OFFSET_%d_%d' % (x, y), 'TIFF')
+            if block_offset:
+                return int(block_offset)
+    return 0
 
 
 def meta_dict(config, target, src_scenes, snap_files, proc_time):

@@ -4,6 +4,7 @@ from lxml import etree
 from datetime import datetime
 from spatialist import Raster
 from S1_NRB.metadata.mapping import SAMPLE_MAP, NS_MAP
+from S1_NRB.metadata.extract import get_header_size
 
 
 def _nsc(text):
@@ -154,6 +155,8 @@ def product_xml(meta, target, tifs):
         RequestMessage = etree.SubElement(ServiceReference, _nsc('ows:RequestMessage'))
         size = etree.SubElement(ProductInformation, _nsc('eop:size'), attrib={'uom': 'bytes'})
         size.text = str(os.path.getsize(tif))
+        headerSize = etree.SubElement(ProductInformation, _nsc('nrb:headerSize'), attrib={'uom': 'bytes'})
+        headerSize.text = str(get_header_size(tif))
         byteOrder = etree.SubElement(ProductInformation, _nsc('nrb:byteOrder'))
         byteOrder.text = meta['prod']['fileByteOrder']
         dataFormat = etree.SubElement(ProductInformation, _nsc('nrb:dataFormat'))
