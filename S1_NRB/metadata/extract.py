@@ -39,7 +39,7 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [identify(src).meta['coordinates'] for src in src_scenes]
     
-    with vec_from_srccoords(coord_list=coord_list) as srcvec:
+    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
@@ -52,13 +52,7 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
             geo = ras.geo
             out['transform'] = [geo['xres'], geo['rotation_x'], geo['xmin'],
                                 geo['rotation_y'], geo['yres'], geo['ymax']]
-            
             vec.reproject(4326)
-            feat = vec.getFeatureByIndex(0)
-            geom = feat.GetGeometryRef()
-            point = geom.Centroid()
-            out['wkt_pt'] = point.ExportToWkt()
-            out['wkt_env'] = vec.convert2wkt(set3D=False)[0]
             out['extent_4326'] = vec.extent
             
             # Calculate number of nodata border pixels based on source scene(s) footprint
@@ -74,6 +68,54 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     out['ML_nAzLooks'] = wf['Multilook'].parameters['nAzLooks']
     
     return out
+
+
+def _vec_from_srccoords(coord_list):
+    """
+    Creates a single `spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
+
+    Parameters
+    ----------
+    coord_list: list[list[tuple(float, float)]]
+        List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
+
+    Returns
+    -------
+    `spatialist.vector.Vector` object
+    """
+    if len(coord_list) == 2:
+        if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
+            c1 = coord_list[1]
+            c2 = coord_list[0]
+        elif isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
+            c1 = coord_list[0]
+            c2 = coord_list[1]
+        else:
+            RuntimeError('not able to find joined border of source scene footprints '
+                         '\n{} and \n{}'.format(coord_list[0], coord_list[1]))
+        
+        c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
+        c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
+        c2_lat = [c2[0][1], c2[1][1], c2[2][1], c2[3][1]]
+        c2_lon = [c2[0][0], c2[1][0], c2[2][0], c2[3][0]]
+        
+        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(c1_lon[0], c1_lat[0],
+                                                                 c1_lon[1], c1_lat[1],
+                                                                 c2_lon[2], c2_lat[2],
+                                                                 c2_lon[3], c2_lat[3],
+                                                                 c1_lon[0], c1_lat[0])
+    else:  # len(coord_list) == 1
+        c = coord_list[0]
+        lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
+        lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
+        
+        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(lon[0], lat[0],
+                                                                 lon[1], lat[1],
+                                                                 lon[2], lat[2],
+                                                                 lon[3], lat[3],
+                                                                 lon[0], lat[0])
+    
+    return wkt2vector(wkt, srs=4326)
 
 
 def get_uid_sid(filepath):
@@ -191,54 +233,6 @@ def convert_coordinates(coords, stac=False):
         center = '{} {}'.format(y_c, x_c)
         envelop = '{} {},{} {},{} {},{} {},{} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
         return center, envelop
-
-
-def vec_from_srccoords(coord_list):
-    """
-    Creates a single `spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
-    
-    Parameters
-    ----------
-    coord_list: list[list[tuple(float, float)]]
-        List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
-    
-    Returns
-    -------
-    `spatialist.vector.Vector` object
-    """
-    if len(coord_list) == 2:
-        if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
-            c1 = coord_list[1]
-            c2 = coord_list[0]
-        elif isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
-            c1 = coord_list[0]
-            c2 = coord_list[1]
-        else:
-            RuntimeError('not able to find joined border of source scene footprints '
-                         '\n{} and \n{}'.format(coord_list[0], coord_list[1]))
-        
-        c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
-        c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
-        c2_lat = [c2[0][1], c2[1][1], c2[2][1], c2[3][1]]
-        c2_lon = [c2[0][0], c2[1][0], c2[2][0], c2[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(c1_lon[0], c1_lat[0],
-                                                                 c1_lon[1], c1_lat[1],
-                                                                 c2_lon[2], c2_lat[2],
-                                                                 c2_lon[3], c2_lat[3],
-                                                                 c1_lon[0], c1_lat[0])
-    else:  # len(coord_list) == 1
-        c = coord_list[0]
-        lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
-        lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(lon[0], lat[0],
-                                                                 lon[1], lat[1],
-                                                                 lon[2], lat[2],
-                                                                 lon[3], lat[3],
-                                                                 lon[0], lat[0])
-    
-    return wkt2vector(wkt, srs=4326)
 
 
 def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
