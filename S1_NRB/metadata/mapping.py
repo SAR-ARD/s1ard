@@ -48,6 +48,34 @@ ORB_MAP = {'PREORB': 'predicted',
            'RESORB': 'restituted',
            'POEORB': 'precise'}
 
+DEM_MAP = {
+    'GETASSE30':
+        {'access': 'https://step.esa.int/auxdata/dem/GETASSE30',
+         'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
+         'type': 'elevation',
+         'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
+    'Copernicus 10m EEA DEM':
+        {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
+         'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+         'type': 'surface',
+         'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+    'Copernicus 30m Global DEM':
+        {'access': 'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
+         'ref': 'https://copernicus-dem-30m.s3.amazonaws.com/readme.html',
+         'type': 'surface',
+         'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+    'Copernicus 30m Global DEM II':
+        {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
+         'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+         'type': 'surface',
+         'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
+    'Copernicus 90m Global DEM II':
+        {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
+         'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
+         'type': 'surface',
+         'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
+    }
+
 SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': None,
                           'role': 'data-mask',

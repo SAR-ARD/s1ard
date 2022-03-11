@@ -11,7 +11,7 @@ from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP, DEM_MAP
 
 
 def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
@@ -418,33 +418,11 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time):
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
-    dem_map = \
-        {'GETASSE30': {'access': 'https://step.esa.int/auxdata/dem/GETASSE30',
-                       'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
-                       'type': 'elevation',
-                       'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
-         'Copernicus 10m EEA DEM': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
-                                    'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                    'type': 'surface',
-                                    'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
-         'Copernicus 30m Global DEM': {'access': 'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
-                                       'ref': 'https://copernicus-dem-30m.s3.amazonaws.com/readme.html',
-                                       'type': 'surface',
-                                       'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
-         'Copernicus 30m Global DEM II': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
-                                          'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                          'type': 'surface',
-                                          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'},
-         'Copernicus 90m Global DEM II': {'access': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
-                                          'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                          'type': 'surface',
-                                          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
-         }
     dem_name = config['dem_type']
-    dem_access = dem_map[dem_name]['access']
-    dem_ref = dem_map[dem_name]['ref']
-    dem_type = dem_map[dem_name]['type']
-    egm_ref = dem_map[dem_name]['egm']
+    dem_access = DEM_MAP[dem_name]['access']
+    dem_ref = DEM_MAP[dem_name]['ref']
+    dem_type = DEM_MAP[dem_name]['type']
+    egm_ref = DEM_MAP[dem_name]['egm']
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
