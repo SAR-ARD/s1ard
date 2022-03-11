@@ -12,6 +12,37 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<mgrsID>[0-9A-Z]{5})_' \
               r'(?P<ID>[0-9A-Z]{4})'
 
+# 'z_error': Maximum error threshold on values for LERC* compression.
+# Will be ignored if a compression algorithm is used that isn't related to LERC.
+ITEM_MAP = {'VV_gamma0': {'suffix': 'vv-g-lin',
+                          'z_error': 1e-4},
+            'VH_gamma0': {'suffix': 'vh-g-lin',
+                          'z_error': 1e-4},
+            'HH_gamma0': {'suffix': 'hh-g-lin',
+                          'z_error': 1e-4},
+            'HV_gamma0': {'suffix': 'hv-g-lin',
+                          'z_error': 1e-4},
+            'incidenceAngleFromEllipsoid': {'suffix': 'ei',
+                                            'z_error': 1e-3},
+            'layoverShadowMask': {'suffix': 'dm',
+                                  'z_error': 0},
+            'localIncidenceAngle': {'suffix': 'li',
+                                    'z_error': 1e-2},
+            'scatteringArea': {'suffix': 'lc',
+                               'z_error': 0.1},
+            'gammaSigmaRatio': {'suffix': 'gs',
+                                'z_error': 1e-4},
+            'acquisitionImage': {'suffix': 'id',
+                                 'z_error': 0},
+            'VV_NESZ': {'suffix': 'np-vv',
+                        'z_error': 2e-5},
+            'VH_NESZ': {'suffix': 'np-vh',
+                        'z_error': 2e-5},
+            'HH_NESZ': {'suffix': 'np-hh',
+                        'z_error': 2e-5},
+            'HV_NESZ': {'suffix': 'np-hv',
+                        'z_error': 2e-5}}
+
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
 RES_MAP = {'IW': {'azimuthResolution': {'IW1': '22.5',

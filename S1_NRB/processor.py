@@ -18,6 +18,7 @@ from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
+from S1_NRB.metadata.mapping import ITEM_MAP
 gdal.UseExceptions()
 
 
@@ -141,48 +142,17 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     skeleton = '{mission}-{mode}-nrb-{start}-{stop}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
-    # 'z_error': Maximum error threshold on values for LERC* compression.
-    # Will be ignored if a compression algorithm is used that isn't related to LERC.
-    item_map = {'VV_gamma0': {'suffix': 'vv-g-lin',
-                              'z_error': 1e-4},
-                'VH_gamma0': {'suffix': 'vh-g-lin',
-                              'z_error': 1e-4},
-                'HH_gamma0': {'suffix': 'hh-g-lin',
-                              'z_error': 1e-4},
-                'HV_gamma0': {'suffix': 'hv-g-lin',
-                              'z_error': 1e-4},
-                'incidenceAngleFromEllipsoid': {'suffix': 'ei',
-                                                'z_error': 1e-3},
-                'layoverShadowMask': {'suffix': 'dm',
-                                      'z_error': 0},
-                'localIncidenceAngle': {'suffix': 'li',
-                                        'z_error': 1e-2},
-                'scatteringArea': {'suffix': 'lc',
-                                   'z_error': 0.1},
-                'gammaSigmaRatio': {'suffix': 'gs',
-                                    'z_error': 1e-4},
-                'acquisitionImage': {'suffix': 'id',
-                                     'z_error': 0},
-                'VV_NESZ': {'suffix': 'np-vv',
-                            'z_error': 2e-5},
-                'VH_NESZ': {'suffix': 'np-vh',
-                            'z_error': 2e-5},
-                'HH_NESZ': {'suffix': 'np-hh',
-                            'z_error': 2e-5},
-                'HV_NESZ': {'suffix': 'np-hv',
-                            'z_error': 2e-5}}
-    
     driver = 'COG'
     ovr_resampling = 'AVERAGE'
     write_options_base = ['BLOCKSIZE=512', 'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
     write_options = dict()
-    for key in item_map:
+    for key in ITEM_MAP:
         write_options[key] = write_options_base.copy()
         if compress is not None:
             entry = 'COMPRESS={}'.format(compress)
             write_options[key].append(entry)
             if compress.startswith('LERC'):
-                entry = 'MAX_Z_ERROR={:f}'.format(item_map[key]['z_error'])
+                entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
     
     ####################################################################################################################
@@ -192,7 +162,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     else:
         files = datasets[0]
     
-    pattern = '|'.join(item_map.keys())
+    pattern = '|'.join(ITEM_MAP.keys())
     for i, item in enumerate(files):
         if isinstance(item, str):
             match = re.search(pattern, item)
@@ -213,7 +183,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             # The data mask will be created later on in the processing workflow.
             continue
         
-        metaL['suffix'] = item_map[key]['suffix']
+        metaL['suffix'] = ITEM_MAP[key]['suffix']
         outname_base = skeleton.format(**metaL)
         if re.search('_gamma0', key):
             subdir = 'measurement'
