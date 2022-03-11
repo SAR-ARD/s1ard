@@ -12,15 +12,6 @@ def _nsc(text):
     return '{{{0}}}{1}'.format(NS_MAP[ns], key)
 
 
-def _get_ref_type(ref_link):
-    if ref_link is None:
-        return 'None'
-    elif 'doi.org' in ref_link:
-        return 'DOI'
-    else:
-        return 'URL'
-
-
 def _common_procedure_elements(root, scene, meta):
     """
     Adds common (source & product) XML elements to the `om:procedure` root element.
