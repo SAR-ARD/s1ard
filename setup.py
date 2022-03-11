@@ -20,7 +20,7 @@ setup(
                       'click',
                       'lxml',
                       'pystac',
-                      'pyroSAR>=0.16.0',
+                      'pyroSAR>=0.16.1',
                       'scipy'],
     python_requires='>=3.8',
     zip_safe=False,
