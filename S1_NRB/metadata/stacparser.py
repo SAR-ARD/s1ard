@@ -58,9 +58,9 @@ def product_json(meta, target, tifs):
     sat_ext = SatExtension.ext(item)
     proj_ext = ProjectionExtension.ext(item)
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/product.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
     item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/file/v2.0.0/schema.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
     
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
@@ -310,7 +310,7 @@ def source_json(meta, target):
         sat_ext = SatExtension.ext(item)
         view_ext = ViewExtension.ext(item)
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/source.json')
+        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
         
         enl = meta['source'][uid]['perfEquivalentNumberOfLooks']
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
