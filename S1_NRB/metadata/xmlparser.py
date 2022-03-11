@@ -21,6 +21,71 @@ def _get_ref_type(ref_link):
         return 'URL'
 
 
+def _common_procedure_elements(root, scene, meta):
+    """
+    Adds common (source & product) XML elements to the `om:procedure` root element.
+    
+    Parameters
+    ----------
+    root: etree.Element
+        Root XML element of the current parsing process.
+    scene: str
+        Basename of the product or source scene.
+    meta: dict
+        Metadata dictionary generated with `metadata.extract.meta_dict`
+    
+    Returns
+    -------
+    platform1: etree.Element
+        XML subelement for further usage in main parsing functions.
+    sensor1: etree.Element
+        XML subelement for further usage in main parsing functions.
+    acquisition: etree.Element
+        XML subelement for further usage in main parsing functions.
+    """
+    procedure = etree.SubElement(root, _nsc('om:procedure'))
+    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
+                                                 attrib={_nsc('gml:id'): scene + '_4'})
+    
+    platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
+    platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
+    shortName = etree.SubElement(platform1, _nsc('eop:shortName'))
+    shortName.text = meta['common']['platformShortName'].upper()
+    serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier'))
+    serialIdentifier.text = meta['common']['platformIdentifier']
+    instrument0 = etree.SubElement(earthObservationEquipment, _nsc('eop:instrument'))
+    instrument1 = etree.SubElement(instrument0, _nsc('eop:Instrument'))
+    shortName = etree.SubElement(instrument1, _nsc('eop:shortName'))
+    shortName.text = meta['common']['instrumentShortName']
+    sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor'))
+    sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor'))
+    sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType'))
+    sensorType.text = meta['common']['sensorType']
+    radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand'))
+    radarBand.text = meta['common']['radarBand']
+    operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode'),
+                                       attrib={'codeSpace': 'urn:esa:eop:C-SAR:operationalMode'})
+    operationalMode.text = meta['common']['operationalMode']
+    swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier'),
+                                       attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
+    swathIdentifier.text = meta['common']['swathIdentifier']
+    acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters'))
+    acquisition = etree.SubElement(acquisitionParameters, _nsc('nrb:Acquisition'))
+    polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode'))
+    polarisationMode.text = meta['common']['polarisationMode']
+    polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels'))
+    polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
+    orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection'))
+    orbitDirection.text = meta['common']['orbitDirection'].upper()
+    orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber'))
+    orbitNumber.text = meta['common']['orbitNumber']
+    wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid'),
+                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
+    wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
+    
+    return platform1, sensor1, acquisition
+
+
 def product_xml(meta, target, tifs):
     """
     Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
@@ -65,48 +130,9 @@ def product_xml(meta, target, tifs):
     timePosition.text = timeStop
     
     ####################################################################################################################
-    procedure = etree.SubElement(root, _nsc('om:procedure'))
-    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                 attrib={_nsc('gml:id'): scene_id + '_4'})
+
+    platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene_id, meta=meta)
     
-    platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
-    platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
-    shortName = etree.SubElement(platform1, _nsc('eop:shortName'))
-    shortName.text = meta['common']['platformShortName'].upper()
-    serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier'))
-    serialIdentifier.text = meta['common']['platformIdentifier']
-    
-    instrument0 = etree.SubElement(earthObservationEquipment, _nsc('eop:instrument'))
-    instrument1 = etree.SubElement(instrument0, _nsc('eop:Instrument'))
-    shortName = etree.SubElement(instrument1, _nsc('eop:shortName'))
-    shortName.text = meta['common']['instrumentShortName']
-    
-    sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor'))
-    sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor'))
-    sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType'))
-    sensorType.text = meta['common']['sensorType']
-    radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand'))
-    radarBand.text = meta['common']['radarBand']
-    operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode'),
-                                       attrib={'codeSpace': 'urn:esa:eop:C-SAR:operationalMode'})
-    operationalMode.text = meta['common']['operationalMode']
-    swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier'),
-                                       attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
-    swathIdentifier.text = meta['common']['swathIdentifier']
-    
-    acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters'))
-    acquisition = etree.SubElement(acquisitionParameters, _nsc('nrb:Acquisition'))
-    polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode'))
-    polarisationMode.text = meta['common']['polarisationMode']
-    polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels'))
-    polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
-    orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection'))
-    orbitDirection.text = meta['common']['orbitDirection'].upper()
-    orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber'))
-    orbitNumber.text = meta['common']['orbitNumber']
-    wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid'),
-                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
-    wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions'))
     numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
     
@@ -403,36 +429,10 @@ def source_xml(meta, target):
         timePosition.text = timeStop
         
         ################################################################################################################
-        procedure = etree.SubElement(root, _nsc('om:procedure'))
-        earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                     attrib={_nsc('gml:id'): scene + '_4'})
+        platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene, meta=meta)
         
-        platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
-        platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
-        shortName = etree.SubElement(platform1, _nsc('eop:shortName'))
-        shortName.text = meta['common']['platformShortName'].upper()
-        serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier'))
-        serialIdentifier.text = meta['common']['platformIdentifier']
         satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference'),
                                         attrib={_nsc('xlink:href'): meta['common']['platformReference']})
-        
-        instrument0 = etree.SubElement(earthObservationEquipment, _nsc('eop:instrument'))
-        instrument1 = etree.SubElement(instrument0, _nsc('eop:Instrument'))
-        shortName = etree.SubElement(instrument1, _nsc('eop:shortName'))
-        shortName.text = meta['common']['instrumentShortName']
-        
-        sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor'))
-        sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor'))
-        sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType'))
-        sensorType.text = meta['common']['sensorType']
-        radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand'))
-        radarBand.text = meta['common']['radarBand']
-        operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode'),
-                                           attrib={'codeSpace': 'urn:esa:eop:C-SAR:operationalMode'})
-        operationalMode.text = meta['common']['operationalMode']
-        swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier'),
-                                           attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
-        swathIdentifier.text = meta['common']['swathIdentifier']
         radarCenterFreq = etree.SubElement(sensor1, _nsc('nrb:radarCenterFrequency'),
                                            attrib={'uom': 'Hz'})
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
@@ -440,19 +440,6 @@ def source_xml(meta, target):
                                              attrib={_nsc('xlink:href'): meta['source'][uid]['sensorCalibration']})
         sensorCalibration.text = meta['source'][uid]['sensorCalibration']
         
-        acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters'))
-        acquisition = etree.SubElement(acquisitionParameters, _nsc('nrb:Acquisition'))
-        polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode'))
-        polarisationMode.text = meta['common']['polarisationMode']
-        polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels'))
-        polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
-        orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection'))
-        orbitDirection.text = meta['common']['orbitDirection'].upper()
-        orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber'))
-        orbitNumber.text = meta['common']['orbitNumber']
-        wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid'),
-                                            attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
-        wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
         antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection'))
         antennaLookDirection.text = meta['common']['antennaLookDirection']
         orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude'),
