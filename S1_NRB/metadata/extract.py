@@ -23,7 +23,7 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     Parameters
     ----------
     product_id: str
-        The product ID (filename) of the product scene.
+        The top-level product folder name.
     tif: str
         The paths to a measurement GeoTIFF file of the product scene.
     src_scenes: list[str]
@@ -73,18 +73,19 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
 
 def _vec_from_srccoords(coord_list):
     """
-    Creates a single `spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
-
+    Creates a single vector object from a list of footprint coordinates of source scenes.
+    
     Parameters
     ----------
     coord_list: list[list[tuple(float, float)]]
         List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
-
+    
     Returns
     -------
     `spatialist.vector.Vector` object
     """
     if len(coord_list) == 2:
+        # determine joined border between footprints
         if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
             c1 = coord_list[1]
             c2 = coord_list[0]
@@ -92,8 +93,8 @@ def _vec_from_srccoords(coord_list):
             c1 = coord_list[0]
             c2 = coord_list[1]
         else:
-            RuntimeError('not able to find joined border of source scene footprints '
-                         '\n{} and \n{}'.format(coord_list[0], coord_list[1]))
+            RuntimeError('Not able to find joined border of source scene footprint coordinates:'
+                         '\n{} \n{}'.format(coord_list[0], coord_list[1]))
         
         c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
         c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
@@ -244,7 +245,7 @@ def convert_coordinates(coords, stac=False):
 
 def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
     """
-    Find a pattern in each annotation file provided and returns a list of results converted in
+    Search for a pattern in all XML annotation files provided and return a dictionary of results.
     
     Parameters
     ----------
@@ -252,9 +253,9 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         A dict of annotation files in the form: {'swath ID': lxml.etree._Element object}
     pattern: str
         The pattern to search for in each annotation file.
-    single: bool
+    single: bool, optional
         If True, the results found in each annotation file are expected to be the same and therefore only a single
-        value will be returned instead of a dict. Default is False.
+        value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
     out_type: str, optional
         Output type to convert the results to. Can be one of the following:
         str (default)
@@ -290,25 +291,24 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
                     out[k] = int(out[k])
     
     if single:
-        test_val = list(out.values())[0]
+        val = list(out.values())[0]
         for k in out:
-            if out[k] != test_val:
+            if out[k] != val:
                 raise RuntimeError('Search result for pattern "{}" expected to be the same in all annotation '
                                    'files.'.format(pattern))
         if out_type == 'float':
-            return float(test_val)
+            return float(val)
         elif out_type == 'int':
-            return int(test_val)
+            return int(val)
         else:
-            return str(test_val)
+            return str(val)
     else:
         return out
 
 
 def calc_performance_estimates(files, ref_tif):
     """
-    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images for the current
-    MGRS tile.
+    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images.
     
     Parameters
     ----------
@@ -374,7 +374,7 @@ def extract_pslr_islr(annotation_dict):
         pslr_mean[swath] = np.nanmean(pslr_dict[swath])
         islr_mean[swath] = np.nanmean(islr_dict[swath])
     
-    # Return mean value for all swaths
+    # Mean value for all swaths
     pslr = np.nanmean(list(pslr_mean.values()))
     islr = np.nanmean(list(islr_mean.values()))
     
@@ -466,7 +466,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
     Returns
     -------
     meta: dict
-        A dictionary containing an extensive collection of metadata for product as well as source scenes.
+        A dictionary containing a collection of metadata for product as well as source scenes.
     """
     meta = {'prod': {},
             'source': {},
@@ -606,26 +606,35 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
         xml_center, xml_envelop = convert_coordinates(coords=coords)
         stac_bbox, stac_geometry = convert_coordinates(coords=coords, stac=True)
         
+        az_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                               pattern='.//azimuthProcessing/lookBandwidth', out_type='float')
+        az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                          pattern='.//azimuthProcessing/numberOfLooks', single=True)
+        az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                           pattern='.//azimuthPixelSpacing', out_type='float')
+        inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                 pattern='.//geolocationGridPoint/incidenceAngle', out_type='float')
+        inc_vals = list(inc.values())
+        lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                         pattern='.//applicationLutId', single=True)
+        pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
+        np_files = [f for f in snap_files if re.search('_NE[BGS]Z', f) is not None]
+        rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                               pattern='.//rangeProcessing/lookBandwidth', out_type='float')
+        rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                          pattern='.//rangeProcessing/numberOfLooks', single=True)
+        rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'], pattern='.//rangePixelSpacing',
+                                           out_type='float')
+        
         # (sorted alphabetically)
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = 'https://scihub.copernicus.eu'
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
         meta['source'][uid]['ascendingNodeDate'] = src_xml[uid]['manifest'].find('.//s1:ascendingNodeTime', nsmap).text
-        meta['source'][uid]['azimuthLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                         pattern='.//azimuthProcessing/lookBandwidth',
-                                                                         out_type='float')
-        meta['source'][uid]['azimuthNumberOfLooks'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                         pattern='.//azimuthProcessing/numberOfLooks',
-                                                                         single=True)
-        try:
-            meta['source'][uid]['azimuthPixelSpacing'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                            pattern='.//azimuthPixelSpacing',
-                                                                            single=True)
-        except RuntimeError:
-            tmp_out = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//azimuthPixelSpacing',
-                                         single=False, out_type='float')
-            meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
+        meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
+        meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
+        meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
+                                                         len(list(az_px_spacing.values())))
         meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
         meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = src_xml[uid]['manifest'].find('.//s1sarl1:missionDataTakeID', nsmap).text
@@ -637,26 +646,18 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
         meta['source'][uid]['geom_stac_geometry_4326'] = stac_geometry
         meta['source'][uid]['geom_xml_center'] = xml_center
         meta['source'][uid]['geom_xml_envelop'] = xml_envelop
-        inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                 pattern='.//geolocationGridPoint/incidenceAngle', out_type='float')
-        meta['source'][uid]['incidenceAngleMax'] = np.max(list(inc.values()))
-        meta['source'][uid]['incidenceAngleMin'] = np.min(list(inc.values()))
-        meta['source'][uid]['incidenceAngleMidSwath'] = np.max(list(inc.values())) - \
-                                                        ((np.max(list(inc.values())) - np.min(list(inc.values()))) / 2)
+        meta['source'][uid]['incidenceAngleMax'] = np.max(inc_vals)
+        meta['source'][uid]['incidenceAngleMin'] = np.min(inc_vals)
+        meta['source'][uid]['incidenceAngleMidSwath'] = np.max(inc_vals) - ((np.max(inc_vals) - np.min(inc_vals)) / 2)
         meta['source'][uid]['instrumentAzimuthAngle'] = str(src_sid[uid].meta['heading'])
         meta['source'][uid]['ionosphereIndicator'] = None
-        meta['source'][uid]['lutApplied'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                               pattern='.//applicationLutId',
-                                                               single=True)
+        meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for orb in list(ORB_MAP.keys()):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        
-        pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        np_files = [f for f in snap_files if re.search('_NE[BGS]Z', f) is not None]
         meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
@@ -673,26 +674,17 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
         meta['source'][uid]['processorVersion'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['version']
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
-        meta['source'][uid]['rangeLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                       pattern='.//rangeProcessing/lookBandwidth',
-                                                                       out_type='float')
-        meta['source'][uid]['rangeNumberOfLooks'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                       pattern='.//rangeProcessing/numberOfLooks',
-                                                                       single=True)
-        try:
-            meta['source'][uid]['rangePixelSpacing'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                          pattern='.//rangePixelSpacing',
-                                                                          single=True)
-        except RuntimeError:
-            tmp_out = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//rangePixelSpacing',
-                                         single=False, out_type='float')
-            meta['source'][uid]['rangePixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
+        meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
+        meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
+        meta['source'][uid]['rangePixelSpacing'] = str(sum(list(rg_px_spacing.values())) /
+                                                       len(list(rg_px_spacing.values())))
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
-        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest'].find('.//s1:stopTimeANX', nsmap).text))
-        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest'].find('.//s1:startTimeANX', nsmap).text))
+        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
+                                                                           .find('.//s1:stopTimeANX', nsmap).text))
+        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest']
+                                                                      .find('.//s1:startTimeANX', nsmap).text))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
         meta['source'][uid]['swaths'] = swaths
