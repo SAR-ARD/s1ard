@@ -126,21 +126,19 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             'start': product_start,
             'orbitnumber': ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
-            'stop': product_stop,
             'tile': tile,
             'id': 'ABCD'}
     
-    skeleton = '{mission}_{mode}_NRB__1S{polarization}_{start}_{stop}_{orbitnumber:06}_{datatake}_{tile}_{id}'
+    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
+    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
-    nrbdir = os.path.join(outdir, skeleton.format(**meta))
+    nrbdir = os.path.join(outdir, skeleton_dir.format(**meta))
     os.makedirs(nrbdir, exist_ok=True)
     
     metaL = meta.copy()
     for key, val in metaL.items():
         if not isinstance(val, int):
             metaL[key] = val.lower()
-    
-    skeleton = '{mission}-{mode}-nrb-{start}-{stop}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
     driver = 'COG'
     ovr_resampling = 'AVERAGE'
@@ -184,7 +182,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             continue
         
         metaL['suffix'] = ITEM_MAP[key]['suffix']
-        outname_base = skeleton.format(**metaL)
+        outname_base = skeleton_files.format(**metaL)
         if re.search('_gamma0', key):
             subdir = 'measurement'
         else:
@@ -287,7 +285,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     # metadata
     nrb_tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True, recursive=True)
     meta = extract.meta_dict(config=config, target=nrbdir, src_scenes=src_scenes, snap_files=files,
-                             proc_time=proc_time, compression=compress)
+                             proc_time=proc_time, start=product_start, stop=product_stop, compression=compress)
     xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 

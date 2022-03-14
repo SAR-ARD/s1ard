@@ -235,10 +235,9 @@ def product_xml(meta, target, tifs):
                 ellipsoidalHeight.text = meta['prod']['ellipsoidalHeight']
             
             if SAMPLE_MAP[key]['unit'] is None:
-                sampleType = etree.SubElement(productInformation, _nsc('nrb:sampleType'))
-            else:
-                sampleType = etree.SubElement(productInformation, _nsc('nrb:sampleType'),
-                                              attrib={'uom': SAMPLE_MAP[key]['unit']})
+                SAMPLE_MAP[key]['unit'] = 'unitless'
+            sampleType = etree.SubElement(productInformation, _nsc('nrb:sampleType'),
+                                          attrib={'uom': SAMPLE_MAP[key]['unit']})
             sampleType.text = SAMPLE_MAP[key]['type']
         
         if 'measurement' in tif:
