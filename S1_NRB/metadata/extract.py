@@ -157,16 +157,22 @@ def etree_from_sid(sid):
     dict
         A dictionary containing the parsed etree.ElementTree objects for the manifest and annotation XML files.
     """
+    files = sid.findfiles(r'^s1[ab].*-[vh]{2}-.*\.xml$')
+    pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
+    annotation_files = list(filter(re.compile(pols[0]).search, files))
+    
+    a_files_base = [os.path.basename(a) for a in annotation_files]
+    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in a_files_base]
+    
+    annotation_dict = {}
+    for s, a in zip(swaths, annotation_files):
+        annotation_dict[s.upper()] = etree.fromstring(sid.getFileObj(a).getvalue())
     
     with sid.getFileObj(sid.findfiles('manifest.safe')[0]) as input_man:
-        annotation_files = sid.findfiles(r'^s1[ab].*-vh-.*\.xml$')
-        swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in annotation_files]
-        annotation_dict = {}
-        for s, a in zip(swaths, annotation_files):
-            annotation_dict[s.upper()] = etree.fromstring(sid.getFileObj(a).getvalue())
-        
-        return {'manifest': etree.fromstring(input_man.getvalue()),
-                'annotation': annotation_dict}
+        manifest = etree.fromstring(input_man.getvalue())
+    
+    return {'manifest': manifest,
+            'annotation': annotation_dict}
 
 
 def convert_coordinates(coords, stac=False):
