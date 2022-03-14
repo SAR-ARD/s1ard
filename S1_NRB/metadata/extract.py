@@ -10,11 +10,12 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
+from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, RES_MAP, ORB_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
 
 
-def get_prod_meta(product_id, tif, src_scenes, src_dir):
+def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     """
     Returns a metadata dictionary, which is generated from the ID of a product scene using a regular expression pattern
     and from a measurement GeoTIFF file of the same product scene using spatialist's Raster class.
@@ -22,13 +23,13 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
     Parameters
     ----------
     product_id: str
-        The product ID (filename) of the product scene.
+        The top-level product folder name.
     tif: str
         The paths to a measurement GeoTIFF file of the product scene.
     src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
-    src_dir: str
-        A paths pointing to the SNAP processed datasets of the product.
+    snap_outdir: str
+        A path pointing to the SNAP processed datasets of the product.
     
     Returns
     -------
@@ -39,7 +40,7 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [identify(src).meta['coordinates'] for src in src_scenes]
     
-    with vec_from_srccoords(coord_list=coord_list) as srcvec:
+    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
@@ -52,13 +53,7 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
             geo = ras.geo
             out['transform'] = [geo['xres'], geo['rotation_x'], geo['xmin'],
                                 geo['rotation_y'], geo['yres'], geo['ymax']]
-            
             vec.reproject(4326)
-            feat = vec.getFeatureByIndex(0)
-            geom = feat.GetGeometryRef()
-            point = geom.Centroid()
-            out['wkt_pt'] = point.ExportToWkt()
-            out['wkt_env'] = vec.convert2wkt(set3D=False)[0]
             out['extent_4326'] = vec.extent
             
             # Calculate number of nodata border pixels based on source scene(s) footprint
@@ -68,12 +63,61 @@ def get_prod_meta(product_id, tif, src_scenes, src_dir):
         srcvec = None
     
     pat = 'S1[AB]__(IW|EW|S[1-6]{1})___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
-    wf_path = finder(src_dir, [pat], regex=True)[0]
+    wf_path = finder(snap_outdir, [pat], regex=True)[0]
     wf = parse_recipe(wf_path)
     out['ML_nRgLooks'] = wf['Multilook'].parameters['nRgLooks']
     out['ML_nAzLooks'] = wf['Multilook'].parameters['nAzLooks']
     
     return out
+
+
+def _vec_from_srccoords(coord_list):
+    """
+    Creates a single vector object from a list of footprint coordinates of source scenes.
+    
+    Parameters
+    ----------
+    coord_list: list[list[tuple(float, float)]]
+        List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
+    
+    Returns
+    -------
+    `spatialist.vector.Vector` object
+    """
+    if len(coord_list) == 2:
+        # determine joined border between footprints
+        if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
+            c1 = coord_list[1]
+            c2 = coord_list[0]
+        elif isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
+            c1 = coord_list[0]
+            c2 = coord_list[1]
+        else:
+            RuntimeError('Not able to find joined border of source scene footprint coordinates:'
+                         '\n{} \n{}'.format(coord_list[0], coord_list[1]))
+        
+        c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
+        c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
+        c2_lat = [c2[0][1], c2[1][1], c2[2][1], c2[3][1]]
+        c2_lon = [c2[0][0], c2[1][0], c2[2][0], c2[3][0]]
+        
+        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(c1_lon[0], c1_lat[0],
+                                                                 c1_lon[1], c1_lat[1],
+                                                                 c2_lon[2], c2_lat[2],
+                                                                 c2_lon[3], c2_lat[3],
+                                                                 c1_lon[0], c1_lat[0])
+    else:  # len(coord_list) == 1
+        c = coord_list[0]
+        lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
+        lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
+        
+        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(lon[0], lat[0],
+                                                                 lon[1], lat[1],
+                                                                 lon[2], lat[2],
+                                                                 lon[3], lat[3],
+                                                                 lon[0], lat[0])
+    
+    return wkt2vector(wkt, srs=4326)
 
 
 def get_uid_sid(filepath):
@@ -114,28 +158,37 @@ def etree_from_sid(sid):
     dict
         A dictionary containing the parsed etree.ElementTree objects for the manifest and annotation XML files.
     """
+    files = sid.findfiles(r'^s1[ab].*-[vh]{2}-.*\.xml$')
+    pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
+    annotation_files = list(filter(re.compile(pols[0]).search, files))
+    
+    a_files_base = [os.path.basename(a) for a in annotation_files]
+    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in a_files_base]
+    
+    annotation_dict = {}
+    for s, a in zip(swaths, annotation_files):
+        annotation_dict[s.upper()] = etree.fromstring(sid.getFileObj(a).getvalue())
     
     with sid.getFileObj(sid.findfiles('manifest.safe')[0]) as input_man:
-        annotation_files = sid.findfiles(r'^s1[ab].*-vh-.*\.xml$')
-        swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in annotation_files]
-        annotation_dict = {}
-        for s, a in zip(swaths, annotation_files):
-            annotation_dict[s.upper()] = etree.fromstring(sid.getFileObj(a).getvalue())
-        
-        return {'manifest': etree.fromstring(input_man.getvalue()),
-                'annotation': annotation_dict}
+        manifest = etree.fromstring(input_man.getvalue())
+    
+    return {'manifest': manifest,
+            'annotation': annotation_dict}
 
 
-def convert_id_coordinates(coords, stac=False):
+def convert_coordinates(coords, stac=False):
     """
-    Converts a list of coordinate pairs as retrieved by pyroSAR's identify function to either envelop and center for
-    usage in the XML metadata files or bbox and geometry for usage in STAC metadata files. The latter is returned if the
-    optional parameter 'stac' is set to True, else the former is returned.
+    Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes using
+    `pyroSAR.drivers.identify` OR extent coordinates that have been retrieved using `spatialist.vector.Vector.extent`
+    to either envelop and center for usage in the XML metadata files or bbox and geometry for usage in STAC
+    metadata files. The latter is returned if the optional parameter `stac` is set to True, else the former is returned.
     
     Parameters
     ----------
-    coords: list[tuple(float, float)]
-        List of coordinate pairs as retrieved by `pyroSAR.drivers.identify` from source scenes
+    coords: list[tuple(float, float)] or dict
+        List of coordinate tuple pairs as retrieved by `pyroSAR.drivers.identify` from source scenes OR the extent of a
+        product scene or MGRS tile, which can be retrieved by spatialist's Raster and Vector classes in the form of a
+        dictionary with keys xmin, xmax, ymin, ymax.
     stac: bool, optional
         If set to True, bbox and geometry are returned for usage in STAC Items. If set to False (default) envelop and
         center are returned for usage in XML metadata files.
@@ -143,9 +196,9 @@ def convert_id_coordinates(coords, stac=False):
     Returns
     -------
     envelop: str
-        Acquisition footprint coordinates for the XML field 'multiExtentOf' in 'eop:Footprint'
+        Acquisition footprint coordinates for the XML element 'eop:Footprint/multiExtentOf'
     center: str
-        Acquisition center coordinates for the XML field 'centerOf' in 'eop:Footprint'
+        Acquisition center coordinates for the XML element 'eop:Footprint/centerOf'
     
     Notes
     -------
@@ -158,115 +211,41 @@ def convert_id_coordinates(coords, stac=False):
         Acquisition footprint geometry for usage in STAC Items. Formatted in accordance with RFC 7946, section 3.1.:
         https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
     """
-    c = coords
-    
-    lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
-    lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
-    envelop = '{} {},{} {},{} {},{} {},{} {}'.format(lon[0], lat[0],
-                                                     lon[1], lat[1],
-                                                     lon[2], lat[2],
-                                                     lon[3], lat[3],
-                                                     lon[0], lat[0])
-    
-    lon_c = (max(lon) + min(lon)) / 2
-    lat_c = (max(lat) + min(lat)) / 2
-    center = '{} {}'.format(lon_c, lat_c)
+    if isinstance(coords, (list, tuple)) and len(coords) == 4:
+        c = coords
+        x = [c[0][0], c[1][0], c[2][0], c[3][0]]
+        y = [c[0][1], c[1][1], c[2][1], c[3][1]]
+        xmin = min(x)
+        xmax = max(x)
+        ymin = min(y)
+        ymax = max(y)
+    elif isinstance(coords, dict) and len(coords.keys()) == 4:
+        xmin = coords['xmin']
+        xmax = coords['xmax']
+        ymin = coords['ymin']
+        ymax = coords['ymax']
+        x = [xmin, xmin, xmax, xmax]
+        y = [ymin, ymax, ymax, ymin]
+    else:
+        raise RuntimeError('Coordinates must be provided as a list of coordinate tuples OR as a dictionary with '
+                           'keys xmin, xmax, ymin, ymax')
     
     if stac:
-        bbox = [min(lon), min(lat), max(lon), max(lat)]
-        geometry = {'type': 'Polygon', 'coordinates': (((lon[0], lat[0]),
-                                                        (lon[1], lat[1]),
-                                                        (lon[2], lat[2]),
-                                                        (lon[3], lat[3]),
-                                                        (lon[0], lat[0])),)}
+        bbox = [xmin, ymin, xmax, ymax]
+        geometry = {'type': 'Polygon', 'coordinates': (((x[0], y[0]), (x[1], y[1]), (x[2], y[2]), (x[3], y[3]),
+                                                        (x[0], y[0])),)}
         return bbox, geometry
     else:
-        return envelop, center
-
-
-def convert_spatialist_extent(extent):
-    """
-    Converts the extent of a spatialist vector object to bbox and geometry as required for the usage in STAC Items:
-    https://github.com/radiantearth/stac-spec/blob/master/item-spec/item-spec.md#item-fields
-    
-    Parameters
-    ----------
-    extent: dict
-        The extent of a vector object as returned by `spatialist.vector.Vector.extent`
-    
-    Returns
-    -------
-    bbox: list[float]
-        Formatted in accordance with RFC 7946, section 5: https://datatracker.ietf.org/doc/html/rfc7946#section-5
-    geometry: GeoJSON Geometry Object
-        Formatted in accordance with RFC 7946, section 3.1.: https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
-    """
-    xmin = extent['xmin']
-    xmax = extent['xmax']
-    ymin = extent['ymin']
-    ymax = extent['ymax']
-    
-    bbox = [xmin, ymin, xmax, ymax]
-    geometry = {'type': 'Polygon', 'coordinates': (((xmin, ymin),
-                                                    (xmin, ymax),
-                                                    (xmax, ymax),
-                                                    (xmax, ymin),
-                                                    (xmin, ymin)),)}
-    
-    return bbox, geometry
-
-
-def vec_from_srccoords(coord_list):
-    """
-    Creates a single `spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
-    
-    Parameters
-    ----------
-    coord_list: list[list[tuple(float, float)]]
-        List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
-    
-    Returns
-    -------
-    `spatialist.vector.Vector` object
-    """
-    if len(coord_list) == 2:
-        if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
-            c1 = coord_list[1]
-            c2 = coord_list[0]
-        elif isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
-            c1 = coord_list[0]
-            c2 = coord_list[1]
-        else:
-            RuntimeError('not able to find joined border of source scene footprints '
-                         '\n{} and \n{}'.format(coord_list[0], coord_list[1]))
-        
-        c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
-        c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
-        c2_lat = [c2[0][1], c2[1][1], c2[2][1], c2[3][1]]
-        c2_lon = [c2[0][0], c2[1][0], c2[2][0], c2[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(c1_lon[0], c1_lat[0],
-                                                                 c1_lon[1], c1_lat[1],
-                                                                 c2_lon[2], c2_lat[2],
-                                                                 c2_lon[3], c2_lat[3],
-                                                                 c1_lon[0], c1_lat[0])
-    else:  # len(coord_list) == 1
-        c = coord_list[0]
-        lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
-        lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(lon[0], lat[0],
-                                                                 lon[1], lat[1],
-                                                                 lon[2], lat[2],
-                                                                 lon[3], lat[3],
-                                                                 lon[0], lat[0])
-    
-    return wkt2vector(wkt, srs=4326)
+        x_c = (xmax + xmin) / 2
+        y_c = (ymax + ymin) / 2
+        center = '{} {}'.format(y_c, x_c)
+        envelop = '{} {},{} {},{} {},{} {},{} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
+        return center, envelop
 
 
 def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
     """
-    Find a pattern in each annotation file provided and returns a list of results converted in
+    Search for a pattern in all XML annotation files provided and return a dictionary of results.
     
     Parameters
     ----------
@@ -274,9 +253,9 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         A dict of annotation files in the form: {'swath ID': lxml.etree._Element object}
     pattern: str
         The pattern to search for in each annotation file.
-    single: bool
+    single: bool, optional
         If True, the results found in each annotation file are expected to be the same and therefore only a single
-        value will be returned instead of a dict. Default is False.
+        value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
     out_type: str, optional
         Output type to convert the results to. Can be one of the following:
         str (default)
@@ -312,25 +291,24 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
                     out[k] = int(out[k])
     
     if single:
-        test_val = list(out.values())[0]
+        val = list(out.values())[0]
         for k in out:
-            if out[k] != test_val:
+            if out[k] != val:
                 raise RuntimeError('Search result for pattern "{}" expected to be the same in all annotation '
                                    'files.'.format(pattern))
         if out_type == 'float':
-            return float(test_val)
+            return float(val)
         elif out_type == 'int':
-            return int(test_val)
+            return int(val)
         else:
-            return str(test_val)
+            return str(val)
     else:
         return out
 
 
 def calc_performance_estimates(files, ref_tif):
     """
-    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images for the current
-    MGRS tile.
+    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images.
     
     Parameters
     ----------
@@ -358,14 +336,14 @@ def calc_performance_estimates(files, ref_tif):
                 _min = float(np.nanmin(arr))
                 _max = float(np.nanmax(arr))
                 _mean = float(np.nanmean(arr))
-                _stdev = float(np.nanstd(arr))
-                _var = float(np.nanvar(arr))
+                # _stdev = float(np.nanstd(arr))
+                # _var = float(np.nanvar(arr))
                 del arr
         out[pol] = {'minimum': _min,
                     'maximum': _max,
-                    'mean': _mean,
-                    'stddev': _stdev,
-                    'variance': _var}
+                    'mean': _mean}
+                    # 'stddev': _stdev,
+                    # 'variance': _var}
     return out
 
 
@@ -396,14 +374,75 @@ def extract_pslr_islr(annotation_dict):
         pslr_mean[swath] = np.nanmean(pslr_dict[swath])
         islr_mean[swath] = np.nanmean(islr_dict[swath])
     
-    # Return mean value for all swaths
+    # Mean value for all swaths
     pslr = np.nanmean(list(pslr_mean.values()))
     islr = np.nanmean(list(islr_mean.values()))
     
     return pslr, islr
 
 
-def meta_dict(config, target, src_scenes, src_files, proc_time):
+def get_header_size(tif):
+    """
+    Gets the header size of a GeoTIFF file in bytes.
+    
+    The code used in this function and its helper function `_get_block_offset` were extracted from the the following
+    source: https://github.com/OSGeo/gdal/blob/master/swig/python/gdal-utils/osgeo_utils/samples/validate_cloud_optimized_geotiff.py
+    
+    # *****************************************************************************
+    #  Copyright (c) 2017, Even Rouault
+    #
+    #  Permission is hereby granted, free of charge, to any person obtaining a
+    #  copy of this software and associated documentation files (the "Software"),
+    #  to deal in the Software without restriction, including without limitation
+    #  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    #  and/or sell copies of the Software, and to permit persons to whom the
+    #  Software is furnished to do so, subject to the following conditions:
+    #
+    #  The above copyright notice and this permission notice shall be included
+    #  in all copies or substantial portions of the Software.
+    # *****************************************************************************
+    
+    Parameters
+    ----------
+    tif: str
+        A path to a GeoTIFF file of the currently processed NRB product.
+    
+    Returns
+    -------
+    header_size: int
+        The size of all IFD headers of the GeoTIFF file in bytes.
+    """
+    
+    details = {}
+    ds = gdal.Open(tif)
+    main_band = ds.GetRasterBand(1)
+    ovr_count = main_band.GetOverviewCount()
+    
+    block_offset = _get_block_offset(band=main_band)
+    details['data_offsets'] = {}
+    details['data_offsets']['main'] = block_offset
+    for i in range(ovr_count):
+        ovr_band = ds.GetRasterBand(1).GetOverview(i)
+        block_offset = _get_block_offset(band=ovr_band)
+        details['data_offsets']['overview_%d' % i] = block_offset
+    
+    headers_size = min(details['data_offsets'][k] for k in details['data_offsets'])
+    if headers_size == 0:
+        headers_size = gdal.VSIStatL(tif).size
+    return headers_size
+
+
+def _get_block_offset(band):
+    blockxsize, blockysize = band.GetBlockSize()
+    for y in range(int((band.YSize + blockysize - 1) / blockysize)):
+        for x in range(int((band.XSize + blockxsize - 1) / blockxsize)):
+            block_offset = band.GetMetadataItem('BLOCK_OFFSET_%d_%d' % (x, y), 'TIFF')
+            if block_offset:
+                return int(block_offset)
+    return 0
+
+
+def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -417,79 +456,57 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         A path pointing to the root directory of a product scene.
     src_scenes: list[str]
         A list of paths pointing to the source scenes of the product.
-    src_files: list[str]
+    snap_files: list[str]
         A list of paths pointing to the SNAP processed datasets of the product.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
+    compression: str
+        The compression type applied to raster files of the product.
     
     Returns
     -------
     meta: dict
-        A dictionary containing an extensive collection of metadata for product as well as source scenes.
+        A dictionary containing a collection of metadata for product as well as source scenes.
     """
-    
     meta = {'prod': {},
             'source': {},
             'common': {}}
-    
-    product_id = os.path.basename(target)
-    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
-                              src_dir=os.path.dirname(src_files[0]))
-    
     src_sid = {}
     src_xml = {}
     for i in range(len(src_scenes)):
         uid, sid = get_uid_sid(filepath=src_scenes[i])
         src_sid[uid] = sid
         src_xml[uid] = etree_from_sid(sid=sid)
+    sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
-    src0 = list(src_sid.keys())[0]  # first key/first file
-    sid0 = src_sid[src0]
-    manifest0 = src_xml[src0]['manifest']
-    nsmap0 = src_xml[src0]['manifest'].nsmap
+    product_id = os.path.basename(target)
+    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
+                              snap_outdir=os.path.dirname(snap_files[0]))
     
-    stac_bbox_4326, stac_geometry_4326 = convert_spatialist_extent(extent=prod_meta['extent_4326'])
-    stac_bbox_native = convert_spatialist_extent(extent=prod_meta['extent'])[0]
+    xml_center, xml_envelop = convert_coordinates(coords=prod_meta['extent_4326'])
+    stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
+    stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
-    dem_map = {'GETASSE30': {'url': 'https://step.esa.int/auxdata/dem/GETASSE30',
-                             'ref': 'https://seadas.gsfc.nasa.gov/help-8.1.0/desktop/GETASSE30ElevationModel.html',
-                             'type': 'elevation',
-                             'egm': 'https://apps.dtic.mil/sti/citations/ADA166519'},
-               'Copernicus 10m EEA DEM': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_EEA-10-DGED/2021_1',
-                                          'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                          'type': 'surface',
-                                          'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 30m Global DEM': {'url': 'https://copernicus-dem-30m.s3.eu-central-1.amazonaws.com/',
-                                             'ref': 'https://copernicus-dem-30m.s3.amazonaws.com/readme.html',
-                                             'type': 'surface',
-                                             'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 30m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-30-DGED/2021_1',
-                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                                'type': 'surface',
-                                                'egm': 'https://doi.org/10.1029/2011JB008916'},
-               'Copernicus 90m Global DEM II': {'url': 'ftps://cdsdata.copernicus.eu/DEM-datasets/COP-DEM_GLO-90-DGED/2021_1',
-                                                'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
-                                                'type': 'surface',
-                                                'egm': 'https://doi.org/10.1029/2011JB008916'}
-               }
     dem_name = config['dem_type']
-    dem_url = dem_map[dem_name]['url']
-    dem_ref = dem_map[dem_name]['ref']
-    dem_type = dem_map[dem_name]['type']
-    dem_egm = dem_map[dem_name]['egm']
+    dem_access = DEM_MAP[dem_name]['access']
+    dem_ref = DEM_MAP[dem_name]['ref']
+    dem_type = DEM_MAP[dem_name]['type']
+    egm_ref = DEM_MAP[dem_name]['egm']
+
+    tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
+    z_err_dict = dict(tups)
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
     meta['common']['constellation'] = 'sentinel-1'
     meta['common']['instrumentShortName'] = 'C-SAR'
     meta['common']['operationalMode'] = prod_meta['mode']
+    meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
-    meta['common']['orbit'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
+    meta['common']['orbitNumber'] = str(sid0.meta['orbitNumbers_abs']['stop'])
     meta['common']['orbitNumbers_abs'] = sid0.meta['orbitNumbers_abs']
     meta['common']['orbitNumbers_rel'] = sid0.meta['orbitNumbers_rel']
-    meta['common']['orbitNumber_start'] = str(meta['common']['orbitNumbers_abs']['start'])
-    meta['common']['orbitNumber_stop'] = str(meta['common']['orbitNumbers_abs']['stop'])
     meta['common']['platformIdentifier'] = {'S1A': '1A', 'S1B': '1B'}[sid0.sensor]
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
@@ -497,43 +514,43 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['common']['platformReference'] = {'sentinel-1a': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
                                            'sentinel-1b': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=576'}[meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
-    meta['common']['polarisationMode'] = prod_meta['pols']
+    meta['common']['polarisationMode'] = prod_meta['pols'][0]
+    meta['common']['processingLevel'] = 'L1C'
     meta['common']['radarBand'] = 'C'
-    meta['common']['radarCenterFreq'] = '{:.3e}'.format(5405000000)
+    meta['common']['radarCenterFreq'] = 5405000000
     meta['common']['sensorType'] = 'RADAR'
+    meta['common']['swathIdentifier'] = re.search('_(IW|EW|S[1-6])_',
+                                                  os.path.basename(sid0.file)).group().replace('_', '')
+    meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
-    meta['prod']['ancillaryData1'] = None
+    meta['prod']['ancillaryData_KML'] = 'https://sentinels.copernicus.eu/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
-    meta['prod']['ascendingNodeDate'] = manifest0.find('.//s1:ascendingNodeTime', nsmap0).text
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0'
     meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
-    meta['prod']['card4l-name'] = 'NRB'
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
-    meta['prod']['datatakeID'] = manifest0.find('.//s1sarl1:missionDataTakeID', nsmap0).text
-    meta['prod']['demEgmReference'] = dem_egm
-    meta['prod']['demEgmResamplingMethod'] = 'bilinear'
+    meta['prod']['compression_type'] = compression
+    meta['prod']['compression_zerrors'] = z_err_dict
+    meta['prod']['demEGMReference'] = egm_ref
+    meta['prod']['demEGMResamplingMethod'] = 'bilinear'
     meta['prod']['demName'] = dem_name
     meta['prod']['demReference'] = dem_ref
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = dem_type
-    meta['prod']['demURL'] = dem_url
+    meta['prod']['demAccess'] = dem_access
     meta['prod']['doi'] = None
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['fileBitsPerSample'] = '32'
     meta['prod']['fileByteOrder'] = 'little-endian'
     meta['prod']['fileDataType'] = 'float'
     meta['prod']['fileFormat'] = 'COG'
-    meta['prod']['filterApplied'] = False
-    meta['prod']['filterType'] = None
-    meta['prod']['filterWindowSizeCol'] = None
-    meta['prod']['filterWindowSizeLine'] = None
+    meta['prod']['speckleFilterApplied'] = False
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
@@ -544,27 +561,27 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
-    meta['prod']['geom_stac_bbox_4326'] = stac_bbox_4326
-    meta['prod']['geom_stac_geometry_4326'] = stac_geometry_4326
-    meta['prod']['geom_xml_center'] = re.search(r'\(([-*0-9 .,]+)\)', prod_meta['wkt_pt']).group(1)
-    meta['prod']['geom_xml_envelope'] = re.search(r'\(([-*0-9 .,]+)\)', prod_meta['wkt_env']).group(1)
+    meta['prod']['geom_stac_bbox_4326'] = stac_bbox
+    meta['prod']['geom_stac_geometry_4326'] = stac_geometry
+    meta['prod']['geom_xml_center'] = xml_center
+    meta['prod']['geom_xml_envelope'] = xml_envelop
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
-    meta['prod']['majorCycleID'] = str(sid0.meta['cycleNumber'])
-    meta['prod']['noiseRemovalApplied'] = True
-    meta['prod']['noiseRemovalAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
-    meta['prod']['numberLines'] = str(prod_meta['rows'])
+    meta['prod']['mgrsID'] = prod_meta['mgrsID']
+    meta['prod']['NRApplied'] = True
+    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
     meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
+    meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
-    meta['prod']['pixelCoordinateConvention'] = 'pixel ULC'
+    meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     meta['prod']['processingCenter'] = 'FSU'
-    meta['prod']['processingLevel'] = 'L1C'
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
-    meta['prod']['productName'] = 'NORMALISED RADAR BACKSCATTER'
+    meta['prod']['productName'] = 'Normalised Radar Backscatter'
+    meta['prod']['productName-short'] = 'NRB'
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None
@@ -574,44 +591,53 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['status'] = 'PROTOTYPE'
     meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeCompletionFromAscendingNode'] = str(float(manifest0.find('.//s1:stopTimeANX', nsmap0).text))
-    meta['prod']['timeStartFromAscendingNode'] = str(float(manifest0.find('.//s1:startTimeANX', nsmap0).text))
     meta['prod']['timeStart'] = datetime.strptime(prod_meta['start'], '%Y%m%dT%H%M%S')
     meta['prod']['timeStop'] = datetime.strptime(prod_meta['stop'], '%Y%m%dT%H%M%S')
     meta['prod']['transform'] = prod_meta['transform']
-    meta['prod']['wrsLongitudeGrid'] = str(meta['common']['orbitNumbers_rel']['start'])
     
     # Source metadata
     for uid in list(src_sid.keys()):
         nsmap = src_xml[uid]['manifest'].nsmap
         
-        osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
-        coords = src_sid[uid].meta['coordinates']
-        xml_envelop, xml_center = convert_id_coordinates(coords=coords)
-        stac_bbox, stac_geometry = convert_id_coordinates(coords=coords, stac=True)
         swaths = list(src_xml[uid]['annotation'].keys())
+        osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
+        
+        coords = src_sid[uid].meta['coordinates']
+        xml_center, xml_envelop = convert_coordinates(coords=coords)
+        stac_bbox, stac_geometry = convert_coordinates(coords=coords, stac=True)
+        
+        az_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                               pattern='.//azimuthProcessing/lookBandwidth', out_type='float')
+        az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                          pattern='.//azimuthProcessing/numberOfLooks', single=True)
+        az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                           pattern='.//azimuthPixelSpacing', out_type='float')
+        inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                 pattern='.//geolocationGridPoint/incidenceAngle', out_type='float')
+        inc_vals = list(inc.values())
+        lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                         pattern='.//applicationLutId', single=True)
+        pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
+        np_files = [f for f in snap_files if re.search('_NE[BGS]Z', f) is not None]
+        rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                               pattern='.//rangeProcessing/lookBandwidth', out_type='float')
+        rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                          pattern='.//rangeProcessing/numberOfLooks', single=True)
+        rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'], pattern='.//rangePixelSpacing',
+                                           out_type='float')
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = 'https://scihub.copernicus.eu'
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
-        meta['source'][uid]['azimuthLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                         pattern='.//azimuthProcessing/lookBandwidth',
-                                                                         out_type='float')
-        meta['source'][uid]['azimuthNumberOfLooks'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                         pattern='.//azimuthProcessing/numberOfLooks',
-                                                                         single=True)
-        try:
-            meta['source'][uid]['azimuthPixelSpacing'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                            pattern='.//azimuthPixelSpacing',
-                                                                            single=True)
-        except RuntimeError:
-            tmp_out = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//azimuthPixelSpacing',
-                                         single=False, out_type='float')
-            meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
+        meta['source'][uid]['ascendingNodeDate'] = src_xml[uid]['manifest'].find('.//s1:ascendingNodeTime', nsmap).text
+        meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
+        meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
+        meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
+                                                         len(list(az_px_spacing.values())))
         meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
         meta['source'][uid]['dataGeometry'] = 'slant range'
+        meta['source'][uid]['datatakeID'] = src_xml[uid]['manifest'].find('.//s1sarl1:missionDataTakeID', nsmap).text
         meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
@@ -620,25 +646,18 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['geom_stac_geometry_4326'] = stac_geometry
         meta['source'][uid]['geom_xml_center'] = xml_center
         meta['source'][uid]['geom_xml_envelop'] = xml_envelop
-        inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                 pattern='.//geolocationGridPoint/incidenceAngle', out_type='float')
-        meta['source'][uid]['incidenceAngleMax'] = np.max(list(inc.values()))
-        meta['source'][uid]['incidenceAngleMin'] = np.min(list(inc.values()))
-        meta['source'][uid]['incidenceAngleMidSwath'] = np.max(list(inc.values())) - \
-                                                        ((np.max(list(inc.values())) - np.min(list(inc.values()))) / 2)
+        meta['source'][uid]['incidenceAngleMax'] = np.max(inc_vals)
+        meta['source'][uid]['incidenceAngleMin'] = np.min(inc_vals)
+        meta['source'][uid]['incidenceAngleMidSwath'] = np.max(inc_vals) - ((np.max(inc_vals) - np.min(inc_vals)) / 2)
         meta['source'][uid]['instrumentAzimuthAngle'] = str(src_sid[uid].meta['heading'])
         meta['source'][uid]['ionosphereIndicator'] = None
-        meta['source'][uid]['lutApplied'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                               pattern='.//applicationLutId',
-                                                               single=True)
+        meta['source'][uid]['lutApplied'] = lut_applied
+        meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for orb in list(ORB_MAP.keys()):
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        
-        pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        np_files = [f for f in src_files if re.search('_NE[BGS]Z', f) is not None]
         meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
@@ -653,29 +672,21 @@ def meta_dict(config, target, src_scenes, src_files, proc_time):
         meta['source'][uid]['processingLevel'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['name']
         meta['source'][uid]['processorName'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['name']
         meta['source'][uid]['processorVersion'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['version']
+        meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
-        meta['source'][uid]['rangeLookBandwidth'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                       pattern='.//rangeProcessing/lookBandwidth',
-                                                                       out_type='float')
-        meta['source'][uid]['rangeNumberOfLooks'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                       pattern='.//rangeProcessing/numberOfLooks',
-                                                                       single=True)
-        try:
-            meta['source'][uid]['rangePixelSpacing'] = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                                                          pattern='.//rangePixelSpacing',
-                                                                          single=True)
-        except RuntimeError:
-            tmp_out = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//rangePixelSpacing',
-                                         single=False, out_type='float')
-            meta['source'][uid]['rangePixelSpacing'] = str(sum(list(tmp_out.values())) / len(list(tmp_out.values())))
+        meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
+        meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
+        meta['source'][uid]['rangePixelSpacing'] = str(sum(list(rg_px_spacing.values())) /
+                                                       len(list(rg_px_spacing.values())))
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
+        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
+                                                                           .find('.//s1:stopTimeANX', nsmap).text))
+        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest']
+                                                                      .find('.//s1:startTimeANX', nsmap).text))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['swathIdentifier'] = re.search('_IW|EW|S[1-6]{1}_', os.path.basename(src_sid[uid].file)).group().replace('_', '')
         meta['source'][uid]['swaths'] = swaths
     
-    # return meta, m_sid, m_src
     return meta

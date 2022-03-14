@@ -5,7 +5,7 @@ import logging
 import binascii
 from time import gmtime, strftime
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from lxml import etree
 import numpy as np
 from osgeo import gdal
@@ -238,9 +238,9 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     Returns
     -------
     start: str
-        Start time of the current product formatted as %Y%m%dT%H%M%S.
+        Start time of the current product formatted as %Y%m%dT%H%M%S in UTC.
     stop: str
-        Stop time of the current product formatted as %Y%m%dT%H%M%S.
+        Stop time of the current product formatted as %Y%m%dT%H%M%S in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -307,8 +307,8 @@ def calc_product_start_stop(src_scenes, extent, epsg):
         else:
             res_t.append(datetime.fromtimestamp(float(r)))
     
-    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
+    start = datetime.strftime(res_t[0].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
+    stop = datetime.strftime(res_t[1].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
     
     return start, stop
 

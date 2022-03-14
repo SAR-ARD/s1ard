@@ -9,6 +9,7 @@ from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
 from spatialist import Raster
 from S1_NRB.metadata.mapping import SAMPLE_MAP
+from S1_NRB.metadata.extract import get_header_size
 
 
 def product_json(meta, target, tifs):
@@ -58,74 +59,72 @@ def product_json(meta, target, tifs):
     sat_ext = SatExtension.ext(item)
     proj_ext = ProjectionExtension.ext(item)
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/product.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
     item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/file/v2.0.0/schema.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
+    item.stac_extensions.append('https://stac-extensions.github.io/mgrs/v1.0.0/schema.json')
     
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
-                  product_type=meta['prod']['card4l-name'])
+                  product_type=meta['prod']['productName-short'],
+                  looks_range=int(meta['prod']['rangeNumberOfLooks']),
+                  looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']))
     
-    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
+    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
                   absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
     
-    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
-                   wkt2=meta['prod']['crsWKT'],
-                   bbox=meta['prod']['geom_stac_bbox_native'],
-                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numberLines'])],
-                   transform=meta['prod']['transform'])
-    
     item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
-    item.properties['processing:level'] = meta['prod']['processingLevel']
+    item.properties['processing:level'] = meta['common']['processingLevel']
     
-    item.properties['card4l:specification'] = meta['prod']['card4l-name']
+    item.properties['card4l:specification'] = meta['prod']['productName-short']
     item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
+    item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
     item.properties['card4l:measurement_type'] = meta['prod']['backscatterMeasurement']
     item.properties['card4l:measurement_convention'] = meta['prod']['backscatterConvention']
-    item.properties['card4l:pixel_coordinate_convention'] = {'pixel center': 'center',
-                                                             'pixel ULC': 'upper-left',
-                                                             'pixel LLC': 'lower-left'
-                                                             }[meta['prod']['pixelCoordinateConvention']]
-    if meta['prod']['filterApplied']:
-        item.properties['card4l:speckle_filtering'] = {'type': meta['prod']['filterType'],
-                                                       'window_size_col': meta['prod']['filterWindowSizeCol'],
-                                                       'window_size_line': meta['prod']['filterWindowSizeLine']}
-    else:
-        item.properties['card4l:speckle_filtering'] = None
-    item.properties['card4l:noise_removal_applied'] = meta['prod']['noiseRemovalApplied']
+    item.properties['card4l:pixel_coordinate_convention'] = meta['prod']['pixelCoordinateConvention']
+    item.properties['card4l:speckle_filtering'] = meta['prod']['speckleFilterApplied']
+    item.properties['card4l:noise_removal_applied'] = meta['prod']['NRApplied']
     item.properties['card4l:conversion_eq'] = meta['prod']['backscatterConversionEq']
     item.properties['card4l:relative_radiometric_accuracy'] = meta['prod']['radiometricAccuracyRelative']
     item.properties['card4l:absolute_radiometric_accuracy'] = meta['prod']['radiometricAccuracyAbsolute']
     item.properties['card4l:resampling_method'] = meta['prod']['geoCorrResamplingMethod']
     item.properties['card4l:dem_resampling_method'] = meta['prod']['demResamplingMethod']
-    item.properties['card4l:egm_resampling_method'] = meta['prod']['demEgmResamplingMethod']
+    item.properties['card4l:egm_resampling_method'] = meta['prod']['demEGMResamplingMethod']
     item.properties['card4l:geometric_accuracy_type'] = meta['prod']['geoCorrAccuracyType']
     for x in ['Northern', 'Eastern']:
         key = ['geoCorrAccuracy{}{}'.format(x, y) for y in ['STDev', 'Bias']]
         stddev = float(meta['prod'][key[0]]) if meta['prod'][key[0]] is not None else None
         bias = float(meta['prod'][key[1]]) if meta['prod'][key[1]] is not None else None
-        item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias,
-                                                                             'stddev': stddev}
+        item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias, 'stddev': stddev}
     item.properties['card4l:geometric_accuracy_radial_rmse'] = meta['prod']['geoCorrAccuracy_rRMSE']
+    
+    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
+                   wkt2=meta['prod']['crsWKT'],
+                   bbox=meta['prod']['geom_stac_bbox_native'],
+                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
+                   transform=meta['prod']['transform'])
+    
+    mgrs = meta['prod']['mgrsID']
+    item.properties['mgrs:utm_zone'] = int(mgrs[:2])
+    item.properties['mgrs:latitude_band'] = mgrs[2:3]
+    item.properties['mgrs:grid_square'] = mgrs[3:]
     
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'.format(
-                                       meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                         ''.format(meta['prod']['card4l-version'])))
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'],
                                    media_type='application/pdf',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'.format(
-                                       meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                         ''.format(meta['prod']['card4l-version'])))
     for src in list(meta['source'].keys()):
-        src_target = os.path.join('./source',
-                                  '{}.json'.format(
-                                      os.path.basename(meta['source'][src]['filename']).split('.')[0])).replace('\\',
-                                                                                                                '/')
+        x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
+        src_target = os.path.join('./source', '{}.json'.format(x)).replace('\\', '/')
         item.add_link(link=pystac.Link(rel='derived_from',
                                        target=src_target,
                                        media_type='application/json',
@@ -137,11 +136,12 @@ def product_json(meta, target, tifs):
                                    target=meta['prod']['access'],
                                    title='Product Definition Reference.'))
     item.add_link(link=pystac.Link(rel='related',
-                                   target=meta['prod']['ancillaryData1'],
-                                   title='Reference to ancillary data used in the generation process.'))
-    if meta['prod']['noiseRemovalApplied']:
+                                   target=meta['prod']['ancillaryData_KML'],
+                                   title='KML file of the Sentinel-2 Military Grid Reference System (MGRS) tiling grid '
+                                         'used during processing.'))
+    if meta['prod']['NRApplied']:
         item.add_link(link=pystac.Link(rel='noise-removal',
-                                       target=meta['prod']['noiseRemovalAlgorithm'],
+                                       target=meta['prod']['NRAlgorithm'],
                                        title='Reference to the noise removal algorithm details.'))
     item.add_link(link=pystac.Link(rel='radiometric-terrain-correction',
                                    target=meta['prod']['RTCAlgorithm'],
@@ -156,8 +156,9 @@ def product_json(meta, target, tifs):
                                    target=meta['prod']['demReference'],
                                    title=meta['prod']['demName']))
     item.add_link(link=pystac.Link(rel='earth-gravitational-model',
-                                   target=meta['prod']['demEgmReference'],
-                                   title='Reference to the Earth Gravitational Model (EGM) used for Geometric Correction.'))
+                                   target=meta['prod']['demEGMReference'],
+                                   title='Reference to the Earth Gravitational Model (EGM) used for Geometric '
+                                         'Correction.'))
     item.add_link(link=pystac.Link(rel='geometric-accuracy',
                                    target=meta['prod']['geoCorrAccuracyReference'],
                                    title='Reference documenting the estimate of absolute localization error.'))
@@ -173,17 +174,21 @@ def product_json(meta, target, tifs):
                                       roles=['metadata', 'card4l']))
     for tif in tifs:
         relpath = './' + os.path.relpath(tif, target).replace('\\', '/')
+        size = os.path.getsize(tif)
+        header_size = get_header_size(tif=tif)
         
         if 'measurement' in tif:
             pol = re.search('[vh]{2}', tif).group().lower()
             created = datetime.fromtimestamp(os.path.getctime(tif)).isoformat()
             extra_fields = {'created': created,
-                            'raster:bands': [{'nodata': 'NaN',
+                            'raster:bands': [{'unit': 'natural',
+                                              'nodata': 'NaN',
                                               'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                                          meta['prod']['fileBitsPerSample']),
                                               'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
                             'file:byte_order': meta['prod']['fileByteOrder'],
-                            'file:header_size': os.path.getsize(tif),
+                            'file:size': size,
+                            'file:header_size': header_size,
                             'card4l:border_pixels': meta['prod']['numBorderPixels']}
             
             item.add_asset(key=pol,
@@ -195,9 +200,17 @@ def product_json(meta, target, tifs):
         
         elif 'annotation' in tif:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
+            np_pat = '-np-[vh]{2}.tif'
+            if re.search(np_pat, key) is not None:
+                pol = re.search('[vh]{2}', key).group()
+                key = np_pat
+                asset_key = 'noise-power-{}'.format(pol)
+            else:
+                asset_key = SAMPLE_MAP[key]['role']
             
             if key in ['-dm.tif', '-id.tif']:
-                ras_bands_base = {'nodata': 255,
+                ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
+                                  'nodata': 255,
                                   'data_type': 'uint8',
                                   'bits_per_sample': 8}
                 raster_bands = []
@@ -231,7 +244,8 @@ def product_json(meta, target, tifs):
                 
                 extra_fields = {'raster:bands': raster_bands,
                                 'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:header_size': os.path.getsize(tif)}
+                                'file:size': size,
+                                'file:header_size': header_size}
             
             else:
                 raster_bands = {'unit': SAMPLE_MAP[key]['unit'],
@@ -241,19 +255,15 @@ def product_json(meta, target, tifs):
                                 'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}
                 
                 if raster_bands['unit'] is None:
-                    raster_bands.pop('unit')
+                    raster_bands['unit'] = 'None'
                 
                 extra_fields = {'raster:bands': [raster_bands],
                                 'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:header_size': os.path.getsize(tif)}
+                                'file:size': size,
+                                'file:header_size': header_size}
                 
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
-            
-            if SAMPLE_MAP[key]['role'] == 'noise-power':
-                asset_key = SAMPLE_MAP[key]['title'].lower().replace(' ', '-')
-            else:
-                asset_key = SAMPLE_MAP[key]['role']
             
             item.add_asset(key=asset_key,
                            asset=pystac.Asset(href=relpath,
@@ -311,14 +321,14 @@ def source_json(meta, target):
         sat_ext = SatExtension.ext(item)
         view_ext = ViewExtension.ext(item)
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v1.0.0/sar/source.json')
+        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
         
         enl = meta['source'][uid]['perfEquivalentNumberOfLooks']
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
-                      center_frequency=float(meta['common']['radarCenterFreq']),
+                      center_frequency=float(meta['common']['radarCenterFreq']/1e9),
                       resolution_range=float(min(meta['source'][uid]['rangeResolution'].values())),
                       resolution_azimuth=float(min(meta['source'][uid]['azimuthResolution'].values())),
                       pixel_spacing_range=float(meta['source'][uid]['rangePixelSpacing']),
@@ -328,9 +338,10 @@ def source_json(meta, target):
                       looks_equivalent_number=float(enl) if enl is not None else None,
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         
-        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbit'].upper()],
+        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                       relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
+                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
         
         view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
                        azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
@@ -338,18 +349,18 @@ def source_json(meta, target):
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
                                                   meta['source'][uid]['processorVersion']}
-        item.properties['processing:level'] = meta['source'][uid]['processingLevel']
+        item.properties['processing:level'] = meta['common']['processingLevel']
         
-        item.properties['card4l:specification'] = meta['prod']['card4l-name']
+        item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
-        item.properties['card4l:beam_id'] = meta['source'][uid]['swathIdentifier']
+        item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
         item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
         item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
+        range_look_bandwidth = {k: v/1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
+        azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
         item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
-                                                                  'range_look_bandwidth':
-                                                                      meta['source'][uid]['rangeLookBandwidth'],
-                                                                  'azimuth_look_bandwidth':
-                                                                      meta['source'][uid]['azimuthLookBandwidth']}
+                                                                  'range_look_bandwidth': range_look_bandwidth,
+                                                                  'azimuth_look_bandwidth': azimuth_look_bandwidth}
         for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
                               ['rangeResolution', 'azimuthResolution']):
             res = {}
@@ -427,6 +438,5 @@ def main(meta, target, tifs):
     -------
     None
     """
-    
     source_json(meta=meta, target=target)
     product_json(meta=meta, target=target, tifs=tifs)
