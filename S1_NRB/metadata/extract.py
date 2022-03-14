@@ -442,7 +442,7 @@ def _get_block_offset(band):
     return 0
 
 
-def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
+def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -460,6 +460,10 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
         A list of paths pointing to the SNAP processed datasets of the product.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
+    start: str
+        The product start time as a string in the format: YYYYmmddTHHMMSS
+    stop: str
+        The product stop time as a string in the format: YYYYmmddTHHMMSS
     compression: str
         The compression type applied to raster files of the product.
     
@@ -591,8 +595,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, compression):
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['status'] = 'PROTOTYPE'
     meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeStart'] = datetime.strptime(prod_meta['start'], '%Y%m%dT%H%M%S')
-    meta['prod']['timeStop'] = datetime.strptime(prod_meta['stop'], '%Y%m%dT%H%M%S')
+    meta['prod']['timeStart'] = datetime.strptime(start, '%Y%m%dT%H%M%S')
+    meta['prod']['timeStop'] = datetime.strptime(stop, '%Y%m%dT%H%M%S')
     meta['prod']['transform'] = prod_meta['transform']
     
     # Source metadata
