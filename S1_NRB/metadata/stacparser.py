@@ -115,12 +115,12 @@ def product_json(meta, target, tifs):
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
                                          ''.format(meta['prod']['card4l-version'])))
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'],
                                    media_type='application/pdf',
-                                   title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
                                          ''.format(meta['prod']['card4l-version'])))
     for src in list(meta['source'].keys()):
         x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
@@ -128,17 +128,17 @@ def product_json(meta, target, tifs):
         item.add_link(link=pystac.Link(rel='derived_from',
                                        target=src_target,
                                        media_type='application/json',
-                                       title='Path to STAC metadata of source dataset.'))
+                                       title='Source metadata formatted in STAC compliant JSON format.'))
     item.add_link(link=pystac.Link(rel='about',
                                    target=meta['prod']['doi'],
-                                   title='Product Definition Reference.'))
+                                   title='Product definition reference.'))
     item.add_link(link=pystac.Link(rel='access',
                                    target=meta['prod']['access'],
-                                   title='Product Definition Reference.'))
+                                   title='Product data access.'))
     item.add_link(link=pystac.Link(rel='related',
                                    target=meta['prod']['ancillaryData_KML'],
-                                   title='KML file of the Sentinel-2 Military Grid Reference System (MGRS) tiling grid '
-                                         'used during processing.'))
+                                   title='Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '
+                                         'used as auxiliary data during processing.'))
     if meta['prod']['NRApplied']:
         item.add_link(link=pystac.Link(rel='noise-removal',
                                        target=meta['prod']['NRAlgorithm'],
@@ -154,7 +154,8 @@ def product_json(meta, target, tifs):
                                    title='Reference to the Geometric Correction algorithm details.'))
     item.add_link(link=pystac.Link(rel='{}-model'.format(meta['prod']['demType']),
                                    target=meta['prod']['demReference'],
-                                   title=meta['prod']['demName']))
+                                   title='Digital Elevation Model used as auxiliary data during processing: '
+                                         '{}'.format(meta['prod']['demName'])))
     item.add_link(link=pystac.Link(rel='earth-gravitational-model',
                                    target=meta['prod']['demEGMReference'],
                                    title='Reference to the Earth Gravitational Model (EGM) used for Geometric '
@@ -164,12 +165,12 @@ def product_json(meta, target, tifs):
                                    title='Reference documenting the estimate of absolute localization error.'))
     item.add_link(link=pystac.Link(rel='gridding-convention',
                                    target=meta['prod']['griddingConventionURL'],
-                                   title='Reference that describes the gridding convention used.'))
+                                   title='Reference describing the gridding convention used.'))
     
     xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
     item.add_asset(key='card4l',
                    asset=pystac.Asset(href=xml_relpath,
-                                      title='CARD4L XML Metadata File',
+                                      title='Metadata in XML format.',
                                       media_type=pystac.MediaType.XML,
                                       roles=['metadata', 'card4l']))
     for tif in tifs:
@@ -207,6 +208,9 @@ def product_json(meta, target, tifs):
                 asset_key = 'noise-power-{}'.format(pol)
             else:
                 asset_key = SAMPLE_MAP[key]['role']
+
+            if SAMPLE_MAP[key]['unit'] is None:
+                SAMPLE_MAP[key]['unit'] = 'unitless'
             
             if key in ['-dm.tif', '-id.tif']:
                 ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
@@ -253,9 +257,6 @@ def product_json(meta, target, tifs):
                                 'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                            meta['prod']['fileBitsPerSample']),
                                 'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}
-                
-                if raster_bands['unit'] is None:
-                    raster_bands['unit'] = 'None'
                 
                 extra_fields = {'raster:bands': [raster_bands],
                                 'file:byte_order': meta['prod']['fileByteOrder'],
@@ -335,7 +336,7 @@ def source_json(meta, target):
                       pixel_spacing_azimuth=float(meta['source'][uid]['azimuthPixelSpacing']),
                       looks_range=int(meta['source'][uid]['rangeNumberOfLooks']),
                       looks_azimuth=int(meta['source'][uid]['azimuthNumberOfLooks']),
-                      looks_equivalent_number=float(enl) if enl is not None else None,
+                      looks_equivalent_number=float(enl),
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         
         sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
@@ -381,19 +382,19 @@ def source_json(meta, target):
                                        target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
                                                   '.document',
-                                       title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
                                              ''.format(meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='card4l-document',
                                        target=meta['prod']['card4l-link'],
                                        media_type='application/pdf',
-                                       title='CARD4L Product Family Specification v{}: Normalised Radar Backscatter'
+                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
                                              ''.format(meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='about',
                                        target=meta['source'][uid]['doi'],
-                                       title='Product Definition Reference.'))
+                                       title='Product definition reference.'))
         item.add_link(link=pystac.Link(rel='access',
                                        target=meta['source'][uid]['access'],
-                                       title='URL to data access information.'))
+                                       title='Product data access.'))
         item.add_link(link=pystac.Link(rel='satellite',
                                        target=meta['common']['platformReference'],
                                        title='CEOS Missions, Instruments and Measurements Database record'))
@@ -405,7 +406,7 @@ def source_json(meta, target):
                                        title='Reference describing sensor calibration parameters.'))
         item.add_link(link=pystac.Link(rel='pol-cal-matrices',
                                        target=meta['source'][uid]['polCalMatrices'],
-                                       title='URL to the complex-valued polarimetric distortion matrices.'))
+                                       title='Reference to the complex-valued polarimetric distortion matrices.'))
         item.add_link(link=pystac.Link(rel='referenced-faraday-rotation',
                                        target=meta['source'][uid]['faradayRotationReference'],
                                        title='Reference describing the method used to derive the estimate for the mean'
@@ -414,7 +415,7 @@ def source_json(meta, target):
         xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
         item.add_asset(key='card4l',
                        asset=pystac.Asset(href=xml_relpath,
-                                          title='CARD4L XML Metadata File',
+                                          title='Metadata in XML format.',
                                           media_type=pystac.MediaType.XML,
                                           roles=['metadata', 'card4l']))
         
