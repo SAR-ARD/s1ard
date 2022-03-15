@@ -19,6 +19,7 @@ import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.metadata import extract, xmlparser, stacparser
 from S1_NRB.metadata.mapping import ITEM_MAP
+
 gdal.UseExceptions()
 
 
@@ -290,24 +291,23 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 
 
-def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
+def prepare_dem(geometries, config, threads, spacing, epsg=None):
     """
     Downloads and prepares the chosen DEM for the NRB processing workflow.
     
     Parameters
     ----------
-    id_list: list[pyroSAR.drivers.ID]
-        A list of pyroSAR metadata handlers for the current selection of scenes.
+    geometries: list[spatialist.vector.Vector]
+        A list of vector objects defining the area(s) of interest.
+        DEMs will be created for each overlapping MGRS tile.
     config: dict
         Dictionary of the parsed config parameters for the current process.
     threads: int
         The number of threads to pass to `pyroSAR.auxdata.dem_create`.
-    epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
     spacing: int
         The target resolution to pass to `pyroSAR.auxdata.dem_create`.
-    buffer: float, optional
-        A buffer in degrees to pass to `pyroSAR.auxdata.dem_autoload`.
+    epsg: int, optional
+        The CRS used for the NRB product; provided as an EPSG code.
     
     Returns
     -------
@@ -319,6 +319,7 @@ def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
     else:
         geoid = 'EGM2008'
     
+    buffer = 1.5  # degrees to ensure full coverage of all overlapping MGRS tiles
     tr = spacing
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
@@ -327,8 +328,7 @@ def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
     username = None
     password = None
     
-    boxes = [i.bbox() for i in id_list]
-    max_ext = ancil.get_max_ext(boxes=boxes, buffer=buffer)
+    max_ext = ancil.get_max_ext(boxes=geometries, buffer=buffer)
     ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
     
     fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
@@ -339,48 +339,45 @@ def prepare_dem(id_list, config, threads, epsg, spacing, buffer=None):
             password = getpass('Please enter your DEM access password:')
         os.makedirs(wbm_dir, exist_ok=True)
         if not os.path.isfile(fname_wbm_tmp):
-            dem_autoload(boxes, demType=config['dem_type'],
+            dem_autoload(geometries, demType=config['dem_type'],
                          vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
                          username=username, password=password,
                          nodata=1, hide_nodata=True)
     os.makedirs(dem_dir, exist_ok=True)
     if not os.path.isfile(fname_dem_tmp):
-        dem_autoload(boxes, demType=config['dem_type'],
+        dem_autoload(geometries, demType=config['dem_type'],
                      vrt=fname_dem_tmp, buffer=buffer, product='dem',
                      username=username, password=password)
     
     dem_names = []
-    for scene in id_list:
+    for geo in geometries:
         dem_names_scene = []
-        with scene.bbox() as box:
-            tiles = tile_ex.tiles_from_aoi(vectorobject=box, kml=config['kml_file'], epsg=epsg)
-            print('### creating DEM tiles for scene: {scene}\n{tiles}'.format(scene=os.path.basename(scene.scene),
-                                                                              tiles=tiles))
+        tiles = tile_ex.tiles_from_aoi(vectorobject=geo, kml=config['kml_file'], epsg=epsg)
+        print('### creating DEM tiles: \n{tiles}'.format(tiles=tiles))
+        for i, tilename in enumerate(tiles):
+            dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
+            dem_names_scene.append(dem_tile)
+            if not os.path.isfile(dem_tile):
+                with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
+                    epsg_tile = tile.getProjection('epsg')
+                    ext = tile.extent
+                    bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+                    dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg_tile, tr=(tr, tr),
+                               geoid_convert=True, geoid=geoid, pbar=True,
+                               outputBounds=bounds, threads=threads)
+        if os.path.isfile(fname_wbm_tmp):
+            print('### creating WBM tiles: \n{tiles}'.format(tiles=tiles))
             for i, tilename in enumerate(tiles):
-                dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
-                dem_names_scene.append(dem_tile)
-                if not os.path.isfile(dem_tile):
+                wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
+                if not os.path.isfile(wbm_tile):
                     with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
+                        epsg_tile = tile.getProjection('epsg')
                         ext = tile.extent
                         bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-                        dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg, tr=(tr, tr),
-                                   geoid_convert=True, geoid=geoid, pbar=True,
+                        dem_create(src=fname_wbm_tmp, dst=wbm_tile, t_srs=epsg_tile, tr=(tr, tr),
+                                   resampling_method='mode', pbar=True,
                                    outputBounds=bounds, threads=threads)
-            if os.path.isfile(fname_wbm_tmp):
-                print('### creating WBM tiles for scene {scene}\n{tiles}'.format(scene=os.path.basename(scene.scene),
-                                                                                 tiles=tiles))
-                for i, tilename in enumerate(tiles):
-                    wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
-                    if not os.path.isfile(wbm_tile):
-                        with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
-                            ext = tile.extent
-                            bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-                            dem_create(src=fname_wbm_tmp, dst=wbm_tile, t_srs=epsg, tr=(tr, tr),
-                                       resampling_method='mode', pbar=True,
-                                       outputBounds=bounds, threads=threads)
         dem_names.append(dem_names_scene)
-    boxes = None  # make sure all bounding box Vector objects are deleted
-    
     return dem_names
 
 
@@ -428,8 +425,10 @@ def main(config_file, section_name, debug=False):
                            'This is currently not supported. Please refine your AOI.'.format(list(epsg_set)))
     epsg = epsg_set.pop()
     
-    dem_names = prepare_dem(id_list=ids, config=config, threads=gdal_prms['threads'], epsg=epsg,
-                            spacing=geocode_prms['spacing'], buffer=1.5)
+    boxes = [id.bbox() for id in ids]
+    dem_names = prepare_dem(geometries=boxes, config=config, threads=gdal_prms['threads'],
+                            epsg=epsg, spacing=geocode_prms['spacing'])
+    del boxes  # make sure all bounding box Vector objects are deleted
     
     if config['dem_type'] == 'Copernicus 30m Global DEM':
         ex_dem_nodata = -99
@@ -459,7 +458,7 @@ def main(config_file, section_name, debug=False):
             
             list_processed = finder(config['out_dir'], [scene.start], regex=True, recursive=False)
             exclude = list(np_dict.values())
-            print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i+1, s_total=len(ids),
+            print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
             if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 4:
                 start_time = time.time()
@@ -481,7 +480,7 @@ def main(config_file, section_name, debug=False):
                 print('### ' + msg)
                 log.info('[GEOCODE] -- {scene} -- {msg}'.format(scene=scene.scene, msg=msg))
             
-            print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i+1, s_total=len(ids),
+            print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
             if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
                 start_time = time.time()
@@ -520,9 +519,9 @@ def main(config_file, section_name, debug=False):
                 if isinstance(scenes, str):
                     scenes = [scenes]
                 print('###### [NRB] Tile {t}/{t_total}: {tile} | '
-                      'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t+1, t_total=len(aoi_tiles),
+                      'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
                                                                scenes=[os.path.basename(s) for s in scenes],
-                                                               s=s+1, s_total=len(selection_grouped)))
+                                                               s=s + 1, s_total=len(selection_grouped)))
                 start_time = time.time()
                 try:
                     nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
