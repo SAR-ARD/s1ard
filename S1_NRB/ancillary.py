@@ -517,12 +517,13 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
                       overviews=overviews, options=creation_opt)
 
 
-def get_max_ext(boxes, buffer=None):
+def get_max_ext(geometries, buffer=None):
     """
+    Gets the maximum extent from a list of geometries.
     
     Parameters
     ----------
-    boxes: list[spatialist.vector.Vector objects]
+    geometries: list[spatialist.vector.Vector objects]
         List of vector objects.
     buffer: float, optional
         The buffer in degrees to add to the extent.
@@ -532,7 +533,7 @@ def get_max_ext(boxes, buffer=None):
         The maximum extent of the selected vector objects including the chosen buffer.
     """
     max_ext = {}
-    for geo in boxes:
+    for geo in geometries:
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:

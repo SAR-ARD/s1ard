@@ -328,7 +328,7 @@ def prepare_dem(geometries, config, threads, spacing, epsg=None):
     username = None
     password = None
     
-    max_ext = ancil.get_max_ext(boxes=geometries, buffer=buffer)
+    max_ext = ancil.get_max_ext(geometries=geometries, buffer=buffer)
     ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
     
     fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
