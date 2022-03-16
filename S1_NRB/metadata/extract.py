@@ -14,6 +14,8 @@ from osgeo import gdal
 import S1_NRB
 from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
 
+gdal.UseExceptions()
+
 
 def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     """
@@ -36,7 +38,6 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
     dict
         A dictionary containing metadata for the product scene.
     """
-    
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [identify(src).meta['coordinates'] for src in src_scenes]
     
@@ -116,7 +117,6 @@ def _vec_from_srccoords(coord_list):
                                                                  lon[2], lat[2],
                                                                  lon[3], lat[3],
                                                                  lon[0], lat[0])
-    
     return wkt2vector(wkt, srs=4326)
 
 
@@ -137,10 +137,8 @@ def get_uid_sid(filepath):
     sid: pyroSAR.drivers.ID subclass object
         A pyroSAR metadata handler for the scene generated with `pyroSAR.drivers.identify`.
     """
-    
     uid = os.path.basename(filepath).split('.')[0][-4:]
     sid = identify(filepath)
-    
     return uid, sid
 
 
@@ -229,7 +227,6 @@ def convert_coordinates(coords, stac=False):
     else:
         raise RuntimeError('Coordinates must be provided as a list of coordinate tuples OR as a dictionary with '
                            'keys xmin, xmax, ymin, ymax')
-    
     if stac:
         bbox = [xmin, ymin, xmax, ymax]
         geometry = {'type': 'Polygon', 'coordinates': (((x[0], y[0]), (x[1], y[1]), (x[2], y[2]), (x[3], y[3]),
@@ -324,26 +321,19 @@ def calc_performance_estimates(files, ref_tif):
     """
     out = {}
     with Raster(ref_tif) as ref:
-        ext = ref.extent
-        epsg = ref.epsg
-    
-    for f in files:
-        pol = re.search('[VH]{2}', f).group().upper()
-        with bbox(ext, crs=epsg) as vec:
-            with Raster(f)[vec] as ras:
-                arr = ras.array()
-                # The following need to be of type float, not numpy.float32 in order to be JSON serializable.
-                _min = float(np.nanmin(arr))
-                _max = float(np.nanmax(arr))
-                _mean = float(np.nanmean(arr))
-                # _stdev = float(np.nanstd(arr))
-                # _var = float(np.nanvar(arr))
-                del arr
-        out[pol] = {'minimum': _min,
-                    'maximum': _max,
-                    'mean': _mean}
-                    # 'stddev': _stdev,
-                    # 'variance': _var}
+        for f in files:
+            pol = re.search('[VH]{2}', f).group().upper()
+            with bbox(ref.extent, crs=ref.epsg) as vec:
+                with Raster(f)[vec] as ras:
+                    arr = ras.array()
+                    # The following need to be of type float, not numpy.float32 in order to be JSON serializable
+                    _min = float(np.nanmin(arr))
+                    _max = float(np.nanmax(arr))
+                    _mean = float(np.nanmean(arr))
+                    del arr
+            out[pol] = {'minimum': _min,
+                        'maximum': _max,
+                        'mean': _mean}
     return out
 
 
@@ -412,7 +402,6 @@ def get_header_size(tif):
     header_size: int
         The size of all IFD headers of the GeoTIFF file in bytes.
     """
-    
     details = {}
     ds = gdal.Open(tif)
     main_band = ds.GetRasterBand(1)
