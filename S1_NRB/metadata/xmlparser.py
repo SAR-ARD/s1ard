@@ -215,11 +215,6 @@ def product_xml(meta, target, tifs):
                                                         attrib={'band': str(i+1), 'name': samples[i]})
                             bitValue.text = '1'
                         pass
-                    else:  # single-band data mask
-                        for val in SAMPLE_MAP[key]['values']:
-                            bitValue = etree.SubElement(productInformation, _nsc('nrb:bitValue'),
-                                                        attrib={'band': '1', 'name': SAMPLE_MAP[key]['values'][val]})
-                            bitValue.text = str(val)
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')

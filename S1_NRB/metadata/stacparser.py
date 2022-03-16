@@ -233,8 +233,6 @@ def product_json(meta, target, tifs):
                             band_dict = deepcopy(ras_bands_base)
                             band_dict.update(vals)
                             raster_bands.append(band_dict)
-                    else:  # single-band data mask
-                        vals = {'values': [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()]}
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
