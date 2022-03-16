@@ -12,31 +12,26 @@ def _nsc(text):
     return '{{{0}}}{1}'.format(NS_MAP[ns], key)
 
 
-def _common_procedure_elements(root, scene, meta):
+def _common_procedure_elements(eo_equipment, meta, prod=True):
     """
-    Adds common (source & product) XML elements to the `om:procedure` root element.
+    Adds common (source & product) XML subelements to the `om:procedure/eop:earthObservationEquipment` element.
     
     Parameters
     ----------
-    root: etree.Element
-        Root XML element of the current parsing process.
-    scene: str
-        Basename of the product or source scene.
+    eo_equipment: etree.Element
+        `eop:earthObservationEquipment` XML subelement of `om:procedure`, which is one of the main properties of the
+        root XML element.
     meta: dict
         Metadata dictionary generated with `metadata.extract.meta_dict`
+    prod: bool, optional
+        Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
+        XML subelements for further usage in the `source_xml` parsing function will be returned.
     
     Returns
     -------
-    platform1: etree.Element
-        XML subelement for further usage in main parsing functions.
-    sensor1: etree.Element
-        XML subelement for further usage in main parsing functions.
-    acquisition: etree.Element
-        XML subelement for further usage in main parsing functions.
+    etree.Element
     """
-    procedure = etree.SubElement(root, _nsc('om:procedure'))
-    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                 attrib={_nsc('gml:id'): scene + '_4'})
+    earthObservationEquipment = eo_equipment
     
     platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
     platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
@@ -74,7 +69,10 @@ def _common_procedure_elements(root, scene, meta):
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
     wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     
-    return platform1, sensor1, acquisition
+    if prod:
+        return acquisition
+    else:
+        return platform1, sensor1, acquisition
 
 
 def product_xml(meta, target, tifs):
@@ -118,7 +116,10 @@ def product_xml(meta, target, tifs):
     timePosition.text = timeStop
     
     ####################################################################################################################
-    platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene_id, meta=meta)
+    procedure = etree.SubElement(root, _nsc('om:procedure'))
+    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
+                                                 attrib={_nsc('gml:id'): scene_id + '_4'})
+    acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta, prod=True)
     
     numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions'))
     numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
@@ -418,7 +419,11 @@ def source_xml(meta, target):
         timePosition.text = timeStop
         
         ################################################################################################################
-        platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene, meta=meta)
+        procedure = etree.SubElement(root, _nsc('om:procedure'))
+        earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
+                                                     attrib={_nsc('gml:id'): scene + '_4'})
+        platform1, sensor1, acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta,
+                                                                     prod=False)
         
         satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference'),
                                         attrib={_nsc('xlink:href'): meta['common']['platformReference']})
