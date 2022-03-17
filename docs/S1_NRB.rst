@@ -2,7 +2,7 @@
 S1-NRB Production
 #################
 
-The following describes the current workflow for producing the Sentinel-1 Normalized Radar Backscatter product (S1-NRB), which is being developed in study 1 of the COPA project.
+The following describes the current workflow for producing the Sentinel-1 Normalised Radar Backscatter product (S1-NRB), which is being developed in study 1 of the COPA project.
 This is not part of the official pyroSAR documentation.
 However, as pyroSAR is the foundation of the processor, its documentation is used to outline the processor details to conveniently link to all relevant functionality.
 

@@ -12,31 +12,26 @@ def _nsc(text):
     return '{{{0}}}{1}'.format(NS_MAP[ns], key)
 
 
-def _common_procedure_elements(root, scene, meta):
+def _common_procedure_elements(eo_equipment, meta, prod=True):
     """
-    Adds common (source & product) XML elements to the `om:procedure` root element.
+    Adds common (source & product) XML subelements to the `om:procedure/eop:earthObservationEquipment` element.
     
     Parameters
     ----------
-    root: etree.Element
-        Root XML element of the current parsing process.
-    scene: str
-        Basename of the product or source scene.
+    eo_equipment: etree.Element
+        `eop:earthObservationEquipment` XML subelement of `om:procedure`, which is one of the main properties of the
+        root XML element.
     meta: dict
         Metadata dictionary generated with `metadata.extract.meta_dict`
+    prod: bool, optional
+        Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
+        XML subelements for further usage in the `source_xml` parsing function will be returned.
     
     Returns
     -------
-    platform1: etree.Element
-        XML subelement for further usage in main parsing functions.
-    sensor1: etree.Element
-        XML subelement for further usage in main parsing functions.
-    acquisition: etree.Element
-        XML subelement for further usage in main parsing functions.
+    etree.Element
     """
-    procedure = etree.SubElement(root, _nsc('om:procedure'))
-    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
-                                                 attrib={_nsc('gml:id'): scene + '_4'})
+    earthObservationEquipment = eo_equipment
     
     platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
     platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
@@ -74,7 +69,10 @@ def _common_procedure_elements(root, scene, meta):
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
     wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     
-    return platform1, sensor1, acquisition
+    if prod:
+        return acquisition
+    else:
+        return platform1, sensor1, acquisition
 
 
 def product_xml(meta, target, tifs):
@@ -118,7 +116,10 @@ def product_xml(meta, target, tifs):
     timePosition.text = timeStop
     
     ####################################################################################################################
-    platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene_id, meta=meta)
+    procedure = etree.SubElement(root, _nsc('om:procedure'))
+    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
+                                                 attrib={_nsc('gml:id'): scene_id + '_4'})
+    acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta, prod=True)
     
     numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions'))
     numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
@@ -202,24 +203,17 @@ def product_xml(meta, target, tifs):
                 
                 if key == '-dm.tif':
                     with Raster(tif) as dm_ras:
-                        bands = dm_ras.bands
-                    if bands > 1:   # multi-band data mask (default)
-                        samples = list(SAMPLE_MAP[key]['values'].values())
-                        samples.remove('layover and shadow')
-                        if bands != len(samples):
-                            raise RuntimeError('Mismatch between number of bands ({nbands}) of the '
-                                               'multi-band data mask file and the number of keys '
-                                               'in SAMPLE_MAP ({nkeys}).'.format(nbands=bands, nkeys=len(samples)))
-                        for i in range(bands):
+                        band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
+                                      range(1, dm_ras.bands + 1)]
+                    if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
+                        samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
+                        for i, sample_val in enumerate(samples.values()):
                             bitValue = etree.SubElement(productInformation, _nsc('nrb:bitValue'),
-                                                        attrib={'band': str(i+1), 'name': samples[i]})
+                                                        attrib={'band': str(i + 1),
+                                                                'name': sample_val})
                             bitValue.text = '1'
-                        pass
-                    else:  # single-band data mask
-                        for val in SAMPLE_MAP[key]['values']:
-                            bitValue = etree.SubElement(productInformation, _nsc('nrb:bitValue'),
-                                                        attrib={'band': '1', 'name': SAMPLE_MAP[key]['values'][val]})
-                            bitValue.text = str(val)
+                    else:
+                        raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
@@ -423,7 +417,11 @@ def source_xml(meta, target):
         timePosition.text = timeStop
         
         ################################################################################################################
-        platform1, sensor1, acquisition = _common_procedure_elements(root=root, scene=scene, meta=meta)
+        procedure = etree.SubElement(root, _nsc('om:procedure'))
+        earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment'),
+                                                     attrib={_nsc('gml:id'): scene + '_4'})
+        platform1, sensor1, acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta,
+                                                                     prod=False)
         
         satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference'),
                                         attrib={_nsc('xlink:href'): meta['common']['platformReference']})

@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python>=3.8
   - gdal>=3.4.1
   - click
   - lxml
