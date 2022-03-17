@@ -70,10 +70,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         overviews = [2, 4, 9, 18, 36]
     
     ids = identify_many(scenes)
-    datasets = [find_datasets(directory=datadir,
-                              recursive=recursive,
-                              start=id.start, stop=id.start)
-                for id in ids]
+    datasets = [find_datasets(directory=datadir, recursive=recursive,
+                              start=i.start, stop=i.start) for i in ids]
     
     if len(datasets) == 0:
         raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
@@ -328,7 +326,7 @@ def prepare_dem(geometries, config, threads, spacing, epsg=None):
     username = None
     password = None
     
-    max_ext = ancil.get_max_ext(boxes=geometries, buffer=buffer)
+    max_ext = ancil.get_max_ext(geometries=geometries, buffer=buffer)
     ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
     
     fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
@@ -425,15 +423,16 @@ def main(config_file, section_name, debug=False):
                            'This is currently not supported. Please refine your AOI.'.format(list(epsg_set)))
     epsg = epsg_set.pop()
     
-    boxes = [id.bbox() for id in ids]
-    dem_names = prepare_dem(geometries=boxes, config=config, threads=gdal_prms['threads'],
-                            epsg=epsg, spacing=geocode_prms['spacing'])
-    del boxes  # make sure all bounding box Vector objects are deleted
-    
-    if config['dem_type'] == 'Copernicus 30m Global DEM':
-        ex_dem_nodata = -99
-    else:
-        ex_dem_nodata = None
+    if snap_flag:
+        boxes = [i.bbox() for i in ids]
+        dem_names = prepare_dem(geometries=boxes, config=config, threads=gdal_prms['threads'],
+                                epsg=epsg, spacing=geocode_prms['spacing'])
+        del boxes  # make sure all bounding box Vector objects are deleted
+        
+        if config['dem_type'] == 'Copernicus 30m Global DEM':
+            ex_dem_nodata = -99
+        else:
+            ex_dem_nodata = None
     
     ####################################################################################################################
     # geocode & noise power - SNAP processing

@@ -220,28 +220,22 @@ def product_json(meta, target, tifs):
                 raster_bands = []
                 if key == '-dm.tif':
                     with Raster(tif) as dm_ras:
-                        bands = dm_ras.bands
-                    if bands > 1:  # multi-band data mask (default)
-                        samples = list(SAMPLE_MAP[key]['values'].values())
-                        samples.remove('layover and shadow')
-                        if bands != len(samples):
-                            raise RuntimeError('Mismatch between number of bands ({nbands}) of the '
-                                               'multi-band data mask file and the number of keys '
-                                               'in SAMPLE_MAP ({nkeys}).'.format(nbands=bands, nkeys=len(samples)))
-                        for i in range(bands):
-                            vals = {'values': [{'value': 1, 'summary': samples[i]}]}
+                        band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
+                                      range(1, dm_ras.bands + 1)]
+                    if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
+                        samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
+                        for sample_item in samples.items():
+                            vals = {'values': [{'value': 1, 'summary': sample_item[1]}]}
                             band_dict = deepcopy(ras_bands_base)
                             band_dict.update(vals)
                             raster_bands.append(band_dict)
-                    else:  # single-band data mask
-                        vals = {'values': [{'value': [v], 'summary': s} for v, s in SAMPLE_MAP[key]['values'].items()]}
+                    else:
+                        raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
                                   for src in src_list]
                     vals = {'values': [{'value': [i+1], 'summary': s} for i, s in enumerate(src_target)]}
-                
-                if len(raster_bands) == 0:
                     band_dict = deepcopy(ras_bands_base)
                     band_dict.update(vals)
                     raster_bands = [band_dict]

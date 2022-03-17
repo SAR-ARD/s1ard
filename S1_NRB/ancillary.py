@@ -314,7 +314,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
-                     overview_resampling, out_format=None, wbm=None):
+                     overview_resampling, wbm=None):
     """
     Creates the Data Mask file.
     
@@ -338,12 +338,6 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         Internal overview levels to be created for each raster file.
     overview_resampling: str
         Resampling method for overview levels.
-    out_format: str
-        The desired output format of the data mask. The following options are possible:
-        - 'single-layer': Individual masks will be merged into a single-layer raster file, where each mask is encoded
-        as its initial bit-value.
-        - 'multi-layer' (Default): Individual masks will be written into seperate bands encoded with 1 where the mask
-        information is True and 0 where it is False, creating a multi-layer raster file.
     wbm: str, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
     
@@ -353,12 +347,6 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     """
     print(outname)
     out_nodata = 255
-    
-    if out_format is None:
-        out_format = 'multi-layer'
-    else:
-        if not out_format == 'single-layer':
-            raise RuntimeError("format can only be 'single-layer' or 'multi-layer'!")
     
     pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in src_files if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
@@ -416,46 +404,41 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
                     del arr_snap_gamma0
                     del arr_snap_valid
         
-        if out_format == 'multi-layer':
-            outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
-            gdriver = gdal.GetDriverByName('GTiff')
-            ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
-                                    options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
-            gdriver = None
-            ds_tmp.SetGeoTransform(geotrans)
-            ds_tmp.SetProjection(proj)
+        outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
+        gdriver = gdal.GetDriverByName('GTiff')
+        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
+                                options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
+        gdriver = None
+        ds_tmp.SetGeoTransform(geotrans)
+        ds_tmp.SetProjection(proj)
+        
+        for k, v in dm_bands.items():
+            band = ds_tmp.GetRasterBand(k)
+            arr_val = v['arr_val']
+            b_name = v['name']
             
-            for k, v in dm_bands.items():
-                band = ds_tmp.GetRasterBand(k)
-                arr_val = v['arr_val']
-                b_name = v['name']
-                
-                arr = np.full((rows, cols), 0)
-                arr[out_arr == out_nodata] = out_nodata
-                if arr_val == 0:
-                    arr[out_arr == 0] = 1
-                elif arr_val in [1, 2]:
-                    arr[(out_arr == arr_val) | (out_arr == 3)] = 1
-                elif arr_val == 4:
-                    arr[out_arr == 4] = 1
-                
-                arr = arr.astype('uint8')
-                band.WriteArray(arr)
-                band.SetNoDataValue(out_nodata)
-                band.SetDescription(b_name)
-                band.FlushCache()
-                band = None
-                del arr
+            arr = np.full((rows, cols), 0)
+            arr[out_arr == out_nodata] = out_nodata
+            if arr_val == 0:
+                arr[out_arr == 0] = 1
+            elif arr_val in [1, 2]:
+                arr[(out_arr == arr_val) | (out_arr == 3)] = 1
+            elif arr_val == 4:
+                arr[out_arr == 4] = 1
             
-            ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
-            ds_tmp.BuildOverviews(overview_resampling, overviews)
-            outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(outname, ds_tmp, strict=1, options=creation_opt)
-            outDataset_cog = None
-            ds_tmp = None
-        elif out_format == 'single-layer':
-            ras_snap_ls.write(outname, format=driver,
-                              array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True, overviews=overviews,
-                              options=creation_opt)
+            arr = arr.astype('uint8')
+            band.WriteArray(arr)
+            band.SetNoDataValue(out_nodata)
+            band.SetDescription(b_name)
+            band.FlushCache()
+            band = None
+            del arr
+        
+        ds_tmp.SetMetadataItem('TIFFTAG_DATETIME', strftime('%Y:%m:%d %H:%M:%S', gmtime()))
+        ds_tmp.BuildOverviews(overview_resampling, overviews)
+        outDataset_cog = gdal.GetDriverByName(driver).CreateCopy(outname, ds_tmp, strict=1, options=creation_opt)
+        outDataset_cog = None
+        ds_tmp = None
         tile_vec = None
 
 
@@ -534,12 +517,13 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
                       overviews=overviews, options=creation_opt)
 
 
-def get_max_ext(boxes, buffer=None):
+def get_max_ext(geometries, buffer=None):
     """
+    Gets the maximum extent from a list of geometries.
     
     Parameters
     ----------
-    boxes: list[spatialist.vector.Vector objects]
+    geometries: list[spatialist.vector.Vector objects]
         List of vector objects.
     buffer: float, optional
         The buffer in degrees to add to the extent.
@@ -549,7 +533,7 @@ def get_max_ext(boxes, buffer=None):
         The maximum extent of the selected vector objects including the chosen buffer.
     """
     max_ext = {}
-    for geo in boxes:
+    for geo in geometries:
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:
