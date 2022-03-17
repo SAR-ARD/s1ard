@@ -597,7 +597,7 @@ def set_logging(config, debug=False):
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)
-    log_file = os.path.join(config['out_dir'], 'log', f"{now}_process.log")
+    log_file = os.path.join(config['log_dir'], f"{now}_process.log")
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     fh = logging.FileHandler(filename=log_file, mode='a')
     log_local.addHandler(fh)
@@ -651,10 +651,12 @@ def _log_process_config(logger, config):
     
     work_dir = {config['work_dir']}
     scene_dir = {config['scene_dir']}
-    out_dir = {config['out_dir']}
+    rtc_dir = {config['rtc_dir']}
     tmp_dir = {config['tmp_dir']}
+    nrb_dir = {config['nrb_dir']}
     dem_dir = {config['dem_dir']}
     wbm_dir = {config['wbm_dir']}
+    log_dir = {config['log_dir']}
     db_file = {config['db_file']}
     kml_file = {config['kml_file']}
     dem_type = {config.get('dem_type')}
