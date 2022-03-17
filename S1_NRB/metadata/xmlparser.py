@@ -207,10 +207,10 @@ def product_xml(meta, target, tifs):
                                       range(1, dm_ras.bands + 1)]
                     if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
                         samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
-                        for sample_item in samples.items():
+                        for i, sample_val in enumerate(samples.values()):
                             bitValue = etree.SubElement(productInformation, _nsc('nrb:bitValue'),
-                                                        attrib={'band': str(sample_item[0] + 1),
-                                                                'name': sample_item[1]})
+                                                        attrib={'band': str(i + 1),
+                                                                'name': sample_val})
                             bitValue.text = '1'
                     else:
                         raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
