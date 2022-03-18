@@ -24,7 +24,7 @@ gdal.UseExceptions()
 
 
 def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None, multithread=True,
-                   compress='LERC_ZSTD', overviews=None, recursive=False):
+                   compress='LERC_ZSTD', overviews=None):
     """
     Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
     have been executed. This includes the following:
@@ -59,8 +59,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int], optional
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
-    recursive: bool, optional
-        Find datasets recursively in the directory specified with the parameter `datadir`? Default is False.
     
     Returns
     -------
@@ -70,8 +68,11 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         overviews = [2, 4, 9, 18, 36]
     
     ids = identify_many(scenes)
-    datasets = [find_datasets(directory=datadir, recursive=recursive,
-                              start=i.start, stop=i.start) for i in ids]
+    datasets = []
+    for id in ids:
+        scene_base = os.path.splitext(os.path.basename(id.scene))[0]
+        scene_dir = os.path.join(datadir, scene_base, str(epsg))
+        datasets.append(find_datasets(directory=scene_dir))
     
     if len(datasets) == 0:
         raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
@@ -442,7 +443,12 @@ def main(config_file, section_name, debug=False):
     if snap_flag:
         for i, scene in enumerate(ids):
             dem_buffer = 200  # meters
-            fname_dem = os.path.join(config['tmp_dir'], scene.outname_base() + '_DEM.tif')
+            scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
+            out_dir_scene = os.path.join(config['rtc_dir'], scene_base, str(epsg))
+            tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base, str(epsg))
+            os.makedirs(out_dir_scene, exist_ok=True)
+            os.makedirs(tmp_dir_scene, exist_ok=True)
+            fname_dem = os.path.join(tmp_dir_scene, scene.outname_base() + '_DEM_{}.tif'.format(epsg))
             if not os.path.isfile(fname_dem):
                 with scene.geometry() as footprint:
                     footprint.reproject(epsg)
@@ -455,14 +461,14 @@ def main(config_file, section_name, debug=False):
                         with Raster(dem_names[i], list_separate=False)[dem_box] as dem_mosaic:
                             dem_mosaic.write(fname_dem, format='GTiff')
             
-            list_processed = finder(config['out_dir'], [scene.start], regex=True, recursive=False)
+            list_processed = finder(out_dir_scene, ['*'])
             exclude = list(np_dict.values())
             print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
             if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 4:
                 start_time = time.time()
                 try:
-                    geocode(infile=scene, outdir=config['out_dir'], t_srs=epsg, tmpdir=config['tmp_dir'],
+                    geocode(infile=scene, outdir=out_dir_scene, t_srs=epsg, tmpdir=tmp_dir_scene,
                             standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
                     
@@ -484,8 +490,8 @@ def main(config_file, section_name, debug=False):
             if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
                 start_time = time.time()
                 try:
-                    noise_power(infile=scene.scene, outdir=config['out_dir'], polarizations=scene.polarizations,
-                                spacing=geocode_prms['spacing'], refarea=np_refarea, tmpdir=config['tmp_dir'],
+                    noise_power(infile=scene.scene, outdir=out_dir_scene, polarizations=scene.polarizations,
+                                spacing=geocode_prms['spacing'], refarea=np_refarea, tmpdir=tmp_dir_scene,
                                 externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, t_srs=epsg,
                                 externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                                 alignToStandardGrid=geocode_prms['alignToStandardGrid'],
@@ -508,7 +514,7 @@ def main(config_file, section_name, debug=False):
     if nrb_flag:
         selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
         for t, tile in enumerate(aoi_tiles):
-            outdir = os.path.join(config['out_dir'], tile)
+            outdir = os.path.join(config['nrb_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
             wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
             if not os.path.isfile(wbm):
@@ -523,7 +529,7 @@ def main(config_file, section_name, debug=False):
                                                                s=s + 1, s_total=len(selection_grouped)))
                 start_time = time.time()
                 try:
-                    nrb_processing(config=config, scenes=scenes, datadir=os.path.dirname(outdir), outdir=outdir,
+                    nrb_processing(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
                                    tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                    multithread=gdal_prms['multithread'])
                     log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
