@@ -84,10 +84,6 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, options=N
             off = etree.SubElement(band, 'Offset')
             off.text = str(offset)
     
-    complexSrc = band.find('ComplexSource')
-    nodata = complexSrc.find('NODATA')
-    nodata.text = 'nan'
-    
     if any([overviews, overview_resampling]) is not None:
         ovr = tree.find('OverviewList')
         if ovr is None:
