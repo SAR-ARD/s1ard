@@ -473,20 +473,21 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     print(outname)
     out_nodata = 255
     
-    # If there are two source scenes, make sure that the order in the relevant lists is correct!
-    if len(src_scenes) == 2:
-        starts = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
-        if starts[0] > starts[1]:
-            src_scenes_new = [src_scenes[1]]
-            src_scenes_new.append(src_scenes[0])
-            src_scenes = src_scenes_new
-            starts = [identify(f).start for f in src_scenes]
-        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(),
-                                         '%Y%m%dT%H%M%S') for f in valid_mask_list]
-        if start_valid[0] != starts[0]:
-            valid_mask_list_new = [valid_mask_list[1]]
-            valid_mask_list_new.append(valid_mask_list[0])
-            valid_mask_list = valid_mask_list_new
+    # If there are two source scenes, make sure that the order of acquisitions in all lists is correct!
+    if len(src_scenes) > 1:
+        if not len(src_scenes) == 2 and len(valid_mask_list) == 2:
+            raise RuntimeError('expected lists `src_scenes` and `valid_mask_list` to be of length 2; length is '
+                               '{} and {} respectively'.format(len(src_scenes), len(valid_mask_list)))
+        starts_src = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
+        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(), '%Y%m%dT%H%M%S')
+                       for f in valid_mask_list]
+        if starts_src[0] > starts_src[1]:
+            src_scenes.reverse()
+            starts_src.reverse()
+        if start_valid[0] != starts_src[0]:
+            valid_mask_list.reverse()
+        if start_valid[0] != starts_src[0]:
+            raise RuntimeError('failed to match order of lists `src_scenes` and `valid_mask_list`')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -494,7 +495,6 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     for file in valid_mask_list:
         vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
         gdalbuildvrt(file, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
-        
         with bbox(extent, crs=epsg) as tile_vec:
             with Raster(vrt_snap_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()
@@ -505,13 +505,12 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     src_scenes_clean = [os.path.basename(src).replace('.zip', '').replace('.SAFE', '') for src in src_scenes]
     tag = '{{"{src1}": 1}}'.format(src1=src_scenes_clean[0])
     out_arr = np.full(arr_list[0].shape, out_nodata)
+    out_arr[arr_list[0] == 1] = 1
     if len(arr_list) == 2:
         out_arr[arr_list[1] == 1] = 2
         tag = '{{"{src1}": 1, "{src2}": 2}}'.format(src1=src_scenes_clean[0], src2=src_scenes_clean[1])
     
-    out_arr[arr_list[0] == 1] = 1
     creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
-    
     with Raster(ref_tif) as ref_ras:
         ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
