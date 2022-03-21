@@ -313,7 +313,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     return start, stop
 
 
-def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
+def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver, creation_opt, overviews,
                      overview_resampling, wbm=None):
     """
     Creates the Data Mask file.
@@ -324,7 +324,7 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         Full path to the output data mask file.
     valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
-    src_files: list[str]
+    snap_files: list[str]
         A list of paths pointing to the SNAP processed datasets of the product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
@@ -348,11 +348,11 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     print(outname)
     out_nodata = 255
     
-    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in src_files if
+    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_files if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
     pattern = pols[0] + '_gamma0-rtc'
-    snap_gamma0 = [x for x in src_files if re.search(pattern, os.path.basename(x))]
-    snap_ls_mask = [x for x in src_files if re.search('layoverShadowMask', os.path.basename(x))]
+    snap_gamma0 = [x for x in snap_files if re.search(pattern, os.path.basename(x))]
+    snap_ls_mask = [x for x in snap_files if re.search('layoverShadowMask', os.path.basename(x))]
     
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
