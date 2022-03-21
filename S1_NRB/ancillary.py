@@ -120,7 +120,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     overviews: list[int]
         Internal overview levels to be defined for the created VRT file.
     overview_resampling: str
-        Resampling method for overview levels.
+        Resampling method applied to overview pyramids.
     
     Returns
     -------
@@ -143,7 +143,6 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     tree = etree.parse(outname)
     root = tree.getroot()
     bands = tree.findall('VRTRasterBand')
-    
     new_band = etree.SubElement(root, 'VRTRasterBand',
                                 attrib={'dataType': 'Float32', 'band': '3', 'subClass': 'VRTDerivedRasterBand'})
     vrt_nodata = etree.SubElement(new_band, 'NoDataValue')
@@ -206,15 +205,15 @@ def generate_unique_id(encoded_str):
 
 def calc_product_start_stop(src_scenes, extent, epsg):
     """
-    Calculates the start and stop times of the current product. The geolocation grid points including their azimuth time
-    information are extracted first from the metadata of each source SLC. These grid points are then used to interpolate
-    the azimuth time for the lower right and upper left (Ascending) or upper right and lower left (Descending) corners
-    of the MGRS tile of the current product.
+    Calculates the start and stop times of the NRB product.
+    The geolocation grid points including their azimuth time information are extracted first from the metadata of each
+    source SLC. These grid points are then used to interpolate the azimuth time for the lower right and upper left
+    (ascending) or upper right and lower left (descending) corners of the MGRS tile extent.
     
     Parameters
     ----------
     src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
+        A list of paths pointing to the source scenes of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -223,9 +222,9 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     Returns
     -------
     start: str
-        Start time of the current product formatted as %Y%m%dT%H%M%S in UTC.
+        Start time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
     stop: str
-        Stop time of the current product formatted as %Y%m%dT%H%M%S in UTC.
+        Stop time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -310,7 +309,7 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
     valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
     snap_files: list[str]
-        A list of paths pointing to the SNAP processed datasets of the product.
+        A list of paths pointing to the SNAP processed datasets of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -434,11 +433,11 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     Parameters
     ----------
     ref_tif: str
-        Full path to a reference GeoTIFF file of the product.
+        Full path to any GeoTIFF file of the NRB product.
     valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
     src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
+        A list of paths pointing to the source scenes of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -508,13 +507,13 @@ def get_max_ext(geometries, buffer=None):
     Parameters
     ----------
     geometries: list[spatialist.vector.Vector objects]
-        List of vector objects.
+        List of vector geometries.
     buffer: float, optional
         The buffer in degrees to add to the extent.
     Returns
     -------
     max_ext: dict
-        The maximum extent of the selected vector objects including the chosen buffer.
+        The maximum extent of the selected vector geometries including the chosen buffer.
     """
     max_ext = {}
     for geo in geometries:
@@ -643,5 +642,4 @@ def _log_process_config(logger, config):
     
     ====================================================================================================================
     """
-    
     logger.info(header)
