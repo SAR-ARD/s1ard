@@ -18,7 +18,8 @@ import S1_NRB
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
-def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=None, overview_resampling=None):
+def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, options=None,
+               overviews=None, overview_resampling=None):
     """
     Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
     when opening the VRT file.
@@ -35,6 +36,9 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=N
         https://gdal.org/drivers/raster/vrt.html#default-pixel-functions
         Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
         Python code for decibel conversion (10*log10).
+    relpaths: bool, optional
+        Should all `SourceFilename` XML elements with attribute `@relativeToVRT="0"` be updated to be paths relative to
+        the output VRT file? Default is False.
     scale: int, optional
          The scale that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
          Will be ignored if `fun='decibel'`.
@@ -96,30 +100,15 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=N
                 ov = ov.replace(x, '')
             ovr.text = ov
     
+    if relpaths:
+        srcfiles = tree.xpath('//SourceFilename[@relativeToVRT="0"]')
+        for srcfile in srcfiles:
+            repl = os.path.relpath(srcfile.text, start=os.path.dirname(dst))
+            srcfile.text = repl
+            srcfile.attrib['relativeToVRT'] = '1'
+    
     etree.indent(root)
     tree.write(dst, pretty_print=True, xml_declaration=False, encoding='utf-8')
-
-
-def vrt_relpath(vrt):
-    """
-    Converts the paths to annotation datasets in a VRT file to relative paths.
-    
-    Parameters
-    ----------
-    vrt: str
-        Path to the VRT file that should be updated.
-    
-    Returns
-    -------
-    None
-    """
-    tree = etree.parse(vrt)
-    test = tree.xpath('//SourceFilename[@relativeToVRT="0"]')[0]
-    repl = '../annotation/' + os.path.basename(test.text.replace('\\', '\\\\'))
-    test.text = repl
-    test.attrib['relativeToVRT'] = '1'
-    etree.indent(tree.getroot())
-    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
 def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
