@@ -239,7 +239,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         log_vrts.append(log)
         if not os.path.isfile(log):
             print(log)
-            ancil.vrt_pixfun(src=item, dst=log, fun='log10', scale=10,
+            ancil.create_vrt(src=item, dst=log, fun='log10', scale=10,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
     
     cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
@@ -254,7 +254,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
-    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, src_files=files,
+    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, snap_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
                            overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
     
@@ -272,13 +272,12 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            ancil.vrt_pixfun(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
+            ancil.create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul', relpaths=True,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
-            ancil.vrt_relpath(sigma0_rtc_lin)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
-            ancil.vrt_pixfun(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
+            ancil.create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
     
     ####################################################################################################################
