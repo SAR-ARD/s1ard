@@ -291,8 +291,8 @@ def calc_product_start_stop(src_scenes, extent, epsg):
         else:
             res_t.append(datetime.fromtimestamp(float(r)))
     
-    start = datetime.strftime(res_t[0].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(res_t[1].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
+    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
+    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
     
     return start, stop
 
