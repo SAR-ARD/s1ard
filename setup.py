@@ -21,7 +21,9 @@ setup(
                       'lxml',
                       'pystac',
                       'pyroSAR>=0.16.2',
-                      'scipy'],
+                      'scipy',
+                      's1etad @ git+https://gitlab.com/s1-etad/s1-etad.git',
+                      's1etad_tools @ git+https://gitlab.com/s1-etad/sandbox-etad-slc-correction.git'],
     python_requires='>=3.8',
     zip_safe=False,
     entry_points={
