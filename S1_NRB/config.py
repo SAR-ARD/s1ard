@@ -74,6 +74,14 @@ def get_config(config_file, section_name='GENERAL'):
             allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
                        'Copernicus 30m Global DEM', 'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+        if k == 'etad':
+            if v.lower() == 'true':
+                v = True
+            elif v.lower() == 'false':
+                v = False
+            else:
+                allowed = ['True', 'true', 'False', 'false']
+                raise ValueError("Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v))
         out_dict[k] = v
     
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
