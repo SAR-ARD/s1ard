@@ -478,9 +478,13 @@ def main(config_file, section_name, debug=False):
                 slc_base = os.path.basename(scene.scene).replace('.zip', '.SAFE')
                 slc_corrected = os.path.join(slc_corrected_dir, slc_base)
                 if not os.path.isdir(slc_corrected):
+                    start_time = time.time()
                     acqtime = re.findall('[0-9T]{15}', os.path.basename(scene.scene))
                     result = finder(config['etad_dir'], ['_'.join(acqtime)], regex=True)
-                    if len(result) > 0:
+                    try:
+                        if len(result) == 0:
+                            raise RuntimeError('cannot find ETAD product for scene {}'.format(scene.scene))
+                        
                         if result[0].endswith('.tar'):
                             etad_base = os.path.basename(result[0]).replace('.tar', '.SAFE')
                             etad = os.path.join(tmp_dir_scene, etad_base)
@@ -498,8 +502,11 @@ def main(config_file, section_name, debug=False):
                                                 outdir=slc_corrected_dir,
                                                 nthreads=2)
                         shutil.rmtree(os.path.join(tmp_dir_scene, 'SLC_original'))
-                    else:
-                        raise RuntimeError('cannot find ETAD product for scene {}'.format(scene.scene))
+                        t = round((time.time() - start_time), 2)
+                        log.info('[   ETAD] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+                    except Exception as e:
+                        log.error('[   ETAD] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                        continue
                 else:
                     msg = 'Already processed - Skip!'
                     print('### ' + msg)
