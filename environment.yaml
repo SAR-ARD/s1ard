@@ -2,6 +2,7 @@ name: nrb_env
 channels:
   - conda-forge
   - defaults
+  - s1-etad
 dependencies:
   - python>=3.8
   - gdal>=3.4.1
@@ -11,6 +12,5 @@ dependencies:
   - pystac
   - scipy
   - pyroSAR>=0.16.2
-  - pip:
-      - s1etad @ git+https://gitlab.com/s1-etad/s1-etad.git
-      - s1etad_tools @ git+https://gitlab.com/s1-etad/sandbox-etad-slc-correction.git
+  - s1etad>=0.5.3
+  - s1etad_tools>=0.8.1
