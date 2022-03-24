@@ -5,7 +5,7 @@ import logging
 import binascii
 from time import gmtime, strftime
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
 from lxml import etree
 import numpy as np
 from osgeo import gdal
@@ -116,7 +116,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     outname: str
         Full path to the output RGB VRT file.
     infiles: list[str]
-        A list of paths.
+        A list of paths pointing to the linear scaled measurement backscatter files.
     overviews: list[int]
         Internal overview levels to be defined for the created VRT file.
     overview_resampling: str

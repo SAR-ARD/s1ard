@@ -233,10 +233,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     ####################################################################################################################
     # log-scaled gamma nought & color composite
-    log_vrts = []
     for item in measure_paths:
         log = item.replace('lin.tif', 'log.vrt')
-        log_vrts.append(log)
         if not os.path.isfile(log):
             print(log)
             ancil.create_vrt(src=item, dst=log, fun='log10', scale=10,
