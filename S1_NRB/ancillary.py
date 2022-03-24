@@ -18,7 +18,8 @@ import S1_NRB
 from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
 
 
-def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=None, overview_resampling=None):
+def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, options=None,
+               overviews=None, overview_resampling=None):
     """
     Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
     when opening the VRT file.
@@ -35,6 +36,9 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=N
         https://gdal.org/drivers/raster/vrt.html#default-pixel-functions
         Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
         Python code for decibel conversion (10*log10).
+    relpaths: bool, optional
+        Should all `SourceFilename` XML elements with attribute `@relativeToVRT="0"` be updated to be paths relative to
+        the output VRT file? Default is False.
     scale: int, optional
          The scale that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
          Will be ignored if `fun='decibel'`.
@@ -80,10 +84,6 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=N
             off = etree.SubElement(band, 'Offset')
             off.text = str(offset)
     
-    complexSrc = band.find('ComplexSource')
-    nodata = complexSrc.find('NODATA')
-    nodata.text = 'nan'
-    
     if any([overviews, overview_resampling]) is not None:
         ovr = tree.find('OverviewList')
         if ovr is None:
@@ -96,30 +96,15 @@ def vrt_pixfun(src, dst, fun, scale=None, offset=None, options=None, overviews=N
                 ov = ov.replace(x, '')
             ovr.text = ov
     
+    if relpaths:
+        srcfiles = tree.xpath('//SourceFilename[@relativeToVRT="0"]')
+        for srcfile in srcfiles:
+            repl = os.path.relpath(srcfile.text, start=os.path.dirname(dst))
+            srcfile.text = repl
+            srcfile.attrib['relativeToVRT'] = '1'
+    
     etree.indent(root)
     tree.write(dst, pretty_print=True, xml_declaration=False, encoding='utf-8')
-
-
-def vrt_relpath(vrt):
-    """
-    Converts the paths to annotation datasets in a VRT file to relative paths.
-    
-    Parameters
-    ----------
-    vrt: str
-        Path to the VRT file that should be updated.
-    
-    Returns
-    -------
-    None
-    """
-    tree = etree.parse(vrt)
-    test = tree.xpath('//SourceFilename[@relativeToVRT="0"]')[0]
-    repl = '../annotation/' + os.path.basename(test.text.replace('\\', '\\\\'))
-    test.text = repl
-    test.attrib['relativeToVRT'] = '1'
-    etree.indent(tree.getroot())
-    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
 def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
@@ -135,7 +120,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     overviews: list[int]
         Internal overview levels to be defined for the created VRT file.
     overview_resampling: str
-        Resampling method for overview levels.
+        Resampling method applied to overview pyramids.
     
     Returns
     -------
@@ -158,7 +143,6 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     tree = etree.parse(outname)
     root = tree.getroot()
     bands = tree.findall('VRTRasterBand')
-    
     new_band = etree.SubElement(root, 'VRTRasterBand',
                                 attrib={'dataType': 'Float32', 'band': '3', 'subClass': 'VRTDerivedRasterBand'})
     vrt_nodata = etree.SubElement(new_band, 'NoDataValue')
@@ -221,15 +205,15 @@ def generate_unique_id(encoded_str):
 
 def calc_product_start_stop(src_scenes, extent, epsg):
     """
-    Calculates the start and stop times of the current product. The geolocation grid points including their azimuth time
-    information are extracted first from the metadata of each source SLC. These grid points are then used to interpolate
-    the azimuth time for the lower right and upper left (Ascending) or upper right and lower left (Descending) corners
-    of the MGRS tile of the current product.
+    Calculates the start and stop times of the NRB product.
+    The geolocation grid points including their azimuth time information are extracted first from the metadata of each
+    source SLC. These grid points are then used to interpolate the azimuth time for the lower right and upper left
+    (ascending) or upper right and lower left (descending) corners of the MGRS tile extent.
     
     Parameters
     ----------
     src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
+        A list of paths pointing to the source scenes of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -238,9 +222,9 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     Returns
     -------
     start: str
-        Start time of the current product formatted as %Y%m%dT%H%M%S in UTC.
+        Start time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
     stop: str
-        Stop time of the current product formatted as %Y%m%dT%H%M%S in UTC.
+        Stop time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -307,13 +291,13 @@ def calc_product_start_stop(src_scenes, extent, epsg):
         else:
             res_t.append(datetime.fromtimestamp(float(r)))
     
-    start = datetime.strftime(res_t[0].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(res_t[1].astimezone(timezone.utc), '%Y%m%dT%H%M%S')
+    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
+    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
     
     return start, stop
 
 
-def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, creation_opt, overviews,
+def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver, creation_opt, overviews,
                      overview_resampling, wbm=None):
     """
     Creates the Data Mask file.
@@ -324,8 +308,8 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
         Full path to the output data mask file.
     valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
-    src_files: list[str]
-        A list of paths pointing to the SNAP processed datasets of the product.
+    snap_files: list[str]
+        A list of paths pointing to the SNAP processed datasets of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -348,11 +332,11 @@ def create_data_mask(outname, valid_mask_list, src_files, extent, epsg, driver, 
     print(outname)
     out_nodata = 255
     
-    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in src_files if
+    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_files if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
     pattern = pols[0] + '_gamma0-rtc'
-    snap_gamma0 = [x for x in src_files if re.search(pattern, os.path.basename(x))]
-    snap_ls_mask = [x for x in src_files if re.search('layoverShadowMask', os.path.basename(x))]
+    snap_gamma0 = [x for x in snap_files if re.search(pattern, os.path.basename(x))]
+    snap_ls_mask = [x for x in snap_files if re.search('layoverShadowMask', os.path.basename(x))]
     
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
@@ -449,11 +433,11 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     Parameters
     ----------
     ref_tif: str
-        Full path to a reference GeoTIFF file of the product.
+        Full path to any GeoTIFF file of the NRB product.
     valid_mask_list: list[str]
         A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
     src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
+        A list of paths pointing to the source scenes of the NRB product.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -473,20 +457,21 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     print(outname)
     out_nodata = 255
     
-    # If there are two source scenes, make sure that the order in the relevant lists is correct!
-    if len(src_scenes) == 2:
-        starts = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
-        if starts[0] > starts[1]:
-            src_scenes_new = [src_scenes[1]]
-            src_scenes_new.append(src_scenes[0])
-            src_scenes = src_scenes_new
-            starts = [identify(f).start for f in src_scenes]
-        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(),
-                                         '%Y%m%dT%H%M%S') for f in valid_mask_list]
-        if start_valid[0] != starts[0]:
-            valid_mask_list_new = [valid_mask_list[1]]
-            valid_mask_list_new.append(valid_mask_list[0])
-            valid_mask_list = valid_mask_list_new
+    # If there are two source scenes, make sure that the order of acquisitions in all lists is correct!
+    if len(src_scenes) > 1:
+        if not len(src_scenes) == 2 and len(valid_mask_list) == 2:
+            raise RuntimeError('expected lists `src_scenes` and `valid_mask_list` to be of length 2; length is '
+                               '{} and {} respectively'.format(len(src_scenes), len(valid_mask_list)))
+        starts_src = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
+        start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(), '%Y%m%dT%H%M%S')
+                       for f in valid_mask_list]
+        if starts_src[0] > starts_src[1]:
+            src_scenes.reverse()
+            starts_src.reverse()
+        if start_valid[0] != starts_src[0]:
+            valid_mask_list.reverse()
+        if start_valid[0] != starts_src[0]:
+            raise RuntimeError('failed to match order of lists `src_scenes` and `valid_mask_list`')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -494,7 +479,6 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     for file in valid_mask_list:
         vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
         gdalbuildvrt(file, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
-        
         with bbox(extent, crs=epsg) as tile_vec:
             with Raster(vrt_snap_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()
@@ -505,13 +489,12 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     src_scenes_clean = [os.path.basename(src).replace('.zip', '').replace('.SAFE', '') for src in src_scenes]
     tag = '{{"{src1}": 1}}'.format(src1=src_scenes_clean[0])
     out_arr = np.full(arr_list[0].shape, out_nodata)
+    out_arr[arr_list[0] == 1] = 1
     if len(arr_list) == 2:
         out_arr[arr_list[1] == 1] = 2
         tag = '{{"{src1}": 1, "{src2}": 2}}'.format(src1=src_scenes_clean[0], src2=src_scenes_clean[1])
     
-    out_arr[arr_list[0] == 1] = 1
     creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
-    
     with Raster(ref_tif) as ref_ras:
         ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
@@ -524,13 +507,13 @@ def get_max_ext(geometries, buffer=None):
     Parameters
     ----------
     geometries: list[spatialist.vector.Vector objects]
-        List of vector objects.
+        List of vector geometries.
     buffer: float, optional
         The buffer in degrees to add to the extent.
     Returns
     -------
     max_ext: dict
-        The maximum extent of the selected vector objects including the chosen buffer.
+        The maximum extent of the selected vector geometries including the chosen buffer.
     """
     max_ext = {}
     for geo in geometries:
@@ -659,5 +642,4 @@ def _log_process_config(logger, config):
     
     ====================================================================================================================
     """
-    
     logger.info(header)

@@ -152,7 +152,7 @@ def geocode_conf(config):
             'externalDEMApplyEGM': False,
             'demResamplingMethod': 'BILINEAR_INTERPOLATION',
             'clean_edges': True,
-            'clean_edges_npixels': 3,
+            'clean_edges_npixels': 4,
             'test': False,
             'cleanup': True,
             'rlks': {'IW': 5,
