@@ -10,4 +10,4 @@ dependencies:
   - pip
   - pystac
   - scipy
-  - pyroSAR>=0.16.2
+  - pyroSAR>=0.16.3
