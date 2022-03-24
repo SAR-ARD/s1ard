@@ -477,7 +477,7 @@ def main(config_file, section_name, debug=False):
                         log.warning('[GEOCODE] -- {scene} -- Processing might have terminated prematurely. Check'
                                     ' terminal for uncaught SNAP errors!'.format(scene=scene.scene))
                 except Exception as e:
-                    log.error('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    log.exception('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                     continue
             else:
                 msg = 'Already processed - Skip!'
@@ -501,7 +501,7 @@ def main(config_file, section_name, debug=False):
                     t = round((time.time() - start_time), 2)
                     log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
                 except Exception as e:
-                    log.error('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    log.exception('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
                     continue
             else:
                 msg = 'Already processed - Skip!'
