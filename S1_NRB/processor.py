@@ -154,7 +154,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                 write_options[key].append(entry)
     
     ####################################################################################################################
-    # format existing datasets
+    # Create raster files
     if len(datasets) > 1:
         files = list(zip(*datasets))
     else:
@@ -231,7 +231,22 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     gs_path = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
     measure_paths = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
     
+    # data mask & acquisition ID image
+    if wbm is not None:
+        if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
+    
+    dm_path = gs_path.replace('-gs.tif', '-dm.tif')
+    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, snap_files=files,
+                           extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
+    
+    ancil.create_acq_id_image(ref_tif=gs_path, valid_mask_list=snap_dm_tile_overlap, src_scenes=src_scenes,
+                              extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
+                              overviews=overviews)
+    
     ####################################################################################################################
+    # Create VRT files
     # log-scaled gamma nought & color composite VRTs
     log_vrts = []
     for item in measure_paths:
@@ -247,24 +262,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
                          overview_resampling=ovr_resampling)
     
-    ####################################################################################################################
-    # Data mask
-    if wbm is not None:
-        if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
-            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
-    
-    dm_path = gs_path.replace('-gs.tif', '-dm.tif')
-    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, snap_files=files,
-                           extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
-    
-    ####################################################################################################################
-    # Acquisition ID image
-    ancil.create_acq_id_image(ref_tif=gs_path, valid_mask_list=snap_dm_tile_overlap, src_scenes=src_scenes,
-                              extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
-                              overviews=overviews)
-    
-    ####################################################################################################################
     # sigma nought RTC VRTs
     for item in measure_paths:
         sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
