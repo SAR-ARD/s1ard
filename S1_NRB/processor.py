@@ -470,17 +470,17 @@ def main(config_file, section_name, debug=False):
                             standardGridOriginY=geo_dict['align']['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
                     t = round((time.time() - start_time), 2)
-                    log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+                    _log(handler=log, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
                     if t <= 500:
-                        log.warning('[GEOCODE] -- {scene} -- Processing might have terminated prematurely. Check'
-                                    ' terminal for uncaught SNAP errors!'.format(scene=scene.scene))
+                        msg = 'Processing might have terminated prematurely. Check terminal for uncaught SNAP errors!'
+                        _log(handler=log, mode='warning', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
                 except Exception as e:
-                    log.exception('[GEOCODE] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    _log(handler=log, mode='exception', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=e)
                     continue
             else:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                log.info('[GEOCODE] -- {scene} -- {msg}'.format(scene=scene.scene, msg=msg))
+                _log(handler=log, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
             
             print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
@@ -497,15 +497,15 @@ def main(config_file, section_name, debug=False):
                                 clean_edges=geocode_prms['clean_edges'],
                                 clean_edges_npixels=geocode_prms['clean_edges_npixels'],
                                 rlks=geocode_prms['rlks'], azlks=geocode_prms['azlks'])
-                    t = round((time.time() - start_time), 2)
-                    log.info('[NOISE_P] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+                    _log(handler=log, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg,
+                         msg=round((time.time() - start_time), 2))
                 except Exception as e:
-                    log.exception('[NOISE_P] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+                    _log(handler=log, mode='exception', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=e)
                     continue
             else:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                log.info('[NOISE_P] -- {scene} -- {msg}'.format(scene=scene.scene, msg=msg))
+                _log(handler=log, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=msg)
     
     ####################################################################################################################
     # NRB - final product generation
@@ -530,10 +530,24 @@ def main(config_file, section_name, debug=False):
                     nrb_processing(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
                                    tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                    multithread=gdal_prms['multithread'])
-                    log.info('[    NRB] -- {scenes} -- {time}'.format(scenes=scenes,
-                                                                      time=round((time.time() - start_time), 2)))
+                    _log(handler=log, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg,
+                         msg=round((time.time() - start_time), 2))
                 except Exception as e:
-                    log.exception('[    NRB] -- {scenes} -- {error}'.format(scenes=scenes, error=e))
+                    _log(handler=log, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
                     continue
         
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
+
+
+def _log(handler, mode, proc_step, scenes, epsg, msg):
+    """Helper function to format and handle log messages during processing."""
+    proc_step = proc_step.zfill(7).replace('0', ' ')
+    log = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'.format(proc_step=proc_step, scenes=scenes, epsg=epsg, msg=msg)
+    if mode == 'info':
+        handler.info(log)
+    elif mode == 'warning':
+        handler.warning(log)
+    elif mode == 'exception':
+        handler.exception(log)
+    else:
+        raise RuntimeError('log mode {} is not supported'.format(mode))
