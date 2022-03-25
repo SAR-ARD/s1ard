@@ -88,8 +88,11 @@ def description2dict(description):
     return attrib
 
 
-def main(config, spacing):
+def get_tile_dict(config, spacing):
     """
+    Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
+    well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
+    of `pyroSAR.snap.util.geocode`
     
     Parameters
     ----------
@@ -100,20 +103,14 @@ def main(config, spacing):
     
     Returns
     -------
-    geo_dict: dict
-        Dictionary containing geospatial information for each unique MGRS tile ID that will be processed.
-    align_dict: dict
-        Dictionary containing 'xmax' and 'ymin' coordinates to use for the `standardGridOriginX` and
-        `standardGridOriginY` parameters of `pyroSAR.snap.util.geocode`
+    tile_dict: dict
+        The output dictionary containing information about each unique MGRS tile ID and alignment coordinates.
     """
-    
-    if config['aoi_tiles'] is not None:
-        tiles = config['aoi_tiles']
-    elif config['aoi_tiles'] is None and config['aoi_geometry'] is not None:
+    try:
         with Vector(config['aoi_geometry']) as aoi:
             tiles = tiles_from_aoi(aoi, kml=config['kml_file'])
-    else:
-        raise RuntimeError("Either 'aoi_tiles' or 'aoi_geometry' need to be provided!")
+    except AttributeError:
+        tiles = config['aoi_tiles']
     
     geo_dict = {}
     for tile in tiles:
@@ -129,5 +126,6 @@ def main(config, spacing):
     
     align_dict = {'xmax': max([geo_dict[tile]['xmax'] for tile in list(geo_dict.keys())]),
                   'ymin': min([geo_dict[tile]['ymin'] for tile in list(geo_dict.keys())])}
+    geo_dict['align'] = align_dict
     
-    return geo_dict, align_dict
+    return geo_dict

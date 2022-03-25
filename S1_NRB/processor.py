@@ -414,8 +414,9 @@ def main(config_file, section_name, debug=False):
     
     ####################################################################################################################
     # geometry and DEM handling
-    geo_dict, align_dict = tile_ex.main(config=config, spacing=geocode_prms['spacing'])
+    geo_dict = tile_ex.get_tile_dict(config=config, spacing=geocode_prms['spacing'])
     aoi_tiles = list(geo_dict.keys())
+    aoi_tiles.remove('align')
     
     epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys())])
     if len(epsg_set) != 1:
@@ -468,7 +469,8 @@ def main(config_file, section_name, debug=False):
                 start_time = time.time()
                 try:
                     geocode(infile=scene, outdir=out_dir_scene, t_srs=epsg, tmpdir=tmp_dir_scene,
-                            standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
+                            standardGridOriginX=geo_dict['align']['xmax'],
+                            standardGridOriginY=geo_dict['align']['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
                     
                     t = round((time.time() - start_time), 2)
@@ -494,7 +496,8 @@ def main(config_file, section_name, debug=False):
                                 externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, t_srs=epsg,
                                 externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
                                 alignToStandardGrid=geocode_prms['alignToStandardGrid'],
-                                standardGridOriginX=align_dict['xmax'], standardGridOriginY=align_dict['ymin'],
+                                standardGridOriginX=geo_dict['align']['xmax'],
+                                standardGridOriginY=geo_dict['align']['ymin'],
                                 clean_edges=geocode_prms['clean_edges'],
                                 clean_edges_npixels=geocode_prms['clean_edges_npixels'],
                                 rlks=geocode_prms['rlks'], azlks=geocode_prms['azlks'])
