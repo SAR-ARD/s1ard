@@ -24,14 +24,14 @@ gdal.UseExceptions()
 
 
 def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None, multithread=True,
-                   compress='LERC_ZSTD', overviews=None):
+                   compress=None, overviews=None):
     """
-    Finalizes the generation of Sentinel-1 NRB products after the main processing steps via `pyroSAR.snap.util.geocode`
-    have been executed. This includes the following:
-    - Converting all GeoTIFF files to Cloud Optimized GeoTIFF (COG) format
-    - Generating annotation datasets in Virtual Raster Tile (VRT) format
+    Finalizes the generation of Sentinel-1 NRB products after processing steps via `pyroSAR.snap.util.geocode` and
+    `pyroSAR.snap.util.noise_power` have been finished. This includes the following:
+    - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
+    - Creating all annotation datasets in Virtual Raster Tile (VRT) format
     - Applying the NRB product directory structure & naming convention
-    - Generating metadata in XML and STAC JSON formats
+    - Generating metadata in XML and JSON formats for the NRB product as well as source SLC datasets
     
     Parameters
     ----------
@@ -81,7 +81,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         scene_base = os.path.splitext(os.path.basename(_id.scene))[0]
         scene_dir = os.path.join(datadir, scene_base, str(epsg))
         datasets.append(find_datasets(directory=scene_dir))
-    
     if len(datasets) == 0:
         raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
     
@@ -117,14 +116,12 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                     snap_dm_tile_overlap.append(snap_dm_ras)
                     i += 1
                     inter.close()
-    
     if len(ids) == 0:
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     
     src_scenes = [_id.scene for _id in ids]
     product_start, product_stop = ancil.calc_product_start_stop(src_scenes=src_scenes, extent=extent, epsg=epsg)
-    
     meta = {'mission': ids[0].sensor,
             'mode': ids[0].meta['acquisition_mode'],
             'polarization': {"['HH']": 'SH',
@@ -136,17 +133,22 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
             'id': 'ABCD'}
-    
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
-    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
-    
     nrbdir = os.path.join(outdir, skeleton_dir.format(**meta))
     os.makedirs(nrbdir, exist_ok=True)
+    
+    ####################################################################################################################
+    # Create raster files
+    if len(datasets) > 1:
+        files = list(zip(*datasets))
+    else:
+        files = datasets[0]
     
     metaL = meta.copy()
     for key, val in metaL.items():
         if not isinstance(val, int):
             metaL[key] = val.lower()
+    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
     write_options_base = ['BLOCKSIZE={}', 'OVERVIEW_RESAMPLING={}'.format(blocksize, ovr_resampling)]
     write_options = dict()
@@ -158,13 +160,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             if compress.startswith('LERC'):
                 entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
-    
-    ####################################################################################################################
-    # Create raster files
-    if len(datasets) > 1:
-        files = list(zip(*datasets))
-    else:
-        files = datasets[0]
     
     pattern = '|'.join(ITEM_MAP.keys())
     for i, item in enumerate(files):
