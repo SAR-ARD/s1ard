@@ -68,17 +68,17 @@ def extract_tile(kml, tile):
 
 def description2dict(description):
     """
-    convert the HTML description field of the MGRS tile KML file to a dictionary.
-
+    Convert the HTML description field of the MGRS tile KML file to a dictionary.
+    
     Parameters
     ----------
     description: str
-        the plain text of the `Description` field
-
+        The plain text of the `Description` field
+    
     Returns
     -------
-    dict
-        a dictionary with keys 'TILE_ID', 'EPSG', 'MGRS_REF', 'UTM_WKT' and 'LL_WKT'.
+    attrib: dict
+        A dictionary with keys 'TILE_ID', 'EPSG', 'MGRS_REF', 'UTM_WKT' and 'LL_WKT'.
         The value of field 'EPSG' is of type integer, all others are strings.
     """
     attrib = html.fromstring(description)

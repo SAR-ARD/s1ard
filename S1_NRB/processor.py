@@ -69,8 +69,8 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     ids = identify_many(scenes)
     datasets = []
-    for id in ids:
-        scene_base = os.path.splitext(os.path.basename(id.scene))[0]
+    for _id in ids:
+        scene_base = os.path.splitext(os.path.basename(_id.scene))[0]
         scene_dir = os.path.join(datadir, scene_base, str(epsg))
         datasets.append(find_datasets(directory=scene_dir))
     
@@ -114,7 +114,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     
-    src_scenes = [i.scene for i in ids]
+    src_scenes = [_id.scene for _id in ids]
     product_start, product_stop = ancil.calc_product_start_stop(src_scenes=src_scenes, extent=extent, epsg=epsg)
     
     meta = {'mission': ids[0].sensor,
@@ -154,7 +154,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                 write_options[key].append(entry)
     
     ####################################################################################################################
-    # format existing datasets found by `pyroSAR.ancillary.find_datasets`
+    # format existing datasets
     if len(datasets) > 1:
         files = list(zip(*datasets))
     else:
@@ -232,7 +232,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     measure_paths = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
     
     ####################################################################################################################
-    # log-scaled gamma nought & color composite
+    # log-scaled gamma nought & color composite VRTs
     log_vrts = []
     for item in measure_paths:
         log = item.replace('lin.tif', 'log.vrt')
@@ -265,7 +265,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                               overviews=overviews)
     
     ####################################################################################################################
-    # sigma nought RTC
+    # sigma nought RTC VRTs
     for item in measure_paths:
         sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
         sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
@@ -472,7 +472,6 @@ def main(config_file, section_name, debug=False):
                             standardGridOriginX=geo_dict['align']['xmax'],
                             standardGridOriginY=geo_dict['align']['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
-                    
                     t = round((time.time() - start_time), 2)
                     log.info('[GEOCODE] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
                     if t <= 500:
