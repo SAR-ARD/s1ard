@@ -248,19 +248,17 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     ####################################################################################################################
     # Create VRT files
     # log-scaled gamma nought & color composite VRTs
-    log_vrts = []
     for item in measure_paths:
         log = item.replace('lin.tif', 'log.vrt')
-        log_vrts.append(log)
         if not os.path.isfile(log):
             print(log)
             ancil.create_vrt(src=item, dst=log, fun='log10', scale=10,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
     
-    cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
-    # cc_path = re.sub('[hv]{2}', 'cc', log_vrts[0])
-    ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
-                         overview_resampling=ovr_resampling)
+    if meta['polarization'] in ['DH', 'DV'] and len(measure_paths) == 2:
+        cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
+        ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
+                             overview_resampling=ovr_resampling)
     
     # sigma nought RTC VRTs
     for item in measure_paths:
