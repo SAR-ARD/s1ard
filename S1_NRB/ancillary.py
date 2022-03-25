@@ -313,7 +313,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
 
 
 def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver, creation_opt, overviews,
-                     overview_resampling, wbm=None):
+                     overview_resampling, dst_nodata, wbm=None):
     """
     Creates the Data Mask file.
     
@@ -337,6 +337,8 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
         Internal overview levels to be created for each raster file.
     overview_resampling: str
         Resampling method for overview levels.
+    dst_nodata: int or str
+        Nodata value to write to the output raster.
     wbm: str, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
     
@@ -345,8 +347,6 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
     None
     """
     print(outname)
-    out_nodata = 255
-    
     pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_files if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
     pattern = pols[0] + '_gamma0-rtc'
@@ -399,7 +399,7 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
                     out_arr = np.nan_to_num(out_arr)
                     out_arr = np.where(((arr_snap_valid == 1) & (np.isnan(arr_snap_gamma0)) & (out_arr != 4)), 2,
                                        out_arr)
-                    out_arr[np.isnan(arr_snap_valid)] = out_nodata
+                    out_arr[np.isnan(arr_snap_valid)] = dst_nodata
                     del arr_snap_gamma0
                     del arr_snap_valid
         
@@ -417,7 +417,7 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
             b_name = v['name']
             
             arr = np.full((rows, cols), 0)
-            arr[out_arr == out_nodata] = out_nodata
+            arr[out_arr == dst_nodata] = dst_nodata
             if arr_val == 0:
                 arr[out_arr == 0] = 1
             elif arr_val in [1, 2]:
@@ -427,7 +427,7 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
-            band.SetNoDataValue(out_nodata)
+            band.SetNoDataValue(dst_nodata)
             band.SetDescription(b_name)
             band.FlushCache()
             band = None
@@ -441,7 +441,8 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
         tile_vec = None
 
 
-def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driver, creation_opt, overviews):
+def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driver, creation_opt, overviews,
+                        dst_nodata):
     """
     Creation of the acquisition ID image described in CARD4L NRB 2.8
     
@@ -463,6 +464,8 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
         GDAL creation options to use for raster file creation. Should match specified GDAL driver.
     overviews: list[int]
         Internal overview levels to be created for each raster file.
+    dst_nodata: int or str
+        Nodata value to write to the output raster.
     
     Returns
     -------
@@ -470,7 +473,6 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     """
     outname = ref_tif.replace('-gs.tif', '-id.tif')
     print(outname)
-    out_nodata = 255
     
     # If there are two source scenes, make sure that the order of acquisitions in all lists is correct!
     if len(src_scenes) > 1:
@@ -503,7 +505,7 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     
     src_scenes_clean = [os.path.basename(src).replace('.zip', '').replace('.SAFE', '') for src in src_scenes]
     tag = '{{"{src1}": 1}}'.format(src1=src_scenes_clean[0])
-    out_arr = np.full(arr_list[0].shape, out_nodata)
+    out_arr = np.full(arr_list[0].shape, dst_nodata)
     out_arr[arr_list[0] == 1] = 1
     if len(arr_list) == 2:
         out_arr[arr_list[1] == 1] = 2
@@ -511,7 +513,7 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     
     creation_opt.append('TIFFTAG_IMAGEDESCRIPTION={}'.format(tag))
     with Raster(ref_tif) as ref_ras:
-        ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=out_nodata, overwrite=True,
+        ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=dst_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
 
 

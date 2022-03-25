@@ -64,8 +64,16 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     -------
     None
     """
+    if compress is None:
+        compress = 'LERC_ZSTD'
     if overviews is None:
         overviews = [2, 4, 9, 18, 36]
+    ovr_resampling = 'AVERAGE'
+    driver = 'COG'
+    blocksize = 512
+    src_nodata_snap = 0
+    dst_nodata = 'nan'
+    dst_nodata_mask = 255
     
     ids = identify_many(scenes)
     datasets = []
@@ -140,9 +148,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
         if not isinstance(val, int):
             metaL[key] = val.lower()
     
-    driver = 'COG'
-    ovr_resampling = 'AVERAGE'
-    write_options_base = ['BLOCKSIZE=512', 'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
+    write_options_base = ['BLOCKSIZE={}', 'OVERVIEW_RESAMPLING={}'.format(blocksize, ovr_resampling)]
     write_options = dict()
     for key in ITEM_MAP:
         write_options[key] = write_options_base.copy()
@@ -214,10 +220,10 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             etree.indent(root)
             tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
-            snap_nodata = 0
             gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': snap_nodata, 'dstNodata': 'nan',
-                              'multithread': multithread, 'creationOptions': write_options[key]})
+                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
+                              'dstNodata': dst_nodata, 'multithread': multithread,
+                              'creationOptions': write_options[key]})
     
     proc_time = datetime.now(timezone.utc)
     t = proc_time.isoformat().encode()
@@ -239,11 +245,11 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     dm_path = gs_path.replace('-gs.tif', '-dm.tif')
     ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, snap_files=files,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm)
+                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, dst_nodata=dst_nodata_mask)
     
     ancil.create_acq_id_image(ref_tif=gs_path, valid_mask_list=snap_dm_tile_overlap, src_scenes=src_scenes,
                               extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
-                              overviews=overviews)
+                              overviews=overviews, dst_nodata=dst_nodata_mask)
     
     ####################################################################################################################
     # Create VRT files
