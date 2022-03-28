@@ -75,52 +75,10 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     dst_nodata = 'nan'
     dst_nodata_mask = 255
     
-    ids = identify_many(scenes)
-    datasets = []
-    for _id in ids:
-        scene_base = os.path.splitext(os.path.basename(_id.scene))[0]
-        scene_dir = os.path.join(datadir, scene_base, str(epsg))
-        datasets.append(find_datasets(directory=scene_dir))
-    if len(datasets) == 0:
-        raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
-    
-    pattern = '[VH]{2}_gamma0-rtc'
-    i = 0
-    snap_dm_tile_overlap = []
-    while i < len(datasets):
-        pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
-        snap_dm_ras = re.sub(pattern, 'datamask', pols[0])
-        snap_dm_vec = snap_dm_ras.replace('.tif', '.gpkg')
-        
-        if not all([os.path.isfile(x) for x in [snap_dm_ras, snap_dm_vec]]):
-            with Raster(pols[0]) as ras:
-                arr = ras.array()
-                mask = ~np.isnan(arr)
-                with vectorize(target=mask, reference=ras) as vec:
-                    with boundary(vec, expression="value=1") as bounds:
-                        if not os.path.isfile(snap_dm_ras):
-                            print('creating raster mask', i)
-                            rasterize(vectorobject=bounds, reference=ras, outname=snap_dm_ras)
-                        if not os.path.isfile(snap_dm_vec):
-                            print('creating vector mask', i)
-                            bounds.write(outfile=snap_dm_vec)
-        with Vector(snap_dm_vec) as bounds:
-            with bbox(extent, epsg) as tile_geom:
-                inter = intersect(bounds, tile_geom)
-                if inter is None:
-                    print('removing dataset', i)
-                    del ids[i]
-                    del datasets[i]
-                else:
-                    # Add snap_dm_ras to list if it overlaps with the current tile
-                    snap_dm_tile_overlap.append(snap_dm_ras)
-                    i += 1
-                    inter.close()
-    if len(ids) == 0:
-        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
-                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
-    
+    ids, files, snap_dm_tile_overlap = nrb_get_datasets(scenes=scenes, datadir=datadir, tile=tile, extent=extent,
+                                                        epsg=epsg)
     src_scenes = [_id.scene for _id in ids]
+    
     product_start, product_stop = ancil.calc_product_start_stop(src_scenes=src_scenes, extent=extent, epsg=epsg)
     meta = {'mission': ids[0].sensor,
             'mode': ids[0].meta['acquisition_mode'],
@@ -139,10 +97,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     
     ####################################################################################################################
     # Create raster files
-    if len(datasets) > 1:
-        files = list(zip(*datasets))
-    else:
-        files = datasets[0]
     
     metaL = meta.copy()
     for key, val in metaL.items():
@@ -283,6 +237,90 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                              proc_time=proc_time, start=product_start, stop=product_stop, compression=compress)
     xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
+
+
+def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
+    """
+    Identifies all source SLC scenes, finds matching output files processed with `pyroSAR.snap.util.geocode` in
+    `datadir` and filters both lists depending on the actual overlap of each SLC footprint with the current MGRS tile
+    geometry.
+    
+    Parameters
+    ----------
+    scenes: list[str]
+        List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
+    datadir: str
+        The directory containing the datasets processed from the source scenes using pyroSAR.
+    tile: str
+        ID of an MGRS tile.
+    extent: dict
+        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+    epsg: int
+        The CRS used for the NRB product; provided as an EPSG code.
+    
+    Returns
+    -------
+    ids: list[ID]
+        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+    datasets: list[str] or list[list[str]]
+        List of output files processed with `pyroSAR.snap.util.geocode` that match each ID object of `ids`.
+        The format of `snap_datasets` is a list of strings if only a single ID object is stored in `ids`, else it is
+        a list of lists.
+    snap_dm_tile_overlap: list[str]
+        List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
+        MGRS tile.
+    """
+    ids = identify_many(scenes)
+    datasets = []
+    for _id in ids:
+        scene_base = os.path.splitext(os.path.basename(_id.scene))[0]
+        scene_dir = os.path.join(datadir, scene_base, str(epsg))
+        datasets.append(find_datasets(directory=scene_dir))
+    if len(datasets) == 0:
+        raise RuntimeError("No pyroSAR datasets were found in the directory '{}'".format(datadir))
+    
+    pattern = '[VH]{2}_gamma0-rtc'
+    i = 0
+    snap_dm_tile_overlap = []
+    while i < len(datasets):
+        pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
+        snap_dm_ras = re.sub(pattern, 'datamask', pols[0])
+        snap_dm_vec = snap_dm_ras.replace('.tif', '.gpkg')
+        
+        if not all([os.path.isfile(x) for x in [snap_dm_ras, snap_dm_vec]]):
+            with Raster(pols[0]) as ras:
+                arr = ras.array()
+                mask = ~np.isnan(arr)
+                with vectorize(target=mask, reference=ras) as vec:
+                    with boundary(vec, expression="value=1") as bounds:
+                        if not os.path.isfile(snap_dm_ras):
+                            print('creating raster mask', i)
+                            rasterize(vectorobject=bounds, reference=ras, outname=snap_dm_ras)
+                        if not os.path.isfile(snap_dm_vec):
+                            print('creating vector mask', i)
+                            bounds.write(outfile=snap_dm_vec)
+        with Vector(snap_dm_vec) as bounds:
+            with bbox(extent, epsg) as tile_geom:
+                inter = intersect(bounds, tile_geom)
+                if inter is None:
+                    print('removing dataset', i)
+                    del ids[i]
+                    del datasets[i]
+                else:
+                    # Add snap_dm_ras to list if it overlaps with the current tile
+                    snap_dm_tile_overlap.append(snap_dm_ras)
+                    i += 1
+                    inter.close()
+    if len(ids) == 0:
+        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
+                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+    
+    if len(datasets) > 1:
+        datasets = list(zip(*datasets))
+    else:
+        datasets = datasets[0]
+    
+    return ids, datasets, snap_dm_tile_overlap
 
 
 def prepare_dem(geometries, config, threads, spacing, epsg=None):
