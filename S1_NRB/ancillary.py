@@ -15,7 +15,7 @@ from spatialist import gdalbuildvrt, Raster, bbox
 import pyroSAR
 from pyroSAR import identify, examine
 import S1_NRB
-from S1_NRB.metadata.extract import get_uid_sid, etree_from_sid, find_in_annotation
+from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
 
 
 def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, options=None,
@@ -218,7 +218,7 @@ def generate_unique_id(encoded_str):
     return p_id
 
 
-def calc_product_start_stop(src_scenes, extent, epsg):
+def calc_product_start_stop(src_ids, extent, epsg):
     """
     Calculates the start and stop times of the NRB product.
     The geolocation grid points including their azimuth time information are extracted first from the metadata of each
@@ -227,8 +227,8 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     
     Parameters
     ----------
-    src_scenes: list[str]
-        A list of paths pointing to the source scenes of the NRB product.
+    src_ids: list[ID]
+        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -251,8 +251,8 @@ def calc_product_start_stop(src_scenes, extent, epsg):
         tile_geom = None
     
     slc_dict = {}
-    for i in range(len(src_scenes)):
-        uid, sid = get_uid_sid(src_scenes[i])
+    for i, sid in enumerate(src_ids):
+        uid = os.path.basename(sid.scene).split('.')[0][-4:]
         slc_dict[uid] = etree_from_sid(sid)
         slc_dict[uid]['sid'] = sid
     
@@ -312,7 +312,7 @@ def calc_product_start_stop(src_scenes, extent, epsg):
     return start, stop
 
 
-def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver, creation_opt, overviews,
+def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, driver, creation_opt, overviews,
                      overview_resampling, dst_nodata, wbm=None):
     """
     Creates the Data Mask file.
@@ -321,10 +321,12 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
     ----------
     outname: str
         Full path to the output data mask file.
-    valid_mask_list: list[str]
-        A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
-    snap_files: list[str]
-        A list of paths pointing to the SNAP processed datasets of the NRB product.
+    snap_datamasks: list[str]
+        List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
+        MGRS tile.
+    snap_datasets: list[str]
+        List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
+        with the current MGRS tile.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -347,11 +349,11 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
     None
     """
     print(outname)
-    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_files if
+    pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_datasets if
                                 re.search('[VH]{2}', os.path.basename(x)) is not None])]
     pattern = pols[0] + '_gamma0-rtc'
-    snap_gamma0 = [x for x in snap_files if re.search(pattern, os.path.basename(x))]
-    snap_ls_mask = [x for x in snap_files if re.search('layoverShadowMask', os.path.basename(x))]
+    snap_gamma0 = [x for x in snap_datasets if re.search(pattern, os.path.basename(x))]
+    snap_ls_mask = [x for x in snap_datasets if re.search('layoverShadowMask', os.path.basename(x))]
     
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
@@ -368,7 +370,7 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
     vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'snap_valid.vrt'
     vrt_snap_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'snap_gamma0.vrt'
     gdalbuildvrt(snap_ls_mask, vrt_snap_ls, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(valid_mask_list, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(snap_datamasks, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
     gdalbuildvrt(snap_gamma0, vrt_snap_gamma0, options={'outputBounds': tile_bounds}, void=False)
     
     with Raster(vrt_snap_ls) as ras_snap_ls:
@@ -441,19 +443,22 @@ def create_data_mask(outname, valid_mask_list, snap_files, extent, epsg, driver,
         tile_vec = None
 
 
-def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driver, creation_opt, overviews,
+def create_acq_id_image(outname, ref_tif, snap_datamasks, src_ids, extent, epsg, driver, creation_opt, overviews,
                         dst_nodata):
     """
     Creation of the acquisition ID image described in CARD4L NRB 2.8
     
     Parameters
     ----------
+    outname: str
+        Full path to the output data mask file.
     ref_tif: str
         Full path to any GeoTIFF file of the NRB product.
-    valid_mask_list: list[str]
-        A list of paths pointing to the datamask_ras files that intersect with the current MGRS tile.
-    src_scenes: list[str]
-        A list of paths pointing to the source scenes of the NRB product.
+    snap_datamasks: list[str]
+        List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
+        MGRS tile.
+    src_ids: list[ID]
+        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     extent: dict
         Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
     epsg: int
@@ -471,31 +476,30 @@ def create_acq_id_image(ref_tif, valid_mask_list, src_scenes, extent, epsg, driv
     -------
     None
     """
-    outname = ref_tif.replace('-gs.tif', '-id.tif')
     print(outname)
-    
+    src_scenes = [sid.scene for sid in src_ids]
     # If there are two source scenes, make sure that the order of acquisitions in all lists is correct!
     if len(src_scenes) > 1:
-        if not len(src_scenes) == 2 and len(valid_mask_list) == 2:
+        if not len(src_scenes) == 2 and len(snap_datamasks) == 2:
             raise RuntimeError('expected lists `src_scenes` and `valid_mask_list` to be of length 2; length is '
-                               '{} and {} respectively'.format(len(src_scenes), len(valid_mask_list)))
+                               '{} and {} respectively'.format(len(src_scenes), len(snap_datamasks)))
         starts_src = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
         start_valid = [datetime.strptime(re.search('[0-9]{8}T[0-9]{6}', os.path.basename(f)).group(), '%Y%m%dT%H%M%S')
-                       for f in valid_mask_list]
+                       for f in snap_datamasks]
         if starts_src[0] > starts_src[1]:
             src_scenes.reverse()
             starts_src.reverse()
         if start_valid[0] != starts_src[0]:
-            valid_mask_list.reverse()
+            snap_datamasks.reverse()
         if start_valid[0] != starts_src[0]:
             raise RuntimeError('failed to match order of lists `src_scenes` and `valid_mask_list`')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
     arr_list = []
-    for file in valid_mask_list:
+    for dm in snap_datamasks:
         vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
-        gdalbuildvrt(file, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
+        gdalbuildvrt(dm, vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
         with bbox(extent, crs=epsg) as tile_vec:
             with Raster(vrt_snap_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()

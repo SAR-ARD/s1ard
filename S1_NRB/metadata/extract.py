@@ -17,7 +17,7 @@ from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM
 gdal.UseExceptions()
 
 
-def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
+def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     """
     Returns a metadata dictionary, which is generated from the ID of a product scene using a regular expression pattern
     and from a measurement GeoTIFF file of the same product scene using spatialist's Raster class.
@@ -28,8 +28,8 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
         The top-level product folder name.
     tif: str
         The paths to a measurement GeoTIFF file of the product scene.
-    src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
+    src_ids: list[ID]
+        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     snap_outdir: str
         A path pointing to the SNAP processed datasets of the product.
     
@@ -39,7 +39,7 @@ def get_prod_meta(product_id, tif, src_scenes, snap_outdir):
         A dictionary containing metadata for the product scene.
     """
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
-    coord_list = [identify(src).meta['coordinates'] for src in src_scenes]
+    coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
     with _vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
@@ -118,28 +118,6 @@ def _vec_from_srccoords(coord_list):
                                                                  lon[3], lat[3],
                                                                  lon[0], lat[0])
     return wkt2vector(wkt, srs=4326)
-
-
-def get_uid_sid(filepath):
-    """
-    Returns the unique identifier of a Sentinel-1 scene and a pyroSAR metadata handler generated using 
-    `pyroSAR.drivers.identify`
-    
-    Parameters
-    ----------
-    filepath: str
-        Filepath pointing to a Sentinel-1 scene.
-    
-    Returns
-    -------
-    uid: str
-        The last four characters of a Sentinel-1 filename, which is the unique identifier of the scene.
-    sid: pyroSAR.drivers.ID subclass object
-        A pyroSAR metadata handler for the scene generated with `pyroSAR.drivers.identify`.
-    """
-    uid = os.path.basename(filepath).split('.')[0][-4:]
-    sid = identify(filepath)
-    return uid, sid
 
 
 def etree_from_sid(sid):
@@ -431,7 +409,7 @@ def _get_block_offset(band):
     return 0
 
 
-def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -443,10 +421,11 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         Dictionary of the parsed config parameters for the current process.
     target: str
         A path pointing to the root directory of a product scene.
-    src_scenes: list[str]
-        A list of paths pointing to the source scenes of the product.
-    snap_files: list[str]
-        A list of paths pointing to the SNAP processed datasets of the product.
+    src_ids: list[ID]
+        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+    snap_datasets: list[str]
+        List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
+        with the current MGRS tile.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
     start: str
@@ -466,16 +445,16 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
             'common': {}}
     src_sid = {}
     src_xml = {}
-    for i in range(len(src_scenes)):
-        uid, sid = get_uid_sid(filepath=src_scenes[i])
+    for i, sid in enumerate(src_ids):
+        uid = os.path.basename(sid.scene).split('.')[0][-4:]
         src_sid[uid] = sid
         src_xml[uid] = etree_from_sid(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
     product_id = os.path.basename(target)
     tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_scenes=src_scenes,
-                              snap_outdir=os.path.dirname(snap_files[0]))
+    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_ids=src_ids,
+                              snap_outdir=os.path.dirname(snap_datasets[0]))
     
     xml_center, xml_envelop = convert_coordinates(coords=prod_meta['extent_4326'])
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
@@ -564,7 +543,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
-    meta['prod']['numberOfAcquisitions'] = str(len(src_scenes))
+    meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
@@ -611,7 +590,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                          pattern='.//applicationLutId', single=True)
         pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        np_files = [f for f in snap_files if re.search('_NE[BGS]Z', f) is not None]
+        np_files = [ds for ds in snap_datasets if re.search('_NE[BGS]Z', ds) is not None]
         rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                pattern='.//rangeProcessing/lookBandwidth', out_type='float')
         rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],

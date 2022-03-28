@@ -2,6 +2,7 @@ import os
 import re
 import time
 import tempfile
+import copy
 from getpass import getpass
 from datetime import datetime, timezone
 from lxml import etree
@@ -75,35 +76,31 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     dst_nodata = 'nan'
     dst_nodata_mask = 255
     
-    ids, files, snap_dm_tile_overlap = nrb_get_datasets(scenes=scenes, datadir=datadir, tile=tile, extent=extent,
-                                                        epsg=epsg)
-    src_scenes = [_id.scene for _id in ids]
-    
-    product_start, product_stop = ancil.calc_product_start_stop(src_scenes=src_scenes, extent=extent, epsg=epsg)
-    meta = {'mission': ids[0].sensor,
-            'mode': ids[0].meta['acquisition_mode'],
+    src_ids, snap_datasets, snap_datamasks = nrb_get_datasets(scenes=scenes, datadir=datadir,
+                                                              tile=tile, extent=extent, epsg=epsg)
+    nrb_start, nrb_stop = ancil.calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
+    meta = {'mission': src_ids[0].sensor,
+            'mode': src_ids[0].meta['acquisition_mode'],
             'polarization': {"['HH']": 'SH',
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
-                             "['VV', 'VH']": 'DV'}[str(ids[0].polarizations)],
-            'start': product_start,
-            'orbitnumber': ids[0].meta['orbitNumbers_abs']['start'],
-            'datatake': hex(ids[0].meta['frameNumber']).replace('x', '').upper(),
+                             "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
+            'start': nrb_start,
+            'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
+            'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
             'id': 'ABCD'}
-    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
-    nrbdir = os.path.join(outdir, skeleton_dir.format(**meta))
-    os.makedirs(nrbdir, exist_ok=True)
-    
-    ####################################################################################################################
-    # Create raster files
-    
-    metaL = meta.copy()
-    for key, val in metaL.items():
+    meta_lower = copy.deepcopy(meta)
+    for key, val in meta_lower.items():
         if not isinstance(val, int):
-            metaL[key] = val.lower()
+            meta_lower[key] = val.lower()
+    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
+    nrb_dir = os.path.join(outdir, skeleton_dir.format(**meta))
+    os.makedirs(nrb_dir, exist_ok=True)
+    
+    # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}', 'OVERVIEW_RESAMPLING={}'.format(blocksize, ovr_resampling)]
     write_options = dict()
     for key in ITEM_MAP:
@@ -115,48 +112,52 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                 entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
     
+    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif), ellipsoidal incident angle (-ei.tif),
+    # gamma-to-sigma ratio (-gs.tif), local contributing area (-lc.tif), local incident angle (-li.tif),
+    # noise power images (-np-[vh|vv|hh|hv].tif)
+    nrb_tifs = []
     pattern = '|'.join(ITEM_MAP.keys())
-    for i, item in enumerate(files):
-        if isinstance(item, str):
-            match = re.search(pattern, item)
+    for i, ds in enumerate(snap_datasets):
+        if isinstance(ds, str):
+            match = re.search(pattern, ds)
             if match is not None:
                 key = match.group()
             else:
                 continue
         else:
-            match = [re.search(pattern, x) for x in item]
+            match = [re.search(pattern, x) for x in ds]
             keys = [x if x is None else x.group() for x in match]
             if len(list(set(keys))) != 1:
-                raise RuntimeError('file mismatch:\n{}'.format('\n'.join(item)))
+                raise RuntimeError('file mismatch:\n{}'.format('\n'.join(ds)))
             if None in keys:
                 continue
             key = keys[0]
         
         if key == 'layoverShadowMask':
-            # The data mask will be created later on in the processing workflow.
+            # the data mask raster (-dm.tif) will be created later on in the processing workflow
             continue
         
-        metaL['suffix'] = ITEM_MAP[key]['suffix']
-        outname_base = skeleton_files.format(**metaL)
+        meta_lower['suffix'] = ITEM_MAP[key]['suffix']
+        outname_base = skeleton_files.format(**meta_lower)
         if re.search('_gamma0', key):
             subdir = 'measurement'
         else:
             subdir = 'annotation'
-        outname = os.path.join(nrbdir, subdir, outname_base)
+        outname = os.path.join(nrb_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
             os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
             bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
             
-            if isinstance(item, tuple):
-                with Raster(list(item), list_separate=False) as ras:
+            if isinstance(ds, tuple):
+                with Raster(list(ds), list_separate=False) as ras:
                     source = ras.filename
-            elif isinstance(item, str):
+            elif isinstance(ds, str):
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
-                gdalbuildvrt(item, source)
+                gdalbuildvrt(ds, source)
             else:
-                raise TypeError('type {} is not supported: {}'.format(type(item), item))
+                raise TypeError('type {} is not supported: {}'.format(type(ds), ds))
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             tree = etree.parse(source)
@@ -173,56 +174,65 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
                               'dstNodata': dst_nodata, 'multithread': multithread,
                               'creationOptions': write_options[key]})
+            nrb_tifs.append(outname)
     
+    # determine processing timestamp, generate unique ID and rename NRB directory accordingly
     proc_time = datetime.now(timezone.utc)
     t = proc_time.isoformat().encode()
     product_id = ancil.generate_unique_id(encoded_str=t)
-    nrbdir_new = nrbdir.replace('ABCD', product_id)
-    os.rename(nrbdir, nrbdir_new)
-    nrbdir = nrbdir_new
+    nrb_dir_new = nrb_dir.replace('ABCD', product_id)
+    os.rename(nrb_dir, nrb_dir_new)
+    nrb_dir = nrb_dir_new
     
-    if type(files[0]) == tuple:
-        files = [item for tup in files for item in tup]
-    gs_path = finder(nrbdir, [r'gs\.tif$'], regex=True)[0]
-    measure_paths = finder(nrbdir, ['[hv]{2}-g-lin.tif$'], regex=True)
+    # reformat `snap_datasets` to a flattened list if necessary
+    if type(snap_datasets[0]) == tuple:
+        snap_datasets = [item for tup in snap_datasets for item in tup]
     
-    # data mask & acquisition ID image
+    # define a reference raster from the annotation datasets and list all gamma0 backscatter measurement rasters
+    ref_tif_suffix = '-lc.tif'
+    ref_tif = [tif for tif in nrb_tifs if re.search('{}$'.format(ref_tif_suffix), tif)][0]
+    measure_tifs = [tif for tif in nrb_tifs if re.search('[hv]{2}-g-lin.tif$', tif)]
+    
+    # create data mask raster (-dm.tif)
     if wbm is not None:
         if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
             raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
-    dm_path = gs_path.replace('-gs.tif', '-dm.tif')
-    ancil.create_data_mask(outname=dm_path, valid_mask_list=snap_dm_tile_overlap, snap_files=files,
+    dm_path = ref_tif.replace(ref_tif_suffix, '-dm.tif')
+    ancil.create_data_mask(outname=dm_path, snap_datamasks=snap_datamasks, snap_datasets=snap_datasets,
                            extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
                            overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, dst_nodata=dst_nodata_mask)
+    nrb_tifs.append(dm_path)
     
-    ancil.create_acq_id_image(ref_tif=gs_path, valid_mask_list=snap_dm_tile_overlap, src_scenes=src_scenes,
+    # create acquisition ID image raster (-id.tif)
+    id_path = ref_tif.replace(ref_tif_suffix, '-id.tif')
+    ancil.create_acq_id_image(outname=id_path, ref_tif=ref_tif, snap_datamasks=snap_datamasks, src_ids=src_ids,
                               extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
                               overviews=overviews, dst_nodata=dst_nodata_mask)
+    nrb_tifs.append(id_path)
     
-    ####################################################################################################################
-    # Create VRT files
-    # log-scaled gamma nought & color composite VRTs
-    for item in measure_paths:
-        log = item.replace('lin.tif', 'log.vrt')
-        if not os.path.isfile(log):
-            print(log)
-            ancil.create_vrt(src=item, dst=log, fun='log10', scale=10,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
-    
-    if meta['polarization'] in ['DH', 'DV'] and len(measure_paths) == 2:
-        cc_path = re.sub('[hv]{2}', 'cc', measure_paths[0]).replace('.tif', '.vrt')
-        ancil.create_rgb_vrt(outname=cc_path, infiles=measure_paths, overviews=overviews,
+    # create color composite VRT (-cc-g-lin.vrt)
+    if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
+        cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
+        ancil.create_rgb_vrt(outname=cc_path, infiles=measure_tifs, overviews=overviews,
                              overview_resampling=ovr_resampling)
     
-    # sigma nought RTC VRTs
-    for item in measure_paths:
+    # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
+    for item in measure_tifs:
+        gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
+        if not os.path.isfile(gamma0_rtc_log):
+            print(gamma0_rtc_log)
+            ancil.create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
+                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+    
+    # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
+    for item in measure_tifs:
         sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
         sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            ancil.create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul', relpaths=True,
+            ancil.create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul', relpaths=True,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
         
         if not os.path.isfile(sigma0_rtc_log):
@@ -230,13 +240,11 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             ancil.create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
                              options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
     
-    ####################################################################################################################
-    # metadata
-    nrb_tifs = finder(nrbdir, ['-[a-z]{2,3}.tif'], regex=True, recursive=True)
-    meta = extract.meta_dict(config=config, target=nrbdir, src_scenes=src_scenes, snap_files=files,
-                             proc_time=proc_time, start=product_start, stop=product_stop, compression=compress)
-    xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
-    stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
+    # create metadata files in XML and (STAC) JSON formats
+    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
+                             proc_time=proc_time, start=nrb_start, stop=nrb_stop, compression=compress)
+    xmlparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
+    stacparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
 
 
 def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
@@ -266,7 +274,7 @@ def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
         List of output files processed with `pyroSAR.snap.util.geocode` that match each ID object of `ids`.
         The format of `snap_datasets` is a list of strings if only a single ID object is stored in `ids`, else it is
         a list of lists.
-    snap_dm_tile_overlap: list[str]
+    datamasks: list[str]
         List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
         MGRS tile.
     """
@@ -281,7 +289,7 @@ def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
     
     pattern = '[VH]{2}_gamma0-rtc'
     i = 0
-    snap_dm_tile_overlap = []
+    datamasks = []
     while i < len(datasets):
         pols = [x for x in datasets[i] if re.search(pattern, os.path.basename(x))]
         snap_dm_ras = re.sub(pattern, 'datamask', pols[0])
@@ -308,7 +316,7 @@ def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
                     del datasets[i]
                 else:
                     # Add snap_dm_ras to list if it overlaps with the current tile
-                    snap_dm_tile_overlap.append(snap_dm_ras)
+                    datamasks.append(snap_dm_ras)
                     i += 1
                     inter.close()
     if len(ids) == 0:
@@ -320,7 +328,7 @@ def nrb_get_datasets(scenes, datadir, tile, extent, epsg):
     else:
         datasets = datasets[0]
     
-    return ids, datasets, snap_dm_tile_overlap
+    return ids, datasets, datamasks
 
 
 def prepare_dem(geometries, config, threads, spacing, epsg=None):
