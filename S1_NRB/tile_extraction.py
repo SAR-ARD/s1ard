@@ -1,5 +1,6 @@
+import re
 from lxml import html
-from spatialist.vector import Vector, wkt2vector
+from spatialist.vector import Vector, wkt2vector, bbox
 
 
 def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
@@ -63,16 +64,28 @@ def extract_tile(kml, tile):
         https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
     tile: str
         The MGRS tile ID that should be extracted and returned as a vector object.
+        Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
+        of the tile is reprojected to the target EPSG code, its corner coordinates rounded to multiples
+        of 10, and a new :class:`~spatialist.vector.Vector` object created.
     
     Returns
     -------
     spatialist.vector.Vector
     """
+    tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
     with Vector(kml, driver='KML') as vec:
-        feat = vec.getFeatureByAttribute('Name', tile)
+        feat = vec.getFeatureByAttribute('Name', tilename)
         attrib = description2dict(feat.GetField('Description'))
         feat = None
-    return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+    if epsg is None:
+        return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+    else:
+        with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+            tmp.reproject(int(epsg))
+            ext = tmp.extent
+            for k, v in ext.items():
+                ext[k] = round(v / 10) * 10
+        return bbox(ext, crs=int(epsg))
 
 
 def description2dict(description):
