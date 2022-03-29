@@ -2,7 +2,7 @@ from lxml import html
 from spatialist.vector import Vector, wkt2vector
 
 
-def tiles_from_aoi(vectorobject, kml, epsg=None):
+def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     """
     Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a vector object.
     
@@ -13,13 +13,19 @@ def tiles_from_aoi(vectorobject, kml, epsg=None):
     kml: str
         Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
         https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
-    epsg: int or list[int]
+    epsg: int or list[int] or None
         define which EPSG code(s) are allowed for the tile selection.
+        If None, all tile IDs are returned regardless of projection.
+    strict: bool
+        strictly only return the names of the overlapping tiles in the target projection
+        or also allow reprojection of neighbouring tiles?
+        In the latter case a tile name takes the form <tile ID>_<EPSG code>, e.g. `33TUN_32632`.
+        Only applies if argument `epsg` is of type `int` or a list with one element.
     
     Returns
     -------
     tiles: list[str]
-        A list of unique UTM tile IDs.
+        A list of unique MGRS tile IDs.
     """
     if isinstance(epsg, int):
         epsg = [epsg]
@@ -34,7 +40,10 @@ def tiles_from_aoi(vectorobject, kml, epsg=None):
                 if tilename not in tilenames:
                     attrib = description2dict(tile.GetField('Description'))
                     if epsg is not None and attrib['EPSG'] not in epsg:
-                        continue
+                        if len(epsg) == 1 and not strict:
+                            tilename += '_{}'.format(epsg[0])
+                        else:
+                            continue
                     tilenames.append(tilename)
         vectorobject.layer.ResetReading()
         tile = None
