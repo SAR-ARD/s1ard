@@ -21,7 +21,8 @@ setup(
                       'lxml',
                       'pystac',
                       'pyroSAR>=0.16.3',
-                      'scipy'],
+                      'scipy',
+                      's1etad>=0.5.3'],
     python_requires='>=3.8',
     zip_safe=False,
     entry_points={
