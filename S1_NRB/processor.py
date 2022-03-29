@@ -2,7 +2,6 @@ import os
 import re
 import time
 import tempfile
-import copy
 from getpass import getpass
 from datetime import datetime, timezone
 from lxml import etree
@@ -90,10 +89,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
             'id': 'ABCD'}
-    meta_lower = copy.deepcopy(meta)
-    for key, val in meta_lower.items():
-        if not isinstance(val, int):
-            meta_lower[key] = val.lower()
+    meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
