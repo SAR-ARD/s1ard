@@ -352,7 +352,8 @@ def prepare_dem(geometries, config, threads, spacing, epsg=None):
     dem_names = []
     for geo in geometries:
         dem_names_scene = []
-        tiles = tile_ex.tiles_from_aoi(vectorobject=geo, kml=config['kml_file'], epsg=epsg)
+        tiles = tile_ex.tiles_from_aoi(vectorobject=geo, kml=config['kml_file'],
+                                       epsg=epsg, strict=False)
         print('### creating DEM tiles: \n{tiles}'.format(tiles=tiles))
         for i, tilename in enumerate(tiles):
             dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
