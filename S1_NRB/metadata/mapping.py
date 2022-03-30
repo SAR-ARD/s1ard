@@ -107,13 +107,12 @@ DEM_MAP = {
     }
 
 NS_MAP = {'nrb': 'http://earth.esa.int/sentinel-1/nrb/1.0',
-          'eop': 'http://www.opengis.net/eop/2.1',
-          'gml': 'http://www.opengis.net/gml/3.2',
-          'om': 'http://www.opengis.net/om/2.0',
-          'ows': 'http://www.opengis.net/ows/2.0',
           'sar': 'http://www.opengis.net/sar/2.1',
-          'xlink': 'http://www.w3.org/1999/xlink',
-          'xsi': 'http://www.w3.org/2001/XMLSchema-instance'}
+          'eop': 'http://www.opengis.net/eop/2.1',
+          'om': 'http://www.opengis.net/om/2.0',
+          'gml': 'http://www.opengis.net/gml/3.2',
+          'ows': 'http://www.opengis.net/ows/2.0',
+          'xlink': 'http://www.w3.org/1999/xlink'}
 
 SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': None,
