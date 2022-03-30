@@ -125,8 +125,7 @@ def product_xml(meta, target, tifs):
     numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
     
     ####################################################################################################################
-    observedProperty = etree.SubElement(root, _nsc('om:observedProperty'),
-                                        attrib={_nsc('xsi:nil'): 'true', 'nilReason': 'inapplicable'})
+    observedProperty = etree.SubElement(root, _nsc('om:observedProperty'), attrib={'nilReason': 'inapplicable'})
     
     ####################################################################################################################
     featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest'))
@@ -462,8 +461,7 @@ def source_xml(meta, target):
         maximumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMax'])
         
         ################################################################################################################
-        observedProperty = etree.SubElement(root, _nsc('om:observedProperty'),
-                                            attrib={_nsc('xsi:nil'): 'true', 'nilReason': 'inapplicable'})
+        observedProperty = etree.SubElement(root, _nsc('om:observedProperty'), attrib={'nilReason': 'inapplicable'})
         
         ################################################################################################################
         featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest'))
