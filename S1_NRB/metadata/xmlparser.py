@@ -50,27 +50,41 @@ def _common_procedure_elements(eo_equipment, meta, nsmap, prod=True):
     sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor', nsmap))
     sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType', nsmap))
     sensorType.text = meta['common']['sensorType']
-    radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand', nsmap))
-    radarBand.text = meta['common']['radarBand']
     operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode', nsmap),
                                        attrib={'codeSpace': 'urn:esa:eop:C-SAR:operationalMode'})
     operationalMode.text = meta['common']['operationalMode']
     swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier', nsmap),
                                        attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
     swathIdentifier.text = meta['common']['swathIdentifier']
+    radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand', nsmap))
+    radarBand.text = meta['common']['radarBand']
+    
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
     acquisition = etree.SubElement(acquisitionParameters, _nsc('nrb:Acquisition', nsmap))
+    orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
+    orbitNumber.text = meta['common']['orbitNumber']
+    orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection', nsmap))
+    orbitDirection.text = meta['common']['orbitDirection'].upper()
+    wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid', nsmap),
+                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
+    wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
+    if not prod and uid is not None:
+        ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
+        ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate']
+        startTimeFromAscendingNode = etree.SubElement(acquisition, _nsc('eop:startTimeFromAscendingNode', nsmap),
+                                                      attrib={'uom': 'ms'})
+        startTimeFromAscendingNode.text = meta['source'][uid]['timeStartFromAscendingNode']
+        completionTimeFromAscendingNode = etree.SubElement(acquisition,
+                                                           _nsc('eop:completionTimeFromAscendingNode', nsmap),
+                                                           attrib={'uom': 'ms'})
+        completionTimeFromAscendingNode.text = meta['source'][uid]['timeCompletionFromAscendingNode']
+        instrumentAzimuthAngle = etree.SubElement(acquisition, _nsc('eop:instrumentAzimuthAngle', nsmap),
+                                                  attrib={'uom': 'deg'})
+        instrumentAzimuthAngle.text = meta['source'][uid]['instrumentAzimuthAngle']
     polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode', nsmap))
     polarisationMode.text = meta['common']['polarisationMode']
     polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels', nsmap))
     polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
-    orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection', nsmap))
-    orbitDirection.text = meta['common']['orbitDirection'].upper()
-    orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
-    orbitNumber.text = meta['common']['orbitNumber']
-    wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid', nsmap),
-                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
-    wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     
     if prod:
         return acquisition
@@ -451,33 +465,21 @@ def source_xml(meta, target, nsmap):
         
         antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection', nsmap))
         antennaLookDirection.text = meta['common']['antennaLookDirection']
-        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude', nsmap),
-                                             attrib={'uom': 'm'})
-        orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
-        orbitDataSource = etree.SubElement(acquisition, _nsc('nrb:orbitDataSource', nsmap))
-        orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
-        ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
-        ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate']
-        startTimeFromAscendingNode = etree.SubElement(acquisition, _nsc('eop:startTimeFromAscendingNode', nsmap),
-                                                      attrib={'uom': 'ms'})
-        startTimeFromAscendingNode.text = meta['source'][uid]['timeStartFromAscendingNode']
-        completionTimeFromAscendingNode = etree.SubElement(acquisition,
-                                                           _nsc('eop:completionTimeFromAscendingNode', nsmap),
-                                                           attrib={'uom': 'ms'})
-        completionTimeFromAscendingNode.text = meta['source'][uid]['timeCompletionFromAscendingNode']
-        dataTakeID = etree.SubElement(acquisition, _nsc('nrb:dataTakeID', nsmap))
-        dataTakeID.text = meta['source'][uid]['datatakeID']
-        majorCycleID = etree.SubElement(acquisition, _nsc('nrb:majorCycleID', nsmap))
-        majorCycleID.text = meta['source'][uid]['majorCycleID']
-        instrumentAzimuthAngle = etree.SubElement(acquisition, _nsc('eop:instrumentAzimuthAngle', nsmap),
-                                                  attrib={'uom': 'deg'})
-        instrumentAzimuthAngle.text = meta['source'][uid]['instrumentAzimuthAngle']
         minimumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:minimumIncidenceAngle', nsmap),
                                                  attrib={'uom': 'deg'})
         minimumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMin'])
         maximumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:maximumIncidenceAngle', nsmap),
                                                  attrib={'uom': 'deg'})
         maximumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMax'])
+        orbitDataSource = etree.SubElement(acquisition, _nsc('nrb:orbitDataSource', nsmap))
+        orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
+        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude', nsmap),
+                                             attrib={'uom': 'm'})
+        orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
+        dataTakeID = etree.SubElement(acquisition, _nsc('nrb:dataTakeID', nsmap))
+        dataTakeID.text = meta['source'][uid]['datatakeID']
+        majorCycleID = etree.SubElement(acquisition, _nsc('nrb:majorCycleID', nsmap))
+        majorCycleID.text = meta['source'][uid]['majorCycleID']
         
         ################################################################################################################
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
