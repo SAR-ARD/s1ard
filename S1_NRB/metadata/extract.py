@@ -236,7 +236,7 @@ def convert_coordinates(coords, stac=False):
         x_c = (xmax + xmin) / 2
         y_c = (ymax + ymin) / 2
         center = '{} {}'.format(y_c, x_c)
-        envelop = '{} {},{} {},{} {},{} {},{} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
+        envelop = '{} {} {} {} {} {} {} {} {} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
         return center, envelop
 
 
