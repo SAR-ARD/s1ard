@@ -1,5 +1,6 @@
 import os
 import re
+from copy import deepcopy
 from lxml import etree
 from datetime import datetime
 from spatialist import Raster
@@ -12,7 +13,7 @@ def _nsc(text):
     return '{{{0}}}{1}'.format(NS_MAP[ns], key)
 
 
-def _common_procedure_elements(eo_equipment, meta, prod=True):
+def _common_procedure_elements(eo_equipment, meta, nsmap, prod=True):
     """
     Adds common (source & product) XML subelements to the `om:procedure/eop:earthObservationEquipment` element.
     
@@ -23,6 +24,8 @@ def _common_procedure_elements(eo_equipment, meta, prod=True):
         root XML element.
     meta: dict
         Metadata dictionary generated with `metadata.extract.meta_dict`
+    nsmap: dict
+        Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     prod: bool, optional
         Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
         XML subelements for further usage in the `source_xml` parsing function will be returned.
@@ -75,7 +78,7 @@ def _common_procedure_elements(eo_equipment, meta, prod=True):
         return platform1, sensor1, acquisition
 
 
-def product_xml(meta, target, tifs):
+def product_xml(meta, target, tifs, nsmap):
     """
     Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -87,6 +90,8 @@ def product_xml(meta, target, tifs):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
+    nsmap: dict
+        Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     
     Returns
     -------
@@ -99,8 +104,8 @@ def product_xml(meta, target, tifs):
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
     
-    root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=NS_MAP,
-                         attrib={_nsc('gml:id'): scene_id + '_1'})
+    root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
+                         attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
     
     ####################################################################################################################
     phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime'))
@@ -374,7 +379,7 @@ def product_xml(meta, target, tifs):
     tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def source_xml(meta, target):
+def source_xml(meta, target, nsmap):
     """
     Function to generate source-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -384,6 +389,8 @@ def source_xml(meta, target):
         Metadata dictionary generated with `metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
+    nsmap: dict
+        Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     
     Returns
     -------
@@ -399,8 +406,8 @@ def source_xml(meta, target):
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
         
-        root = etree.Element(_nsc('nrb:EarthObservation'), nsmap=NS_MAP,
-                             attrib={_nsc('gml:id'): scene + '_1'})
+        root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
+                             attrib={_nsc('gml:id', nsmap): scene + '_1'})
         
         ################################################################################################################
         phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime'))
@@ -613,5 +620,10 @@ def main(meta, target, tifs):
     -------
     None
     """
-    source_xml(meta=meta, target=target)
-    product_xml(meta=meta, target=target, tifs=tifs)
+    NS_MAP_prod = deepcopy(NS_MAP)
+    NS_MAP_src = deepcopy(NS_MAP)
+    NS_MAP_prod['nrb'] = NS_MAP['nrb']['product']
+    NS_MAP_src['nrb'] = NS_MAP['nrb']['source']
+    
+    source_xml(meta=meta, target=target, nsmap=NS_MAP_src)
+    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod)
