@@ -161,7 +161,7 @@ def etree_from_sid(sid):
     annotation_files = list(filter(re.compile(pols[0]).search, files))
     
     a_files_base = [os.path.basename(a) for a in annotation_files]
-    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in a_files_base]
+    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]', a).group().replace('-', '') for a in a_files_base]
     
     annotation_dict = {}
     for s, a in zip(swaths, annotation_files):
@@ -481,12 +481,12 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
-    dem_name = config['dem_type']
-    dem_access = DEM_MAP[dem_name]['access']
-    dem_ref = DEM_MAP[dem_name]['ref']
-    dem_type = DEM_MAP[dem_name]['type']
-    egm_ref = DEM_MAP[dem_name]['egm']
-
+    dem_access = DEM_MAP[config['dem_type']]['access']
+    dem_ref = DEM_MAP[config['dem_type']]['ref']
+    dem_type = DEM_MAP[config['dem_type']]['type']
+    egm_ref = DEM_MAP[config['dem_type']]['egm']
+    dem_name = config['dem_type'].removesuffix(' II')
+    
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     

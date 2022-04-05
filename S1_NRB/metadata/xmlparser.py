@@ -34,7 +34,7 @@ def _common_procedure_elements(eo_equipment, meta, prod=True):
     earthObservationEquipment = eo_equipment
     
     platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform'))
-    platform1 = etree.SubElement(platform0, _nsc('eop:Platform'))
+    platform1 = etree.SubElement(platform0, _nsc('nrb:Platform'))
     shortName = etree.SubElement(platform1, _nsc('eop:shortName'))
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier'))
@@ -282,7 +282,7 @@ def product_xml(meta, target, tifs):
         src_target = os.path.join('./source', src_path).replace('\\', '/')
         sourceProduct = etree.SubElement(processingInformation, _nsc('nrb:sourceProduct'),
                                          attrib={_nsc('xlink:href'): src_target})
-    auxData1 = etree.SubElement(processingInformation, _nsc('eop:auxiliaryDataSetFileName'),
+    auxData1 = etree.SubElement(processingInformation, _nsc('nrb:auxiliaryDataSetFileName'),
                                 attrib={_nsc('xlink:href'): meta['prod']['ancillaryData_KML']})
     speckleFilterApplied = etree.SubElement(processingInformation, _nsc('nrb:speckleFilterApplied'))
     speckleFilterApplied.text = str(meta['prod']['speckleFilterApplied']).lower()
@@ -363,7 +363,7 @@ def product_xml(meta, target, tifs):
                                           attrib={_nsc('xlink:href'): meta['prod']['griddingConventionURL']})
     mgrsID = etree.SubElement(earthObservationMetaData, _nsc('nrb:mgrsID'))
     mgrsID.text = meta['prod']['mgrsID']
-    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsEPSG'), attrib={'codespace': 'urn:esa:eop:crs'})
+    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsEPSG'), attrib={'codeSpace': 'urn:esa:eop:crs'})
     crsEPSG.text = meta['prod']['crsEPSG']
     crsWKT = etree.SubElement(earthObservationMetaData, _nsc('nrb:crsWKT'))
     crsWKT.text = meta['prod']['crsWKT']
@@ -429,14 +429,13 @@ def source_xml(meta, target):
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
         sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration'),
                                              attrib={_nsc('xlink:href'): meta['source'][uid]['sensorCalibration']})
-        sensorCalibration.text = meta['source'][uid]['sensorCalibration']
         
         antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection'))
         antennaLookDirection.text = meta['common']['antennaLookDirection']
         orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude'),
                                              attrib={'uom': 'm'})
         orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
-        orbitDataSource = etree.SubElement(acquisition, _nsc('eop:orbitDataSource'))
+        orbitDataSource = etree.SubElement(acquisition, _nsc('nrb:orbitDataSource'))
         orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
         ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate'))
         ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate']
@@ -507,7 +506,7 @@ def source_xml(meta, target):
                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
         productType.text = meta['source'][uid]['productType']
         
-        processing = etree.SubElement(earthObservationMetaData, _nsc('nrb:processing'))
+        processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing'))
         processingInformation = etree.SubElement(processing, _nsc('nrb:ProcessingInformation'))
         processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter'),
                                             attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
@@ -538,17 +537,17 @@ def source_xml(meta, target):
         
         performance = etree.SubElement(earthObservationMetaData, _nsc('nrb:performance'))
         performanceIndicators = etree.SubElement(performance, _nsc('nrb:PerformanceIndicators'))
-        ne_type = str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])
-        noiseEquivalentIntensity = etree.SubElement(performanceIndicators, _nsc('nrb:noiseEquivalentIntensity'),
-                                                    attrib={'uom': 'dB', 'type': ne_type})
+        noiseEquivalentIntensityType = etree.SubElement(performanceIndicators, _nsc('nrb:noiseEquivalentIntensityType'),
+                                                        attrib={'uom': 'dB'})
+        noiseEquivalentIntensityType.text = str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])
         for pol in meta['common']['polarisationChannels']:
-            estimatesMin = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+            estimatesMin = etree.SubElement(performanceIndicators, _nsc('nrb:estimates'),
                                             attrib={'pol': pol, 'type': 'minimum'})
             estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['minimum'])
-            estimatesMax = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+            estimatesMax = etree.SubElement(performanceIndicators, _nsc('nrb:estimates'),
                                             attrib={'pol': pol, 'type': 'maximum'})
             estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['maximum'])
-            estimatesMean = etree.SubElement(noiseEquivalentIntensity, _nsc('nrb:estimates'),
+            estimatesMean = etree.SubElement(performanceIndicators, _nsc('nrb:estimates'),
                                              attrib={'pol': pol, 'type': 'mean'})
             estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
         equivalentNumberOfLooks = etree.SubElement(performanceIndicators, _nsc('nrb:equivalentNumberOfLooks'))
