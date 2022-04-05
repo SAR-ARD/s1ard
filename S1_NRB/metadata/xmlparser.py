@@ -148,12 +148,12 @@ def product_xml(meta, target, tifs, nsmap):
                                attrib={_nsc('gml:id', nsmap): scene_id + '_7'})
     exterior = etree.SubElement(polygon, _nsc('gml:exterior', nsmap))
     linearRing = etree.SubElement(exterior, _nsc('gml:LinearRing', nsmap))
-    posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap), attrib={'uom': 'deg'})
+    posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap))
     posList.text = meta['prod']['geom_xml_envelope']
     
     centerOf = etree.SubElement(footprint, _nsc('eop:centerOf', nsmap))
     point = etree.SubElement(centerOf, _nsc('gml:Point', nsmap), attrib={_nsc('gml:id', nsmap): scene_id + '_8'})
-    pos = etree.SubElement(point, _nsc('gml:pos', nsmap), attrib={'uom': 'deg'})
+    pos = etree.SubElement(point, _nsc('gml:pos', nsmap))
     pos.text = meta['prod']['geom_xml_center']
     
     ####################################################################################################################
@@ -496,12 +496,12 @@ def source_xml(meta, target, nsmap):
                                    attrib={_nsc('gml:id', nsmap): scene + '_7'})
         exterior = etree.SubElement(polygon, _nsc('gml:exterior', nsmap))
         linearRing = etree.SubElement(exterior, _nsc('gml:LinearRing', nsmap))
-        posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap), attrib={'uom': 'deg'})
+        posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap))
         posList.text = meta['source'][uid]['geom_xml_envelop']
         
         centerOf = etree.SubElement(footprint, _nsc('eop:centerOf', nsmap))
         point = etree.SubElement(centerOf, _nsc('gml:Point', nsmap), attrib={_nsc('gml:id', nsmap): scene + '_8'})
-        pos = etree.SubElement(point, _nsc('gml:pos', nsmap), attrib={'uom': 'deg'})
+        pos = etree.SubElement(point, _nsc('gml:pos', nsmap))
         pos.text = meta['source'][uid]['geom_xml_center']
         
         ################################################################################################################
