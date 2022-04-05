@@ -13,7 +13,7 @@ def _nsc(text, nsmap):
     return '{{{0}}}{1}'.format(nsmap[ns], key)
 
 
-def _common_procedure_elements(eo_equipment, meta, nsmap, prod=True):
+def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     """
     Adds common (source & product) XML subelements to the `om:procedure/eop:earthObservationEquipment` element.
     
@@ -22,10 +22,12 @@ def _common_procedure_elements(eo_equipment, meta, nsmap, prod=True):
     eo_equipment: etree.Element
         `eop:earthObservationEquipment` XML subelement of `om:procedure`, which is one of the main properties of the
         root XML element.
-    meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    meta: dict
+        Metadata dictionary generated with `metadata.extract.meta_dict`
+    uid: str
+        Unique identifier of a source SLC scene.
     prod: bool, optional
         Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
         XML subelements for further usage in the `source_xml` parsing function will be returned.
@@ -42,10 +44,12 @@ def _common_procedure_elements(eo_equipment, meta, nsmap, prod=True):
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier', nsmap))
     serialIdentifier.text = meta['common']['platformIdentifier']
+    
     instrument0 = etree.SubElement(earthObservationEquipment, _nsc('eop:instrument', nsmap))
     instrument1 = etree.SubElement(instrument0, _nsc('eop:Instrument', nsmap))
     shortName = etree.SubElement(instrument1, _nsc('eop:shortName', nsmap))
     shortName.text = meta['common']['instrumentShortName']
+    
     sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor', nsmap))
     sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor', nsmap))
     sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType', nsmap))
@@ -140,7 +144,7 @@ def product_xml(meta, target, tifs, nsmap):
     procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
     earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
                                                  attrib={_nsc('gml:id', nsmap): scene_id + '_4'})
-    acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta, nsmap=nsmap, prod=True)
+    acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, nsmap=nsmap, meta=meta, prod=True)
     
     numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions', nsmap))
     numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
@@ -452,8 +456,8 @@ def source_xml(meta, target, nsmap):
         procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
         earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
                                                      attrib={_nsc('gml:id', nsmap): scene + '_4'})
-        platform1, sensor1, acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, meta=meta,
-                                                                     nsmap=nsmap, prod=False)
+        platform1, sensor1, acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment,
+                                                                     nsmap=nsmap, meta=meta, uid=uid, prod=False)
         
         satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference', nsmap),
                                         attrib={_nsc('xlink:href', nsmap): meta['common']['platformReference']})
@@ -462,7 +466,6 @@ def source_xml(meta, target, nsmap):
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
         sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration', nsmap),
                                              attrib={_nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
-        
         antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection', nsmap))
         antennaLookDirection.text = meta['common']['antennaLookDirection']
         minimumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:minimumIncidenceAngle', nsmap),
