@@ -1,0 +1,575 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:nrb="http://earth.esa.int/sentinel-1/nrb/source/1.0"
+        xmlns:sar="http://www.opengis.net/sar/2.1"
+        xmlns:eop="http://www.opengis.net/eop/2.1"
+        xmlns:gml="http://www.opengis.net/gml/3.2"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://earth.esa.int/sentinel-1/nrb/source/1.0">
+    <annotation>
+        <documentation>XML schema for the Sentinel-1 Normalised Radar Backscatter (NRB) SOURCE Metadata</documentation>
+    </annotation>
+    <import namespace="http://www.opengis.net/sar/2.1" schemaLocation="http://schemas.opengis.net/eompom/1.1/xsd/sar.xsd"/>
+    <import namespace="http://www.opengis.net/eop/2.1" schemaLocation="http://schemas.opengis.net/eompom/1.1/xsd/eop.xsd"/>
+    <import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
+    <import namespace="http://www.opengis.net/ows/2.0" schemaLocation="http://schemas.opengis.net/ows/2.0/owsAll.xsd"/>
+    <import namespace="http://www.w3.org/1999/xlink" schemaLocation="http://www.w3.org/1999/xlink.xsd"/>
+
+    <element name="EarthObservation" type="nrb:EarthObservationType" substitutionGroup="sar:EarthObservation">
+        <annotation>
+			<documentation>eop root element for NRB SAR Earth Observation Product</documentation>
+		</annotation>
+    </element>
+    <complexType name="EarthObservationType">
+		<complexContent>
+			<extension base="sar:EarthObservationType"/>
+		</complexContent>
+    </complexType>
+    <complexType name="EarthObservationPropertyType">
+		<sequence minOccurs="1" maxOccurs="1">
+			<element ref="nrb:EarthObservation"/>
+		</sequence>
+		<attributeGroup ref="gml:AssociationAttributeGroup"/>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="Platform" type="nrb:PlatformType" substitutionGroup="eop:Platform">
+		<annotation>
+			<documentation>Extends eop Platform for NRB products</documentation>
+		</annotation>
+	</element>
+    <complexType name="PlatformType">
+        <complexContent>
+            <extension base="eop:PlatformType">
+                <sequence>
+                    <element name="satelliteReference" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>CEOS Missions, Instruments and Measurements Database record of the satellite mission.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="PlatformPropertyType">
+		<sequence>
+			<element ref="nrb:Platform"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="Sensor" type="nrb:SensorType" substitutionGroup="eop:Sensor">
+		<annotation>
+			<documentation>Extends eop Sensor for NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="radarCenterFrequencyBase">
+        <restriction base="double">
+            <enumeration value="5.405e+09"/>
+        </restriction>
+    </simpleType>
+    <complexType name="SensorType">
+        <complexContent>
+            <extension base="eop:SensorType">
+                <sequence>
+                    <element name="radarBand" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The common name for the radar frequency band.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="C"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="radarCenterFrequency" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The center frequency of the instrument in Hertz (Hz).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:radarCenterFrequencyBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="sensorCalibration" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to sensor calibration parameters.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="SensorPropertyType">
+		<sequence>
+			<element ref="nrb:Sensor"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="Acquisition" type="nrb:AcquisitionType" substitutionGroup="eop:Acquisition">
+		<annotation>
+			<documentation>Extends sar Acquisition for NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="orbitMeanAltitudeBase">
+        <restriction base="double">
+            <enumeration value="6.93e+05"/>
+        </restriction>
+    </simpleType>
+    <complexType name="AcquisitionType">
+        <complexContent>
+            <extension base="sar:AcquisitionType">
+                <sequence>
+                    <element name="orbitMeanAltitude" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Platform (mean) altitude in meters.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:orbitMeanAltitudeBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="dataTakeID" type="integer" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Data take identifier.</documentation>
+                        </annotation>
+                    </element>
+                    <element name="majorCycleID" type="integer" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Major cycle identifier.</documentation>
+                        </annotation>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="AcquisitionPropertyType">
+		<sequence>
+			<element ref="nrb:Acquisition"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="ProductInformation" type="nrb:ProductInformationType" substitutionGroup="eop:ProductInformation">
+		<annotation>
+			<documentation>Extends eop Product Information for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <complexType name="ProductInformationType">
+        <complexContent>
+            <extension base="eop:ProductInformationType"/>
+        </complexContent>
+    </complexType>
+    <complexType name="ProductInformationPropertyType">
+		<sequence>
+			<element ref="nrb:ProductInformation"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+	<element name="EarthObservationMetaData" type="nrb:EarthObservationMetaDataType" substitutionGroup="eop:EarthObservationMetaData">
+		<annotation>
+			<documentation>Extends eop Earth Observation Metadata for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="productTypeBase">
+        <restriction base="string">
+            <enumeration value="SLC"/>
+        </restriction>
+    </simpleType>
+	<complexType name="EarthObservationMetaDataType">
+        <complexContent>
+            <extension base="eop:EarthObservationMetaDataType">
+                <sequence>
+                    <element name="productType" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Type of the product.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:productTypeBase">
+                                    <attribute name="codeSpace" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <enumeration value="urn:esa:eop:Sentinel1:class"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="dataGeometry" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Source data geometry.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="slant range"/>
+                                <whiteSpace value="preserve"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="azimuthResolution" minOccurs="1" maxOccurs="6">
+                        <annotation>
+                            <documentation>The azimuth resolution in meters per beam, which is the maximum ability to distinguish two adjacent targets parallel to the flight path.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="rangeResolution" minOccurs="1" maxOccurs="6">
+                        <annotation>
+                            <documentation>The range resolution in meters per beam, which is the maximum ability to distinguish two adjacent targets perpendicular to the flight path.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="azimuthPixelSpacing" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The azimuth pixel spacing in meters, which is the distance between adjacent pixels parallel to the flight path.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="rangePixelSpacing" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The range pixel spacing in meters, which is the distance between adjacent pixels perpendicular to the flight path.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="performance" type="nrb:PerformanceIndicatorsPropertyType" minOccurs="1" maxOccurs="1"/>
+                    <element name="polCalMatrices" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the complex-valued polarimetric distortion matrices with the channel imbalance and the crosstalk applied for the polarimetric calibration.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="meanFaradayRotationAngle" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The mean Faraday rotation angle in degrees estimated from the polarimetric data and/or from models.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="referenceFaradayRotation" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the method or paper used to derive the estimated mean Faraday rotation angle.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="ionosphereIndicator" type="boolean" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Flag indicating whether the backscatter imagery is “significantly impacted” by the ionosphere.</documentation>
+                        </annotation>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="EarthObservationMetaDataPropertyType">
+		<sequence>
+			<element ref="nrb:EarthObservationMetaData"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="ProcessingInformation" type="nrb:ProcessingInformationType" substitutionGroup="eop:ProcessingInformation">
+		<annotation>
+			<documentation>Extends eop Processing Information for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="orbitStateVectorBase">
+        <restriction base="string">
+            <pattern value="S1.*\.EOF"/>
+        </restriction>
+    </simpleType>
+    <complexType name="ProcessingInformationType">
+        <complexContent>
+            <extension base="eop:ProcessingInformationType">
+                <sequence>
+                    <element name="processingLevel" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Processing level of the product.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="L1C"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="orbitDataSource" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Orbit data source type.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="PRECISE"/>
+                                <enumeration value="RESTITUTED"/>
+                                <enumeration value="PREDICTED"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="orbitStateVector" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Orbit data file containing state vectors.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:orbitStateVectorBase">
+                                    <attribute name="access" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <enumeration value="https://scihub.copernicus.eu/gnss"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="azimuthLookBandwidth" minOccurs="1" maxOccurs="6">
+                        <annotation>
+                            <documentation>Azimuth look bandwidth per beam in Hertz (Hz).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="rangeLookBandwidth" minOccurs="1" maxOccurs="6">
+                        <annotation>
+                            <documentation>Range look bandwidth per beam in Hertz (Hz).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="lutApplied" type="string" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Look-up table (LUT) applied.</documentation>
+                        </annotation>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="ProcessingInformationPropertyType">
+		<sequence>
+			<element ref="nrb:ProcessingInformation"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="PerformanceIndicators" type="nrb:PerformanceIndicatorsType">
+		<annotation>
+			<documentation>Performance Indicator Information for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="noiseEquivalentIntensityTypeBase">
+        <restriction base="string">
+            <enumeration value="sigma0"/>
+        </restriction>
+    </simpleType>
+    <complexType name="PerformanceIndicatorsType">
+        <sequence>
+            <element name="noiseEquivalentIntensityType" minOccurs="1" maxOccurs="1">
+                <annotation>
+                    <documentation>Noise equivalent type the performance indicators are provided in.</documentation>
+                </annotation>
+                <complexType>
+                    <simpleContent>
+                        <extension base="nrb:noiseEquivalentIntensityTypeBase">
+                            <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                        </extension>
+                    </simpleContent>
+                </complexType>
+            </element>
+            <element name="estimates" minOccurs="1" maxOccurs="6">
+                <annotation>
+                    <documentation>Performance indicators on data intensity noise level provided for each polarization.</documentation>
+                </annotation>
+                <complexType>
+                    <simpleContent>
+                        <extension base="float">
+                            <attribute name="pol" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <enumeration value="VH"/>
+                                        <enumeration value="VV"/>
+                                        <enumeration value="HH"/>
+                                        <enumeration value="HV"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                            <attribute name="type" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <enumeration value="minimum"/>
+                                        <enumeration value="maximum"/>
+                                        <enumeration value="mean"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                        </extension>
+                    </simpleContent>
+                </complexType>
+            </element>
+            <element name="equivalentNumberOfLooks" minOccurs="1" maxOccurs="1">
+                <annotation>
+                    <documentation>Equivalent number of looks (ENL).</documentation>
+                </annotation>
+                <simpleType>
+                    <restriction base="integer">
+                        <enumeration value="1"/>
+                    </restriction>
+                </simpleType>
+            </element>
+            <element name="peakSideLobeRatio" minOccurs="1" maxOccurs="1">
+                <annotation>
+                    <documentation>Mean Peak Side Lobe Ratio (PSLR) of the source scene in decibels.</documentation>
+                </annotation>
+                <complexType>
+                    <simpleContent>
+                        <extension base="float">
+                            <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                        </extension>
+                    </simpleContent>
+                </complexType>
+            </element>
+            <element name="integratedSideLobeRatio" minOccurs="1" maxOccurs="1">
+                <annotation>
+                    <documentation>Mean Integrated Side Lobe Ratio (ISLR) of the source scene in decibels.</documentation>
+                </annotation>
+                <complexType>
+                    <simpleContent>
+                        <extension base="float">
+                            <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                        </extension>
+                    </simpleContent>
+                </complexType>
+            </element>
+        </sequence>
+    </complexType>
+	<complexType name="PerformanceIndicatorsPropertyType">
+		<sequence>
+			<element ref="nrb:PerformanceIndicators"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+</schema>

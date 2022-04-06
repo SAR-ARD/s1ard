@@ -1,0 +1,811 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:nrb="http://earth.esa.int/sentinel-1/nrb/product/1.0"
+        xmlns:sar="http://www.opengis.net/sar/2.1"
+        xmlns:eop="http://www.opengis.net/eop/2.1"
+        xmlns:gml="http://www.opengis.net/gml/3.2"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://earth.esa.int/sentinel-1/nrb/product/1.0">
+    <annotation>
+        <documentation>XML schema for the Sentinel-1 Normalised Radar Backscatter (NRB) PRODUCT Metadata</documentation>
+    </annotation>
+    <import namespace="http://www.opengis.net/sar/2.1" schemaLocation="http://schemas.opengis.net/eompom/1.1/xsd/sar.xsd"/>
+    <import namespace="http://www.opengis.net/eop/2.1" schemaLocation="http://schemas.opengis.net/eompom/1.1/xsd/eop.xsd"/>
+    <import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
+    <import namespace="http://www.opengis.net/ows/2.0" schemaLocation="http://schemas.opengis.net/ows/2.0/owsAll.xsd"/>
+    <import namespace="http://www.w3.org/1999/xlink" schemaLocation="http://www.w3.org/1999/xlink.xsd"/>
+
+    <element name="EarthObservation" type="nrb:EarthObservationType" substitutionGroup="sar:EarthObservation">
+        <annotation>
+			<documentation>eop root element for NRB SAR Earth Observation Product</documentation>
+		</annotation>
+    </element>
+    <complexType name="EarthObservationType">
+		<complexContent>
+			<extension base="sar:EarthObservationType"/>
+		</complexContent>
+    </complexType>
+    <complexType name="EarthObservationPropertyType">
+		<sequence minOccurs="1" maxOccurs="1">
+			<element ref="nrb:EarthObservation"/>
+		</sequence>
+		<attributeGroup ref="gml:AssociationAttributeGroup"/>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="Sensor" type="nrb:SensorType" substitutionGroup="eop:Sensor">
+		<annotation>
+			<documentation>Extends eop Sensor for NRB products</documentation>
+		</annotation>
+	</element>
+    <complexType name="SensorType">
+        <complexContent>
+            <extension base="eop:SensorType">
+                <sequence>
+                    <element name="radarBand" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The common name for the radar frequency band.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="C"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="SensorPropertyType">
+		<sequence>
+			<element ref="nrb:Sensor"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="Acquisition" type="nrb:AcquisitionType" substitutionGroup="eop:Acquisition">
+		<annotation>
+			<documentation>Extends sar Acquisition for NRB products</documentation>
+		</annotation>
+	</element>
+    <complexType name="AcquisitionType">
+        <complexContent>
+            <extension base="sar:AcquisitionType">
+                <sequence>
+                    <element name="numberOfAcquisitions" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of source acquisitions to generate an S1-NRB product</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="1"/>
+                                <maxInclusive value="2"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="AcquisitionPropertyType">
+		<sequence>
+			<element ref="nrb:Acquisition"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="ProductInformation" type="nrb:ProductInformationType" substitutionGroup="eop:ProductInformation">
+		<annotation>
+			<documentation>Extends eop Product Information for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="bitValueBase">
+        <restriction base="integer">
+            <minInclusive value="1"/>
+            <maxInclusive value="2"/>
+        </restriction>
+    </simpleType>
+    <simpleType name="sampleTypeBase">
+        <restriction base="string">
+            <enumeration value="Mask"/>
+            <enumeration value="Angle"/>
+            <enumeration value="Ratio"/>
+            <enumeration value="AcqID"/>
+            <enumeration value="Scattering Area"/>
+            <enumeration value="Sigma-0"/>
+            <enumeration value="Height"/>
+            <whiteSpace value="preserve"/>
+        </restriction>
+    </simpleType>
+    <complexType name="ProductInformationType">
+        <complexContent>
+            <extension base="eop:ProductInformationType">
+                <sequence>
+                    <element name="headerSize" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>Header size of the asset in bytes.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="integer">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="byteOrder" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The byte order used for encoding of the asset.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="little-endian"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="dataFormat" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>Data format of the asset.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="COG"/>
+                                <enumeration value="VRT"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="dataType" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The data type used for encoding of the asset or one of its bands.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="FLOAT"/>
+                                <enumeration value="UINT"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="bitsPerSample" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The number of bits used for encoding of the asset or one of its bands.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <enumeration value="8"/>
+                                <enumeration value="32"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="noDataValue" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The nodata value used for encoding of the asset or one of its bands. </documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="NaN"/>
+                                <enumeration value="255"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="compressionType" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The compression type applied to the asset.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="LERC"/>
+                                <enumeration value="LERC_DEFLATE"/>
+                                <enumeration value="LERC_ZSTD"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="compressionZError" type="double" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>The compression error threshold (i.e., MAX_Z_ERROR) used during compression of the asset. Only applicable for LERC compression types. A value of 0 is equal to lossless compression.</documentation>
+                        </annotation>
+                    </element>
+                    <element name="bitValue" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>Bit value representation and description for each band of an asset.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:bitValueBase">
+                                    <attribute name="band" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <enumeration value="1"/>
+                                                <enumeration value="2"/>
+                                                <enumeration value="3"/>
+                                                <enumeration value="4"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                    <attribute name="name" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="not layover, nor shadow|layover|shadow|ocean water|S1.*_[0-9A-Z]{4}"/>
+                                                <whiteSpace value="preserve"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="sampleType" minOccurs="0" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>Sample type and unit of the asset.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:sampleTypeBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="ellipsoidalHeight" minOccurs="0" maxOccurs="1">
+                        <annotation>
+                            <documentation>Mean ellipsoidal height in meters. Only used for the Ellipsoid Incident Angle Image asset.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="creationTime" type="dateTime" minOccurs="0" maxOccurs="2">
+                        <annotation>
+                            <documentation>Time when the asset was created. Only used for backscatter measurement assets.</documentation>
+                        </annotation>
+                    </element>
+                    <element name="polarization" minOccurs="0" maxOccurs="2">
+                        <annotation>
+                            <documentation>Polarization of the asset. Only used for backscatter measurement assets.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="HH"/>
+                                <enumeration value="HV"/>
+                                <enumeration value="VV"/>
+                                <enumeration value="VH"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="numBorderPixels" type="integer" minOccurs="0" maxOccurs="2">
+                        <annotation>
+                            <documentation>Number of border pixels. Only used for backscatter measurement assets.</documentation>
+                        </annotation>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="ProductInformationPropertyType">
+		<sequence>
+			<element ref="nrb:ProductInformation"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+	<element name="EarthObservationMetaData" type="nrb:EarthObservationMetaDataType" substitutionGroup="eop:EarthObservationMetaData">
+		<annotation>
+			<documentation>Extends eop Earth Observation Metadata for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <simpleType name="productTypeBase">
+        <restriction base="string">
+            <enumeration value="NRB"/>
+        </restriction>
+    </simpleType>
+    <simpleType name="spacingBase">
+        <restriction base="float">
+            <enumeration value="10.0"/>
+            <enumeration value="20.0"/>
+        </restriction>
+    </simpleType>
+    <simpleType name="backscatterConversionEqBase">
+        <restriction base="string">
+            <enumeration value="10*log10(DN)"/>
+        </restriction>
+    </simpleType>
+	<complexType name="EarthObservationMetaDataType">
+        <complexContent>
+            <extension base="eop:EarthObservationMetaDataType">
+                <sequence>
+                    <element name="productType" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Type of the product.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:productTypeBase">
+                                    <attribute name="codeSpace" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <enumeration value="urn:esa:eop:Sentinel1:class"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="refDoc" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the implemented CARD4L Normalised Radar Backscatter specification (PDF).</documentation>
+                        </annotation>
+                        <complexType>
+                            <attribute ref="xlink:href" use="required"/>
+                            <attribute name="name" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <enumeration value="Normalised Radar Backscatter"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                            <attribute name="version" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <pattern value="[0-9].[0-9]"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                        </complexType>
+                    </element>
+                    <element name="radiometricAccuracyRelative" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Relative radiometric accuracy in decibels.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="radiometricAccuracyAbsolute" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Absolute radiometric accuracy in decibels.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="radiometricAccuracyReference" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the radiometric accuracy assessment.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracyType" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy type.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="slant-range"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="geoCorrAccuracyNorthernSTDev" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy standard deviation in meters (northern / line).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracyEasternSTDev" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy standard deviation in meters (eastern / sample).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracyNorthernBias" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy bias in meters (northern / line).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracyEasternBias" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy bias in meters (eastern / sample).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracy_rRMSE" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Geometric accuracy radial RMSE in meters.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="float">
+				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAccuracyReference" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the geometric accuracy assessment.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="numLines" type="integer" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The shape of the product: number of lines</documentation>
+                        </annotation>
+                    </element>
+                    <element name="numPixelsPerLine" type="integer" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>The shape of the product: number of pixels per line</documentation>
+                        </annotation>
+                    </element>
+                    <element name="columnSpacing" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Product column sample spacing in meters.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:spacingBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="rowSpacing" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Product row sample spacing in meters.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:spacingBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="pixelCoordinateConvention" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Convention to reference the pixel.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="upper-left"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="backscatterMeasurement" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Backscatter measurement type.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="gamma0"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="backscatterConvention" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Backscatter expression convention.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="linear power"/>
+                                <whiteSpace value="preserve"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="backscatterConversionEq" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Equation to convert from pixel linear amplitude/power to logarithmic decibel scale.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="nrb:backscatterConversionEqBase">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="griddingConvention" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the gridding convention.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="mgrsID" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Information about the Military Grid Reference System (MGRS) zone, the product is located in.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                 <pattern value="[A-Z0-9]{5}"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="crsEPSG" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Coordinate reference system (CRS) of the product as an EPSG code.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="integer">
+				                    <attribute name="codeSpace" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <enumeration value="urn:esa:eop:crs"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="crsWKT" type="string" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>CRS of the product as a WKT string.</documentation>
+                        </annotation>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="EarthObservationMetaDataPropertyType">
+		<sequence>
+			<element ref="nrb:EarthObservationMetaData"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+
+    <element name="ProcessingInformation" type="nrb:ProcessingInformationType" substitutionGroup="eop:ProcessingInformation">
+		<annotation>
+			<documentation>Extends eop Processing Information for sar NRB products</documentation>
+		</annotation>
+	</element>
+    <complexType name="ProcessingInformationType">
+        <complexContent>
+            <extension base="eop:ProcessingInformationType">
+                <sequence>
+                    <element name="processingLevel" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Processing level of the product.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="L1C"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="sourceProduct" minOccurs="1" maxOccurs="2">
+                        <annotation>
+                            <documentation>Reference to the source dataset(s).</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="auxiliaryDataSetFileName" minOccurs="1" maxOccurs="unbounded">
+                        <annotation>
+                            <documentation>Reference to ancillary or auxiliary data used in the generation process. Excludes the Digital Elevation Model.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="speckleFilterApplied" type="boolean" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Flag indicating if a speckle filtering algorithm been applied while processing.</documentation>
+                        </annotation>
+                    </element>
+                    <element name="NRApplied" type="boolean" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Flag indicating if a noise removal (NR) algorithm been applied while processing.</documentation>
+                        </annotation>
+                    </element>
+                    <element name="NRAlgorithm" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the noise removal algorithm applied during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="RTCAlgorithm" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the radiometric terrain correction (RTC) algorithm applied during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrAlgorithm" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Reference to the geometric terrain correction algorithm applied during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="geoCorrResamplingAlgorithm" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Resampling algorithm used for the geometric terrain correction.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="BILINEAR"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="DEMReference" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Information about the Digital Elevation Model (DEM) used as an auxiliary dataset during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <attribute ref="xlink:href" use="required"/>
+                            <attribute name="name" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <enumeration value="Copernicus 10m EEA DEM"/>
+                                        <enumeration value="Copernicus 30m Global DEM"/>
+                                        <enumeration value="GETASSE30"/>
+                                        <whiteSpace value="preserve"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                            <attribute name="dem" use="required">
+                                <simpleType>
+                                    <restriction base="string">
+                                        <enumeration value="surface"/>
+                                        <enumeration value="elevation"/>
+                                    </restriction>
+                                </simpleType>
+                            </attribute>
+                        </complexType>
+                    </element>
+                    <element name="DEMResamplingMethod" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Resampling algorithm applied to the Digital Elevation Model (DEM) used as an auxiliary dataset during processing.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="BILINEAR"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="DEMAccess" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Access to the Digital Elevation Model (DEM) used as an auxiliary dataset during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="EGMReference" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Information about the Earth Gravitational Model (EGM) used as an auxiliary dataset during processing.</documentation>
+                        </annotation>
+                        <complexType>
+                            <simpleContent>
+			                    <extension base="string">
+				                    <attribute ref="xlink:href" use="required"/>
+			                    </extension>
+		                    </simpleContent>
+                        </complexType>
+                    </element>
+                    <element name="EGMResamplingMethod" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Resampling algorithm applied to the Earth Gravitational Model (EGM) used as an auxiliary dataset during processing.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="string">
+                                <enumeration value="BILINEAR"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+	<complexType name="ProcessingInformationPropertyType">
+		<sequence>
+			<element ref="nrb:ProcessingInformation"/>
+		</sequence>
+		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
+	</complexType>
+</schema>
