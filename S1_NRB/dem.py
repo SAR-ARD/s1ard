@@ -54,7 +54,8 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     wbm_dir = os.path.join(wbm_dir, dem_type)
     dem_dir = os.path.join(dem_dir, dem_type)
     
-    for geometry in geometries:
+    for i, geometry in enumerate(geometries):
+        print('###### [    DEM] processing geometry {0} of {1}'.format(i, len(geometries)))
         ###############################################
         tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
                                        epsg=epsg, strict=False)
@@ -97,7 +98,7 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                          username=username, password=password)
         ###############################################
         if len(dem_target.keys()) > 0:
-            print('### creating DEM tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
+            print('### creating DEM MGRS tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
         for tilename, filename in dem_target.items():
             with tile_ex.extract_tile(kml_file, tilename) as tile:
                 epsg_tile = tile.getProjection('epsg')
@@ -121,7 +122,7 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                                t_srs=epsg_tile, tr=(tr, tr),
                                resampling_method='mode', pbar=True,
                                outputBounds=bounds, threads=threads)
-
+        print('=' * 40)
 
 def dem_mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
     """
