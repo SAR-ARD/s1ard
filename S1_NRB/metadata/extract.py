@@ -582,7 +582,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
-    meta['prod']['status'] = 'PROTOTYPE'
+    meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
     meta['prod']['timeStart'] = datetime.strptime(start, '%Y%m%dT%H%M%S')
     meta['prod']['timeStop'] = datetime.strptime(stop, '%Y%m%dT%H%M%S')
@@ -657,10 +657,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
         meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
-        meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['site']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['country']}"
+        meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']} " \
+                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}".replace(' -', '')
         meta['source'][uid]['processingDate'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['stop']
         meta['source'][uid]['processingLevel'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['name']
         meta['source'][uid]['processorName'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['name']
@@ -674,12 +672,12 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
+        meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
                                                                            .find('.//s1:stopTimeANX', nsmap).text))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest']
                                                                       .find('.//s1:startTimeANX', nsmap).text))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['swaths'] = swaths
     
     return meta
