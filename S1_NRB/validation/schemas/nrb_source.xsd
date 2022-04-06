@@ -14,30 +14,28 @@
     <import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
     <import namespace="http://www.opengis.net/ows/2.0" schemaLocation="http://schemas.opengis.net/ows/2.0/owsAll.xsd"/>
     <import namespace="http://www.w3.org/1999/xlink" schemaLocation="http://www.w3.org/1999/xlink.xsd"/>
-
     <element name="EarthObservation" type="nrb:EarthObservationType" substitutionGroup="sar:EarthObservation">
         <annotation>
-			<documentation>eop root element for NRB SAR Earth Observation Product</documentation>
-		</annotation>
+            <documentation>eop root element for NRB SAR Earth Observation Product</documentation>
+        </annotation>
     </element>
     <complexType name="EarthObservationType">
-		<complexContent>
-			<extension base="sar:EarthObservationType"/>
-		</complexContent>
+        <complexContent>
+            <extension base="sar:EarthObservationType"/>
+        </complexContent>
     </complexType>
     <complexType name="EarthObservationPropertyType">
-		<sequence minOccurs="1" maxOccurs="1">
-			<element ref="nrb:EarthObservation"/>
-		</sequence>
-		<attributeGroup ref="gml:AssociationAttributeGroup"/>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+        <sequence minOccurs="1" maxOccurs="1">
+            <element ref="nrb:EarthObservation"/>
+        </sequence>
+        <attributeGroup ref="gml:AssociationAttributeGroup"/>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="Platform" type="nrb:PlatformType" substitutionGroup="eop:Platform">
-		<annotation>
-			<documentation>Extends eop Platform for NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Extends eop Platform for NRB products</documentation>
+        </annotation>
+    </element>
     <complexType name="PlatformType">
         <complexContent>
             <extension base="eop:PlatformType">
@@ -48,28 +46,27 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="string">
-				                    <attribute ref="xlink:href" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="string">
+                                    <attribute ref="xlink:href" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                 </sequence>
             </extension>
         </complexContent>
     </complexType>
-	<complexType name="PlatformPropertyType">
-		<sequence>
-			<element ref="nrb:Platform"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+    <complexType name="PlatformPropertyType">
+        <sequence>
+            <element ref="nrb:Platform"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="Sensor" type="nrb:SensorType" substitutionGroup="eop:Sensor">
-		<annotation>
-			<documentation>Extends eop Sensor for NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Extends eop Sensor for NRB products</documentation>
+        </annotation>
+    </element>
     <simpleType name="radarCenterFrequencyBase">
         <restriction base="double">
             <enumeration value="5.405e+09"/>
@@ -107,28 +104,27 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="string">
-				                    <attribute ref="xlink:href" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="string">
+                                    <attribute ref="xlink:href" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                 </sequence>
             </extension>
         </complexContent>
     </complexType>
-	<complexType name="SensorPropertyType">
-		<sequence>
-			<element ref="nrb:Sensor"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+    <complexType name="SensorPropertyType">
+        <sequence>
+            <element ref="nrb:Sensor"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="Acquisition" type="nrb:AcquisitionType" substitutionGroup="eop:Acquisition">
-		<annotation>
-			<documentation>Extends sar Acquisition for NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Extends sar Acquisition for NRB products</documentation>
+        </annotation>
+    </element>
     <simpleType name="orbitMeanAltitudeBase">
         <restriction base="double">
             <enumeration value="6.93e+05"/>
@@ -164,41 +160,39 @@
             </extension>
         </complexContent>
     </complexType>
-	<complexType name="AcquisitionPropertyType">
-		<sequence>
-			<element ref="nrb:Acquisition"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+    <complexType name="AcquisitionPropertyType">
+        <sequence>
+            <element ref="nrb:Acquisition"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="ProductInformation" type="nrb:ProductInformationType" substitutionGroup="eop:ProductInformation">
-		<annotation>
-			<documentation>Extends eop Product Information for sar NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Extends eop Product Information for sar NRB products</documentation>
+        </annotation>
+    </element>
     <complexType name="ProductInformationType">
         <complexContent>
             <extension base="eop:ProductInformationType"/>
         </complexContent>
     </complexType>
     <complexType name="ProductInformationPropertyType">
-		<sequence>
-			<element ref="nrb:ProductInformation"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
-	<element name="EarthObservationMetaData" type="nrb:EarthObservationMetaDataType" substitutionGroup="eop:EarthObservationMetaData">
-		<annotation>
-			<documentation>Extends eop Earth Observation Metadata for sar NRB products</documentation>
-		</annotation>
-	</element>
+        <sequence>
+            <element ref="nrb:ProductInformation"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
+    <element name="EarthObservationMetaData" type="nrb:EarthObservationMetaDataType" substitutionGroup="eop:EarthObservationMetaData">
+        <annotation>
+            <documentation>Extends eop Earth Observation Metadata for sar NRB products</documentation>
+        </annotation>
+    </element>
     <simpleType name="productTypeBase">
         <restriction base="string">
             <enumeration value="SLC"/>
         </restriction>
     </simpleType>
-	<complexType name="EarthObservationMetaDataType">
+    <complexType name="EarthObservationMetaDataType">
         <complexContent>
             <extension base="eop:EarthObservationMetaDataType">
                 <sequence>
@@ -259,8 +253,8 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -268,8 +262,8 @@
                                             </restriction>
                                         </simpleType>
                                     </attribute>
-			                    </extension>
-		                    </simpleContent>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="rangeResolution" minOccurs="1" maxOccurs="6">
@@ -278,8 +272,8 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -287,8 +281,8 @@
                                             </restriction>
                                         </simpleType>
                                     </attribute>
-			                    </extension>
-		                    </simpleContent>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="azimuthPixelSpacing" minOccurs="1" maxOccurs="1">
@@ -297,10 +291,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="rangePixelSpacing" minOccurs="1" maxOccurs="1">
@@ -309,10 +303,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="performance" type="nrb:PerformanceIndicatorsPropertyType" minOccurs="1" maxOccurs="1"/>
@@ -322,10 +316,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="string">
-				                    <attribute ref="xlink:href" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="string">
+                                    <attribute ref="xlink:href" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="meanFaradayRotationAngle" minOccurs="1" maxOccurs="1">
@@ -334,10 +328,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="referenceFaradayRotation" minOccurs="1" maxOccurs="1">
@@ -346,10 +340,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="string">
-				                    <attribute ref="xlink:href" use="required"/>
-			                    </extension>
-		                    </simpleContent>
+                                <extension base="string">
+                                    <attribute ref="xlink:href" use="required"/>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="ionosphereIndicator" type="boolean" minOccurs="1" maxOccurs="1">
@@ -361,18 +355,17 @@
             </extension>
         </complexContent>
     </complexType>
-	<complexType name="EarthObservationMetaDataPropertyType">
-		<sequence>
-			<element ref="nrb:EarthObservationMetaData"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+    <complexType name="EarthObservationMetaDataPropertyType">
+        <sequence>
+            <element ref="nrb:EarthObservationMetaData"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="ProcessingInformation" type="nrb:ProcessingInformationType" substitutionGroup="eop:ProcessingInformation">
-		<annotation>
-			<documentation>Extends eop Processing Information for sar NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Extends eop Processing Information for sar NRB products</documentation>
+        </annotation>
+    </element>
     <simpleType name="orbitStateVectorBase">
         <restriction base="string">
             <pattern value="S1.*\.EOF"/>
@@ -428,8 +421,8 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -437,8 +430,8 @@
                                             </restriction>
                                         </simpleType>
                                     </attribute>
-			                    </extension>
-		                    </simpleContent>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="rangeLookBandwidth" minOccurs="1" maxOccurs="6">
@@ -447,8 +440,8 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-			                    <extension base="float">
-				                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="float">
+                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -456,8 +449,8 @@
                                             </restriction>
                                         </simpleType>
                                     </attribute>
-			                    </extension>
-		                    </simpleContent>
+                                </extension>
+                            </simpleContent>
                         </complexType>
                     </element>
                     <element name="lutApplied" type="string" minOccurs="1" maxOccurs="1">
@@ -469,18 +462,17 @@
             </extension>
         </complexContent>
     </complexType>
-	<complexType name="ProcessingInformationPropertyType">
-		<sequence>
-			<element ref="nrb:ProcessingInformation"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
-
+    <complexType name="ProcessingInformationPropertyType">
+        <sequence>
+            <element ref="nrb:ProcessingInformation"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
     <element name="PerformanceIndicators" type="nrb:PerformanceIndicatorsType">
-		<annotation>
-			<documentation>Performance Indicator Information for sar NRB products</documentation>
-		</annotation>
-	</element>
+        <annotation>
+            <documentation>Performance Indicator Information for sar NRB products</documentation>
+        </annotation>
+    </element>
     <simpleType name="noiseEquivalentIntensityTypeBase">
         <restriction base="string">
             <enumeration value="sigma0"/>
@@ -566,10 +558,10 @@
             </element>
         </sequence>
     </complexType>
-	<complexType name="PerformanceIndicatorsPropertyType">
-		<sequence>
-			<element ref="nrb:PerformanceIndicators"/>
-		</sequence>
-		<attributeGroup ref="gml:OwnershipAttributeGroup"/>
-	</complexType>
+    <complexType name="PerformanceIndicatorsPropertyType">
+        <sequence>
+            <element ref="nrb:PerformanceIndicators"/>
+        </sequence>
+        <attributeGroup ref="gml:OwnershipAttributeGroup"/>
+    </complexType>
 </schema>
