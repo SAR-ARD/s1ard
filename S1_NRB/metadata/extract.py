@@ -485,7 +485,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     dem_ref = DEM_MAP[config['dem_type']]['ref']
     dem_type = DEM_MAP[config['dem_type']]['type']
     egm_ref = DEM_MAP[config['dem_type']]['egm']
-    dem_name = config['dem_type'].removesuffix(' II')
+    dem_name = config['dem_type'].replace(' II', '')
     
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
