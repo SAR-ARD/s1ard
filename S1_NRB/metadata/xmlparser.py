@@ -39,7 +39,10 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     earthObservationEquipment = eo_equipment
     
     platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform', nsmap))
-    platform1 = etree.SubElement(platform0, _nsc('nrb:Platform', nsmap))
+    if prod:
+        platform1 = etree.SubElement(platform0, _nsc('eop:Platform', nsmap))
+    else:
+        platform1 = etree.SubElement(platform0, _nsc('nrb:Platform', nsmap))
     shortName = etree.SubElement(platform1, _nsc('eop:shortName', nsmap))
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier', nsmap))
@@ -284,13 +287,6 @@ def product_xml(meta, target, tifs, nsmap):
     acquisitionType.text = meta['prod']['acquisitionType']
     status = etree.SubElement(earthObservationMetaData, _nsc('eop:status', nsmap))
     status.text = meta['prod']['status']
-    productType = etree.SubElement(earthObservationMetaData, _nsc('nrb:productType', nsmap),
-                                   attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
-    productType.text = meta['prod']['productName-short']
-    refDoc = etree.SubElement(earthObservationMetaData, _nsc('nrb:refDoc', nsmap),
-                              attrib={'name': meta['prod']['productName'],
-                                      'version': meta['prod']['card4l-version'],
-                                      _nsc('xlink:href', nsmap): meta['prod']['card4l-link']})
     
     processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing', nsmap))
     processingInformation = etree.SubElement(processing, _nsc('nrb:ProcessingInformation', nsmap))
@@ -303,11 +299,11 @@ def product_xml(meta, target, tifs, nsmap):
     processorName.text = meta['prod']['processorName']
     processorVersion = etree.SubElement(processingInformation, _nsc('eop:processorVersion', nsmap))
     processorVersion.text = meta['prod']['processorVersion']
-    processingLevel = etree.SubElement(processingInformation, _nsc('eop:processingLevel', nsmap))
-    processingLevel.text = meta['common']['processingLevel']
     processingMode = etree.SubElement(processingInformation, _nsc('eop:processingMode', nsmap),
                                       attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     processingMode.text = meta['prod']['processingMode']
+    processingLevel = etree.SubElement(processingInformation, _nsc('nrb:processingLevel', nsmap))
+    processingLevel.text = meta['common']['processingLevel']
     for src in list(meta['source'].keys()):
         src_path = '{}.xml'.format(os.path.basename(meta['source'][src]['filename']).split('.')[0])
         src_target = os.path.join('./source', src_path).replace('\\', '/')
@@ -341,6 +337,13 @@ def product_xml(meta, target, tifs, nsmap):
     egmResamplingMethod = etree.SubElement(processingInformation, _nsc('nrb:EGMResamplingMethod', nsmap))
     egmResamplingMethod.text = meta['prod']['demEGMResamplingMethod'].upper()
     
+    productType = etree.SubElement(earthObservationMetaData, _nsc('nrb:productType', nsmap),
+                                   attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
+    productType.text = meta['prod']['productName-short']
+    refDoc = etree.SubElement(earthObservationMetaData, _nsc('nrb:refDoc', nsmap),
+                              attrib={'name': meta['prod']['productName'],
+                                      'version': meta['prod']['card4l-version'],
+                                      _nsc('xlink:href', nsmap): meta['prod']['card4l-link']})
     radiometricAccuracyRelative = etree.SubElement(earthObservationMetaData,
                                                    _nsc('nrb:radiometricAccuracyRelative', nsmap), attrib={'uom': 'dB'})
     radiometricAccuracyRelative.text = meta['prod']['radiometricAccuracyRelative']
@@ -542,10 +545,10 @@ def source_xml(meta, target, nsmap):
         processorName.text = meta['source'][uid]['processorName']
         processorVersion = etree.SubElement(processingInformation, _nsc('eop:processorVersion', nsmap))
         processorVersion.text = meta['source'][uid]['processorVersion']
-        processingLevel = etree.SubElement(processingInformation, _nsc('eop:processingLevel', nsmap))
-        processingLevel.text = meta['common']['processingLevel']
         processingMode = etree.SubElement(processingInformation, _nsc('eop:processingMode', nsmap))
         processingMode.text = meta['source'][uid]['processingMode']
+        processingLevel = etree.SubElement(processingInformation, _nsc('nrb:processingLevel', nsmap))
+        processingLevel.text = meta['common']['processingLevel']
         orbitDataSource = etree.SubElement(processingInformation, _nsc('nrb:orbitDataSource', nsmap))
         orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
         orbitStateVector = etree.SubElement(processingInformation, _nsc('nrb:orbitStateVector', nsmap),
