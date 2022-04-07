@@ -370,7 +370,7 @@ def main(config_file, section_name, debug=False):
     aoi_tiles = list(geo_dict.keys())
     aoi_tiles.remove('align')
     
-    epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys())])
+    epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys()) if tile != 'align'])
     if len(epsg_set) != 1:
         raise RuntimeError('The AOI covers multiple UTM zones: {}\n '
                            'This is currently not supported. '
