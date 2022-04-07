@@ -348,12 +348,9 @@ def main(config_file, section_name, debug=False):
         nrb_flag = False
     elif config['mode'] == 'nrb':
         snap_flag = False
-    
     ####################################################################################################################
     # archive / scene selection
     scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
-    if not os.path.isfile(config['db_file']):
-        config['db_file'] = os.path.join(config['work_dir'], config['db_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
@@ -363,12 +360,10 @@ def main(config_file, section_name, debug=False):
     ids = identify_many(selection)
     
     if len(selection) == 0:
-        raise RuntimeError("No scenes could be found for acquisition mode '{acq_mode}', mindate '{mindate}' "
-                           "and maxdate '{maxdate}' in directory '{scene_dir}'.".format(acq_mode=config['acq_mode'],
-                                                                                        mindate=config['mindate'],
-                                                                                        maxdate=config['maxdate'],
-                                                                                        scene_dir=config['scene_dir']))
-    
+        message = "No scenes could be found for acquisition mode '{acq_mode}', " \
+                  "mindate '{mindate}' and maxdate '{maxdate}' in directory '{scene_dir}'."
+        raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
+                                          maxdate=config['maxdate'], scene_dir=config['scene_dir']))
     ####################################################################################################################
     # general setup
     geo_dict = tile_ex.get_tile_dict(config=config, spacing=geocode_prms['spacing'])
