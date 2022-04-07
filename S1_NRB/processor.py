@@ -440,7 +440,7 @@ def main(config_file, section_name, debug=False):
             for s, scenes in enumerate(selection_grouped):
                 if isinstance(scenes, str):
                     scenes = [scenes]
-                print('###### [NRB] Tile {t}/{t_total}: {tile} | '
+                print('###### [    NRB] Tile {t}/{t_total}: {tile} | '
                       'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
                                                                scenes=[os.path.basename(s) for s in scenes],
                                                                s=s + 1, s_total=len(selection_grouped)))
