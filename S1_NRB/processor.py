@@ -2,7 +2,6 @@ import os
 import re
 import time
 import tempfile
-from getpass import getpass
 from datetime import datetime, timezone
 from lxml import etree
 import numpy as np
@@ -13,11 +12,11 @@ from spatialist.auxil import gdalwarp, gdalbuildvrt
 from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
-from pyroSAR.auxdata import dem_autoload, dem_create
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
 from S1_NRB import etad
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
+from S1_NRB import dem
 from S1_NRB.metadata import extract, xmlparser, stacparser
 from S1_NRB.metadata.mapping import ITEM_MAP
 
@@ -288,97 +287,6 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
 
 
-def prepare_dem(geometries, config, threads, spacing, epsg=None):
-    """
-    Downloads and prepares the chosen DEM for the NRB processing workflow.
-    
-    Parameters
-    ----------
-    geometries: list[spatialist.vector.Vector]
-        A list of vector objects defining the area(s) of interest.
-        DEMs will be created for each overlapping MGRS tile.
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
-    threads: int
-        The number of threads to pass to `pyroSAR.auxdata.dem_create`.
-    spacing: int
-        The target resolution to pass to `pyroSAR.auxdata.dem_create`.
-    epsg: int, optional
-        The CRS used for the NRB product; provided as an EPSG code.
-    
-    Returns
-    -------
-    dem_names: list[list[str]]
-        List of lists containing paths to DEM tiles for each scene to be processed.
-    """
-    if config['dem_type'] == 'GETASSE30':
-        geoid = 'WGS84'
-    else:
-        geoid = 'EGM2008'
-    
-    buffer = 1.5  # degrees to ensure full coverage of all overlapping MGRS tiles
-    tr = spacing
-    wbm_dems = ['Copernicus 10m EEA DEM',
-                'Copernicus 30m Global DEM II']
-    wbm_dir = os.path.join(config['wbm_dir'], config['dem_type'])
-    dem_dir = os.path.join(config['dem_dir'], config['dem_type'])
-    username = None
-    password = None
-    
-    max_ext = ancil.get_max_ext(geometries=geometries, buffer=buffer)
-    ext_id = ancil.generate_unique_id(encoded_str=str(max_ext).encode())
-    
-    fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
-    fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
-    if config['dem_type'] in wbm_dems:
-        if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
-            username = input('Please enter your DEM access username:')
-            password = getpass('Please enter your DEM access password:')
-        os.makedirs(wbm_dir, exist_ok=True)
-        if not os.path.isfile(fname_wbm_tmp):
-            dem_autoload(geometries, demType=config['dem_type'],
-                         vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
-                         username=username, password=password,
-                         nodata=1, hide_nodata=True)
-    os.makedirs(dem_dir, exist_ok=True)
-    if not os.path.isfile(fname_dem_tmp):
-        dem_autoload(geometries, demType=config['dem_type'],
-                     vrt=fname_dem_tmp, buffer=buffer, product='dem',
-                     username=username, password=password)
-    
-    dem_names = []
-    for geo in geometries:
-        dem_names_scene = []
-        tiles = tile_ex.tiles_from_aoi(vectorobject=geo, kml=config['kml_file'],
-                                       epsg=epsg, strict=False)
-        print('### creating DEM tiles: \n{tiles}'.format(tiles=tiles))
-        for i, tilename in enumerate(tiles):
-            dem_tile = os.path.join(dem_dir, '{}_DEM.tif'.format(tilename))
-            dem_names_scene.append(dem_tile)
-            if not os.path.isfile(dem_tile):
-                with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
-                    epsg_tile = tile.getProjection('epsg')
-                    ext = tile.extent
-                    bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-                    dem_create(src=fname_dem_tmp, dst=dem_tile, t_srs=epsg_tile, tr=(tr, tr),
-                               geoid_convert=True, geoid=geoid, pbar=True,
-                               outputBounds=bounds, threads=threads)
-        if os.path.isfile(fname_wbm_tmp):
-            print('### creating WBM tiles: \n{tiles}'.format(tiles=tiles))
-            for i, tilename in enumerate(tiles):
-                wbm_tile = os.path.join(wbm_dir, '{}_WBM.tif'.format(tilename))
-                if not os.path.isfile(wbm_tile):
-                    with tile_ex.extract_tile(config['kml_file'], tilename) as tile:
-                        epsg_tile = tile.getProjection('epsg')
-                        ext = tile.extent
-                        bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
-                        dem_create(src=fname_wbm_tmp, dst=wbm_tile, t_srs=epsg_tile, tr=(tr, tr),
-                                   resampling_method='mode', pbar=True,
-                                   outputBounds=bounds, threads=threads)
-        dem_names.append(dem_names_scene)
-    return dem_names
-
-
 def main(config_file, section_name, debug=False):
     config = get_config(config_file=config_file, section_name=section_name)
     log = ancil.set_logging(config=config, debug=debug)
@@ -413,37 +321,32 @@ def main(config_file, section_name, debug=False):
                                                                                         scene_dir=config['scene_dir']))
     
     ####################################################################################################################
-    # geometry and DEM handling
+    # general setup
     geo_dict, align_dict = tile_ex.main(config=config, spacing=geocode_prms['spacing'])
     aoi_tiles = list(geo_dict.keys())
     
     epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys())])
     if len(epsg_set) != 1:
         raise RuntimeError('The AOI covers multiple UTM zones: {}\n '
-                           'This is currently not supported. Please refine your AOI.'.format(list(epsg_set)))
+                           'This is currently not supported. '
+                           'Please refine your AOI.'.format(list(epsg_set)))
     epsg = epsg_set.pop()
     
-    if snap_flag:
-        boxes = [i.bbox() for i in ids]
-        dem_names = prepare_dem(geometries=boxes, config=config, threads=gdal_prms['threads'],
-                                epsg=epsg, spacing=geocode_prms['spacing'])
-        del boxes  # make sure all bounding box Vector objects are deleted
-        
-        if config['dem_type'] == 'Copernicus 30m Global DEM':
-            ex_dem_nodata = -99
-        else:
-            ex_dem_nodata = None
-    
-    ####################################################################################################################
-    # SNAP RTC processing
     np_dict = {'sigma0': 'NESZ', 'beta0': 'NEBZ', 'gamma0': 'NEGZ'}
     np_refarea = 'sigma0'
-    
+    ####################################################################################################################
+    # DEM download and MGRS-tiling
+    geometries = [scene.bbox() for scene in ids]
+    dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
+                epsg=epsg, spacing=geocode_prms['spacing'],
+                dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
+                dem_type=config['dem_type'], kml_file=config['kml_file'])
+    del geometries
+    ####################################################################################################################
+    # SNAP RTC processing
     if snap_flag:
         for i, scene in enumerate(ids):
             ###############################################
-            # DEM preparation
-            dem_buffer = 200  # meters
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
@@ -451,18 +354,19 @@ def main(config_file, section_name, debug=False):
             tmp_dir_scene_epsg = os.path.join(tmp_dir_scene, str(epsg))
             os.makedirs(out_dir_scene_epsg, exist_ok=True)
             os.makedirs(tmp_dir_scene_epsg, exist_ok=True)
-            fname_dem = os.path.join(tmp_dir_scene_epsg, scene.outname_base() + '_DEM_{}.tif'.format(epsg))
-            if not os.path.isfile(fname_dem):
-                with scene.geometry() as footprint:
-                    footprint.reproject(epsg)
-                    extent = footprint.extent
-                    extent['xmin'] -= dem_buffer
-                    extent['ymin'] -= dem_buffer
-                    extent['xmax'] += dem_buffer
-                    extent['ymax'] += dem_buffer
-                    with bbox(extent, epsg) as dem_box:
-                        with Raster(dem_names[i], list_separate=False)[dem_box] as dem_mosaic:
-                            dem_mosaic.write(fname_dem, format='GTiff')
+            fname_dem = os.path.join(tmp_dir_scene_epsg,
+                                     scene.outname_base() + '_DEM_{}.tif'.format(epsg))
+            ###############################################
+            # scene-specific DEM preparation
+            with scene.bbox() as geometry:
+                dem.mosaic(geometry, outname=fname_dem, epsg=epsg,
+                           dem_type=config['dem_type'], kml_file=config['kml_file'],
+                           dem_dir=config['dem_dir'])
+            
+            if config['dem_type'] == 'Copernicus 30m Global DEM':
+                ex_dem_nodata = -99
+            else:
+                ex_dem_nodata = None
             ###############################################
             # ETAD correction
             if config['etad']:
