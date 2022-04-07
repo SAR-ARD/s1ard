@@ -17,6 +17,7 @@ from pyroSAR import identify, identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 from pyroSAR.auxdata import dem_autoload, dem_create
+import S1_NRB
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
@@ -289,6 +290,13 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
                              proc_time=proc_time, start=product_start, stop=product_stop, compression=compress)
     xmlparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
     stacparser.main(meta=meta, target=nrbdir, tifs=nrb_tifs)
+    
+    schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
+    schemas = [os.path.join(schema_dir, schema) for schema in os.listdir(schema_dir)]
+    support_dir = os.path.join(nrbdir, 'support')
+    os.makedirs(support_dir, exist_ok=True)
+    for schema in schemas:
+        shutil.copy(schema, support_dir)
 
 
 def prepare_dem(geometries, config, threads, spacing, epsg=None):
