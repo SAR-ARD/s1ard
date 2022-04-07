@@ -340,6 +340,10 @@ def product_xml(meta, target, tifs, nsmap):
     productType = etree.SubElement(earthObservationMetaData, _nsc('nrb:productType', nsmap),
                                    attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     productType.text = meta['prod']['productName-short']
+    azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks', nsmap))
+    azimuthNumberOfLooks.text = meta['prod']['azimuthNumberOfLooks']
+    rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeNumberOfLooks', nsmap))
+    rangeNumberOfLooks.text = meta['prod']['rangeNumberOfLooks']
     refDoc = etree.SubElement(earthObservationMetaData, _nsc('nrb:refDoc', nsmap),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],
@@ -373,10 +377,6 @@ def product_xml(meta, target, tifs, nsmap):
     geoCorrAccuracy_rRMSE.text = meta['prod']['geoCorrAccuracy_rRMSE']
     geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyReference', nsmap),
                                                 attrib={_nsc('xlink:href', nsmap): meta['prod']['geoCorrAccuracyReference']})
-    azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks', nsmap))
-    azimuthNumberOfLooks.text = meta['prod']['azimuthNumberOfLooks']
-    rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeNumberOfLooks', nsmap))
-    rangeNumberOfLooks.text = meta['prod']['rangeNumberOfLooks']
     numLines = etree.SubElement(earthObservationMetaData, _nsc('nrb:numLines', nsmap))
     numLines.text = meta['prod']['numLines']
     numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('nrb:numPixelsPerLine', nsmap))

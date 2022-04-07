@@ -309,6 +309,28 @@
                             </simpleContent>
                         </complexType>
                     </element>
+                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
+                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
+                        <annotation>
+                            <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
+                        </annotation>
+                        <simpleType>
+                            <restriction base="integer">
+                                <minInclusive value="0"/>
+                                <maxInclusive value="100"/>
+                            </restriction>
+                        </simpleType>
+                    </element>
                     <element name="refDoc" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Reference to the implemented CARD4L Normalised Radar Backscatter specification (PDF).</documentation>
@@ -399,28 +421,6 @@
                                 </extension>
                             </simpleContent>
                         </complexType>
-                    </element>
-                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
-                        <annotation>
-                            <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
-                        </annotation>
-                        <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
-                                <maxInclusive value="100"/>
-                            </restriction>
-                        </simpleType>
-                    </element>
-                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
-                        <annotation>
-                            <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
-                        </annotation>
-                        <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
-                                <maxInclusive value="100"/>
-                            </restriction>
-                        </simpleType>
                     </element>
                     <element name="numLines" type="integer" minOccurs="1" maxOccurs="1">
                         <annotation>
