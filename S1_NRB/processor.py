@@ -98,7 +98,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     os.makedirs(nrb_dir, exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
-    write_options_base = ['BLOCKSIZE={}', 'OVERVIEW_RESAMPLING={}'.format(blocksize, ovr_resampling)]
+    write_options_base = ['BLOCKSIZE={}'.format(blocksize), 'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
     write_options = dict()
     for key in ITEM_MAP:
         write_options[key] = write_options_base.copy()
@@ -178,6 +178,7 @@ def nrb_processing(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None
     t = proc_time.isoformat().encode()
     product_id = ancil.generate_unique_id(encoded_str=t)
     nrb_dir_new = nrb_dir.replace('ABCD', product_id)
+    nrb_tifs = [tif.replace(nrb_dir, nrb_dir_new) for tif in nrb_tifs]
     os.rename(nrb_dir, nrb_dir_new)
     nrb_dir = nrb_dir_new
     
