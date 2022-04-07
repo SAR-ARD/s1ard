@@ -175,3 +175,18 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     """
     logger.info(header)
+
+
+def log(handler, mode, proc_step, scenes, epsg, msg):
+    """Helper function to format and handle log messages during processing."""
+    proc_step = proc_step.zfill(7).replace('0', ' ')
+    message = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'
+    message = message.format(proc_step=proc_step, scenes=scenes, epsg=epsg, msg=msg)
+    if mode == 'info':
+        handler.info(message)
+    elif mode == 'warning':
+        handler.warning(message)
+    elif mode == 'exception':
+        handler.exception(message)
+    else:
+        raise RuntimeError('log mode {} is not supported'.format(mode))

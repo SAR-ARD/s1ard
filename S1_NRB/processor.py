@@ -7,7 +7,7 @@ from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds
 from S1_NRB import etad, dem, nrb
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
-import S1_NRB.ancillary as ancil
+from S1_NRB.ancillary import set_logging, log
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -15,7 +15,7 @@ gdal.UseExceptions()
 
 def main(config_file, section_name, debug=False):
     config = get_config(config_file=config_file, section_name=section_name)
-    log = ancil.set_logging(config=config, debug=debug)
+    logger = set_logging(config=config, debug=debug)
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
@@ -95,7 +95,7 @@ def main(config_file, section_name, debug=False):
                 print('###### [   ETAD] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                              scene=scene.scene))
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
-                                     out_dir=tmp_dir_scene, log=log)
+                                     out_dir=tmp_dir_scene, log=logger)
             ###############################################
             list_processed = finder(out_dir_scene_epsg, ['*'])
             exclude = list(np_dict.values())
@@ -109,17 +109,17 @@ def main(config_file, section_name, debug=False):
                             standardGridOriginY=geo_dict['align']['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
                     t = round((time.time() - start_time), 2)
-                    _log(handler=log, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
+                    log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
                     if t <= 500:
                         msg = 'Processing might have terminated prematurely. Check terminal for uncaught SNAP errors!'
-                        _log(handler=log, mode='warning', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
+                        log(handler=logger, mode='warning', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
                 except Exception as e:
-                    _log(handler=log, mode='exception', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=e)
+                    log(handler=logger, mode='exception', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=e)
                     continue
             else:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                _log(handler=log, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
+                log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
             ###############################################
             print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
@@ -136,15 +136,15 @@ def main(config_file, section_name, debug=False):
                                 clean_edges=geocode_prms['clean_edges'],
                                 clean_edges_npixels=geocode_prms['clean_edges_npixels'],
                                 rlks=geocode_prms['rlks'], azlks=geocode_prms['azlks'])
-                    _log(handler=log, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg,
+                    log(handler=logger, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg,
                          msg=round((time.time() - start_time), 2))
                 except Exception as e:
-                    _log(handler=log, mode='exception', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=e)
+                    log(handler=logger, mode='exception', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=e)
                     continue
             else:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                _log(handler=log, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=msg)
+                log(handler=logger, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=msg)
     
     ####################################################################################################################
     # NRB - final product generation
@@ -169,25 +169,10 @@ def main(config_file, section_name, debug=False):
                     nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
                                tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                multithread=gdal_prms['multithread'])
-                    _log(handler=log, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg,
+                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg,
                          msg=round((time.time() - start_time), 2))
                 except Exception as e:
-                    _log(handler=log, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
+                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
                     continue
         
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
-
-
-def _log(handler, mode, proc_step, scenes, epsg, msg):
-    """Helper function to format and handle log messages during processing."""
-    proc_step = proc_step.zfill(7).replace('0', ' ')
-    message = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'
-    log = message.format(proc_step=proc_step, scenes=scenes, epsg=epsg, msg=msg)
-    if mode == 'info':
-        handler.info(log)
-    elif mode == 'warning':
-        handler.warning(log)
-    elif mode == 'exception':
-        handler.exception(log)
-    else:
-        raise RuntimeError('log mode {} is not supported'.format(mode))
