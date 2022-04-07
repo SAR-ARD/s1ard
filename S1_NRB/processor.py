@@ -1,10 +1,7 @@
-import shutil
-
 import os
 import re
 import time
 import tempfile
-import tarfile as tf
 from datetime import datetime, timezone
 from lxml import etree
 import numpy as np
@@ -12,16 +9,16 @@ from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
 from spatialist.ancillary import finder
 from spatialist.auxil import gdalwarp, gdalbuildvrt
-from pyroSAR import identify, identify_many, Archive
+from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
+from S1_NRB import etad
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB import dem
 from S1_NRB.metadata import extract, xmlparser, stacparser
 from S1_NRB.metadata.mapping import ITEM_MAP
-from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
 
 gdal.UseExceptions()
 
@@ -375,44 +372,8 @@ def main(config_file, section_name, debug=False):
             if config['etad']:
                 print('###### [   ETAD] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                              scene=scene.scene))
-                slc_corrected_dir = os.path.join(tmp_dir_scene, 'SLC_etad')
-                os.makedirs(slc_corrected_dir, exist_ok=True)
-                slc_base = os.path.basename(scene.scene).replace('.zip', '.SAFE')
-                slc_corrected = os.path.join(slc_corrected_dir, slc_base)
-                if not os.path.isdir(slc_corrected):
-                    start_time = time.time()
-                    acqtime = re.findall('[0-9T]{15}', os.path.basename(scene.scene))
-                    result = finder(config['etad_dir'], ['_'.join(acqtime)], regex=True)
-                    try:
-                        if len(result) == 0:
-                            raise RuntimeError('cannot find ETAD product for scene {}'.format(scene.scene))
-                        
-                        if result[0].endswith('.tar'):
-                            etad_base = os.path.basename(result[0]).replace('.tar', '.SAFE')
-                            etad = os.path.join(tmp_dir_scene, etad_base)
-                            if not os.path.isdir(etad):
-                                archive = tf.open(result[0], 'r')
-                                archive.extractall(tmp_dir_scene)
-                                archive.close()
-                        elif result[0].endswith('SAFE'):
-                            etad = result[0]
-                        else:
-                            raise RuntimeError('ETAD products are required to be .tar archives or .SAFE folders')
-                        scene.unpack(os.path.join(tmp_dir_scene, 'SLC_original'), exist_ok=True)
-                        s1etad_slc_correct_main(s1_product=scene.scene,
-                                                etad_product=etad,
-                                                outdir=slc_corrected_dir,
-                                                nthreads=2)
-                        shutil.rmtree(os.path.join(tmp_dir_scene, 'SLC_original'))
-                        t = round((time.time() - start_time), 2)
-                        log.info('[   ETAD] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
-                    except Exception as e:
-                        log.error('[   ETAD] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
-                        continue
-                else:
-                    msg = 'Already processed - Skip!'
-                    print('### ' + msg)
-                scene = identify(slc_corrected)
+                scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
+                                     out_dir=tmp_dir_scene, log=log)
             ###############################################
             list_processed = finder(out_dir_scene_epsg, ['*'])
             exclude = list(np_dict.values())
