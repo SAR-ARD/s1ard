@@ -117,17 +117,10 @@
         <complexContent>
             <extension base="eop:ProductInformationType">
                 <sequence>
-                    <element name="headerSize" minOccurs="0" maxOccurs="unbounded">
+                    <element name="headerSize" type="gml:MeasureType" minOccurs="0" maxOccurs="unbounded">
                         <annotation>
                             <documentation>Header size of the asset in bytes.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="integer">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="byteOrder" minOccurs="0" maxOccurs="unbounded">
                         <annotation>
@@ -241,17 +234,10 @@
                             </simpleContent>
                         </complexType>
                     </element>
-                    <element name="ellipsoidalHeight" minOccurs="0" maxOccurs="1">
+                    <element name="ellipsoidalHeight" type="gml:MeasureType" minOccurs="0" maxOccurs="1">
                         <annotation>
                             <documentation>Mean ellipsoidal height in meters. Only used for the Ellipsoid Incident Angle Image asset.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="creationTime" type="dateTime" minOccurs="0" maxOccurs="2">
                         <annotation>
@@ -294,12 +280,6 @@
     <simpleType name="productTypeBase">
         <restriction base="string">
             <enumeration value="NRB"/>
-        </restriction>
-    </simpleType>
-    <simpleType name="spacingBase">
-        <restriction base="float">
-            <enumeration value="10.0"/>
-            <enumeration value="20.0"/>
         </restriction>
     </simpleType>
     <simpleType name="backscatterConversionEqBase">
@@ -351,29 +331,15 @@
                             </attribute>
                         </complexType>
                     </element>
-                    <element name="radiometricAccuracyRelative" minOccurs="1" maxOccurs="1">
+                    <element name="radiometricAccuracyRelative" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Relative radiometric accuracy in decibels.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="radiometricAccuracyAbsolute" minOccurs="1" maxOccurs="1">
+                    <element name="radiometricAccuracyAbsolute" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Absolute radiometric accuracy in decibels.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="radiometricAccuracyReference" minOccurs="1" maxOccurs="1">
                         <annotation>
@@ -397,65 +363,30 @@
                             </restriction>
                         </simpleType>
                     </element>
-                    <element name="geoCorrAccuracyNorthernSTDev" minOccurs="1" maxOccurs="1">
+                    <element name="geoCorrAccuracyNorthernSTDev" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Geometric accuracy standard deviation in meters (northern / line).</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="geoCorrAccuracyEasternSTDev" minOccurs="1" maxOccurs="1">
+                    <element name="geoCorrAccuracyEasternSTDev" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Geometric accuracy standard deviation in meters (eastern / sample).</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="geoCorrAccuracyNorthernBias" minOccurs="1" maxOccurs="1">
+                    <element name="geoCorrAccuracyNorthernBias" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Geometric accuracy bias in meters (northern / line).</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="geoCorrAccuracyEasternBias" minOccurs="1" maxOccurs="1">
+                    <element name="geoCorrAccuracyEasternBias" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Geometric accuracy bias in meters (eastern / sample).</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="geoCorrAccuracy_rRMSE" minOccurs="1" maxOccurs="1">
+                    <element name="geoCorrAccuracy_rRMSE" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>Geometric accuracy radial RMSE in meters.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="geoCorrAccuracyReference" minOccurs="1" maxOccurs="1">
                         <annotation>
@@ -507,9 +438,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="nrb:spacingBase">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
+                                <restriction base="gml:MeasureType">
+                                    <enumeration value="10.0"/>
+                                    <enumeration value="20.0"/>
+                                </restriction>
                             </simpleContent>
                         </complexType>
                     </element>
@@ -519,9 +451,10 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="nrb:spacingBase">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
+                                <restriction base="gml:MeasureType">
+                                    <enumeration value="10.0"/>
+                                    <enumeration value="20.0"/>
+                                </restriction>
                             </simpleContent>
                         </complexType>
                     </element>

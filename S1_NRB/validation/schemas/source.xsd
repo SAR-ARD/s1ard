@@ -67,11 +67,6 @@
             <documentation>Extends eop Sensor for NRB products</documentation>
         </annotation>
     </element>
-    <simpleType name="radarCenterFrequencyBase">
-        <restriction base="double">
-            <enumeration value="5.405e+09"/>
-        </restriction>
-    </simpleType>
     <complexType name="SensorType">
         <complexContent>
             <extension base="eop:SensorType">
@@ -92,9 +87,9 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="nrb:radarCenterFrequencyBase">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
+                                <restriction base="gml:MeasureType">
+                                    <enumeration value="5.405e+09"/>
+                                </restriction>
                             </simpleContent>
                         </complexType>
                     </element>
@@ -125,11 +120,6 @@
             <documentation>Extends sar Acquisition for NRB products</documentation>
         </annotation>
     </element>
-    <simpleType name="orbitMeanAltitudeBase">
-        <restriction base="double">
-            <enumeration value="6.93e+05"/>
-        </restriction>
-    </simpleType>
     <complexType name="AcquisitionType">
         <complexContent>
             <extension base="sar:AcquisitionType">
@@ -140,9 +130,9 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="nrb:orbitMeanAltitudeBase">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
+                                <restriction base="gml:MeasureType">
+                                    <enumeration value="6.93e+05"/>
+                                </restriction>
                             </simpleContent>
                         </complexType>
                     </element>
@@ -253,8 +243,7 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="gml:MeasureType">
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -272,8 +261,7 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="gml:MeasureType">
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -285,29 +273,15 @@
                             </simpleContent>
                         </complexType>
                     </element>
-                    <element name="azimuthPixelSpacing" minOccurs="1" maxOccurs="1">
+                    <element name="azimuthPixelSpacing" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>The azimuth pixel spacing in meters, which is the distance between adjacent pixels parallel to the flight path.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
-                    <element name="rangePixelSpacing" minOccurs="1" maxOccurs="1">
+                    <element name="rangePixelSpacing" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>The range pixel spacing in meters, which is the distance between adjacent pixels perpendicular to the flight path.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="performance" type="nrb:PerformanceIndicatorsPropertyType" minOccurs="1" maxOccurs="1"/>
                     <element name="polCalMatrices" minOccurs="1" maxOccurs="1">
@@ -322,17 +296,10 @@
                             </simpleContent>
                         </complexType>
                     </element>
-                    <element name="meanFaradayRotationAngle" minOccurs="1" maxOccurs="1">
+                    <element name="meanFaradayRotationAngle" type="gml:AngleType" minOccurs="1" maxOccurs="1">
                         <annotation>
                             <documentation>The mean Faraday rotation angle in degrees estimated from the polarimetric data and/or from models.</documentation>
                         </annotation>
-                        <complexType>
-                            <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                                </extension>
-                            </simpleContent>
-                        </complexType>
                     </element>
                     <element name="referenceFaradayRotation" minOccurs="1" maxOccurs="1">
                         <annotation>
@@ -421,8 +388,7 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="gml:MeasureType">
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -440,8 +406,7 @@
                         </annotation>
                         <complexType>
                             <simpleContent>
-                                <extension base="float">
-                                    <attribute name="uom" type="gml:UomIdentifier" use="required"/>
+                                <extension base="gml:MeasureType">
                                     <attribute name="beam" use="required">
                                         <simpleType>
                                             <restriction base="string">
@@ -532,29 +497,15 @@
                     </restriction>
                 </simpleType>
             </element>
-            <element name="peakSideLobeRatio" minOccurs="1" maxOccurs="1">
+            <element name="peakSideLobeRatio" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                 <annotation>
                     <documentation>Mean Peak Side Lobe Ratio (PSLR) of the source scene in decibels.</documentation>
                 </annotation>
-                <complexType>
-                    <simpleContent>
-                        <extension base="float">
-                            <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                        </extension>
-                    </simpleContent>
-                </complexType>
             </element>
-            <element name="integratedSideLobeRatio" minOccurs="1" maxOccurs="1">
+            <element name="integratedSideLobeRatio" type="gml:MeasureType" minOccurs="1" maxOccurs="1">
                 <annotation>
                     <documentation>Mean Integrated Side Lobe Ratio (ISLR) of the source scene in decibels.</documentation>
                 </annotation>
-                <complexType>
-                    <simpleContent>
-                        <extension base="float">
-                            <attribute name="uom" type="gml:UomIdentifier" use="required"/>
-                        </extension>
-                    </simpleContent>
-                </complexType>
             </element>
         </sequence>
     </complexType>
