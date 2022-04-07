@@ -2,12 +2,12 @@ import os
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import S1_NRB.tile_extraction as tile_ex
-import S1_NRB.ancillary as ancil
+from S1_NRB.ancillary import generate_unique_id
 from spatialist import Raster, bbox
 
 
-def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
-                kml_file, threads, epsg=None, username=None, password=None):
+def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
+            kml_file, threads, epsg=None, username=None, password=None):
     """
     Downloads DEM tiles and restructures them into the MGRS tiling scheme including re-projection
     and vertical datum conversion.
@@ -31,8 +31,8 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     epsg: int, optional
         The CRS used for the NRB product; provided as an EPSG code.
     username: str or None
-        the username for accessing the DEM tiles. If None and access is required for the selected DEM type,
-        the user is prompted interactively to provide credentials.
+        the username for accessing the DEM tiles. If None and authentication is required
+        for the selected DEM type, the user is prompted interactively to provide credentials.
     password: str or None
         the password for accessing the DEM tiles. If None: same behavior as for username.
 
@@ -55,7 +55,7 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     dem_dir = os.path.join(dem_dir, dem_type)
     
     for i, geometry in enumerate(geometries):
-        print('###### [    DEM] processing geometry {0} of {1}'.format(i, len(geometries)))
+        print('###### [    DEM] processing geometry {0} of {1}'.format(i + 1, len(geometries)))
         ###############################################
         tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
                                        epsg=epsg, strict=False)
@@ -70,7 +70,7 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
             continue
         ###############################################
         extent = geometry.extent
-        ext_id = ancil.generate_unique_id(encoded_str=str(extent).encode())
+        ext_id = generate_unique_id(encoded_str=str(extent).encode())
         
         fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
         fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
@@ -111,7 +111,7 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                            outputBounds=bounds, threads=threads)
         if os.path.isfile(fname_wbm_tmp):
             if len(wbm_target.keys()) > 0:
-                print('### creating WBM tiles: \n{tiles}'.format(tiles=list(wbm_target.keys())))
+                print('### creating WBM MGRS tiles: \n{tiles}'.format(tiles=list(wbm_target.keys())))
             for tilename, filename in wbm_target.items():
                 with tile_ex.extract_tile(kml_file, tilename) as tile:
                     epsg_tile = tile.getProjection('epsg')
@@ -124,9 +124,10 @@ def dem_prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                                outputBounds=bounds, threads=threads)
         print('=' * 40)
 
-def dem_mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
+
+def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
     """
-    Create a new mosaic GeoTIFF file from MGRS-tiled DEMs as created by function prepare_dem.
+    Create a new mosaic GeoTIFF file from MGRS-tiled DEMs as created by function dem.prepare.
     
     Parameters
     ----------

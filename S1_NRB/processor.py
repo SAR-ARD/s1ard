@@ -18,7 +18,7 @@ from pyroSAR.ancillary import groupbyTime, seconds, find_datasets
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
 import S1_NRB.ancillary as ancil
 import S1_NRB.tile_extraction as tile_ex
-from S1_NRB.dem import dem_prepare, dem_mosaic
+from S1_NRB import dem
 from S1_NRB.metadata import extract, xmlparser, stacparser
 from S1_NRB.metadata.mapping import ITEM_MAP
 from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
@@ -340,7 +340,7 @@ def main(config_file, section_name, debug=False):
     ####################################################################################################################
     # DEM download and MGRS-tiling
     geometries = [scene.bbox() for scene in ids]
-    dem_prepare(geometries=geometries, threads=gdal_prms['threads'],
+    dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
                 epsg=epsg, spacing=geocode_prms['spacing'],
                 dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
                 dem_type=config['dem_type'], kml_file=config['kml_file'])
@@ -362,7 +362,7 @@ def main(config_file, section_name, debug=False):
             ###############################################
             # scene-specific DEM preparation
             with scene.bbox() as geometry:
-                dem_mosaic(geometry, outname=fname_dem, epsg=epsg,
+                dem.mosaic(geometry, outname=fname_dem, epsg=epsg,
                            dem_type=config['dem_type'], kml_file=config['kml_file'],
                            dem_dir=config['dem_dir'])
             
