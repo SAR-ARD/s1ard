@@ -161,7 +161,7 @@ def etree_from_sid(sid):
     annotation_files = list(filter(re.compile(pols[0]).search, files))
     
     a_files_base = [os.path.basename(a) for a in annotation_files]
-    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]]', a).group().replace('-', '') for a in a_files_base]
+    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]', a).group().replace('-', '') for a in a_files_base]
     
     annotation_dict = {}
     for s, a in zip(swaths, annotation_files):
@@ -236,7 +236,7 @@ def convert_coordinates(coords, stac=False):
         x_c = (xmax + xmin) / 2
         y_c = (ymax + ymin) / 2
         center = '{} {}'.format(y_c, x_c)
-        envelop = '{} {},{} {},{} {},{} {},{} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
+        envelop = '{} {} {} {} {} {} {} {} {} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
         return center, envelop
 
 
@@ -481,12 +481,12 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
-    dem_name = config['dem_type']
-    dem_access = DEM_MAP[dem_name]['access']
-    dem_ref = DEM_MAP[dem_name]['ref']
-    dem_type = DEM_MAP[dem_name]['type']
-    egm_ref = DEM_MAP[dem_name]['egm']
-
+    dem_access = DEM_MAP[config['dem_type']]['access']
+    dem_ref = DEM_MAP[config['dem_type']]['ref']
+    dem_type = DEM_MAP[config['dem_type']]['type']
+    egm_ref = DEM_MAP[config['dem_type']]['egm']
+    dem_name = config['dem_type'].replace(' II', '')
+    
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
@@ -582,7 +582,7 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
-    meta['prod']['status'] = 'PROTOTYPE'
+    meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
     meta['prod']['timeStart'] = datetime.strptime(start, '%Y%m%dT%H%M%S')
     meta['prod']['timeStop'] = datetime.strptime(stop, '%Y%m%dT%H%M%S')
@@ -657,10 +657,8 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
         meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
-        meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['site']}, " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['country']}"
+        meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']} " \
+                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}".replace(' -', '')
         meta['source'][uid]['processingDate'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['stop']
         meta['source'][uid]['processingLevel'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['name']
         meta['source'][uid]['processorName'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['name']
@@ -674,12 +672,12 @@ def meta_dict(config, target, src_scenes, snap_files, proc_time, start, stop, co
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
+        meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
                                                                            .find('.//s1:stopTimeANX', nsmap).text))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest']
                                                                       .find('.//s1:startTimeANX', nsmap).text))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['swaths'] = swaths
     
     return meta
