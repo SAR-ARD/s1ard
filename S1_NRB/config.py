@@ -39,7 +39,6 @@ def get_config(config_file, section_name='GENERAL'):
         v = _val_cleanup(v)
         if v in ['None', 'none', '']:
             v = None
-        
         if k == 'mode':
             allowed = ['nrb', 'snap', 'all']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
@@ -68,6 +67,9 @@ def get_config(config_file, section_name='GENERAL'):
             else:
                 v = os.path.join(parser_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+        if k == 'db_file':
+            if not any(x in v for x in ['/', '\\']):
+                v = os.path.join(parser_sec['work_dir'], v)
         if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
