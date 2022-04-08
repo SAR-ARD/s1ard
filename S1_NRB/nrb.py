@@ -503,6 +503,9 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         color = etree.Element('ColorInterp')
         color.text = col
         band.insert(0, color)
+    for i, band in enumerate(bands):
+        if i in [0, 1]:
+            band.remove(band.find('NoDataValue'))
     
     ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': overview_resampling.lower()})
     ovr.text = ov
