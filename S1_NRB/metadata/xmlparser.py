@@ -328,11 +328,11 @@ def product_xml(meta, target, tifs, nsmap):
             sampleType = etree.SubElement(productInformation, _nsc('nrb:sampleType', nsmap),
                                           attrib={'uom': SAMPLE_MAP[key]['unit']})
             sampleType.text = SAMPLE_MAP[key]['type']
-
-        if key == '-ei.tif':
-            ellipsoidalHeight = etree.SubElement(productInformation, _nsc('nrb:ellipsoidalHeight', nsmap),
-                                                 attrib={'uom': 'm'})
-            ellipsoidalHeight.text = meta['prod']['ellipsoidalHeight']
+            
+            if key == '-ei.tif':
+                ellipsoidalHeight = etree.SubElement(productInformation, _nsc('nrb:ellipsoidalHeight', nsmap),
+                                                     attrib={'uom': 'm'})
+                ellipsoidalHeight.text = meta['prod']['ellipsoidalHeight']
         
         if 'measurement' in tif:
             creationTime = etree.SubElement(productInformation, _nsc('nrb:creationTime', nsmap))
