@@ -4,7 +4,6 @@ from math import isclose
 from lxml import etree
 from datetime import datetime
 import numpy as np
-from pyroSAR import identify
 from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
 from spatialist.ancillary import finder
