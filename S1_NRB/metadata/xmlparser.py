@@ -13,20 +13,58 @@ def _nsc(text, nsmap):
     return '{{{0}}}{1}'.format(nsmap[ns], key)
 
 
-def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
+def om_time(root, nsmap, scene_id, time_start, time_stop):
     """
-    Adds common (source & product) XML subelements to the `om:procedure/eop:earthObservationEquipment` element.
+    Creates the `om:phenomenonTime` and `om:resultTime` XML elements.
     
     Parameters
     ----------
-    eo_equipment: etree.Element
-        `eop:earthObservationEquipment` XML subelement of `om:procedure`, which is one of the main properties of the
-        root XML element.
+    root: etree.Element
+        Root XML element.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    scene_id: str
+        Scene basename.
+    time_start: str
+        Start time of the scene acquisition.
+    time_stop: str
+        Stop time of the acquisition.
+    
+    Returns
+    -------
+    None
+    """
+    phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime', nsmap))
+    timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod', nsmap),
+                                  attrib={_nsc('gml:id', nsmap): scene_id + '_2'})
+    beginPosition = etree.SubElement(timePeriod, _nsc('gml:beginPosition', nsmap))
+    beginPosition.text = time_start
+    endPosition = etree.SubElement(timePeriod, _nsc('gml:endPosition', nsmap))
+    endPosition.text = time_stop
+    
+    resultTime = etree.SubElement(root, _nsc('om:resultTime', nsmap))
+    timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant', nsmap),
+                                   attrib={_nsc('gml:id', nsmap): scene_id + '_3'})
+    timePosition = etree.SubElement(timeInstant, _nsc('gml:timePosition', nsmap))
+    timePosition.text = time_stop
+
+
+def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
+    """
+    Creates the `om:procedure/eop:EarthObservationEquipment` XML elements and all relevant subelements for source and
+    product metadata. Differences between source and product are controlled using the `prod=[True|False]` switch.
+    
+    Parameters
+    ----------
+    root: etree.Element
+        Root XML element.
+    nsmap: dict
+        Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    scene_id: str
+        Scene basename.
     meta: dict
         Metadata dictionary generated with `metadata.extract.meta_dict`
-    uid: str
+    uid: str, optional
         Unique identifier of a source SLC scene.
     prod: bool, optional
         Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
@@ -34,10 +72,13 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     
     Returns
     -------
-    etree.Element
+    None
     """
-    earthObservationEquipment = eo_equipment
+    procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
+    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
+                                                 attrib={_nsc('gml:id', nsmap): scene_id + '_4'})
     
+    # eop:platform
     platform0 = etree.SubElement(earthObservationEquipment, _nsc('eop:platform', nsmap))
     if prod:
         platform1 = etree.SubElement(platform0, _nsc('eop:Platform', nsmap))
@@ -47,12 +88,17 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier', nsmap))
     serialIdentifier.text = meta['common']['platformIdentifier']
+    if not prod:
+        satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference', nsmap),
+                                        attrib={_nsc('xlink:href', nsmap): meta['common']['platformReference']})
     
+    # eop:instrument
     instrument0 = etree.SubElement(earthObservationEquipment, _nsc('eop:instrument', nsmap))
     instrument1 = etree.SubElement(instrument0, _nsc('eop:Instrument', nsmap))
     shortName = etree.SubElement(instrument1, _nsc('eop:shortName', nsmap))
     shortName.text = meta['common']['instrumentShortName']
     
+    # eop:sensor
     sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor', nsmap))
     sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor', nsmap))
     sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType', nsmap))
@@ -65,7 +111,14 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     swathIdentifier.text = meta['common']['swathIdentifier']
     radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand', nsmap))
     radarBand.text = meta['common']['radarBand']
+    if not prod:
+        radarCenterFreq = etree.SubElement(sensor1, _nsc('nrb:radarCenterFrequency', nsmap),
+                                           attrib={'uom': 'Hz'})
+        radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
+        sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration', nsmap),
+                                             attrib={_nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
     
+    # eop:acquisitionParameters
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
     acquisition = etree.SubElement(acquisitionParameters, _nsc('nrb:Acquisition', nsmap))
     orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
@@ -75,7 +128,7 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid', nsmap),
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
     wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
-    if not prod and uid is not None:
+    if not prod:
         ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
         ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate']
         startTimeFromAscendingNode = etree.SubElement(acquisition, _nsc('eop:startTimeFromAscendingNode', nsmap),
@@ -92,11 +145,67 @@ def _common_procedure_elements(eo_equipment, nsmap, meta, uid=None, prod=True):
     polarisationMode.text = meta['common']['polarisationMode']
     polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels', nsmap))
     polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
-    
     if prod:
-        return acquisition
+        numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions', nsmap))
+        numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
     else:
-        return platform1, sensor1, acquisition
+        antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection', nsmap))
+        antennaLookDirection.text = meta['common']['antennaLookDirection']
+        minimumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:minimumIncidenceAngle', nsmap),
+                                                 attrib={'uom': 'deg'})
+        minimumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMin'])
+        maximumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:maximumIncidenceAngle', nsmap),
+                                                 attrib={'uom': 'deg'})
+        maximumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMax'])
+        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude', nsmap),
+                                             attrib={'uom': 'm'})
+        orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
+        dataTakeID = etree.SubElement(acquisition, _nsc('nrb:dataTakeID', nsmap))
+        dataTakeID.text = meta['source'][uid]['datatakeID']
+        majorCycleID = etree.SubElement(acquisition, _nsc('nrb:majorCycleID', nsmap))
+        majorCycleID.text = meta['source'][uid]['majorCycleID']
+
+
+def om_feature_of_interest(root, nsmap, scene_id, extent, center):
+    """
+    Creates the `om:featureOfInterest` XML elements.
+    
+    Parameters
+    ----------
+    root: etree.Element
+        Root XML element.
+    nsmap: dict
+        Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    scene_id: str
+        Scene basename.
+    extent: str
+        Footprint coordinates of the scene.
+    center: str
+        Center coordinates of the footprint.
+    
+    Returns
+    -------
+    None
+    """
+    featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest', nsmap))
+    footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint', nsmap),
+                                 attrib={_nsc('gml:id', nsmap): scene_id + '_5'})
+    
+    multiExtentOf = etree.SubElement(footprint, _nsc('eop:multiExtentOf', nsmap))
+    multiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface', nsmap),
+                                    attrib={_nsc('gml:id', nsmap): scene_id + '_6'})
+    surfaceMember = etree.SubElement(multiSurface, _nsc('gml:surfaceMember', nsmap))
+    polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon', nsmap),
+                               attrib={_nsc('gml:id', nsmap): scene_id + '_7'})
+    exterior = etree.SubElement(polygon, _nsc('gml:exterior', nsmap))
+    linearRing = etree.SubElement(exterior, _nsc('gml:LinearRing', nsmap))
+    posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap))
+    posList.text = extent
+    
+    centerOf = etree.SubElement(footprint, _nsc('eop:centerOf', nsmap))
+    point = etree.SubElement(centerOf, _nsc('gml:Point', nsmap), attrib={_nsc('gml:id', nsmap): scene_id + '_8'})
+    pos = etree.SubElement(point, _nsc('gml:pos', nsmap))
+    pos.text = center
 
 
 def product_xml(meta, target, tifs, nsmap):
@@ -127,55 +236,13 @@ def product_xml(meta, target, tifs, nsmap):
     
     root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
-    
-    ####################################################################################################################
-    phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime', nsmap))
-    timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod', nsmap),
-                                  attrib={_nsc('gml:id', nsmap): scene_id + '_2'})
-    beginPosition = etree.SubElement(timePeriod, _nsc('gml:beginPosition', nsmap))
-    beginPosition.text = timeStart
-    endPosition = etree.SubElement(timePeriod, _nsc('gml:endPosition', nsmap))
-    endPosition.text = timeStop
-    
-    resultTime = etree.SubElement(root, _nsc('om:resultTime', nsmap))
-    timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant', nsmap),
-                                   attrib={_nsc('gml:id', nsmap): scene_id + '_3'})
-    timePosition = etree.SubElement(timeInstant, _nsc('gml:timePosition', nsmap))
-    timePosition.text = timeStop
-    
-    ####################################################################################################################
-    procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
-    earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
-                                                 attrib={_nsc('gml:id', nsmap): scene_id + '_4'})
-    acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment, nsmap=nsmap, meta=meta, prod=True)
-    
-    numberOfAcquisitions = etree.SubElement(acquisition, _nsc('nrb:numberOfAcquisitions', nsmap))
-    numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
-    
-    ####################################################################################################################
+    om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
+    om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
     observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                         attrib={'nilReason': 'inapplicable'})
-    
-    ####################################################################################################################
-    featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest', nsmap))
-    footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint', nsmap),
-                                 attrib={_nsc('gml:id', nsmap): scene_id + '_5'})
-    
-    multiExtentOf = etree.SubElement(footprint, _nsc('eop:multiExtentOf', nsmap))
-    multiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface', nsmap),
-                                    attrib={_nsc('gml:id', nsmap): scene_id + '_6'})
-    surfaceMember = etree.SubElement(multiSurface, _nsc('gml:surfaceMember', nsmap))
-    polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon', nsmap),
-                               attrib={_nsc('gml:id', nsmap): scene_id + '_7'})
-    exterior = etree.SubElement(polygon, _nsc('gml:exterior', nsmap))
-    linearRing = etree.SubElement(exterior, _nsc('gml:LinearRing', nsmap))
-    posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap))
-    posList.text = meta['prod']['geom_xml_envelope']
-    
-    centerOf = etree.SubElement(footprint, _nsc('eop:centerOf', nsmap))
-    point = etree.SubElement(centerOf, _nsc('gml:Point', nsmap), attrib={_nsc('gml:id', nsmap): scene_id + '_8'})
-    pos = etree.SubElement(point, _nsc('gml:pos', nsmap))
-    pos.text = meta['prod']['geom_xml_center']
+    om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
+                           extent=meta['prod']['geom_xml_envelope'],
+                           center=meta['prod']['geom_xml_center'])
     
     ####################################################################################################################
     result = etree.SubElement(root, _nsc('om:result', nsmap))
@@ -439,76 +506,13 @@ def source_xml(meta, target, nsmap):
         
         root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
-        
-        ################################################################################################################
-        phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime', nsmap))
-        timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod', nsmap),
-                                      attrib={_nsc('gml:id', nsmap): scene + '_2'})
-        beginPosition = etree.SubElement(timePeriod, _nsc('gml:beginPosition', nsmap))
-        beginPosition.text = timeStart
-        endPosition = etree.SubElement(timePeriod, _nsc('gml:endPosition', nsmap))
-        endPosition.text = timeStop
-        
-        resultTime = etree.SubElement(root, _nsc('om:resultTime', nsmap))
-        timeInstant = etree.SubElement(resultTime, _nsc('gml:TimeInstant', nsmap),
-                                       attrib={_nsc('gml:id', nsmap): scene + '_3'})
-        timePosition = etree.SubElement(timeInstant, _nsc('gml:timePosition', nsmap))
-        timePosition.text = timeStop
-        
-        ################################################################################################################
-        procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
-        earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
-                                                     attrib={_nsc('gml:id', nsmap): scene + '_4'})
-        platform1, sensor1, acquisition = _common_procedure_elements(eo_equipment=earthObservationEquipment,
-                                                                     nsmap=nsmap, meta=meta, uid=uid, prod=False)
-        
-        satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference', nsmap),
-                                        attrib={_nsc('xlink:href', nsmap): meta['common']['platformReference']})
-        radarCenterFreq = etree.SubElement(sensor1, _nsc('nrb:radarCenterFrequency', nsmap),
-                                           attrib={'uom': 'Hz'})
-        radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
-        sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration', nsmap),
-                                             attrib={_nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
-        antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection', nsmap))
-        antennaLookDirection.text = meta['common']['antennaLookDirection']
-        minimumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:minimumIncidenceAngle', nsmap),
-                                                 attrib={'uom': 'deg'})
-        minimumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMin'])
-        maximumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:maximumIncidenceAngle', nsmap),
-                                                 attrib={'uom': 'deg'})
-        maximumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMax'])
-        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('nrb:orbitMeanAltitude', nsmap),
-                                             attrib={'uom': 'm'})
-        orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
-        dataTakeID = etree.SubElement(acquisition, _nsc('nrb:dataTakeID', nsmap))
-        dataTakeID.text = meta['source'][uid]['datatakeID']
-        majorCycleID = etree.SubElement(acquisition, _nsc('nrb:majorCycleID', nsmap))
-        majorCycleID.text = meta['source'][uid]['majorCycleID']
-        
-        ################################################################################################################
+        om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
+        om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
-        
-        ################################################################################################################
-        featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest', nsmap))
-        footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint', nsmap),
-                                     attrib={_nsc('gml:id', nsmap): scene + '_5'})
-        
-        multiExtentOf = etree.SubElement(footprint, _nsc('eop:multiExtentOf', nsmap))
-        multiSurface = etree.SubElement(multiExtentOf, _nsc('gml:MultiSurface', nsmap),
-                                        attrib={_nsc('gml:id', nsmap): scene + '_6'})
-        surfaceMember = etree.SubElement(multiSurface, _nsc('gml:surfaceMember', nsmap))
-        polygon = etree.SubElement(surfaceMember, _nsc('gml:Polygon', nsmap),
-                                   attrib={_nsc('gml:id', nsmap): scene + '_7'})
-        exterior = etree.SubElement(polygon, _nsc('gml:exterior', nsmap))
-        linearRing = etree.SubElement(exterior, _nsc('gml:LinearRing', nsmap))
-        posList = etree.SubElement(linearRing, _nsc('gml:posList', nsmap))
-        posList.text = meta['source'][uid]['geom_xml_envelop']
-        
-        centerOf = etree.SubElement(footprint, _nsc('eop:centerOf', nsmap))
-        point = etree.SubElement(centerOf, _nsc('gml:Point', nsmap), attrib={_nsc('gml:id', nsmap): scene + '_8'})
-        pos = etree.SubElement(point, _nsc('gml:pos', nsmap))
-        pos.text = meta['source'][uid]['geom_xml_center']
+        om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
+                               extent=meta['source'][uid]['geom_xml_envelop'],
+                               center=meta['source'][uid]['geom_xml_center'])
         
         ################################################################################################################
         result = etree.SubElement(root, _nsc('om:result', nsmap))
