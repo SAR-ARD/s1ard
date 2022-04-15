@@ -55,7 +55,10 @@ def get_config(config_file, section_name='GENERAL'):
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
             assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
-        if k.endswith('_dir') and not k == 'work_dir':
+        dir_ignore = ['work_dir']
+        if parser_sec['etad'] == 'False':
+            dir_ignore.append('etad_dir')
+        if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
