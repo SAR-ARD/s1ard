@@ -97,6 +97,16 @@ def main(config_file, section_name, debug=False):
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
                                      out_dir=tmp_dir_scene, log=logger)
             ###############################################
+            if scene.product == 'SLC':
+                rlks = {'IW': 5,
+                        'SM': 6,
+                        'EW': 3}[config['acq_mode']]
+                azlks = {'IW': 1,
+                         'SM': 6,
+                         'EW': 1}[config['acq_mode']]
+            else:
+                rlks = azlks = None
+            ###############################################
             list_processed = finder(out_dir_scene_epsg, ['*'])
             exclude = list(np_dict.values())
             print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
@@ -107,7 +117,8 @@ def main(config_file, section_name, debug=False):
                     geocode(infile=scene, outdir=out_dir_scene_epsg, t_srs=epsg, tmpdir=tmp_dir_scene_epsg,
                             standardGridOriginX=geo_dict['align']['xmax'],
                             standardGridOriginY=geo_dict['align']['ymin'],
-                            externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, **geocode_prms)
+                            externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata,
+                            rlks=rlks, azlks=azlks, **geocode_prms)
                     t = round((time.time() - start_time), 2)
                     log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
                     if t <= 500:
@@ -135,9 +146,9 @@ def main(config_file, section_name, debug=False):
                                 standardGridOriginY=geo_dict['align']['ymin'],
                                 clean_edges=geocode_prms['clean_edges'],
                                 clean_edges_npixels=geocode_prms['clean_edges_npixels'],
-                                rlks=geocode_prms['rlks'], azlks=geocode_prms['azlks'])
+                                rlks=rlks, azlks=rlks)
                     log(handler=logger, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg,
-                         msg=round((time.time() - start_time), 2))
+                        msg=round((time.time() - start_time), 2))
                 except Exception as e:
                     log(handler=logger, mode='exception', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=e)
                     continue
@@ -170,7 +181,7 @@ def main(config_file, section_name, debug=False):
                                tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
                                multithread=gdal_prms['multithread'])
                     log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg,
-                         msg=round((time.time() - start_time), 2))
+                        msg=round((time.time() - start_time), 2))
                 except Exception as e:
                     log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
                     continue

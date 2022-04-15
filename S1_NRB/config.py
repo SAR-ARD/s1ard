@@ -159,13 +159,7 @@ def geocode_conf(config):
             'clean_edges': True,
             'clean_edges_npixels': 4,
             'test': False,
-            'cleanup': True,
-            'rlks': {'IW': 5,
-                     'SM': 6,
-                     'EW': 3}[config['acq_mode']],
-            'azlks': {'IW': 1,
-                      'SM': 6,
-                      'EW': 1}[config['acq_mode']]}
+            'cleanup': True}
 
 
 def gdal_conf(config):
