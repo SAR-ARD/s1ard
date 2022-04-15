@@ -60,9 +60,8 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
-        srcvec = None
     
-    pat = 'S1[AB]__(IW|EW|S[1-6]{1})___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
+    pat = 'S1[AB]__(IW|EW|SM)___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
     wf_path = finder(snap_outdir, [pat], regex=True)[0]
     wf = parse_recipe(wf_path)
     out['ML_nRgLooks'] = wf['Multilook'].parameters['nRgLooks']
@@ -629,10 +628,16 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
+        if len(np_files) > 0:
+            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
+            meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
+        else:
+            stats = {stat: None for stat in ['minimum', 'mean', 'maximum']}
+            pe = {pol: stats for pol in meta['common']['polarisationChannels']}
+            meta['source'][uid]['perfEstimates'] = pe
+            meta['source'][uid]['perfNoiseEquivalentIntensityType'] = None
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
-        meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
         meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
         meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']} " \
