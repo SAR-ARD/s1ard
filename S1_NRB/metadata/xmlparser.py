@@ -208,7 +208,7 @@ def om_feature_of_interest(root, nsmap, scene_id, extent, center):
     pos.text = center
 
 
-def product_xml(meta, target, tifs, nsmap):
+def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -222,6 +222,8 @@ def product_xml(meta, target, tifs, nsmap):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    exist_ok: bool
+        do not create the file of it already exists?
     
     Returns
     -------
@@ -229,6 +231,8 @@ def product_xml(meta, target, tifs, nsmap):
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
+    if os.path.isfile(outname) and exist_ok:
+        return
     print(outname)
     timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -477,7 +481,7 @@ def product_xml(meta, target, tifs, nsmap):
     tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def source_xml(meta, target, nsmap):
+def source_xml(meta, target, nsmap, exist_ok=False):
     """
     Function to generate source-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -489,6 +493,8 @@ def source_xml(meta, target, nsmap):
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    exist_ok: bool
+        do not create the file(s) of it already exists?
     
     Returns
     -------
@@ -500,6 +506,8 @@ def source_xml(meta, target, nsmap):
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.xml'.format(scene))
+        if os.path.isfile(outname) and exist_ok:
+            continue
         print(outname)
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -635,7 +643,7 @@ def source_xml(meta, target, nsmap):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def main(meta, target, tifs):
+def main(meta, target, tifs, exist_ok=False):
     """
     Wrapper for `source_xml` and `product_xml`.
     
@@ -647,6 +655,8 @@ def main(meta, target, tifs):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
+    exist_ok: bool
+        do not create the file of it already exists?
     
     Returns
     -------
@@ -657,5 +667,5 @@ def main(meta, target, tifs):
     NS_MAP_prod['nrb'] = NS_MAP['nrb']['product']
     NS_MAP_src['nrb'] = NS_MAP['nrb']['source']
     
-    source_xml(meta=meta, target=target, nsmap=NS_MAP_src)
-    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod)
+    source_xml(meta=meta, target=target, nsmap=NS_MAP_src, exist_ok=exist_ok)
+    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod, exist_ok=exist_ok)
