@@ -42,38 +42,6 @@ ITEM_MAP = {'VV_gamma0': {'suffix': 'vv-g-lin',
             'HV_NESZ': {'suffix': 'np-hv',
                         'z_error': 2e-5}}
 
-# Source data resolution
-# https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
-RES_MAP = {'IW': {'azimuthResolution': {'IW1': '22.5',
-                                        'IW2': '22.7',
-                                        'IW3': '22.6'},
-                  'rangeResolution': {'IW1': '2.7',
-                                      'IW2': '3.1',
-                                      'IW3': '3.5'}},
-           'EW': {'azimuthResolution': {'EW1': '43.7',
-                                        'EW2': '44.3',
-                                        'EW3': '45.2',
-                                        'EW4': '45.6',
-                                        'EW5': '44.0'},
-                  'rangeResolution': {'EW1': '7.9',
-                                      'EW2': '9.9',
-                                      'EW3': '11.6',
-                                      'EW4': '13.3',
-                                      'EW5': '14.4'}},
-           'SM': {'azimuthResolution': {'S1': '4.9',
-                                        'S2': '4.9',
-                                        'S3': '4.9',
-                                        'S4': '4.9',
-                                        'S5': '3.9',
-                                        'S6': '4.9'},
-                  'rangeResolution': {'S1': '1.7',
-                                      'S2': '2.0',
-                                      'S3': '2.5',
-                                      'S4': '3.3',
-                                      'S5': '3.3',
-                                      'S6': '3.6'}}
-           }
-
 ORB_MAP = {'PREORB': 'predicted',
            'RESORB': 'restituted',
            'POEORB': 'precise'}

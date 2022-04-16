@@ -11,7 +11,7 @@ from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, ORB_MAP, DEM_MAP
 
 gdal.UseExceptions()
 
@@ -231,14 +231,15 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
     out_type: str, optional
         Output type to convert the results to. Can be one of the following:
-        str (default)
-        float
-        int
+        
+        - str (default)
+        - float
+        - int
     
     Returns
     -------
     out: dict
-        A dict of the results containing a list for each of the annotation files.
+        A dictionary of the results containing a list for each of the annotation files.
         I.e., {'swath ID': list[str, float or int]}
     """
     if out_type is None:
@@ -418,9 +419,9 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     config: dict
         Dictionary of the parsed config parameters for the current process.
     target: str
-        A path pointing to the root directory of a product scene.
+        A path pointing to the NRB product scene being created.
     src_ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+        List of `pyroSAR.driver.ID` objects of all source scenes that overlap with the current MGRS tile.
     snap_datasets: list[str]
         List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
         with the current MGRS tile.
@@ -481,8 +482,10 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
                                                         meta['common']['platformIdentifier'].lower())
-    meta['common']['platformReference'] = {'sentinel-1a': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
-                                           'sentinel-1b': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=576'}[meta['common']['platformFullname']]
+    meta['common']['platformReference'] = \
+        {'sentinel-1a': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
+         'sentinel-1b': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=576'}[
+            meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
     meta['common']['polarisationMode'] = prod_meta['pols'][0]
     meta['common']['processingLevel'] = 'L1C'
@@ -495,7 +498,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
-    meta['prod']['ancillaryData_KML'] = 'https://sentinels.copernicus.eu/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    meta['prod'][
+        'ancillaryData_KML'] = 'https://sentinels.copernicus.eu/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
@@ -528,7 +532,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['geoCorrAccuracy_rRMSE'] = None
     meta['prod']['geoCorrAccuracyReference'] = 'https://www.mdpi.com/2072-4292/9/6/607'
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
-    meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
+    meta['prod'][
+        'geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
     meta['prod']['geom_stac_bbox_4326'] = stac_bbox
@@ -577,24 +582,31 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         stac_bbox, stac_geometry = convert_coordinates(coords=coords, stac=True)
         
         az_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                               pattern='.//azimuthProcessing/lookBandwidth', out_type='float')
+                                               pattern='.//azimuthProcessing/lookBandwidth',
+                                               out_type='float')
         az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//azimuthProcessing/numberOfLooks', single=True)
+                                          pattern='.//azimuthProcessing/numberOfLooks',
+                                          single=True)
         az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                            pattern='.//azimuthPixelSpacing', out_type='float')
         inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                 pattern='.//geolocationGridPoint/incidenceAngle', out_type='float')
+                                 pattern='.//geolocationGridPoint/incidenceAngle',
+                                 out_type='float')
         inc_vals = list(inc.values())
         lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                          pattern='.//applicationLutId', single=True)
         pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
         np_files = [ds for ds in snap_datasets if re.search('_NE[BGS]Z', ds) is not None]
         rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                               pattern='.//rangeProcessing/lookBandwidth', out_type='float')
+                                               pattern='.//rangeProcessing/lookBandwidth',
+                                               out_type='float')
         rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//rangeProcessing/numberOfLooks', single=True)
-        rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'], pattern='.//rangePixelSpacing',
+                                          pattern='.//rangeProcessing/numberOfLooks',
+                                          single=True)
+        rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                           pattern='.//rangePixelSpacing',
                                            out_type='float')
+        res_rg, res_az = src_sid[uid].resolution()
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
@@ -605,10 +617,11 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
                                                          len(list(az_px_spacing.values())))
-        meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
+        meta['source'][uid]['azimuthResolution'] = str(res_az)
         meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = src_xml[uid]['manifest'].find('.//s1sarl1:missionDataTakeID', nsmap).text
-        meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
+        url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
+        meta['source'][uid]['doi'] = url
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
         meta['source'][uid]['filename'] = src_sid[uid].file
@@ -652,8 +665,9 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = str(sum(list(rg_px_spacing.values())) /
                                                        len(list(rg_px_spacing.values())))
-        meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
-        meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
+        meta['source'][uid]['rangeResolution'] = str(res_rg)
+        url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
+        meta['source'][uid]['sensorCalibration'] = url
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
