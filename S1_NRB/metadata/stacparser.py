@@ -1,5 +1,6 @@
 import os
 import re
+from statistics import mean, median
 from copy import deepcopy
 from datetime import datetime
 import pystac
@@ -332,13 +333,13 @@ def source_json(meta, target, exist_ok=False):
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
-                      center_frequency=float(meta['common']['radarCenterFreq']/1e9),
-                      resolution_range=float(min(meta['source'][uid]['rangeResolution'].values())),
-                      resolution_azimuth=float(min(meta['source'][uid]['azimuthResolution'].values())),
-                      pixel_spacing_range=float(meta['source'][uid]['rangePixelSpacing']),
-                      pixel_spacing_azimuth=float(meta['source'][uid]['azimuthPixelSpacing']),
-                      looks_range=int(meta['source'][uid]['rangeNumberOfLooks']),
-                      looks_azimuth=int(meta['source'][uid]['azimuthNumberOfLooks']),
+                      center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
+                      resolution_range=mean(meta['source'][uid]['rangeResolution'].values()),
+                      resolution_azimuth=mean(meta['source'][uid]['azimuthResolution'].values()),
+                      pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
+                      pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
+                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
+                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
                       looks_equivalent_number=float(enl),
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         

@@ -244,35 +244,41 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
     """
     out = {}
     for s, a in annotation_dict.items():
-        out[s] = [x.text for x in a.findall(pattern)]
-        if len(out[s]) == 1:
-            out[s] = out[s][0]
+        swaths = [x.text for x in a.findall('.//swathProcParams/swath')]
+        items = a.findall(pattern)
+        
+        parent = items[0].getparent().tag
+        if parent in ['azimuthProcessing', 'rangeProcessing']:
+            for i, val in enumerate(items):
+                out[swaths[i]] = val.text
+        else:
+            out[s] = [x.text for x in items]
+            if len(out[s]) == 1:
+                out[s] = out[s][0]
+    
+    def convert(obj, type):
+        if isinstance(obj, list):
+            return [convert(x, type) for x in obj]
+        elif isinstance(obj, str):
+            if type == 'float':
+                return float(obj)
+            if type == 'int':
+                return int(obj)
     
     if out_type != 'str':
-        for k in list(out.keys()):
-            if isinstance(out[k], list):
-                if out_type == 'float':
-                    out[k] = [float(x) for x in out[k]]
-                elif out_type == 'int':
-                    out[k] = [int(x) for x in out[k]]
-            else:
-                if out_type == 'float':
-                    out[k] = float(out[k])
-                elif out_type == 'int':
-                    out[k] = int(out[k])
+        for k, v in list(out.items()):
+            out[k] = convert(v, out_type)
     
+    err_msg = 'Search result for pattern "{}" expected to be the same in all annotation files.'
     if single:
         val = list(out.values())[0]
         for k in out:
             if out[k] != val:
-                raise RuntimeError('Search result for pattern "{}" expected to be the same in all annotation '
-                                   'files.'.format(pattern))
-        if out_type == 'float':
-            return float(val)
-        elif out_type == 'int':
-            return int(val)
+                raise RuntimeError(err_msg.format(pattern))
+        if out_type != 'str':
+            return convert(val, out_type)
         else:
-            return str(val)
+            return val
     else:
         return out
 
@@ -571,7 +577,14 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     for uid in list(src_sid.keys()):
         nsmap = src_xml[uid]['manifest'].nsmap
         
-        swaths = list(src_xml[uid]['annotation'].keys())
+        swath_ids = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                       pattern='.//swathProcParams/swath')
+        swaths = []
+        for item in swath_ids.values():
+            if isinstance(item, list):
+                swaths.extend(item)
+            else:
+                swaths.append(item)
         osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
         
         coords = src_sid[uid].meta['coordinates']
@@ -582,8 +595,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
                                                pattern='.//azimuthProcessing/lookBandwidth',
                                                out_type='float')
         az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//azimuthProcessing/numberOfLooks',
-                                          single=True)
+                                          pattern='.//azimuthProcessing/numberOfLooks')
         az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                            pattern='.//azimuthPixelSpacing',
                                            out_type='float')
@@ -599,12 +611,10 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
                                                pattern='.//rangeProcessing/lookBandwidth',
                                                out_type='float')
         rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//rangeProcessing/numberOfLooks',
-                                          single=True)
+                                          pattern='.//rangeProcessing/numberOfLooks')
         rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                            pattern='.//rangePixelSpacing',
                                            out_type='float')
-        res_rg, res_az = src_sid[uid].resolution()
         
         def read_manifest(pattern, attrib=None):
             obj = src_xml[uid]['manifest'].find(pattern, nsmap)
@@ -620,10 +630,12 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['ascendingNodeDate'] = read_manifest('.//s1:ascendingNodeTime')
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
-        meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
-                                                         len(list(az_px_spacing.values())))
+        meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
         meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
-        meta['source'][uid]['dataGeometry'] = 'slant range'
+        if src_sid[uid].meta['product'] == 'GRD':
+            meta['source'][uid]['dataGeometry'] = 'ground range'
+        else:
+            meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = read_manifest('.//s1sarl1:missionDataTakeID')
         url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
         meta['source'][uid]['doi'] = url
@@ -669,8 +681,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
-        meta['source'][uid]['rangePixelSpacing'] = str(sum(list(rg_px_spacing.values())) /
-                                                       len(list(rg_px_spacing.values())))
+        meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
         meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['sensorCalibration'] = url

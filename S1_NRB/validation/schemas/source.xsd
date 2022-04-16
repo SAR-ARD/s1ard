@@ -179,6 +179,7 @@
     </element>
     <simpleType name="productTypeBase">
         <restriction base="string">
+            <enumeration value="GRD"/>
             <enumeration value="SLC"/>
         </restriction>
     </simpleType>
@@ -204,7 +205,7 @@
                             </simpleContent>
                         </complexType>
                     </element>
-                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
+                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="5">
                         <annotation>
                             <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
                         </annotation>
@@ -215,7 +216,7 @@
                             </restriction>
                         </simpleType>
                     </element>
-                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
+                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="5">
                         <annotation>
                             <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
                         </annotation>
