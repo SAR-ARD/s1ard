@@ -426,11 +426,11 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     dem_type: str
         The DEM type used for processing.
     proc_time: datetime.datetime
-        The datetime object used to generate the unique product identifier from.
-    start: str
-        The product start time as a string in the format: YYYYmmddTHHMMSS
-    stop: str
-        The product stop time as a string in the format: YYYYmmddTHHMMSS
+        The processing time object used to generate the unique product identifier.
+    start: datetime.datetime
+        The product start time.
+    stop: datetime.datetime
+        The product stop time.
     compression: str
         The compression type applied to raster files of the product.
     
@@ -566,8 +566,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeStart'] = datetime.strptime(start, '%Y%m%dT%H%M%S')
-    meta['prod']['timeStop'] = datetime.strptime(stop, '%Y%m%dT%H%M%S')
+    meta['prod']['timeStart'] = start
+    meta['prod']['timeStop'] = stop
     meta['prod']['transform'] = prod_meta['transform']
     
     # Source metadata
