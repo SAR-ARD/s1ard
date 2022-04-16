@@ -11,7 +11,7 @@ from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, ORB_MAP, DEM_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
 
 gdal.UseExceptions()
 
@@ -585,7 +585,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
                                           pattern='.//azimuthProcessing/numberOfLooks',
                                           single=True)
         az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                           pattern='.//azimuthPixelSpacing', out_type='float')
+                                           pattern='.//azimuthPixelSpacing',
+                                           out_type='float')
         inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                  pattern='.//geolocationGridPoint/incidenceAngle',
                                  out_type='float')
@@ -621,7 +622,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
                                                          len(list(az_px_spacing.values())))
-        meta['source'][uid]['azimuthResolution'] = str(res_az)
+        meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
         meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = read_manifest('.//s1sarl1:missionDataTakeID')
         url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
@@ -670,7 +671,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = str(sum(list(rg_px_spacing.values())) /
                                                        len(list(rg_px_spacing.values())))
-        meta['source'][uid]['rangeResolution'] = str(res_rg)
+        meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
         url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['sensorCalibration'] = url
         meta['source'][uid]['status'] = 'ARCHIVED'
