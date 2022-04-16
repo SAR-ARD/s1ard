@@ -216,7 +216,7 @@ def convert_coordinates(coords, stac=False):
         return center, envelop
 
 
-def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
+def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
     """
     Search for a pattern in all XML annotation files provided and return a dictionary of results.
     
@@ -229,7 +229,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
     single: bool, optional
         If True, the results found in each annotation file are expected to be the same and therefore only a single
         value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
-    out_type: str, optional
+    out_type: str
         Output type to convert the results to. Can be one of the following:
         
         - str (default)
@@ -242,9 +242,6 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type=None):
         A dictionary of the results containing a list for each of the annotation files.
         I.e., {'swath ID': list[str, float or int]}
     """
-    if out_type is None:
-        out_type = 'str'
-    
     out = {}
     for s, a in annotation_dict.items():
         out[s] = [x.text for x in a.findall(pattern)]
