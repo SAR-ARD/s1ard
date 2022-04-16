@@ -137,7 +137,7 @@ def etree_from_sid(sid):
     annotation_files = list(filter(re.compile(pols[0]).search, files))
     
     a_files_base = [os.path.basename(a) for a in annotation_files]
-    swaths = [re.search('-iw[1-3]|-ew[1-5]|-s[1-6]', a).group().replace('-', '') for a in a_files_base]
+    swaths = [re.search('-(iw[1-3]*|ew[1-5]*|s[1-6])', a).group(1) for a in a_files_base]
     
     annotation_dict = {}
     for s, a in zip(swaths, annotation_files):
