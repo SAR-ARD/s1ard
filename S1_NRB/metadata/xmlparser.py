@@ -223,7 +223,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool
-        do not create the file of it already exists?
+        do not create files if they already exist?
     
     Returns
     -------
@@ -494,7 +494,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool
-        do not create the file(s) of it already exists?
+        do not create files if they already exist?
     
     Returns
     -------
@@ -656,7 +656,7 @@ def main(meta, target, tifs, exist_ok=False):
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
     exist_ok: bool
-        do not create the file of it already exists?
+        do not create files if they already exist?
     
     Returns
     -------
