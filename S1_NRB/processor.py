@@ -184,13 +184,13 @@ def main(config_file, section_name, debug=False):
                       'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
                                                                scenes=[os.path.basename(s) for s in scenes],
                                                                s=s + 1, s_total=len(selection_grouped)))
-                start_time = time.time()
                 try:
-                    nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
-                               tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
-                               multithread=gdal_prms['multithread'])
-                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg,
-                        msg=round((time.time() - start_time), 2))
+                    msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
+                                     tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
+                                     multithread=gdal_prms['multithread'])
+                    if msg == 'Already processed - Skip!':
+                        print('### ' + msg)
+                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg, msg=msg)
                 except Exception as e:
                     log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
                     continue
