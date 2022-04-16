@@ -408,7 +408,7 @@ def _get_block_offset(band):
     return 0
 
 
-def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
+def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
@@ -416,8 +416,6 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     
     Parameters
     ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
     target: str
         A path pointing to the NRB product scene being created.
     src_ids: list[ID]
@@ -425,6 +423,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     snap_datasets: list[str]
         List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
         with the current MGRS tile.
+    dem_type: str
+        The DEM type used for processing.
     proc_time: datetime.datetime
         The datetime object used to generate the unique product identifier from.
     start: str
@@ -459,11 +459,11 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
-    dem_access = DEM_MAP[config['dem_type']]['access']
-    dem_ref = DEM_MAP[config['dem_type']]['ref']
-    dem_type = DEM_MAP[config['dem_type']]['type']
-    egm_ref = DEM_MAP[config['dem_type']]['egm']
-    dem_name = config['dem_type'].replace(' II', '')
+    dem_access = DEM_MAP[dem_type]['access']
+    dem_ref = DEM_MAP[dem_type]['ref']
+    dem_subtype = DEM_MAP[dem_type]['type']
+    egm_ref = DEM_MAP[dem_type]['egm']
+    dem_name = dem_type.replace(' II', '')
     
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
@@ -516,7 +516,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['demName'] = dem_name
     meta['prod']['demReference'] = dem_ref
     meta['prod']['demResamplingMethod'] = 'bilinear'
-    meta['prod']['demType'] = dem_type
+    meta['prod']['demType'] = dem_subtype
     meta['prod']['demAccess'] = dem_access
     meta['prod']['doi'] = None
     meta['prod']['ellipsoidalHeight'] = None
