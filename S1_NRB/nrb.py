@@ -576,11 +576,11 @@ def calc_product_start_stop(src_ids, extent, epsg):
         slc_dict[uid]['sid'] = sid
     
     uids = list(slc_dict.keys())
-    swaths = list(slc_dict[uids[0]]['annotation'].keys())
     
     for uid in uids:
         t = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'],
                                pattern='.//geolocationGridPoint/azimuthTime')
+        swaths = t.keys()
         y = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/latitude')
         x = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/longitude')
         t_flat = np.asarray([datetime.fromisoformat(item).timestamp() for sublist in [t[swath] for swath in swaths]
