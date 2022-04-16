@@ -608,18 +608,25 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
                                            out_type='float')
         res_rg, res_az = src_sid[uid].resolution()
         
+        def read_manifest(pattern, attrib=None):
+            obj = src_xml[uid]['manifest'].find(pattern, nsmap)
+            if attrib is not None:
+                return obj.attrib[attrib]
+            else:
+                return obj.text
+        
         # (sorted alphabetically)
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = 'https://scihub.copernicus.eu'
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
-        meta['source'][uid]['ascendingNodeDate'] = src_xml[uid]['manifest'].find('.//s1:ascendingNodeTime', nsmap).text
+        meta['source'][uid]['ascendingNodeDate'] = read_manifest('.//s1:ascendingNodeTime')
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = str(sum(list(az_px_spacing.values())) /
                                                          len(list(az_px_spacing.values())))
         meta['source'][uid]['azimuthResolution'] = str(res_az)
         meta['source'][uid]['dataGeometry'] = 'slant range'
-        meta['source'][uid]['datatakeID'] = src_xml[uid]['manifest'].find('.//s1sarl1:missionDataTakeID', nsmap).text
+        meta['source'][uid]['datatakeID'] = read_manifest('.//s1sarl1:missionDataTakeID')
         url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
         meta['source'][uid]['doi'] = url
         meta['source'][uid]['faradayMeanRotationAngle'] = None
@@ -653,12 +660,13 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
         meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
-        meta['source'][uid]['processingCenter'] = f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['organisation']} " \
-                                                  f"{src_xml[uid]['manifest'].find('.//safe:facility', nsmap).attrib['name']}".replace(' -', '')
-        meta['source'][uid]['processingDate'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['stop']
-        meta['source'][uid]['processingLevel'] = src_xml[uid]['manifest'].find('.//safe:processing', nsmap).attrib['name']
-        meta['source'][uid]['processorName'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['name']
-        meta['source'][uid]['processorVersion'] = src_xml[uid]['manifest'].find('.//safe:software', nsmap).attrib['version']
+        fac_org = read_manifest('.//safe:facility', attrib='organisation')
+        fac_name = read_manifest('.//safe:facility', attrib='name')
+        meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
+        meta['source'][uid]['processingDate'] = read_manifest('.//safe:processing', attrib='stop')
+        meta['source'][uid]['processingLevel'] = read_manifest('.//safe:processing', attrib='name')
+        meta['source'][uid]['processorName'] = read_manifest('.//safe:software', attrib='name')
+        meta['source'][uid]['processorVersion'] = read_manifest('.//safe:software', attrib='version')
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
@@ -670,10 +678,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         meta['source'][uid]['sensorCalibration'] = url
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
-        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(src_xml[uid]['manifest']
-                                                                           .find('.//s1:stopTimeANX', nsmap).text))
-        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(src_xml[uid]['manifest']
-                                                                      .find('.//s1:startTimeANX', nsmap).text))
+        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(read_manifest('.//s1:stopTimeANX')))
+        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(read_manifest('.//s1:startTimeANX')))
         meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
     
