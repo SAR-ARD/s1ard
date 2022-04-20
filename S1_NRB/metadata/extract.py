@@ -62,7 +62,7 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
-    pat = 'S1[AB]__(IW|EW|SM)___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
+    pat = 'S1[AB]__(IW|EW|S[1-6])___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
     wf_path = finder(snap_outdir, [pat], regex=True)
     if len(wf_path) > 0:
         wf = parse_recipe(wf_path[0])
@@ -644,7 +644,14 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
-        meta['source'][uid]['azimuthResolution'] = RES_MAP[meta['common']['operationalMode']]['azimuthResolution']
+        op_mode = meta['common']['operationalMode']
+        if re.search('S[1-6]', op_mode):
+            res_az = {op_mode: RES_MAP['SM']['azimuthResolution'][op_mode]}
+            res_rg = {op_mode: RES_MAP['SM']['rangeResolution'][op_mode]}
+        else:
+            res_az = RES_MAP[op_mode]['azimuthResolution']
+            res_rg = RES_MAP[op_mode]['rangeResolution']
+        meta['source'][uid]['azimuthResolution'] = res_az
         if src_sid[uid].meta['product'] == 'GRD':
             meta['source'][uid]['dataGeometry'] = 'ground range'
         else:
@@ -695,7 +702,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
-        meta['source'][uid]['rangeResolution'] = RES_MAP[meta['common']['operationalMode']]['rangeResolution']
+        meta['source'][uid]['azimuthResolution'] = res_az
+        meta['source'][uid]['rangeResolution'] = res_rg
         url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['sensorCalibration'] = url
         meta['source'][uid]['status'] = 'ARCHIVED'

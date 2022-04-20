@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from osgeo import gdal
 from spatialist.ancillary import finder
@@ -29,10 +30,15 @@ def main(config_file, section_name, debug=False):
     # archive / scene selection
     scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
     
+    if config['acq_mode'] == 'SM':
+        acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
+    else:
+        acq_mode_search = config['acq_mode']
+
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
         selection = archive.select(product=config['product'],
-                                   acquisition_mode=config['acq_mode'],
+                                   acquisition_mode=acq_mode_search,
                                    mindate=config['mindate'], maxdate=config['maxdate'])
     
     if len(selection) == 0:
@@ -111,7 +117,7 @@ def main(config_file, section_name, debug=False):
             # SLC SM noise removal is currently not possible with SNAP
             # see https://forum.step.esa.int/t/stripmap-slc-error-during-thermal-noise-removal/32688
             remove_noise = True
-            if scene.product == 'SLC' and scene.acquisition_mode == 'SM':
+            if scene.product == 'SLC' and re.search('S[1-6]', scene.acquisition_mode):
                 remove_noise = False
             ###############################################
             list_processed = finder(out_dir_scene_epsg, ['*'])
