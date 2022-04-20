@@ -4,6 +4,7 @@ from math import isclose
 from lxml import etree
 from datetime import datetime
 import numpy as np
+from statistics import median
 from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
 from spatialist.ancillary import finder
@@ -62,11 +63,23 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
     pat = 'S1[AB]__(IW|EW|SM)___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
-    wf_path = finder(snap_outdir, [pat], regex=True)[0]
-    wf = parse_recipe(wf_path)
-    out['ML_nRgLooks'] = wf['Multilook'].parameters['nRgLooks']
-    out['ML_nAzLooks'] = wf['Multilook'].parameters['nAzLooks']
+    wf_path = finder(snap_outdir, [pat], regex=True)
+    if len(wf_path) > 0:
+        wf = parse_recipe(wf_path[0])
+        rlks = int(wf['Multilook'].parameters['nRgLooks'])
+        azlks = int(wf['Multilook'].parameters['nAzLooks'])
+    else:
+        rlks = azlks = 1
     
+    src_xml = etree_from_sid(sid=src_ids[0])
+    az_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
+                                      pattern='.//azimuthProcessing/numberOfLooks',
+                                      out_type='int')
+    rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
+                                      pattern='.//rangeProcessing/numberOfLooks',
+                                      out_type='int')
+    out['ML_nRgLooks'] = rlks * median(rg_num_looks.values())
+    out['ML_nAzLooks'] = azlks * median(az_num_looks.values())
     return out
 
 

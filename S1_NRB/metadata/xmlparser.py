@@ -414,9 +414,9 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
                                    attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     productType.text = meta['prod']['productName-short']
     azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks', nsmap))
-    azimuthNumberOfLooks.text = meta['prod']['azimuthNumberOfLooks']
+    azimuthNumberOfLooks.text = str(meta['prod']['azimuthNumberOfLooks'])
     rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeNumberOfLooks', nsmap))
-    rangeNumberOfLooks.text = meta['prod']['rangeNumberOfLooks']
+    rangeNumberOfLooks.text = str(meta['prod']['rangeNumberOfLooks'])
     refDoc = etree.SubElement(earthObservationMetaData, _nsc('nrb:refDoc', nsmap),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],
