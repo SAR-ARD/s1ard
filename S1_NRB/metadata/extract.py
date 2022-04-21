@@ -40,7 +40,7 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
-    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
+    with vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
@@ -71,7 +71,7 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     return out
 
 
-def _vec_from_srccoords(coord_list):
+def vec_from_srccoords(coord_list):
     """
     Creates a single vector object from a list of footprint coordinates of source scenes.
     
