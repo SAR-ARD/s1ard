@@ -314,8 +314,8 @@
                             <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
                         </annotation>
                         <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
+                            <restriction base="float">
+                                <minInclusive value="1"/>
                                 <maxInclusive value="100"/>
                             </restriction>
                         </simpleType>
@@ -325,8 +325,8 @@
                             <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
                         </annotation>
                         <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
+                            <restriction base="float">
+                                <minInclusive value="1"/>
                                 <maxInclusive value="100"/>
                             </restriction>
                         </simpleType>
@@ -604,12 +604,12 @@
                             <documentation>Flag indicating if a speckle filtering algorithm been applied while processing.</documentation>
                         </annotation>
                     </element>
-                    <element name="NRApplied" type="boolean" minOccurs="1" maxOccurs="1">
+                    <element name="NRApplied" type="boolean" minOccurs="0" maxOccurs="1">
                         <annotation>
                             <documentation>Flag indicating if a noise removal (NR) algorithm been applied while processing.</documentation>
                         </annotation>
                     </element>
-                    <element name="NRAlgorithm" minOccurs="1" maxOccurs="1">
+                    <element name="NRAlgorithm" minOccurs="0" maxOccurs="1">
                         <annotation>
                             <documentation>Reference to the noise removal algorithm applied during processing.</documentation>
                         </annotation>
