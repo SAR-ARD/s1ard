@@ -466,9 +466,11 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         src_xml[uid] = etree_from_sid(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
+    ref_tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
+    
     product_id = os.path.basename(target)
-    tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
-    prod_meta = get_prod_meta(product_id=product_id, tif=tif, src_ids=src_ids,
+    prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif, src_ids=src_ids,
                               snap_outdir=os.path.dirname(snap_datasets[0]))
     
     xml_center, xml_envelop = convert_coordinates(coords=prod_meta['extent_4326'])
@@ -560,8 +562,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = None
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
-    meta['prod']['NRApplied'] = True
-    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381'
+    meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
+    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381' if meta['prod']['NRApplied'] else None
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numLines'] = str(prod_meta['rows'])
@@ -679,7 +681,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         if len(np_files) > 0:
-            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=tif)
+            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=ref_tif)
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
         else:
             stats = {stat: None for stat in ['minimum', 'mean', 'maximum']}
