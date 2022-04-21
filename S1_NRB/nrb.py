@@ -16,7 +16,7 @@ from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 from pyroSAR.ancillary import find_datasets
 import S1_NRB
-from S1_NRB.metadata import extract, xmlparser, stacparser
+from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import ITEM_MAP
 from S1_NRB.ancillary import generate_unique_id
 from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
@@ -267,8 +267,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     meta = extract.meta_dict(target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
                              dem_type=config['dem_type'], proc_time=proc_time, start=start,
                              stop=stop, compression=compress)
-    xmlparser.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
-    stacparser.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    xml.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    stac.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
     return str(round((time.time() - start_time), 2))
 
 
