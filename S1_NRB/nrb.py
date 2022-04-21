@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from scipy.interpolate import griddata
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
 from spatialist.auxil import gdalwarp, gdalbuildvrt
+from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 from pyroSAR.ancillary import find_datasets
 import S1_NRB
@@ -59,7 +61,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
 
     Returns
     -------
-    None
+    str
+        either the time spent executing the function in seconds or 'Already processed - Skip!'
     """
     if compress is None:
         compress = 'LERC_ZSTD'
@@ -71,6 +74,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     src_nodata_snap = 0
     dst_nodata = 'nan'
     dst_nodata_mask = 255
+    
+    # determine processing timestamp and generate unique ID
+    start_time = time.time()
+    proc_time = datetime.now(timezone.utc)
+    t = proc_time.isoformat().encode()
+    product_id = generate_unique_id(encoded_str=t)
     
     src_ids, snap_datasets, snap_datamasks = get_datasets(scenes=scenes, datadir=datadir,
                                                           tile=tile, extent=extent, epsg=epsg)
@@ -85,12 +94,21 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
-            'id': 'ABCD'}
+            'id': product_id}
     meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
-    nrb_dir = os.path.join(outdir, skeleton_dir.format(**meta))
+    modify_existing = False
+    nrb_base = skeleton_dir.format(**meta)
+    existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
+    if len(existing) > 0:
+        if not modify_existing:
+            return 'Already processed - Skip!'
+        else:
+            nrb_dir = existing[0]
+    else:
+        nrb_dir = os.path.join(outdir, nrb_base)
     os.makedirs(nrb_dir, exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
@@ -167,16 +185,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
                               'dstNodata': dst_nodata, 'multithread': multithread,
                               'creationOptions': write_options[key]})
-            nrb_tifs.append(outname)
-    
-    # determine processing timestamp, generate unique ID and rename NRB directory accordingly
-    proc_time = datetime.now(timezone.utc)
-    t = proc_time.isoformat().encode()
-    product_id = generate_unique_id(encoded_str=t)
-    nrb_dir_new = nrb_dir.replace('ABCD', product_id)
-    nrb_tifs = [tif.replace(nrb_dir, nrb_dir_new) for tif in nrb_tifs]
-    os.rename(nrb_dir, nrb_dir_new)
-    nrb_dir = nrb_dir_new
+        nrb_tifs.append(outname)
     
     # reformat `snap_datasets` to a flattened list if necessary
     if type(snap_datasets[0]) == tuple:
@@ -193,23 +202,30 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = ref_tif.replace(ref_tif_suffix, '-dm.tif')
-    create_data_mask(outname=dm_path, snap_datamasks=snap_datamasks, snap_datasets=snap_datasets,
-                           extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, dst_nodata=dst_nodata_mask)
+    if not os.path.isfile(dm_path):
+        create_data_mask(outname=dm_path, snap_datamasks=snap_datamasks,
+                         snap_datasets=snap_datasets, extent=extent, epsg=epsg,
+                         driver=driver, creation_opt=write_options['layoverShadowMask'],
+                         overviews=overviews, overview_resampling=ovr_resampling,
+                         wbm=wbm, dst_nodata=dst_nodata_mask)
     nrb_tifs.append(dm_path)
     
     # create acquisition ID image raster (-id.tif)
     id_path = ref_tif.replace(ref_tif_suffix, '-id.tif')
-    create_acq_id_image(outname=id_path, ref_tif=ref_tif, snap_datamasks=snap_datamasks, src_ids=src_ids,
-                              extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
-                              overviews=overviews, dst_nodata=dst_nodata_mask)
+    if not os.path.isfile(id_path):
+        create_acq_id_image(outname=id_path, ref_tif=ref_tif,
+                            snap_datamasks=snap_datamasks, src_ids=src_ids,
+                            extent=extent, epsg=epsg, driver=driver,
+                            creation_opt=write_options['acquisitionImage'],
+                            overviews=overviews, dst_nodata=dst_nodata_mask)
     nrb_tifs.append(id_path)
     
     # create color composite VRT (-cc-g-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
-        create_rgb_vrt(outname=cc_path, infiles=measure_tifs, overviews=overviews,
-                             overview_resampling=ovr_resampling)
+        if not os.path.isfile(cc_path):
+            create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
+                           overviews=overviews, overview_resampling=ovr_resampling)
     
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
     for item in measure_tifs:
@@ -217,7 +233,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
             create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+                       options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     for item in measure_tifs:
@@ -226,13 +243,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul', relpaths=True,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+            create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul',
+                       relpaths=True, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
-            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10',
+                       scale=10, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
@@ -243,10 +262,14 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         shutil.copy(schema, support_dir)
     
     # create metadata files in XML and (STAC) JSON formats
-    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
-                             proc_time=proc_time, start=nrb_start, stop=nrb_stop, compression=compress)
-    xmlparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
-    stacparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
+    start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
+    stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
+    meta = extract.meta_dict(target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
+                             dem_type=config['dem_type'], proc_time=proc_time, start=start,
+                             stop=stop, compression=compress)
+    xmlparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    stacparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    return str(round((time.time() - start_time), 2))
 
 
 def get_datasets(scenes, datadir, tile, extent, epsg):
@@ -553,11 +576,11 @@ def calc_product_start_stop(src_ids, extent, epsg):
         slc_dict[uid]['sid'] = sid
     
     uids = list(slc_dict.keys())
-    swaths = list(slc_dict[uids[0]]['annotation'].keys())
     
     for uid in uids:
         t = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'],
                                pattern='.//geolocationGridPoint/azimuthTime')
+        swaths = t.keys()
         y = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/latitude')
         x = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/longitude')
         t_flat = np.asarray([datetime.fromisoformat(item).timestamp() for sublist in [t[swath] for swath in swaths]

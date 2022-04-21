@@ -179,6 +179,7 @@
     </element>
     <simpleType name="productTypeBase">
         <restriction base="string">
+            <enumeration value="GRD"/>
             <enumeration value="SLC"/>
         </restriction>
     </simpleType>
@@ -204,27 +205,41 @@
                             </simpleContent>
                         </complexType>
                     </element>
-                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="1">
+                    <element name="azimuthNumberOfLooks" minOccurs="1" maxOccurs="6">
                         <annotation>
                             <documentation>Number of azimuth looks, which is the number of groups of signal samples (looks) parallel to the flight path.</documentation>
                         </annotation>
-                        <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
-                                <maxInclusive value="100"/>
-                            </restriction>
-                        </simpleType>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="gml:MeasureType">
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
                     </element>
-                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="1">
+                    <element name="rangeNumberOfLooks" minOccurs="1" maxOccurs="6">
                         <annotation>
                             <documentation>Number of range looks, which is the number of groups of signal samples (looks) perpendicular to the flight path.</documentation>
                         </annotation>
-                        <simpleType>
-                            <restriction base="integer">
-                                <minInclusive value="0"/>
-                                <maxInclusive value="100"/>
-                            </restriction>
-                        </simpleType>
+                        <complexType>
+                            <simpleContent>
+                                <extension base="gml:MeasureType">
+                                    <attribute name="beam" use="required">
+                                        <simpleType>
+                                            <restriction base="string">
+                                                <pattern value="IW[1-3]|EW[1-5]|S[1-6]"/>
+                                            </restriction>
+                                        </simpleType>
+                                    </attribute>
+                                </extension>
+                            </simpleContent>
+                        </complexType>
                     </element>
                     <element name="dataGeometry" minOccurs="1" maxOccurs="1">
                         <annotation>
@@ -233,6 +248,7 @@
                         <simpleType>
                             <restriction base="string">
                                 <enumeration value="slant range"/>
+                                <enumeration value="ground range"
                                 <whiteSpace value="preserve"/>
                             </restriction>
                         </simpleType>
@@ -445,7 +461,7 @@
     </simpleType>
     <complexType name="PerformanceIndicatorsType">
         <sequence>
-            <element name="noiseEquivalentIntensityType" minOccurs="1" maxOccurs="1">
+            <element name="noiseEquivalentIntensityType" minOccurs="0" maxOccurs="1">
                 <annotation>
                     <documentation>Noise equivalent type the performance indicators are provided in.</documentation>
                 </annotation>
@@ -457,7 +473,7 @@
                     </simpleContent>
                 </complexType>
             </element>
-            <element name="estimates" minOccurs="1" maxOccurs="6">
+            <element name="estimates" minOccurs="0" maxOccurs="6">
                 <annotation>
                     <documentation>Performance indicators on data intensity noise level provided for each polarization.</documentation>
                 </annotation>

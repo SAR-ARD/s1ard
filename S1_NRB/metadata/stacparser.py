@@ -1,5 +1,6 @@
 import os
 import re
+from statistics import mean, median
 from copy import deepcopy
 from datetime import datetime
 import pystac
@@ -12,7 +13,7 @@ from S1_NRB.metadata.mapping import SAMPLE_MAP
 from S1_NRB.metadata.extract import get_header_size
 
 
-def product_json(meta, target, tifs):
+def product_json(meta, target, tifs, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB target product in STAC compliant JSON format.
     
@@ -24,6 +25,8 @@ def product_json(meta, target, tifs):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
@@ -31,11 +34,13 @@ def product_json(meta, target, tifs):
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.json'.format(scene_id))
+    if os.path.isfile(outname) and exist_ok:
+        return
     print(outname)
     
     start = meta['prod']['timeStart']
     stop = meta['prod']['timeStop']
-    date = start + (stop - start)/2
+    date = start + (stop - start) / 2
     
     item = pystac.Item(id=scene_id,
                        geometry=meta['prod']['geom_stac_geometry_4326'],
@@ -208,7 +213,7 @@ def product_json(meta, target, tifs):
                 asset_key = 'noise-power-{}'.format(pol)
             else:
                 asset_key = SAMPLE_MAP[key]['role']
-
+            
             if SAMPLE_MAP[key]['unit'] is None:
                 SAMPLE_MAP[key]['unit'] = 'unitless'
             
@@ -233,9 +238,10 @@ def product_json(meta, target, tifs):
                         raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
-                    src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
-                                  for src in src_list]
-                    vals = {'values': [{'value': [i+1], 'summary': s} for i, s in enumerate(src_target)]}
+                    src_target = [
+                        os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
+                        for src in src_list]
+                    vals = {'values': [{'value': [i + 1], 'summary': s} for i, s in enumerate(src_target)]}
                     band_dict = deepcopy(ras_bands_base)
                     band_dict.update(vals)
                     raster_bands = [band_dict]
@@ -269,7 +275,7 @@ def product_json(meta, target, tifs):
     item.save_object(dest_href=outname)
 
 
-def source_json(meta, target):
+def source_json(meta, target, exist_ok=False):
     """
     Function to generate source-level metadata for an NRB target product in STAC compliant JSON format.
     
@@ -279,6 +285,8 @@ def source_json(meta, target):
         Metadata dictionary generated with metadata.extract.meta_dict
     target: str
         A path pointing to the root directory of a product scene.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
@@ -290,11 +298,13 @@ def source_json(meta, target):
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.json'.format(scene))
+        if os.path.isfile(outname) and exist_ok:
+            continue
         print(outname)
         
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
-        date = start + (stop - start)/2
+        date = start + (stop - start) / 2
         
         item = pystac.Item(id=scene,
                            geometry=meta['source'][uid]['geom_stac_geometry_4326'],
@@ -323,13 +333,13 @@ def source_json(meta, target):
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
-                      center_frequency=float(meta['common']['radarCenterFreq']/1e9),
-                      resolution_range=float(min(meta['source'][uid]['rangeResolution'].values())),
-                      resolution_azimuth=float(min(meta['source'][uid]['azimuthResolution'].values())),
-                      pixel_spacing_range=float(meta['source'][uid]['rangePixelSpacing']),
-                      pixel_spacing_azimuth=float(meta['source'][uid]['azimuthPixelSpacing']),
-                      looks_range=int(meta['source'][uid]['rangeNumberOfLooks']),
-                      looks_azimuth=int(meta['source'][uid]['azimuthNumberOfLooks']),
+                      center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
+                      resolution_range=mean(meta['source'][uid]['rangeResolution'].values()),
+                      resolution_azimuth=mean(meta['source'][uid]['azimuthResolution'].values()),
+                      pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
+                      pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
+                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
+                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
                       looks_equivalent_number=float(enl),
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         
@@ -343,7 +353,7 @@ def source_json(meta, target):
         
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
-                                                  meta['source'][uid]['processorVersion']}
+                                                      meta['source'][uid]['processorVersion']}
         item.properties['processing:level'] = meta['common']['processingLevel']
         
         item.properties['card4l:specification'] = meta['prod']['productName-short']
@@ -351,7 +361,7 @@ def source_json(meta, target):
         item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
         item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
         item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
-        range_look_bandwidth = {k: v/1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
+        range_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
         azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
         item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
                                                                   'range_look_bandwidth': range_look_bandwidth,
@@ -366,7 +376,8 @@ def source_json(meta, target):
         item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
         item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
         item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
-        item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid]['perfNoiseEquivalentIntensityType']
+        item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid][
+            'perfNoiseEquivalentIntensityType']
         item.properties['card4l:peak_sidelobe_ratio'] = meta['source'][uid]['perfPeakSideLobeRatio']
         item.properties['card4l:integrated_sidelobe_ratio'] = meta['source'][uid]['perfIntegratedSideLobeRatio']
         item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
@@ -416,7 +427,7 @@ def source_json(meta, target):
         item.save_object(dest_href=outname)
 
 
-def main(meta, target, tifs):
+def main(meta, target, tifs, exist_ok=False):
     """
     Wrapper for `source_json` and `product_json`.
     
@@ -428,10 +439,12 @@ def main(meta, target, tifs):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
     None
     """
-    source_json(meta=meta, target=target)
-    product_json(meta=meta, target=target, tifs=tifs)
+    source_json(meta=meta, target=target, exist_ok=exist_ok)
+    product_json(meta=meta, target=target, tifs=tifs, exist_ok=exist_ok)

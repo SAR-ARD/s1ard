@@ -31,7 +31,7 @@ def get_config(config_file, section_name='GENERAL'):
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
                     'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'dem_dir', 'wbm_dir',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
-                    'etad', 'etad_dir']
+                    'etad', 'etad_dir', 'product']
     out_dict = {}
     for k, v in parser_sec.items():
         if k not in allowed_keys:
@@ -55,7 +55,10 @@ def get_config(config_file, section_name='GENERAL'):
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
             assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
-        if k.endswith('_dir') and not k == 'work_dir':
+        dir_ignore = ['work_dir']
+        if parser_sec['etad'] == 'False':
+            dir_ignore.append('etad_dir')
+        if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
@@ -84,6 +87,9 @@ def get_config(config_file, section_name='GENERAL'):
             else:
                 allowed = ['True', 'true', 'False', 'false']
                 raise ValueError("Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v))
+        if k == 'product':
+            allowed = ['GRD', 'SLC']
+            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         out_dict[k] = v
     
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
@@ -156,13 +162,7 @@ def geocode_conf(config):
             'clean_edges': True,
             'clean_edges_npixels': 4,
             'test': False,
-            'cleanup': True,
-            'rlks': {'IW': 5,
-                     'SM': 6,
-                     'EW': 3}[config['acq_mode']],
-            'azlks': {'IW': 1,
-                      'SM': 6,
-                      'EW': 1}[config['acq_mode']]}
+            'cleanup': True}
 
 
 def gdal_conf(config):
