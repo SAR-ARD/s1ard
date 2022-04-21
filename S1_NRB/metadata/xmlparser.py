@@ -635,7 +635,7 @@ def source_xml(meta, target, nsmap):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def main(meta, target, tifs):
+def parse(meta, target, tifs):
     """
     Wrapper for `source_xml` and `product_xml`.
     

@@ -245,8 +245,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # create metadata files in XML and (STAC) JSON formats
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
                              proc_time=proc_time, start=nrb_start, stop=nrb_stop, compression=compress)
-    xmlparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
-    stacparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
+    xmlparser.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs)
+    stacparser.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs)
 
 
 def get_datasets(scenes, datadir, tile, extent, epsg):

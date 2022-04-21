@@ -416,7 +416,7 @@ def source_json(meta, target):
         item.save_object(dest_href=outname)
 
 
-def main(meta, target, tifs):
+def parse(meta, target, tifs):
     """
     Wrapper for `source_json` and `product_json`.
     
