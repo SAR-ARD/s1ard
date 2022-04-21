@@ -4,6 +4,7 @@ from copy import deepcopy
 from lxml import etree
 from datetime import datetime
 from spatialist import Raster
+from statistics import mean
 from S1_NRB.metadata.mapping import SAMPLE_MAP, NS_MAP
 from S1_NRB.metadata.extract import get_header_size
 
@@ -116,7 +117,8 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
                                            attrib={'uom': 'Hz'})
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
         sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration', nsmap),
-                                             attrib={_nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
+                                             attrib={
+                                                 _nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
     
     # eop:acquisitionParameters
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
@@ -208,7 +210,7 @@ def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
     pos.text = center
 
 
-def product_xml(meta, target, tifs, nsmap):
+def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -222,6 +224,8 @@ def product_xml(meta, target, tifs, nsmap):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
@@ -229,6 +233,8 @@ def product_xml(meta, target, tifs, nsmap):
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
+    if os.path.isfile(outname) and exist_ok:
+        return
     print(outname)
     timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -321,7 +327,7 @@ def product_xml(meta, target, tifs, nsmap):
                     for i, s in enumerate(src_target):
                         bitValue = etree.SubElement(productInformation, _nsc('nrb:bitValue', nsmap),
                                                     attrib={'band': '1', 'name': s})
-                        bitValue.text = str(i+1)
+                        bitValue.text = str(i + 1)
             
             if SAMPLE_MAP[key]['unit'] is None:
                 SAMPLE_MAP[key]['unit'] = 'unitless'
@@ -408,9 +414,9 @@ def product_xml(meta, target, tifs, nsmap):
                                    attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     productType.text = meta['prod']['productName-short']
     azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks', nsmap))
-    azimuthNumberOfLooks.text = meta['prod']['azimuthNumberOfLooks']
+    azimuthNumberOfLooks.text = str(meta['prod']['azimuthNumberOfLooks'])
     rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeNumberOfLooks', nsmap))
-    rangeNumberOfLooks.text = meta['prod']['rangeNumberOfLooks']
+    rangeNumberOfLooks.text = str(meta['prod']['rangeNumberOfLooks'])
     refDoc = etree.SubElement(earthObservationMetaData, _nsc('nrb:refDoc', nsmap),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],
@@ -428,7 +434,8 @@ def product_xml(meta, target, tifs, nsmap):
     geoCorrAccuracyType = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyType', nsmap))
     geoCorrAccuracyType.text = meta['prod']['geoCorrAccuracyType']
     geoCorrAccuracyNorthernSTDev = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('nrb:geoCorrAccuracyNorthernSTDev', nsmap), attrib={'uom': 'm'})
+                                                    _nsc('nrb:geoCorrAccuracyNorthernSTDev', nsmap),
+                                                    attrib={'uom': 'm'})
     geoCorrAccuracyNorthernSTDev.text = meta['prod']['geoCorrAccuracyNorthernSTDev']
     geoCorrAccuracyEasternSTDev = etree.SubElement(earthObservationMetaData,
                                                    _nsc('nrb:geoCorrAccuracyEasternSTDev', nsmap), attrib={'uom': 'm'})
@@ -443,7 +450,8 @@ def product_xml(meta, target, tifs, nsmap):
                                              _nsc('nrb:geoCorrAccuracy_rRMSE', nsmap), attrib={'uom': 'm'})
     geoCorrAccuracy_rRMSE.text = meta['prod']['geoCorrAccuracy_rRMSE']
     geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyReference', nsmap),
-                                                attrib={_nsc('xlink:href', nsmap): meta['prod']['geoCorrAccuracyReference']})
+                                                attrib={_nsc('xlink:href', nsmap): meta['prod'][
+                                                    'geoCorrAccuracyReference']})
     numLines = etree.SubElement(earthObservationMetaData, _nsc('nrb:numLines', nsmap))
     numLines.text = meta['prod']['numLines']
     numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('nrb:numPixelsPerLine', nsmap))
@@ -477,7 +485,7 @@ def product_xml(meta, target, tifs, nsmap):
     tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def source_xml(meta, target, nsmap):
+def source_xml(meta, target, nsmap, exist_ok=False):
     """
     Function to generate source-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
     
@@ -489,6 +497,8 @@ def source_xml(meta, target, nsmap):
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
@@ -500,6 +510,8 @@ def source_xml(meta, target, nsmap):
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.xml'.format(scene))
+        if os.path.isfile(outname) and exist_ok:
+            continue
         print(outname)
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -572,26 +584,35 @@ def source_xml(meta, target, nsmap):
         productType = etree.SubElement(earthObservationMetaData, _nsc('nrb:productType', nsmap),
                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
         productType.text = meta['source'][uid]['productType']
-        azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthNumberOfLooks', nsmap))
-        azimuthNumberOfLooks.text = meta['source'][uid]['azimuthNumberOfLooks']
-        rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeNumberOfLooks', nsmap))
-        rangeNumberOfLooks.text = meta['source'][uid]['rangeNumberOfLooks']
-        dataGeometry = etree.SubElement(earthObservationMetaData, _nsc('nrb:dataGeometry', nsmap))
+        for swath in meta['source'][uid]['swaths']:
+            azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData,
+                                                    _nsc('nrb:azimuthNumberOfLooks', nsmap),
+                                                    attrib={'beam': swath})
+            azimuthNumberOfLooks.text = meta['source'][uid]['azimuthNumberOfLooks'][swath]
+        for swath in meta['source'][uid]['swaths']:
+            rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
+                                                  _nsc('nrb:rangeNumberOfLooks', nsmap),
+                                                  attrib={'beam': swath})
+            rangeNumberOfLooks.text = meta['source'][uid]['rangeNumberOfLooks'][swath]
+        dataGeometry = etree.SubElement(earthObservationMetaData,
+                                        _nsc('nrb:dataGeometry', nsmap))
         dataGeometry.text = meta['source'][uid]['dataGeometry']
         for swath in meta['source'][uid]['swaths']:
-            azimuthResolution = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthResolution', nsmap),
+            azimuthResolution = etree.SubElement(earthObservationMetaData,
+                                                 _nsc('nrb:azimuthResolution', nsmap),
                                                  attrib={'uom': 'm', 'beam': swath})
-            azimuthResolution.text = meta['source'][uid]['azimuthResolution'][swath]
+            azimuthResolution.text = str(meta['source'][uid]['azimuthResolution'][swath])
         for swath in meta['source'][uid]['swaths']:
-            rangeResolution = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangeResolution', nsmap),
+            rangeResolution = etree.SubElement(earthObservationMetaData,
+                                               _nsc('nrb:rangeResolution', nsmap),
                                                attrib={'uom': 'm', 'beam': swath})
-            rangeResolution.text = meta['source'][uid]['rangeResolution'][swath]
+            rangeResolution.text = str(meta['source'][uid]['rangeResolution'][swath])
         azimuthPixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('nrb:azimuthPixelSpacing', nsmap),
                                                attrib={'uom': 'm'})
-        azimuthPixelSpacing.text = meta['source'][uid]['azimuthPixelSpacing']
+        azimuthPixelSpacing.text = str(mean(meta['source'][uid]['azimuthPixelSpacing'].values()))
         rangePixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('nrb:rangePixelSpacing', nsmap),
                                              attrib={'uom': 'm'})
-        rangePixelSpacing.text = meta['source'][uid]['rangePixelSpacing']
+        rangePixelSpacing.text = str(mean(meta['source'][uid]['rangePixelSpacing'].values()))
         
         performance = etree.SubElement(earthObservationMetaData, _nsc('nrb:performance', nsmap))
         performanceIndicators = etree.SubElement(performance, _nsc('nrb:PerformanceIndicators', nsmap))
@@ -619,12 +640,14 @@ def source_xml(meta, target, nsmap):
         integratedSideLobeRatio.text = str(meta['source'][uid]['perfIntegratedSideLobeRatio'])
         
         polCalMatrices = etree.SubElement(earthObservationMetaData, _nsc('nrb:polCalMatrices', nsmap),
-                                          attrib={_nsc('xlink:href', nsmap): str(meta['source'][uid]['polCalMatrices'])})
+                                          attrib={
+                                              _nsc('xlink:href', nsmap): str(meta['source'][uid]['polCalMatrices'])})
         meanFaradayRotationAngle = etree.SubElement(earthObservationMetaData,
                                                     _nsc('nrb:meanFaradayRotationAngle', nsmap), attrib={'uom': 'deg'})
         meanFaradayRotationAngle.text = meta['source'][uid]['faradayMeanRotationAngle']
         faraday_ref = str(meta['source'][uid]['faradayRotationReference'])
-        referenceFaradayRotation = etree.SubElement(earthObservationMetaData, _nsc('nrb:referenceFaradayRotation', nsmap),
+        referenceFaradayRotation = etree.SubElement(earthObservationMetaData,
+                                                    _nsc('nrb:referenceFaradayRotation', nsmap),
                                                     attrib={_nsc('xlink:href', nsmap): faraday_ref})
         ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('nrb:ionosphereIndicator', nsmap))
         ionosphereIndicator.text = meta['source'][uid]['ionosphereIndicator']
@@ -635,7 +658,7 @@ def source_xml(meta, target, nsmap):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def parse(meta, target, tifs):
+def parse(meta, target, tifs, exist_ok=False):
     """
     Wrapper for `source_xml` and `product_xml`.
     
@@ -647,6 +670,8 @@ def parse(meta, target, tifs):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
+    exist_ok: bool
+        do not create files if they already exist?
     
     Returns
     -------
@@ -657,5 +682,5 @@ def parse(meta, target, tifs):
     NS_MAP_prod['nrb'] = NS_MAP['nrb']['product']
     NS_MAP_src['nrb'] = NS_MAP['nrb']['source']
     
-    source_xml(meta=meta, target=target, nsmap=NS_MAP_src)
-    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod)
+    source_xml(meta=meta, target=target, nsmap=NS_MAP_src, exist_ok=exist_ok)
+    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod, exist_ok=exist_ok)
