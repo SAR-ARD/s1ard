@@ -13,7 +13,7 @@ def _nsc(text, nsmap):
     return '{{{0}}}{1}'.format(nsmap[ns], key)
 
 
-def om_time(root, nsmap, scene_id, time_start, time_stop):
+def _om_time(root, nsmap, scene_id, time_start, time_stop):
     """
     Creates the `om:phenomenonTime` and `om:resultTime` XML elements.
     
@@ -49,7 +49,7 @@ def om_time(root, nsmap, scene_id, time_start, time_stop):
     timePosition.text = time_stop
 
 
-def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
+def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     """
     Creates the `om:procedure/eop:EarthObservationEquipment` XML elements and all relevant subelements for source and
     product metadata. Differences between source and product are controlled using the `prod=[True|False]` switch.
@@ -166,7 +166,7 @@ def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         majorCycleID.text = meta['source'][uid]['majorCycleID']
 
 
-def om_feature_of_interest(root, nsmap, scene_id, extent, center):
+def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
     """
     Creates the `om:featureOfInterest` XML elements.
     
@@ -236,13 +236,13 @@ def product_xml(meta, target, tifs, nsmap):
     
     root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
-    om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
-    om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
+    _om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
+    _om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
     observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                         attrib={'nilReason': 'inapplicable'})
-    om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
-                           extent=meta['prod']['geom_xml_envelope'],
-                           center=meta['prod']['geom_xml_center'])
+    _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
+                            extent=meta['prod']['geom_xml_envelope'],
+                            center=meta['prod']['geom_xml_center'])
     
     ####################################################################################################################
     result = etree.SubElement(root, _nsc('om:result', nsmap))
@@ -506,13 +506,13 @@ def source_xml(meta, target, nsmap):
         
         root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
-        om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
-        om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
+        _om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
+        _om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
-        om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
-                               extent=meta['source'][uid]['geom_xml_envelop'],
-                               center=meta['source'][uid]['geom_xml_center'])
+        _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
+                                extent=meta['source'][uid]['geom_xml_envelop'],
+                                center=meta['source'][uid]['geom_xml_center'])
         
         ################################################################################################################
         result = etree.SubElement(root, _nsc('om:result', nsmap))
