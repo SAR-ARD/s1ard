@@ -11,7 +11,7 @@ The basis of the processing chain builds the Sentinel-2 Military Grid Reference 
 Hence, a reference file is needed containing the respective tile information for processing S1-NRB products.
 A KML file is available online that will be used in the following steps:
 
-https://hls.gsfc.nasa.gov/wp-content/uploads/2016/03/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
+https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
 
 This file contains all relevant information about individual tiles, in particular the EPSG code of the respective UTM zone and the geometry of the tile in UTM coordinates.
 The code snippet below demonstrates the tile reading mechanism (using class `spatialist.vector.Vector`_ and function `spatialist.vector.wkt2vector`_):

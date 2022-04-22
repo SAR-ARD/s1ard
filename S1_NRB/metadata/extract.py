@@ -520,7 +520,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
     meta['prod'][
-        'ancillaryData_KML'] = 'https://sentinels.copernicus.eu/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+        'ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'

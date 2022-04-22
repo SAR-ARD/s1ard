@@ -63,7 +63,7 @@ def extract_tile(kml, tile):
     ----------
     kml: str
         Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
-        https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
+        https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     tile: str
         The MGRS tile ID that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
