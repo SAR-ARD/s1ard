@@ -1,5 +1,5 @@
 ###################################
-Welcome to S1-NRB's documentation!
+Welcome to S1_NRB's documentation!
 ###################################
 
 General Topics
@@ -8,9 +8,8 @@ General Topics
 .. toctree::
    :maxdepth: 1
 
-   general/S1_NRB
    general/installation
-   general/DEM_preparation
+   general/S1_NRB
 
 API Documentation
 =================

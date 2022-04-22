@@ -4,7 +4,7 @@ import datetime
 from importlib.metadata import version as get_version
 
 project = 'S1_NRB'
-authors = 'the S1-NRB Developers'
+authors = 'the S1_NRB Developers'
 year = datetime.datetime.now().year
 
 # If extensions (or modules to document with autodoc) are in another directory,
