@@ -15,7 +15,7 @@ def process(scene, etad_dir, out_dir, log):
     Parameters
     ----------
     scene: pyroSAR.drivers.ID
-        The Sentinel-1 SLC scene
+        The Sentinel-1 SLC scene.
     etad_dir: str
         The directory containing ETAD products. This will be searched for products matching the defined SLC.
     out_dir: str
@@ -23,12 +23,12 @@ def process(scene, etad_dir, out_dir, log):
         Two new sub-directories SLC_original SLC_ETAD and are created, which contain the original unpacked
         scene and the corrected one respectively.
     log: logging.Logger
-        A logger object to write log info
+        A logger object to write log info.
 
     Returns
     -------
     pyroSAR.drivers.ID
-        The corrected scene as a pyroSAR ID object
+        The corrected scene as a pyroSAR ID object.
     """
     slc_corrected_dir = os.path.join(out_dir, 'SLC_etad')
     os.makedirs(slc_corrected_dir, exist_ok=True)

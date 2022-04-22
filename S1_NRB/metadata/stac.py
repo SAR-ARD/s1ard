@@ -20,7 +20,7 @@ def product_json(meta, target, tifs, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
@@ -282,7 +282,7 @@ def source_json(meta, target, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with metadata.extract.meta_dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     exist_ok: bool, optional
@@ -429,12 +429,12 @@ def source_json(meta, target, exist_ok=False):
 
 def parse(meta, target, tifs, exist_ok=False):
     """
-    Wrapper for `source_json` and `product_json`.
+    Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]

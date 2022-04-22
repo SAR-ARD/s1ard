@@ -64,12 +64,13 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     scene_id: str
         Scene basename.
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     uid: str, optional
         Unique identifier of a source SLC scene.
     prod: bool, optional
-        Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
-        XML subelements for further usage in the `source_xml` parsing function will be returned.
+        Return XML subelements for further usage in :func:`~S1_NRB.metadata.xml.product_xml` parsing function?
+        Default is True. If False, the XML subelements for further usage in the :func:`~S1_NRB.metadata.xml.source_xml`
+        parsing function will be returned.
     
     Returns
     -------
@@ -217,7 +218,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
@@ -492,7 +493,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     nsmap: dict
@@ -660,12 +661,12 @@ def source_xml(meta, target, nsmap, exist_ok=False):
 
 def parse(meta, target, tifs, exist_ok=False):
     """
-    Wrapper for `source_xml` and `product_xml`.
+    Wrapper for :func:`~S1_NRB.metadata.xml.source_xml` and :func:`~S1_NRB.metadata.xml.product_xml`.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]

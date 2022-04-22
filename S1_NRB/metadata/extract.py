@@ -430,8 +430,8 @@ def get_header_size(tif):
 def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
-    respectively.
+    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
+    JSON metadata files, respectively.
     
     Parameters
     ----------

@@ -127,7 +127,7 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
 
 def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
     """
-    Create a new mosaic GeoTIFF file from MGRS-tiled DEMs as created by function dem.prepare.
+    Create a new mosaic GeoTIFF file from MGRS-tiled DEMs as created by :func:`S1_NRB.dem.prepare`.
     
     Parameters
     ----------
