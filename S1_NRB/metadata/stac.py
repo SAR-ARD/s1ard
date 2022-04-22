@@ -15,7 +15,7 @@ from S1_NRB.metadata.extract import get_header_size
 
 def product_json(meta, target, tifs, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB target product in STAC compliant JSON format.
+    Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -25,8 +25,8 @@ def product_json(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------
@@ -277,7 +277,7 @@ def product_json(meta, target, tifs, exist_ok=False):
 
 def source_json(meta, target, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB target product in STAC compliant JSON format.
+    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -285,8 +285,8 @@ def source_json(meta, target, exist_ok=False):
         Metadata dictionary generated with metadata.extract.meta_dict
     target: str
         A path pointing to the root directory of a product scene.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------
@@ -439,8 +439,8 @@ def parse(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------

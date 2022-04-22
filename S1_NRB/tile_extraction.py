@@ -5,7 +5,8 @@ from spatialist.vector import Vector, wkt2vector, bbox
 
 def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     """
-    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a vector object.
+    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a
+    :class:`~spatialist.vector.Vector` object.
     
     Parameters
     -------
@@ -55,7 +56,8 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
 
 def extract_tile(kml, tile):
     """
-    Extract a MGRS tile from the global Sentinel-2 tiling grid and return it as a vector object.
+    Extract a MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
+    object.
     
     Parameters
     ----------
@@ -114,14 +116,14 @@ def get_tile_dict(config, spacing):
     """
     Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
     well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
-    of `pyroSAR.snap.util.geocode`
+    of :func:`pyroSAR.snap.util.geocode`
     
     Parameters
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
     spacing: int
-        The target pixel spacing in meters, which is passed to `pyroSAR.snap.util.geocode`.
+        The target pixel spacing in meters, which is passed to :func:`pyroSAR.snap.util.geocode`.
     
     Returns
     -------

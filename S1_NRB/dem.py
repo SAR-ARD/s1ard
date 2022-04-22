@@ -15,30 +15,30 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     Parameters
     ----------
     geometries: list[spatialist.vector.Vector]
-        a list of geometries for which to prepare the DEM tiles
+        A list of geometries for which to prepare the DEM tiles.
     dem_type: str
-        the DEM type
+        The DEM type.
     spacing: int
         The target pixel spacing.
     dem_dir: str
-        the DEM target directory
+        The DEM target directory.
     wbm_dir: str
-        the WBM target directory
+        The WBM target directory.
     kml_file: str
-        the KML file containing the MGRS tile geometries
+        The KML file containing the MGRS tile geometries.
     threads: int
-        The number of threads to pass to `pyroSAR.auxdata.dem_create`.
+        The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     epsg: int, optional
-        The CRS used for the NRB product; provided as an EPSG code.
+        The coordinate reference system as an EPSG code.
     username: str or None
-        the username for accessing the DEM tiles. If None and authentication is required
+        The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the user is prompted interactively to provide credentials.
     password: str or None
-        the password for accessing the DEM tiles. If None: same behavior as for username.
+        The password for accessing the DEM tiles. If None: same behavior as for username.
 
     Returns
     -------
-    
+    None
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -132,21 +132,21 @@ def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
     Parameters
     ----------
     geometry: spatialist.vector.Vector
-        the geometry to be covered by the mosaic
+        The geometry to be covered by the mosaic.
     dem_type: str
-        the DEM type
+        The DEM type.
     outname: str
-        the name of the mosaic
+        The name of the mosaic.
     epsg: int
-        the coordinate reference system as EPSG code
+        The coordinate reference system as an EPSG code.
     kml_file: str
-        the KML file containing the MGRS tile geometries
+        The KML file containing the MGRS tile geometries.
     dem_dir: str
-        the directory containing the DEM MGRS tiles
+        The directory containing the DEM MGRS tiles.
 
     Returns
     -------
-
+    None
     """
     dem_buffer = 200  # meters
     if not os.path.isfile(outname):

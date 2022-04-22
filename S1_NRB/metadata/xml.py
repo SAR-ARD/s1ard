@@ -212,7 +212,7 @@ def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
 
 def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
+    Function to generate product-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -224,8 +224,8 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------
@@ -487,7 +487,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
 
 def source_xml(meta, target, nsmap, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
+    Function to generate source-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -497,8 +497,8 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------
@@ -670,8 +670,8 @@ def parse(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     
     Returns
     -------

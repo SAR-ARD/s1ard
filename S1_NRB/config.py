@@ -5,7 +5,7 @@ from osgeo import gdal
 
 
 def get_config(config_file, section_name='GENERAL'):
-    """Returns the content of a config file as a dictionary.
+    """Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
@@ -19,7 +19,6 @@ def get_config(config_file, section_name='GENERAL'):
     out_dict: dict
         Dictionary of the parsed config parameters.
     """
-    
     if not os.path.isfile(config_file):
         raise FileNotFoundError("Config file {} does not exist.".format(config_file))
     
@@ -134,8 +133,8 @@ def _val_cleanup(val):
 
 def geocode_conf(config):
     """
-    Returns a dictionary of additional parameters for `pyroSAR.snap.util.geocode` based on processing configurations
-    provided by the config file.
+    Returns a dictionary of additional parameters for :func:`pyroSAR.snap.util.geocode` based on processing
+    configurations provided by the config file.
     
     Parameters
     ----------
@@ -145,7 +144,7 @@ def geocode_conf(config):
     Returns
     -------
     dict
-        Dictionary of parameters that can be passed to `pyroSAR.snap.util.geocode`
+        Dictionary of parameters that can be passed to :func:`pyroSAR.snap.util.geocode`
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
