@@ -1,3 +1,18 @@
+Configuration
+=============
+
+.. automodule:: S1_NRB.config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        gdal_conf
+        geocode_conf
+        get_config
+
 Processing
 ==========
 
@@ -22,13 +37,13 @@ NRB
     .. autosummary::
         :nosignatures:
 
+        calc_product_start_stop
+        create_acq_id_image
+        create_data_mask
+        create_rgb_vrt
+        create_vrt
         format
         get_datasets
-        create_vrt
-        create_rgb_vrt
-        calc_product_start_stop
-        create_data_mask
-        create_acq_id_image
 
 ETAD
 ----
@@ -54,9 +69,40 @@ DEM
     .. autosummary::
         :nosignatures:
 
-        prepare
         mosaic
+        prepare
 
+Tile Extraction
+===============
+
+.. automodule:: S1_NRB.tile_extraction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        description2dict
+        extract_tile
+        get_tile_dict
+        tiles_from_aoi
+
+Ancillary Functions
+===================
+
+.. automodule:: S1_NRB.ancillary
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        generate_unique_id
+        get_max_ext
+        log
+        set_logging
 
 Metadata
 ========
@@ -72,15 +118,15 @@ Extraction
     .. autosummary::
         :nosignatures:
 
-        get_prod_meta
-        vec_from_srccoords
-        etree_from_sid
-        convert_coordinates
-        find_in_annotation
         calc_performance_estimates
+        convert_coordinates
+        etree_from_sid
         extract_pslr_islr
+        find_in_annotation
         get_header_size
+        get_prod_meta
         meta_dict
+        vec_from_srccoords
 
 XML Parser
 ----------
@@ -93,9 +139,9 @@ XML Parser
     .. autosummary::
         :nosignatures:
 
+        parse
         product_xml
         source_xml
-        parse
 
 STAC Parser
 -----------
@@ -108,53 +154,6 @@ STAC Parser
     .. autosummary::
         :nosignatures:
 
+        parse
         product_json
         source_json
-        parse
-
-Ancillary Functions
-===================
-
-.. automodule:: S1_NRB.ancillary
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        generate_unique_id
-        get_max_ext
-        set_logging
-        log
-
-Tile Extraction
----------------
-
-.. automodule:: S1_NRB.tile_extraction
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        tiles_from_aoi
-        extract_tile
-        description2dict
-        get_tile_dict
-
-Configuration
-=============
-
-.. automodule:: S1_NRB.config
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        get_config
-        geocode_conf
-        gdal_conf
