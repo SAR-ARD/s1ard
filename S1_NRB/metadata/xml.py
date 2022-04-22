@@ -30,10 +30,6 @@ def _om_time(root, nsmap, scene_id, time_start, time_stop):
         Start time of the scene acquisition.
     time_stop: str
         Stop time of the acquisition.
-    
-    Returns
-    -------
-    None
     """
     phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime', nsmap))
     timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod', nsmap),
@@ -71,10 +67,6 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         Return XML subelements for further usage in :func:`~S1_NRB.metadata.xml.product_xml` parsing function?
         Default is True. If False, the XML subelements for further usage in the :func:`~S1_NRB.metadata.xml.source_xml`
         parsing function will be returned.
-    
-    Returns
-    -------
-    None
     """
     procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
     earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
@@ -185,10 +177,6 @@ def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
         Footprint coordinates of the scene.
     center: str
         Center coordinates of the footprint.
-    
-    Returns
-    -------
-    None
     """
     featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest', nsmap))
     footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint', nsmap),
@@ -227,10 +215,6 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
@@ -500,10 +484,6 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     metadir = os.path.join(target, 'source')
     os.makedirs(metadir, exist_ok=True)
@@ -673,10 +653,6 @@ def parse(meta, target, tifs, exist_ok=False):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     NS_MAP_prod = deepcopy(NS_MAP)
     NS_MAP_src = deepcopy(NS_MAP)

@@ -389,10 +389,6 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
         Internal overview levels to be created for each raster file.
     overview_resampling: str, optional
         Resampling method for overview levels.
-
-    Returns
-    -------
-    None
     """
     gdalbuildvrt(src=src, dst=dst, options=options)
     tree = etree.parse(dst)
@@ -458,10 +454,6 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         Internal overview levels to be defined for the created VRT file.
     overview_resampling: str
         Resampling method applied to overview pyramids.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     
@@ -662,10 +654,6 @@ def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, drive
         Nodata value to write to the output raster.
     wbm: str, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_datasets if
@@ -790,10 +778,6 @@ def create_acq_id_image(outname, ref_tif, snap_datamasks, src_ids, extent,
         Internal overview levels to be created for each raster file.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     src_scenes = [sid.scene for sid in src_ids]

@@ -35,10 +35,6 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         for the selected DEM type, the user is prompted interactively to provide credentials.
     password: str or None
         The password for accessing the DEM tiles. If None: same behavior as for username.
-
-    Returns
-    -------
-    None
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -143,10 +139,6 @@ def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
         The KML file containing the MGRS tile geometries.
     dem_dir: str
         The directory containing the DEM MGRS tiles.
-
-    Returns
-    -------
-    None
     """
     dem_buffer = 200  # meters
     if not os.path.isfile(outname):

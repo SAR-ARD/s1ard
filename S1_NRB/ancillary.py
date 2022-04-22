@@ -123,10 +123,6 @@ def _log_process_config(logger, config):
         The logger to which the header is added to.
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    
-    Returns
-    -------
-    None
     """
     try:
         core = examine.ExamineSnap().get_version('core')
@@ -195,10 +191,6 @@ def log(handler, mode, proc_step, scenes, epsg, msg):
         The coordinate reference system as an EPSG code.
     msg: Any
         The massage that should be logged.
-
-    Returns
-    -------
-    None
     """
     proc_step = proc_step.zfill(7).replace('0', ' ')
     message = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'

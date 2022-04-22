@@ -27,10 +27,6 @@ def product_json(meta, target, tifs, exist_ok=False):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.json'.format(scene_id))
@@ -287,10 +283,6 @@ def source_json(meta, target, exist_ok=False):
         A path pointing to the root directory of a product scene.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     metadir = os.path.join(target, 'source')
     os.makedirs(metadir, exist_ok=True)
@@ -441,10 +433,6 @@ def parse(meta, target, tifs, exist_ok=False):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     exist_ok: bool, optional
         Do not create files if they already exist?
-    
-    Returns
-    -------
-    None
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
     product_json(meta=meta, target=target, tifs=tifs, exist_ok=exist_ok)

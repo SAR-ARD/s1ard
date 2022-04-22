@@ -26,10 +26,6 @@ def main(config_file, section_name='GENERAL', debug=False):
         Section name of the `config.ini` file that parameters should be parsed from. Default is 'GENERAL'.
     debug: bool, optional
         Set pyroSAR logging level to DEBUG? Default is False.
-    
-    Returns
-    -------
-    None
     """
     config = get_config(config_file=config_file, section_name=section_name)
     logger = set_logging(config=config, debug=debug)
