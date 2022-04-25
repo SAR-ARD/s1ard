@@ -56,14 +56,13 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
 
 def extract_tile(kml, tile):
     """
-    Extract a MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
+    Extract an MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
     object.
     
     Parameters
     ----------
     kml: str
-        Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
-        https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
+        Path to the Sentinel-2 tiling grid KML file.
     tile: str
         The MGRS tile ID that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
@@ -73,6 +72,11 @@ def extract_tile(kml, tile):
     Returns
     -------
     spatialist.vector.Vector
+    
+    Notes
+    -----
+    The global Sentinel-2 tiling grid can be retrieved from:
+    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
     tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
     with Vector(kml, driver='KML') as vec:
