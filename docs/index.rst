@@ -9,6 +9,7 @@ General Topics
    :maxdepth: 1
 
    general/installation
+   general/usage
    general/S1_NRB
 
 API Documentation
