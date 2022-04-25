@@ -22,3 +22,15 @@ repository for available versions.
 ::
 
     pip install git+https://github.com/SAR-ARD/S1_NRB.git@v0.3.0
+
+Update
+------
+
+The latest states of `pyroSAR <https://github.com/johntruckenbrodt/pyroSAR>`_ and
+`spatialist <https://github.com/johntruckenbrodt/spatialist>`_, which are developed alongside the S1_NRB package, can be
+updated like this:
+
+::
+
+    pip install git+https://github.com/johntruckenbrodt/spatialist.git --upgrade --no-deps --force-reinstall
+    pip install git+https://github.com/johntruckenbrodt/pyroSAR.git --upgrade --no-deps --force-reinstall
