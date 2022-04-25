@@ -2,6 +2,8 @@
 Welcome to S1_NRB's documentation!
 ###################################
 
+You can find further information about the S1-NRB product `here <https://sentinel.esa.int/web/sentinel/sentinel-1-ard-normalised-radar-backscatter-nrb-product>`_.
+
 General Topics
 ==============
 
