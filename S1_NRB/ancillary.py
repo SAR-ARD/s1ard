@@ -52,12 +52,13 @@ def get_max_ext(geometries, buffer=None):
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:
+            ext = geo.extent
             for key in ['xmin', 'ymin']:
-                if geo.extent[key] < max_ext[key]:
-                    max_ext[key] = geo.extent[key]
+                if ext[key] < max_ext[key]:
+                    max_ext[key] = ext[key]
             for key in ['xmax', 'ymax']:
-                if geo.extent[key] > max_ext[key]:
-                    max_ext[key] = geo.extent[key]
+                if ext[key] > max_ext[key]:
+                    max_ext[key] = ext[key]
     max_ext = dict(max_ext)
     if buffer is not None:
         max_ext['xmin'] -= buffer
