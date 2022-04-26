@@ -2,6 +2,7 @@ import os
 import re
 import time
 from osgeo import gdal
+from spatialist import Vector
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from pyroSAR.snap.util import geocode, noise_power
@@ -34,12 +35,19 @@ def main(config_file, section_name, debug=False):
         acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     else:
         acq_mode_search = config['acq_mode']
-
+    
+    if config['aoi_tiles'] is not None:
+        vec = tile_ex.aoi_from_tiles(kml=config['kml_file'], tiles=config['aoi_tiles'])
+    else:
+        vec = Vector(config['aoi_geometry'])
+    
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
-        selection = archive.select(product=config['product'],
+        selection = archive.select(vectorobject=vec,
+                                   product=config['product'],
                                    acquisition_mode=acq_mode_search,
                                    mindate=config['mindate'], maxdate=config['maxdate'])
+    del vec
     
     if len(selection) == 0:
         message = "No scenes could be found for acquisition mode '{acq_mode}', " \
@@ -71,6 +79,12 @@ def main(config_file, section_name, debug=False):
                 dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
                 dem_type=config['dem_type'], kml_file=config['kml_file'])
     del geometries
+    
+    if config['dem_type'] == 'Copernicus 30m Global DEM':
+        ex_dem_nodata = -99
+    else:
+        ex_dem_nodata = None
+    
     ####################################################################################################################
     # SNAP RTC processing
     if snap_flag:
@@ -91,11 +105,6 @@ def main(config_file, section_name, debug=False):
                 dem.mosaic(geometry, outname=fname_dem, epsg=epsg,
                            dem_type=config['dem_type'], kml_file=config['kml_file'],
                            dem_dir=config['dem_dir'])
-            
-            if config['dem_type'] == 'Copernicus 30m Global DEM':
-                ex_dem_nodata = -99
-            else:
-                ex_dem_nodata = None
             ###############################################
             # ETAD correction
             if config['etad']:
