@@ -6,7 +6,8 @@ You can find further information about the S1-NRB product
 
 .. toctree::
    :caption: General Topics
-   :maxdepth: 1
+   :hidden:
+   :maxdepth: 2
 
    general/installation
    general/usage
@@ -14,12 +15,15 @@ You can find further information about the S1-NRB product
 
 .. toctree::
    :caption: API Reference
+   :hidden:
+   :maxdepth: 2
 
    api
 
 .. toctree::
    :caption: About
-   :maxdepth: 1
+   :hidden:
+   :maxdepth: 2
 
    about/changelog
    about/references
