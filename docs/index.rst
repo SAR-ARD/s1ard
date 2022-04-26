@@ -8,6 +8,7 @@ General Topics
 ==============
 
 .. toctree::
+   :caption: General Topics
    :maxdepth: 1
 
    general/installation
@@ -18,6 +19,7 @@ API Documentation
 =================
 
 .. toctree::
+   :caption: API Reference
 
    api
 
@@ -25,6 +27,7 @@ About
 =====
 
 .. toctree::
+   :caption: About
    :maxdepth: 1
 
    about/changelog
