@@ -24,6 +24,9 @@ You can find further information about the S1-NRB product
    about/changelog
    about/references
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. toctree::
+   :caption: Index
+   :hidden:
+   :maxdepth: 2
+
+   tocs
