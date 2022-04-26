@@ -92,7 +92,7 @@ def vec_from_srccoords(coord_list):
     ----------
     coord_list: list[list[tuple(float, float)]]
         List containing for each source scene a list of coordinate pairs as retrieved from the metadata stored in an
-         :class:`~pyroSAR.drivers.ID` object.
+        :class:`~pyroSAR.drivers.ID` object.
     
     Returns
     -------
