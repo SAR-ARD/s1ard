@@ -19,17 +19,18 @@ gdal.UseExceptions()
 
 def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     """
-    Returns a metadata dictionary, which is generated from the ID of a product scene using a regular expression pattern
-    and from a measurement GeoTIFF file of the same product scene using spatialist's Raster class.
+    Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
+    pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
+    class.
     
     Parameters
     ----------
     product_id: str
         The top-level product folder name.
     tif: str
-        The paths to a measurement GeoTIFF file of the product scene.
-    src_ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+        The path to a measurement GeoTIFF file of the product scene.
+    src_ids: list[pyroSAR.drivers.ID]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     snap_outdir: str
         A path pointing to the SNAP processed datasets of the product.
     
@@ -41,7 +42,7 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
-    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
+    with vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
@@ -83,18 +84,19 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     return out
 
 
-def _vec_from_srccoords(coord_list):
+def vec_from_srccoords(coord_list):
     """
-    Creates a single vector object from a list of footprint coordinates of source scenes.
+    Creates a single :class:`~spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
     
     Parameters
     ----------
     coord_list: list[list[tuple(float, float)]]
-        List containing (for n source scenes) a list of coordinate pairs as retrieved by `pyroSAR.drivers.identify`
+        List containing for each source scene a list of coordinate pairs as retrieved from the metadata stored in an
+        :class:`~pyroSAR.drivers.ID` object.
     
     Returns
     -------
-    `spatialist.vector.Vector` object
+    spatialist.vector.Vector
     """
     if len(coord_list) == 2:
         # determine joined border between footprints
@@ -133,17 +135,18 @@ def _vec_from_srccoords(coord_list):
 
 def etree_from_sid(sid):
     """
-    Uses a pyroSAR metadata handler to get the parsed manifest and annotation XML data as a dictionary.
+    Retrieve the manifest and annotation XML data of a scene as a dictionary using an :class:`~pyroSAR.drivers.ID`
+    object.
     
     Parameters
     ----------
-    sid:  pyroSAR.drivers.ID subclass object
-        A pyroSAR metadata handler generated with `pyroSAR.drivers.identify`.
+    sid:  :class:`pyroSAR.drivers.ID`
+        A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with :func:`pyroSAR.drivers.identify`.
     
     Returns
     -------
     dict
-        A dictionary containing the parsed etree.ElementTree objects for the manifest and annotation XML files.
+        A dictionary containing the parsed `etree.ElementTree` objects for the manifest and annotation XML files.
     """
     files = sid.findfiles(r'^s1[ab].*-[vh]{2}-.*\.xml$')
     pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
@@ -165,36 +168,36 @@ def etree_from_sid(sid):
 
 def convert_coordinates(coords, stac=False):
     """
-    Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes using
-    `pyroSAR.drivers.identify` OR extent coordinates that have been retrieved using `spatialist.vector.Vector.extent`
-    to either envelop and center for usage in the XML metadata files or bbox and geometry for usage in STAC
+    Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes stored in an
+    :class:`~pyroSAR.drivers.ID` object OR a product extent retrieved using :func:`spatialist.vector.Vector.extent` to
+    either `envelop` and `center` for usage in the XML metadata files or `bbox` and `geometry` for usage in STAC
     metadata files. The latter is returned if the optional parameter `stac` is set to True, else the former is returned.
     
     Parameters
     ----------
     coords: list[tuple(float, float)] or dict
-        List of coordinate tuple pairs as retrieved by `pyroSAR.drivers.identify` from source scenes OR the extent of a
-        product scene or MGRS tile, which can be retrieved by spatialist's Raster and Vector classes in the form of a
-        dictionary with keys xmin, xmax, ymin, ymax.
+        List of coordinate tuple pairs as retrieved from an :class:`~pyroSAR.drivers.ID` objects of source SLC scenes
+        OR the product extent retrieved using :func:`spatialist.vector.Vector.extent` in the form of a dictionary with
+        keys: xmin, xmax, ymin, ymax
     stac: bool, optional
-        If set to True, bbox and geometry are returned for usage in STAC Items. If set to False (default) envelop and
-        center are returned for usage in XML metadata files.
+        If set to True, `bbox` and `geometry` are returned for usage in STAC metadata file. If set to False (default)
+        `envelop` and `center` are returned for usage in XML metadata files.
     
     Returns
     -------
     envelop: str
-        Acquisition footprint coordinates for the XML element 'eop:Footprint/multiExtentOf'
+        Acquisition footprint coordinates for the XML element 'eop:Footprint/multiExtentOf'.
     center: str
-        Acquisition center coordinates for the XML element 'eop:Footprint/centerOf'
+        Acquisition center coordinates for the XML element 'eop:Footprint/centerOf'.
     
     Notes
     -------
-    If stac=True the following parameters are returned instead of envelop and center:
+    If `stac=True` the following results are returned instead of `envelop` and `center`:
     
     bbox: list[float]
         Acquisition bounding box for usage in STAC Items. Formatted in accordance with RFC 7946, section 5:
         https://datatracker.ietf.org/doc/html/rfc7946#section-5
-    geometry: GeoJSON Geometry Object
+    geometry: dict
         Acquisition footprint geometry for usage in STAC Items. Formatted in accordance with RFC 7946, section 3.1.:
         https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
     """
@@ -236,13 +239,13 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
     Parameters
     ----------
     annotation_dict: dict
-        A dict of annotation files in the form: {'swath ID': lxml.etree._Element object}
+        A dict of annotation files in the form: {'swath ID': `lxml.etree._Element` object}
     pattern: str
         The pattern to search for in each annotation file.
     single: bool, optional
         If True, the results found in each annotation file are expected to be the same and therefore only a single
         value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
-    out_type: str
+    out_type: str, optional
         Output type to convert the results to. Can be one of the following:
         
         - str (default)
@@ -252,8 +255,8 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
     Returns
     -------
     out: dict
-        A dictionary of the results containing a list for each of the annotation files.
-        I.e., {'swath ID': list[str, float or int]}
+        A dictionary of the results containing a list for each of the annotation files. E.g.,
+        {'swath ID': list[str, float or int]}
     """
     out = {}
     for s, a in annotation_dict.items():
@@ -298,14 +301,15 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
 
 def calc_performance_estimates(files, ref_tif):
     """
-    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images.
+    Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images if available.
     
     Parameters
     ----------
     files: list[str]
         List of paths pointing to the noise power images the estimates should be calculated for.
     ref_tif: str
-        A path pointing to a product GeoTIFF file, which is used to get spatial information about the current MGRS tile.
+        A path pointing to a reference product raster, which is used to get spatial information about the current MGRS
+        tile.
     
     Returns
     -------
@@ -338,7 +342,8 @@ def extract_pslr_islr(annotation_dict):
     Parameters
     ----------
     annotation_dict: dict
-        A dict of annotation files in the form: {'swath ID': lxml.etree._Element object}
+        A dictionary of annotation files in the form: {'swath ID':`lxml.etree._Element` object}
+    
     Returns
     -------
     pslr: float
@@ -367,23 +372,22 @@ def extract_pslr_islr(annotation_dict):
 def get_header_size(tif):
     """
     Gets the header size of a GeoTIFF file in bytes.
+    The code used in this function and its helper function `_get_block_offset` were extracted from the following
+    source:
     
-    The code used in this function and its helper function `_get_block_offset` were extracted from the the following
-    source: https://github.com/OSGeo/gdal/blob/master/swig/python/gdal-utils/osgeo_utils/samples/validate_cloud_optimized_geotiff.py
+    https://github.com/OSGeo/gdal/blob/master/swig/python/gdal-utils/osgeo_utils/samples/validate_cloud_optimized_geotiff.py
     
-    # *****************************************************************************
-    #  Copyright (c) 2017, Even Rouault
-    #
-    #  Permission is hereby granted, free of charge, to any person obtaining a
-    #  copy of this software and associated documentation files (the "Software"),
-    #  to deal in the Software without restriction, including without limitation
-    #  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-    #  and/or sell copies of the Software, and to permit persons to whom the
-    #  Software is furnished to do so, subject to the following conditions:
-    #
-    #  The above copyright notice and this permission notice shall be included
-    #  in all copies or substantial portions of the Software.
-    # *****************************************************************************
+    Copyright (c) 2017, Even Rouault
+    
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+    
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
     
     Parameters
     ----------
@@ -395,6 +399,15 @@ def get_header_size(tif):
     header_size: int
         The size of all IFD headers of the GeoTIFF file in bytes.
     """
+    def _get_block_offset(band):
+        blockxsize, blockysize = band.GetBlockSize()
+        for y in range(int((band.YSize + blockysize - 1) / blockysize)):
+            for x in range(int((band.XSize + blockxsize - 1) / blockxsize)):
+                block_offset = band.GetMetadataItem('BLOCK_OFFSET_%d_%d' % (x, y), 'TIFF')
+                if block_offset:
+                    return int(block_offset)
+        return 0
+    
     details = {}
     ds = gdal.Open(tif)
     main_band = ds.GetRasterBand(1)
@@ -414,31 +427,21 @@ def get_header_size(tif):
     return headers_size
 
 
-def _get_block_offset(band):
-    blockxsize, blockysize = band.GetBlockSize()
-    for y in range(int((band.YSize + blockysize - 1) / blockysize)):
-        for x in range(int((band.XSize + blockxsize - 1) / blockxsize)):
-            block_offset = band.GetMetadataItem('BLOCK_OFFSET_%d_%d' % (x, y), 'TIFF')
-            if block_offset:
-                return int(block_offset)
-    return 0
-
-
 def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by `metadata.xmlparser` and `metadata.stacparser` to generate XML and STAC JSON metadata files,
-    respectively.
+    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
+    JSON metadata files, respectively.
     
     Parameters
     ----------
     target: str
         A path pointing to the NRB product scene being created.
-    src_ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source scenes that overlap with the current MGRS tile.
+    src_ids: list[pyroSAR.drivers.ID]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     snap_datasets: list[str]
-        List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
-        with the current MGRS tile.
+        List of output files processed with :func:`pyroSAR.snap.util.geocode` that match the source SLC scenes
+        overlapping with the current MGRS tile.
     dem_type: str
         The DEM type used for processing.
     proc_time: datetime.datetime
@@ -517,7 +520,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = None
     meta['prod'][
-        'ancillaryData_KML'] = 'https://sentinels.copernicus.eu/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+        'ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'

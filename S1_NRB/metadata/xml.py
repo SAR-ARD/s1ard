@@ -14,7 +14,7 @@ def _nsc(text, nsmap):
     return '{{{0}}}{1}'.format(nsmap[ns], key)
 
 
-def om_time(root, nsmap, scene_id, time_start, time_stop):
+def _om_time(root, nsmap, scene_id, time_start, time_stop):
     """
     Creates the `om:phenomenonTime` and `om:resultTime` XML elements.
     
@@ -30,10 +30,6 @@ def om_time(root, nsmap, scene_id, time_start, time_stop):
         Start time of the scene acquisition.
     time_stop: str
         Stop time of the acquisition.
-    
-    Returns
-    -------
-    None
     """
     phenomenonTime = etree.SubElement(root, _nsc('om:phenomenonTime', nsmap))
     timePeriod = etree.SubElement(phenomenonTime, _nsc('gml:TimePeriod', nsmap),
@@ -50,7 +46,7 @@ def om_time(root, nsmap, scene_id, time_start, time_stop):
     timePosition.text = time_stop
 
 
-def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
+def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     """
     Creates the `om:procedure/eop:EarthObservationEquipment` XML elements and all relevant subelements for source and
     product metadata. Differences between source and product are controlled using the `prod=[True|False]` switch.
@@ -64,16 +60,13 @@ def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     scene_id: str
         Scene basename.
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     uid: str, optional
         Unique identifier of a source SLC scene.
     prod: bool, optional
-        Return XML subelements for further usage in `product_xml` parsing function? Default is True. If False, the
-        XML subelements for further usage in the `source_xml` parsing function will be returned.
-    
-    Returns
-    -------
-    None
+        Return XML subelements for further usage in :func:`~S1_NRB.metadata.xml.product_xml` parsing function?
+        Default is True. If False, the XML subelements for further usage in the :func:`~S1_NRB.metadata.xml.source_xml`
+        parsing function will be returned.
     """
     procedure = etree.SubElement(root, _nsc('om:procedure', nsmap))
     earthObservationEquipment = etree.SubElement(procedure, _nsc('eop:EarthObservationEquipment', nsmap),
@@ -168,7 +161,7 @@ def om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         majorCycleID.text = meta['source'][uid]['majorCycleID']
 
 
-def om_feature_of_interest(root, nsmap, scene_id, extent, center):
+def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
     """
     Creates the `om:featureOfInterest` XML elements.
     
@@ -184,10 +177,6 @@ def om_feature_of_interest(root, nsmap, scene_id, extent, center):
         Footprint coordinates of the scene.
     center: str
         Center coordinates of the footprint.
-    
-    Returns
-    -------
-    None
     """
     featureOfInterest = etree.SubElement(root, _nsc('om:featureOfInterest', nsmap))
     footprint = etree.SubElement(featureOfInterest, _nsc('eop:Footprint', nsmap),
@@ -212,24 +201,20 @@ def om_feature_of_interest(root, nsmap, scene_id, extent, center):
 
 def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
+    Function to generate product-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.xml'.format(scene_id))
@@ -242,13 +227,13 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     
     root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
-    om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
-    om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
+    _om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
+    _om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
     observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                         attrib={'nilReason': 'inapplicable'})
-    om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
-                           extent=meta['prod']['geom_xml_envelope'],
-                           center=meta['prod']['geom_xml_center'])
+    _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
+                            extent=meta['prod']['geom_xml_envelope'],
+                            center=meta['prod']['geom_xml_center'])
     
     ####################################################################################################################
     result = etree.SubElement(root, _nsc('om:result', nsmap))
@@ -487,22 +472,18 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
 
 def source_xml(meta, target, nsmap, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB target product in OGC 10-157r4 compliant XML format.
+    Function to generate source-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
     os.makedirs(metadir, exist_ok=True)
@@ -518,13 +499,13 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         
         root = etree.Element(_nsc('nrb:EarthObservation', nsmap), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
-        om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
-        om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
+        _om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
+        _om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
-        om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
-                               extent=meta['source'][uid]['geom_xml_envelop'],
-                               center=meta['source'][uid]['geom_xml_center'])
+        _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
+                                extent=meta['source'][uid]['geom_xml_envelop'],
+                                center=meta['source'][uid]['geom_xml_center'])
         
         ################################################################################################################
         result = etree.SubElement(root, _nsc('om:result', nsmap))
@@ -658,24 +639,20 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def main(meta, target, tifs, exist_ok=False):
+def parse(meta, target, tifs, exist_ok=False):
     """
-    Wrapper for `source_xml` and `product_xml`.
+    Wrapper for :func:`~S1_NRB.metadata.xml.source_xml` and :func:`~S1_NRB.metadata.xml.product_xml`.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     NS_MAP_prod = deepcopy(NS_MAP)
     NS_MAP_src = deepcopy(NS_MAP)

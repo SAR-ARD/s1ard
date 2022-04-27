@@ -10,25 +10,25 @@ from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
 
 def process(scene, etad_dir, out_dir, log):
     """
-    Apply ETAD correction to a Sentinel-1 SLC product
+    Apply ETAD correction to a Sentinel-1 SLC product.
     
     Parameters
     ----------
-    scene: pyroSAR.ID
-        the Sentinel-1 SLC scene
+    scene: pyroSAR.drivers.ID
+        The Sentinel-1 SLC scene.
     etad_dir: str
-        the directory containing ETAD products. This will be searched for products matching the defined SLC.
+        The directory containing ETAD products. This will be searched for products matching the defined SLC.
     out_dir: str
-        the directory to store results. The ETAD product is unpacked to this directory if necessary.
+        The directory to store results. The ETAD product is unpacked to this directory if necessary.
         Two new sub-directories SLC_original SLC_ETAD and are created, which contain the original unpacked
         scene and the corrected one respectively.
     log: logging.Logger
-        a logger object to write log info
+        A logger object to write log info.
 
     Returns
     -------
-    pyroSAR.ID
-        the corrected scene as pyroSAR ID object
+    pyroSAR.drivers.ID
+        The corrected scene as a pyroSAR ID object.
     """
     slc_corrected_dir = os.path.join(out_dir, 'SLC_etad')
     os.makedirs(slc_corrected_dir, exist_ok=True)

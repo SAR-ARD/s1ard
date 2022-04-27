@@ -38,14 +38,14 @@ def get_max_ext(geometries, buffer=None):
     
     Parameters
     ----------
-    geometries: list[spatialist.vector.Vector objects]
-        List of vector geometries.
+    geometries: list[spatialist.vector.Vector]
+        List of :class:`~spatialist.vector.Vector` geometries.
     buffer: float, optional
         The buffer in degrees to add to the extent.
     Returns
     -------
     max_ext: dict
-        The maximum extent of the selected vector geometries including the chosen buffer.
+        The maximum extent of the selected :class:`~spatialist.vector.Vector` geometries including the chosen buffer.
     """
     max_ext = {}
     for geo in geometries:
@@ -123,10 +123,6 @@ def _log_process_config(logger, config):
         The logger to which the header is added to.
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    
-    Returns
-    -------
-    None
     """
     try:
         core = examine.ExamineSnap().get_version('core')
@@ -178,7 +174,24 @@ def _log_process_config(logger, config):
 
 
 def log(handler, mode, proc_step, scenes, epsg, msg):
-    """Helper function to format and handle log messages during processing."""
+    """
+    Format and handle log messages during processing.
+    
+    Parameters
+    ----------
+    handler: logging.Logger
+        The log handler for the current process.
+    mode: str
+        One of ['info', 'warning', 'exception']. Calls the respective logging helper function. E.g., `handler.info()`.
+    proc_step: str
+        The processing step for which the message is logged.
+    scenes: str or list[str]
+        Scenes that are currently being processed.
+    epsg: int
+        The coordinate reference system as an EPSG code.
+    msg: Any
+        The massage that should be logged.
+    """
     proc_step = proc_step.zfill(7).replace('0', ' ')
     message = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'
     message = message.format(proc_step=proc_step, scenes=scenes, epsg=epsg, msg=msg)
