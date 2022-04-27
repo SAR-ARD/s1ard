@@ -83,6 +83,7 @@ Tile Extraction
     .. autosummary::
         :nosignatures:
 
+        aoi_from_tiles
         description2dict
         extract_tile
         get_tile_dict
