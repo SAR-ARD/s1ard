@@ -15,7 +15,19 @@ import S1_NRB.tile_extraction as tile_ex
 gdal.UseExceptions()
 
 
-def main(config_file, section_name, debug=False):
+def main(config_file, section_name='GENERAL', debug=False):
+    """
+    Main function that initiates and controls the processing workflow.
+    
+    Parameters
+    ----------
+    config_file: str
+        Full path to a `config.ini` file.
+    section_name: str, optional
+        Section name of the `config.ini` file that parameters should be parsed from. Default is 'GENERAL'.
+    debug: bool, optional
+        Set pyroSAR logging level to DEBUG? Default is False.
+    """
     config = get_config(config_file=config_file, section_name=section_name)
     logger = set_logging(config=config, debug=debug)
     geocode_prms = geocode_conf(config=config)
@@ -29,7 +41,7 @@ def main(config_file, section_name, debug=False):
         snap_flag = False
     ####################################################################################################################
     # archive / scene selection
-    scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip'], regex=True, recursive=True)
+    scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip$'], regex=True, recursive=True)
     
     if config['acq_mode'] == 'SM':
         acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')

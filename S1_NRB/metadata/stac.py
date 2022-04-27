@@ -15,22 +15,18 @@ from S1_NRB.metadata.extract import get_header_size
 
 def product_json(meta, target, tifs, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB target product in STAC compliant JSON format.
+    Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     scene_id = os.path.basename(target)
     outname = os.path.join(target, '{}.json'.format(scene_id))
@@ -277,20 +273,16 @@ def product_json(meta, target, tifs, exist_ok=False):
 
 def source_json(meta, target, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB target product in STAC compliant JSON format.
+    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with metadata.extract.meta_dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
     os.makedirs(metadir, exist_ok=True)
@@ -427,24 +419,20 @@ def source_json(meta, target, exist_ok=False):
         item.save_object(dest_href=outname)
 
 
-def main(meta, target, tifs, exist_ok=False):
+def parse(meta, target, tifs, exist_ok=False):
     """
-    Wrapper for `source_json` and `product_json`.
+    Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with `metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool
-        do not create files if they already exist?
-    
-    Returns
-    -------
-    None
+    exist_ok: bool, optional
+        Do not create files if they already exist?
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
     product_json(meta=meta, target=target, tifs=tifs, exist_ok=exist_ok)
