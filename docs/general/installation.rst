@@ -5,14 +5,12 @@ Installation
 The S1_NRB package is not yet available via conda-forge or other common package distribution channels. In the meantime,
 the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed:
 
-
 1. Create and then activate the conda environment
 
 ::
 
     conda env create --file https://raw.githubusercontent.com/SAR-ARD/S1_NRB/main/environment.yaml
     conda activate nrb_env
-
 
 2. Install the S1_NRB package into the environment
 
@@ -22,15 +20,3 @@ repository for available versions.
 ::
 
     pip install git+https://github.com/SAR-ARD/S1_NRB.git@v0.3.0
-
-Update
-------
-
-The latest states of `pyroSAR <https://github.com/johntruckenbrodt/pyroSAR>`_ and
-`spatialist <https://github.com/johntruckenbrodt/spatialist>`_, which are developed alongside the S1_NRB package, can be
-updated like this:
-
-::
-
-    pip install git+https://github.com/johntruckenbrodt/spatialist.git --upgrade --no-deps --force-reinstall
-    pip install git+https://github.com/johntruckenbrodt/pyroSAR.git --upgrade --no-deps --force-reinstall
