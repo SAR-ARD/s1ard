@@ -2,6 +2,15 @@
 Installation
 ############
 
+SNAP
+----
+
+S1_NRB requires ESA’s Sentinels Application Platform (SNAP) software to produce S1-NRB products. For download and installation
+instructions please refer to the `official webpage <https://step.esa.int/main/download/snap-download/>`_.
+
+S1_NRB
+------
+
 The S1_NRB package is not yet available via conda-forge or other common package distribution channels. In the meantime,
 the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed:
 
