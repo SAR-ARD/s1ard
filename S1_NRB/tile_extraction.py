@@ -1,11 +1,13 @@
 import re
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
+from S1_NRB.ancillary import get_max_ext
 
 
 def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     """
-    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a vector object.
+    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a
+    :class:`~spatialist.vector.Vector` object.
     
     Parameters
     -------
@@ -15,10 +17,10 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
         https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
     epsg: int or list[int] or None
-        define which EPSG code(s) are allowed for the tile selection.
+        Define which EPSG code(s) are allowed for the tile selection.
         If None, all tile IDs are returned regardless of projection.
     strict: bool
-        strictly only return the names of the overlapping tiles in the target projection
+        Strictly only return the names of the overlapping tiles in the target projection
         or also allow reprojection of neighbouring tiles?
         In the latter case a tile name takes the form <tile ID>_<EPSG code>, e.g. `33TUN_32632`.
         Only applies if argument `epsg` is of type `int` or a list with one element.
@@ -55,15 +57,44 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         return sorted(tilenames)
 
 
-def extract_tile(kml, tile):
+def aoi_from_tiles(kml, tiles):
     """
-    Extract a MGRS tile from the global Sentinel-2 tiling grid and return it as a vector object.
+    Returns the bounding box of a list of MGRS tile IDs as a :class:`~spatialist.vector.Vector` object.
     
     Parameters
     ----------
     kml: str
-        Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
-        https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
+        Path to the Sentinel-2 tiling grid KML file.
+    tiles: list[str]
+        A list of unique MGRS tile IDs.
+    
+    Returns
+    -------
+    spatialist.vector.Vector
+    
+    Notes
+    -----
+    The global Sentinel-2 tiling grid can be retrieved from:
+    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
+    """
+    geometries = []
+    for tile in tiles:
+        geom = extract_tile(kml=kml, tile=tile)
+        geom.reproject(4326)
+        geometries.append(geom)
+    max_ext = get_max_ext(geometries=geometries)
+    return bbox(max_ext, crs=4326)
+
+
+def extract_tile(kml, tile):
+    """
+    Extract an MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
+    object.
+    
+    Parameters
+    ----------
+    kml: str
+        Path to the Sentinel-2 tiling grid KML file.
     tile: str
         The MGRS tile ID that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
@@ -73,6 +104,11 @@ def extract_tile(kml, tile):
     Returns
     -------
     spatialist.vector.Vector
+    
+    Notes
+    -----
+    The global Sentinel-2 tiling grid can be retrieved from:
+    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
     tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
     with Vector(kml, driver='KML') as vec:
@@ -116,14 +152,14 @@ def get_tile_dict(config, spacing):
     """
     Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
     well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
-    of `pyroSAR.snap.util.geocode`
+    of :func:`pyroSAR.snap.util.geocode`
     
     Parameters
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
     spacing: int
-        The target pixel spacing in meters, which is passed to `pyroSAR.snap.util.geocode`.
+        The target pixel spacing in meters, which is passed to :func:`pyroSAR.snap.util.geocode`.
     
     Returns
     -------

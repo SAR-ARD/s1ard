@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -11,10 +12,11 @@ from scipy.interpolate import griddata
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
 from spatialist.auxil import gdalwarp, gdalbuildvrt
+from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 from pyroSAR.ancillary import find_datasets
 import S1_NRB
-from S1_NRB.metadata import extract, xmlparser, stacparser
+from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import ITEM_MAP
 from S1_NRB.ancillary import generate_unique_id
 from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
@@ -23,10 +25,10 @@ from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            multithread=True, compress=None, overviews=None):
     """
-    Finalizes the generation of Sentinel-1 NRB products after processing steps via `pyroSAR.snap.util.geocode` and
-    `pyroSAR.snap.util.noise_power` have been finished. This includes the following:
+    Finalizes the generation of Sentinel-1 NRB products after processing steps via :func:`pyroSAR.snap.util.geocode` and
+    :func:`pyroSAR.snap.util.noise_power` have finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
-    - Creating all annotation datasets in Virtual Raster Tile (VRT) format
+    - Creating additional annotation datasets in Virtual Raster Tile (VRT) format
     - Applying the NRB product directory structure & naming convention
     - Generating metadata in XML and JSON formats for the NRB product as well as source SLC datasets
 
@@ -43,14 +45,14 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     tile: str
         ID of an MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
     wbm: str, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
     multithread: bool, optional
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
-        config.ini file with the parameter `gdal_threads`.
+        `config.ini` file with the parameter `gdal_threads`.
     compress: str, optional
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
@@ -59,7 +61,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
 
     Returns
     -------
-    None
+    str
+        Either the time spent executing the function in seconds or 'Already processed - Skip!'
     """
     if compress is None:
         compress = 'LERC_ZSTD'
@@ -71,6 +74,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     src_nodata_snap = 0
     dst_nodata = 'nan'
     dst_nodata_mask = 255
+    
+    # determine processing timestamp and generate unique ID
+    start_time = time.time()
+    proc_time = datetime.now(timezone.utc)
+    t = proc_time.isoformat().encode()
+    product_id = generate_unique_id(encoded_str=t)
     
     src_ids, snap_datasets, snap_datamasks = get_datasets(scenes=scenes, datadir=datadir,
                                                           tile=tile, extent=extent, epsg=epsg)
@@ -85,12 +94,21 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
-            'id': 'ABCD'}
+            'id': product_id}
     meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
     
-    nrb_dir = os.path.join(outdir, skeleton_dir.format(**meta))
+    modify_existing = False
+    nrb_base = skeleton_dir.format(**meta)
+    existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
+    if len(existing) > 0:
+        if not modify_existing:
+            return 'Already processed - Skip!'
+        else:
+            nrb_dir = existing[0]
+    else:
+        nrb_dir = os.path.join(outdir, nrb_base)
     os.makedirs(nrb_dir, exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
@@ -167,16 +185,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
                               'dstNodata': dst_nodata, 'multithread': multithread,
                               'creationOptions': write_options[key]})
-            nrb_tifs.append(outname)
-    
-    # determine processing timestamp, generate unique ID and rename NRB directory accordingly
-    proc_time = datetime.now(timezone.utc)
-    t = proc_time.isoformat().encode()
-    product_id = generate_unique_id(encoded_str=t)
-    nrb_dir_new = nrb_dir.replace('ABCD', product_id)
-    nrb_tifs = [tif.replace(nrb_dir, nrb_dir_new) for tif in nrb_tifs]
-    os.rename(nrb_dir, nrb_dir_new)
-    nrb_dir = nrb_dir_new
+        nrb_tifs.append(outname)
     
     # reformat `snap_datasets` to a flattened list if necessary
     if type(snap_datasets[0]) == tuple:
@@ -193,23 +202,30 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
     dm_path = ref_tif.replace(ref_tif_suffix, '-dm.tif')
-    create_data_mask(outname=dm_path, snap_datamasks=snap_datamasks, snap_datasets=snap_datasets,
-                           extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['layoverShadowMask'],
-                           overviews=overviews, overview_resampling=ovr_resampling, wbm=wbm, dst_nodata=dst_nodata_mask)
+    if not os.path.isfile(dm_path):
+        create_data_mask(outname=dm_path, snap_datamasks=snap_datamasks,
+                         snap_datasets=snap_datasets, extent=extent, epsg=epsg,
+                         driver=driver, creation_opt=write_options['layoverShadowMask'],
+                         overviews=overviews, overview_resampling=ovr_resampling,
+                         wbm=wbm, dst_nodata=dst_nodata_mask)
     nrb_tifs.append(dm_path)
     
     # create acquisition ID image raster (-id.tif)
     id_path = ref_tif.replace(ref_tif_suffix, '-id.tif')
-    create_acq_id_image(outname=id_path, ref_tif=ref_tif, snap_datamasks=snap_datamasks, src_ids=src_ids,
-                              extent=extent, epsg=epsg, driver=driver, creation_opt=write_options['acquisitionImage'],
-                              overviews=overviews, dst_nodata=dst_nodata_mask)
+    if not os.path.isfile(id_path):
+        create_acq_id_image(outname=id_path, ref_tif=ref_tif,
+                            snap_datamasks=snap_datamasks, src_ids=src_ids,
+                            extent=extent, epsg=epsg, driver=driver,
+                            creation_opt=write_options['acquisitionImage'],
+                            overviews=overviews, dst_nodata=dst_nodata_mask)
     nrb_tifs.append(id_path)
     
     # create color composite VRT (-cc-g-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
-        create_rgb_vrt(outname=cc_path, infiles=measure_tifs, overviews=overviews,
-                             overview_resampling=ovr_resampling)
+        if not os.path.isfile(cc_path):
+            create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
+                           overviews=overviews, overview_resampling=ovr_resampling)
     
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
     for item in measure_tifs:
@@ -217,7 +233,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
             create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+                       options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     for item in measure_tifs:
@@ -226,13 +243,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul', relpaths=True,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+            create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul',
+                       relpaths=True, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
-            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10', scale=10,
-                             options={'VRTNodata': 'NaN'}, overviews=overviews, overview_resampling=ovr_resampling)
+            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10',
+                       scale=10, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       overview_resampling=ovr_resampling)
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
@@ -243,15 +262,19 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         shutil.copy(schema, support_dir)
     
     # create metadata files in XML and (STAC) JSON formats
-    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
-                             proc_time=proc_time, start=nrb_start, stop=nrb_stop, compression=compress)
-    xmlparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
-    stacparser.main(meta=meta, target=nrb_dir, tifs=nrb_tifs)
+    start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
+    stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
+    meta = extract.meta_dict(target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
+                             dem_type=config['dem_type'], proc_time=proc_time, start=start,
+                             stop=stop, compression=compress)
+    xml.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    stac.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
+    return str(round((time.time() - start_time), 2))
 
 
 def get_datasets(scenes, datadir, tile, extent, epsg):
     """
-    Identifies all source SLC scenes, finds matching output files processed with `pyroSAR.snap.util.geocode` in
+    Identifies all source SLC scenes, finds matching output files processed with :func:`pyroSAR.snap.util.geocode` in
     `datadir` and filters both lists depending on the actual overlap of each SLC footprint with the current MGRS tile
     geometry.
 
@@ -264,18 +287,18 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     tile: str
         ID of an MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
+        The coordinate reference system as an EPSG code.
 
     Returns
     -------
-    ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+    ids: list[:class:`pyroSAR.drivers.ID`]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     datasets: list[str] or list[list[str]]
-        List of output files processed with `pyroSAR.snap.util.geocode` that match each ID object of `ids`.
-        The format of `snap_datasets` is a list of strings if only a single ID object is stored in `ids`, else it is
-        a list of lists.
+        List of output files processed with :func:`pyroSAR.snap.util.geocode` that match each
+        :class:`~pyroSAR.drivers.ID` object of `ids`. The format is a list of strings if only a single object is stored
+        in `ids`, else it is a list of lists.
     datamasks: list[str]
         List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
         MGRS tile.
@@ -361,16 +384,11 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
     options: dict, optional
-        Additional parameters passed to gdal.BuildVRT. For possible options see:
-        https://gdal.org/python/osgeo.gdal-module.html#BuildVRTOptions
+        Additional parameters passed to `gdal.BuildVRT`.
     overviews: list[int], optional
         Internal overview levels to be created for each raster file.
     overview_resampling: str, optional
         Resampling method for overview levels.
-
-    Returns
-    -------
-    None
     """
     gdalbuildvrt(src=src, dst=dst, options=options)
     tree = etree.parse(dst)
@@ -424,22 +442,18 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
 
 def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     """
-    Creates the RGB VRT file.
+    Creation of the color composite VRT file.
 
     Parameters
     ----------
     outname: str
-        Full path to the output RGB VRT file.
+        Full path to the output VRT file.
     infiles: list[str]
         A list of paths pointing to the linear scaled measurement backscatter files.
     overviews: list[int]
         Internal overview levels to be defined for the created VRT file.
     overview_resampling: str
         Resampling method applied to overview pyramids.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     
@@ -523,19 +537,19 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
     Parameters
     ----------
-    src_ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+    src_ids: list[pyroSAR.drivers.ID]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
+        The coordinate reference system as an EPSG code.
 
     Returns
     -------
     start: str
-        Start time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
+        Start time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
     stop: str
-        Stop time of the NRB product formatted as %Y%m%dT%H%M%S in UTC.
+        Stop time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -553,11 +567,11 @@ def calc_product_start_stop(src_ids, extent, epsg):
         slc_dict[uid]['sid'] = sid
     
     uids = list(slc_dict.keys())
-    swaths = list(slc_dict[uids[0]]['annotation'].keys())
     
     for uid in uids:
         t = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'],
                                pattern='.//geolocationGridPoint/azimuthTime')
+        swaths = t.keys()
         y = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/latitude')
         x = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/longitude')
         t_flat = np.asarray([datetime.fromisoformat(item).timestamp() for sublist in [t[swath] for swath in swaths]
@@ -612,7 +626,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
 def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, driver,
                      creation_opt, overviews, overview_resampling, dst_nodata, wbm=None):
     """
-    Creates the Data Mask file.
+    Creation of the Data Mask image.
 
     Parameters
     ----------
@@ -622,12 +636,12 @@ def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, drive
         List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
         MGRS tile.
     snap_datasets: list[str]
-        List of output files processed with `pyroSAR.snap.util.geocode` that match the source SLC scenes that overlap
-        with the current MGRS tile.
+        List of output files processed with :func:`pyroSAR.snap.util.geocode` that match the source SLC scenes and
+        overlap with the current MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
+        The coordinate reference system as an EPSG code.
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]
@@ -640,10 +654,6 @@ def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, drive
         Nodata value to write to the output raster.
     wbm: str, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     pols = [pol for pol in set([re.search('[VH]{2}', os.path.basename(x)).group() for x in snap_datasets if
@@ -743,7 +753,7 @@ def create_data_mask(outname, snap_datamasks, snap_datasets, extent, epsg, drive
 def create_acq_id_image(outname, ref_tif, snap_datamasks, src_ids, extent,
                         epsg, driver, creation_opt, overviews, dst_nodata):
     """
-    Creation of the acquisition ID image described in CARD4L NRB 2.8
+    Creation of the Acquisition ID image.
 
     Parameters
     ----------
@@ -754,10 +764,10 @@ def create_acq_id_image(outname, ref_tif, snap_datamasks, src_ids, extent,
     snap_datamasks: list[str]
         List of raster datamask files covering the footprint of each source SLC scene that overlaps with the current
         MGRS tile.
-    src_ids: list[ID]
-        List of `pyroSAR.driver.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+    src_ids: list[pyroSAR.drivers.ID]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a `spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
     driver: str
@@ -768,10 +778,6 @@ def create_acq_id_image(outname, ref_tif, snap_datamasks, src_ids, extent,
         Internal overview levels to be created for each raster file.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-
-    Returns
-    -------
-    None
     """
     print(outname)
     src_scenes = [sid.scene for sid in src_ids]

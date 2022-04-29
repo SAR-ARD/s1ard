@@ -23,7 +23,12 @@ setup(
                       'pyroSAR>=0.16.3',
                       'scipy',
                       's1etad>=0.5.3'],
+    extras_require={
+          'docs': ['sphinx', 'sphinxcontrib-bibtex',
+                   'cairosvg', 'sphinxcontrib-svg2pdfconverter'],
+    },
     python_requires='>=3.8',
+    licence='MIT',
     zip_safe=False,
     entry_points={
         'console_scripts': ['s1_nrb=S1_NRB.cli:cli']

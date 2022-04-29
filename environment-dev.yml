@@ -1,0 +1,21 @@
+name: nrb_env
+channels:
+  - conda-forge
+  - defaults
+  - s1-etad
+dependencies:
+  - python>=3.8
+  - gdal>=3.4.1
+  - click
+  - lxml
+  - pip
+  - pystac
+  - scipy
+  - pyroSAR>=0.16.3
+  - s1etad>=0.5.3
+  - s1etad_tools>=0.8.1
+  - sphinx
+  - sphinxcontrib-bibtex>=2.2
+  - cairosvg
+  - pip:
+      - sphinxcontrib-svg2pdfconverter
