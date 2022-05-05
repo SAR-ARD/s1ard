@@ -32,6 +32,8 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     """
     if isinstance(epsg, int):
         epsg = [epsg]
+    if vectorobject.getProjection('epsg') != 4326:
+        raise RuntimeError('the CRS of the input vector object must be EPSG:4326')
     with Vector(kml, driver='KML') as vec:
         tilenames = []
         vectorobject.layer.ResetReading()
