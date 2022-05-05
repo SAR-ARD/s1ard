@@ -39,6 +39,7 @@ def main(config_file, section_name='GENERAL', debug=False):
         nrb_flag = False
     elif config['mode'] == 'nrb':
         snap_flag = False
+    
     ####################################################################################################################
     # archive / scene selection
     scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip$'], regex=True, recursive=True)
@@ -66,8 +67,8 @@ def main(config_file, section_name='GENERAL', debug=False):
                   "mindate '{mindate}' and maxdate '{maxdate}' in directory '{scene_dir}'."
         raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
                                           maxdate=config['maxdate'], scene_dir=config['scene_dir']))
-    
     ids = identify_many(selection)
+    
     ####################################################################################################################
     # general setup
     geo_dict = tile_ex.get_tile_dict(config=config, spacing=geocode_prms['spacing'])
@@ -83,19 +84,21 @@ def main(config_file, section_name='GENERAL', debug=False):
     
     np_dict = {'sigma0': 'NESZ', 'beta0': 'NEBZ', 'gamma0': 'NEGZ'}
     np_refarea = 'sigma0'
+    
     ####################################################################################################################
     # DEM download and MGRS-tiling
-    geometries = [scene.bbox() for scene in ids]
-    dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
-                epsg=epsg, spacing=geocode_prms['spacing'],
-                dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
-                dem_type=config['dem_type'], kml_file=config['kml_file'])
-    del geometries
-    
-    if config['dem_type'] == 'Copernicus 30m Global DEM':
-        ex_dem_nodata = -99
-    else:
-        ex_dem_nodata = None
+    if snap_flag:
+        geometries = [scene.bbox() for scene in ids]
+        dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
+                    epsg=epsg, spacing=geocode_prms['spacing'],
+                    dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
+                    dem_type=config['dem_type'], kml_file=config['kml_file'])
+        del geometries
+        
+        if config['dem_type'] == 'Copernicus 30m Global DEM':
+            ex_dem_nodata = -99
+        else:
+            ex_dem_nodata = None
     
     ####################################################################################################################
     # SNAP RTC processing
@@ -221,5 +224,4 @@ def main(config_file, section_name='GENERAL', debug=False):
                 except Exception as e:
                     log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
                     continue
-        
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
