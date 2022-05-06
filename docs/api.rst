@@ -158,3 +158,16 @@ STAC Parser
         parse
         product_json
         source_json
+
+STAC Utility
+------------
+
+.. automodule:: S1_NRB.metadata.stac
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        make_catalog

@@ -52,7 +52,8 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'pyroSAR': ('https://pyrosar.readthedocs.io/en/v{}'
                                    .format(version_pyrosar), None),
                        'spatialist': ('https://spatialist.readthedocs.io/en/v{}'
-                                      .format(version_spatialist), None)
+                                      .format(version_spatialist), None),
+                       'pystac': ('https://pystac.readthedocs.io/en/stable/index.html', None)
                        }
 
 napoleon_google_docstring = False
