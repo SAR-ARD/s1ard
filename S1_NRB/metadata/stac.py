@@ -481,15 +481,14 @@ def make_catalog(directory, recursive=True, silent=False):
         overwrite = True
         catalog = pystac.Catalog.from_file(catalog_path)
         items = catalog.get_all_items()
-        if len(list(items)) != len(products):
-            products_base = [os.path.basename(prod) for prod in products]
-            item_ids = [item.id for item in items]
-            diff = set(products_base) - set(item_ids)
-            if len(diff) == 0:
-                # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
-                catalog.make_all_asset_hrefs_absolute()
-                print(f"\n#### Existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
-                return catalog
+        item_ids = [item.id for item in items]
+        products_base = [os.path.basename(prod) for prod in products]
+        diff = set(products_base) - set(item_ids)
+        if len(diff) == 0:
+            # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
+            catalog.make_all_asset_hrefs_absolute()
+            print(f"\n#### Existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
+            return catalog
     
     sp_extent = pystac.SpatialExtent([None, None, None, None])
     tmp_extent = pystac.TemporalExtent([None, None])
