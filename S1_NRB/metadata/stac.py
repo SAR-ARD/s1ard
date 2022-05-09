@@ -470,9 +470,26 @@ def make_catalog(directory, recursive=True, silent=False):
     object deviates in this regard to ensure compatibility with the stackstac library:
     https://github.com/gjoseph92/stackstac/issues/20
     """
+    overwrite = False
     pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
               r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
     products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+    
+    # Check if Catalog already exists
+    catalog_path = os.path.join(directory, 'catalog.json')
+    if os.path.isfile(catalog_path):
+        overwrite = True
+        catalog = pystac.Catalog.from_file(catalog_path)
+        items = catalog.get_all_items()
+        if len(list(items)) != len(products):
+            products_base = [os.path.basename(prod) for prod in products]
+            item_ids = [item.id for item in items]
+            diff = set(products_base) - set(item_ids)
+            if len(diff) == 0:
+                # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
+                catalog.make_all_asset_hrefs_absolute()
+                print(f"\n#### Existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
+                return catalog
     
     sp_extent = pystac.SpatialExtent([None, None, None, None])
     tmp_extent = pystac.TemporalExtent([None, None])
@@ -517,7 +534,10 @@ def make_catalog(directory, recursive=True, silent=False):
     # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
     nrb_catalog.make_all_asset_hrefs_absolute()
     
-    print(f"\n#### STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
+    if overwrite:
+        print(f"\n#### Existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
+    else:
+        print(f"\n#### New STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
     return nrb_catalog
 
 
