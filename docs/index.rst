@@ -14,6 +14,12 @@ Further information about this product can be found
    general/S1_NRB
 
 .. toctree::
+   :caption: Examples
+   :maxdepth: 1
+
+   examples/nrb_cube
+
+.. toctree::
    :caption: API Reference
    :maxdepth: 1
 
