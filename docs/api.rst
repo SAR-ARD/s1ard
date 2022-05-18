@@ -129,8 +129,8 @@ Extraction
         meta_dict
         vec_from_srccoords
 
-XML Parser
-----------
+XML
+----
 
 .. automodule:: S1_NRB.metadata.xml
     :members:
@@ -144,8 +144,8 @@ XML Parser
         product_xml
         source_xml
 
-STAC Parser
------------
+STAC
+-----
 
 .. automodule:: S1_NRB.metadata.stac
     :members:
@@ -158,16 +158,4 @@ STAC Parser
         parse
         product_json
         source_json
-
-STAC Utility
-------------
-
-.. automodule:: S1_NRB.metadata.stac
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
         make_catalog
