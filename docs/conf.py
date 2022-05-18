@@ -35,7 +35,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
-    'sphinxcontrib.cairosvgconverter'
+    'sphinxcontrib.cairosvgconverter',
+    'nbsphinx'
 ]
 
 bibtex_bibfiles = ['references.bib']
