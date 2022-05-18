@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from statistics import mean, median
 from copy import deepcopy
 from datetime import datetime
@@ -9,6 +10,7 @@ from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
 from spatialist import Raster
+from spatialist.ancillary import finder
 from S1_NRB.metadata.mapping import SAMPLE_MAP
 from S1_NRB.metadata.extract import get_header_size
 
@@ -436,3 +438,165 @@ def parse(meta, target, tifs, exist_ok=False):
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
     product_json(meta=meta, target=target, tifs=tifs, exist_ok=exist_ok)
+
+
+def make_catalog(directory, recursive=True, silent=False):
+    """
+    For a given directory of Sentinel-1 NRB products, this function will create a high-level STAC
+    :class:`~pystac.catalog.Catalog` object serving as the STAC endpoint and lower-level STAC
+    :class:`~pystac.collection.Collection` objects for each subdirectory corresponding to a unique MGRS tile ID.
+    
+    WARNING: The directory content will be reorganized into subdirectories based on unique MGRS tile IDs if this is not
+    yet the case.
+    
+    Parameters
+    ----------
+    directory: str
+        Path to a directory that contains Sentinel-1 NRB products.
+    recursive: bool, optional
+        Search for NRB products in `directory` recursively? Default is True.
+    silent: bool, optional
+        Should the output during directory reorganization be suppressed? Default is False.
+    
+    Returns
+    -------
+    nrb_catalog: pystac.catalog.Catalog
+        STAC Catalog object
+    
+    Notes
+    -----
+    The returned STAC Catalog object contains Item asset hrefs that are absolute, whereas the actual on-disk files
+    contain relative asset hrefs corresponding to the self-contained Catalog-Type. The returned in-memory STAC Catalog
+    object deviates in this regard to ensure compatibility with the stackstac library:
+    https://github.com/gjoseph92/stackstac/issues/20
+    """
+    overwrite = False
+    pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
+              r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
+    products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+    
+    # Check if Catalog already exists
+    catalog_path = os.path.join(directory, 'catalog.json')
+    if os.path.isfile(catalog_path):
+        overwrite = True
+        catalog = pystac.Catalog.from_file(catalog_path)
+        items = catalog.get_all_items()
+        item_ids = [item.id for item in items]
+        products_base = [os.path.basename(prod) for prod in products]
+        diff = set(products_base) - set(item_ids)
+        if len(diff) == 0:
+            # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
+            catalog.make_all_asset_hrefs_absolute()
+            print(f"\n#### Existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
+            return catalog
+    
+    sp_extent = pystac.SpatialExtent([None, None, None, None])
+    tmp_extent = pystac.TemporalExtent([None, None])
+    
+    unique_tiles = list(
+        set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
+    products = _reorganize_by_tile(directory=directory, products=products, recursive=recursive, silent=silent)
+    
+    nrb_catalog = pystac.Catalog(id='nrb_catalog',
+                                 description='A STAC Catalog of Sentinel-1 NRB products.',
+                                 title='Sentinel-1 NRB STAC Catalog',
+                                 catalog_type=pystac.CatalogType.SELF_CONTAINED)
+    
+    for tile in unique_tiles:
+        tile_collection = pystac.Collection(id=tile,
+                                            description=f'A STAC Collection for Sentinel-1 NRB products corresponding '
+                                                        f'to MGRS tile {tile}.',
+                                            title='Sentinel-1 NRB STAC Collection',
+                                            extent=pystac.Extent(sp_extent, tmp_extent),
+                                            keywords=['sar', 'backscatter', 'esa', 'copernicus', 'sentinel'],
+                                            providers=[pystac.Provider(name='ESA',
+                                                                       roles=[pystac.ProviderRole.LICENSOR,
+                                                                              pystac.ProviderRole.PRODUCER])])
+        nrb_catalog.add_child(tile_collection)
+        
+        items = []
+        for prod in products:
+            if tile in prod:
+                item_path = os.path.join(prod, os.path.basename(prod) + '.json')
+                item = pystac.read_file(href=item_path)
+                items.append(item)
+                tile_collection.add_item(item=item)
+            else:
+                continue
+        
+        extent = tile_collection.extent.from_items(items=items)
+        tile_collection.extent = extent
+    
+    # Save Catalog and Collections on disk
+    nrb_catalog.normalize_and_save(root_href=directory)
+    
+    # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
+    nrb_catalog.make_all_asset_hrefs_absolute()
+    
+    if overwrite:
+        print(f"\n#### Existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
+    else:
+        print(f"\n#### New STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
+    return nrb_catalog
+
+
+def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
+    """
+    Reorganizes a directory containing Sentinel-1 NRB products based on unique MGRS tile IDs.
+    If a product is already located in a subdirectory named after the MGRS tile it was created for, it will not be moved.
+
+    Parameters
+    ----------
+    directory: str
+        Path to a directory that contains Sentinel-1 NRB products.
+    products: list[str], optional
+        List of NRB product paths. Will be created from `directory` if not provided.
+    recursive: bool, optional
+        Search for NRB products in `directory` recursively? Default is True.
+    silent: bool, optional
+        If False (default), a message for each NRB product is printed if it has been moved to a new location or not.
+
+    Returns
+    -------
+    products_new: list[str]
+        An updated list of NRB product paths.
+    """
+    if products is None:
+        pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
+                  r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
+        products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+    
+    inp = input('WARNING:\n{}\nand the NRB products it contains will be reorganized into subdirectories '
+                'based on unique MGRS tile IDs if this directory structure does not yet exist. '
+                '\nDo you wish to continue? [yes|no] '.format(directory))
+    if inp == 'yes':
+        tile_dict = {}
+        for prod in products:
+            tile = re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '')
+            if tile in tile_dict and isinstance(tile_dict[tile], list):
+                tile_dict[tile].append(prod)
+            else:
+                tile_dict[tile] = [prod]
+        
+        tiles = list(tile_dict.keys())
+        products_new = []
+        for tile in tiles:
+            tile_dir = os.path.join(directory, tile)
+            os.makedirs(tile_dir, exist_ok=True)
+            
+            for old_dir in tile_dict[tile]:
+                new_dir = os.path.join(tile_dir, os.path.basename(old_dir))
+                products_new.append(new_dir)
+                
+                if os.path.dirname(old_dir) != tile_dir:
+                    shutil.move(old_dir, new_dir)
+                    if not silent:
+                        print(f"{os.path.basename(old_dir)} moved to {tile_dir}")
+                else:
+                    if not silent:
+                        print(f"{os.path.basename(old_dir)} already in {tile_dir} - skip")
+                    continue
+        return products_new
+    else:
+        print('abort!')
+        exit()
