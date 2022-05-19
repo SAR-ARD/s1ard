@@ -12,12 +12,7 @@ Further information about this product can be found
    general/installation
    general/usage
    general/S1_NRB
-
-.. toctree::
-   :caption: Examples
-   :maxdepth: 1
-
-   examples/nrb_cube
+   examples/index
 
 .. toctree::
    :caption: API Reference
