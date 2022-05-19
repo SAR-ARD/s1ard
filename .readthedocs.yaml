@@ -4,18 +4,24 @@
 
 version: 2
 
+formats:
+  - epub
+  - pdf
+
+python:
+  version: '3.8'
+  install:
+    - method: setuptools
+      path: .
+
+conda:
+  environment: environment-dev.yml
+
 build:
   os: "ubuntu-20.04"
   tools:
     python: "mambaforge-4.10"
 
-conda:
-  environment: environment-dev.yml
-
 sphinx:
   builder: html
   configuration: docs/conf.py
-
-formats:
-  - epub
-  - pdf
