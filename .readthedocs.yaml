@@ -8,12 +8,6 @@ formats:
   - epub
   - pdf
 
-python:
-  version: '3.8'
-  install:
-    - method: setuptools
-      path: .
-
 conda:
   environment: environment-dev.yml
 
@@ -21,6 +15,9 @@ build:
   os: "ubuntu-20.04"
   tools:
     python: "mambaforge-4.10"
+  jobs:
+    post_create_environment:
+      - pip install git+https://github.com/SAR-ARD/S1_NRB.git
 
 sphinx:
   builder: html
