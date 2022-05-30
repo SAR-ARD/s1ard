@@ -20,7 +20,7 @@ setup(
                       'click',
                       'lxml',
                       'pystac',
-                      'pyroSAR>=0.16.3',
+                      'pyroSAR>=0.17.0',
                       'scipy',
                       's1etad>=0.5.3'],
     extras_require={
