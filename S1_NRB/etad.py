@@ -36,8 +36,9 @@ def process(scene, etad_dir, out_dir, log):
     slc_corrected = os.path.join(slc_corrected_dir, slc_base)
     if not os.path.isdir(slc_corrected):
         start_time = time.time()
-        acqtime = re.findall('[0-9T]{15}', os.path.basename(scene.scene))
-        result = finder(etad_dir, ['_'.join(acqtime)], regex=True)
+        items = re.match(scene.pattern, os.path.basename(scene.file)).groupdict()
+        pattern = '{sensor}_{beam}_ETA__AX{pols}_{start}_{stop}'.format(**items)
+        result = finder(etad_dir, [pattern], regex=True)
         try:
             if len(result) == 0:
                 raise RuntimeError('cannot find ETAD product for scene {}'.format(scene.scene))
