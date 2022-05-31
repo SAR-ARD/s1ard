@@ -57,7 +57,8 @@ def process(scene, etad_dir, out_dir, log):
             s1etad_slc_correct_main(s1_product=scene.scene,
                                     etad_product=etad,
                                     outdir=slc_corrected_dir,
-                                    nthreads=2)
+                                    nthreads=2,
+                                    order=0)  # using the default 1 introduces a bias of about -0.5 dB.
             shutil.rmtree(os.path.join(out_dir, 'SLC_original'))
             t = round((time.time() - start_time), 2)
             log.info('[   ETAD] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
