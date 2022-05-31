@@ -4,3 +4,5 @@ try:
 except PackageNotFoundError:
     # package is not installed
     pass
+
+from .processor import main as process
