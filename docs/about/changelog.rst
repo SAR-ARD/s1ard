@@ -2,6 +2,20 @@
 Changelog
 #########
 
+0.4.0 | 2022-05-30
+==================
+
+* outsourced and restructured DEM preparation functionality (`#18 <https://github.com/SAR-ARD/S1_NRB/pull/18>`_)
+* outsourced ETAD correction to dedicated module (`#19 <https://github.com/SAR-ARD/S1_NRB/pull/19>`_)
+* XML validation & improvements (`#17 <https://github.com/SAR-ARD/S1_NRB/pull/17>`_)
+* Restructuring and cleanup (`#20 <https://github.com/SAR-ARD/S1_NRB/pull/20>`_)
+* outsourced NRB formatting to dedicated module (`#21 <https://github.com/SAR-ARD/S1_NRB/pull/21>`_)
+* extended acquisition mode support (`#22 <https://github.com/SAR-ARD/S1_NRB/pull/22>`_)
+* Set up sphinx documentation (`#23 <https://github.com/SAR-ARD/S1_NRB/pull/23>`_)
+* AOI scene selection (`#24 <https://github.com/SAR-ARD/S1_NRB/pull/24>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.3.0...v0.4.0>`_
+
 0.3.0 | 2022-03-30
 ==================
 
