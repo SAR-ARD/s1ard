@@ -2,6 +2,16 @@
 Changelog
 #########
 
+0.4.1 | 2022-06-01
+==================
+
+* handle ETAD products as zip, tar, and SAFE (`#25 <https://github.com/SAR-ARD/S1_NRB/pull/25>`_)
+* set dem download authentication via env. variables (`#26 <https://github.com/SAR-ARD/S1_NRB/pull/26>`_)
+* various bug fixes
+
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.0...v0.4.1>`_
+
 0.4.0 | 2022-05-30
 ==================
 
