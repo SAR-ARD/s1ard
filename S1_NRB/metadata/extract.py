@@ -7,7 +7,7 @@ import numpy as np
 from statistics import median
 from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
-from spatialist.ancillary import finder
+from spatialist.ancillary import finder, dissolve
 from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from osgeo import gdal
@@ -620,7 +620,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                  pattern='.//geolocationGridPoint/incidenceAngle',
                                  out_type='float')
-        inc_vals = list(inc.values())
+        inc_vals = dissolve(inc.values())
         lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                          pattern='.//applicationLutId', single=True)
         pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
