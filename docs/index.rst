@@ -6,19 +6,24 @@ Further information about this product can be found
 `here <https://sentinel.esa.int/web/sentinel/sentinel-1-ard-normalised-radar-backscatter-nrb-product>`_.
 
 .. toctree::
-   :caption: General Topics
+   :caption: Introduction
    :maxdepth: 1
 
    general/installation
    general/usage
    general/S1_NRB
-   examples/index
 
 .. toctree::
    :caption: API Reference
    :maxdepth: 1
 
    api
+
+.. toctree::
+   :caption: Examples
+   :maxdepth: 1
+
+   examples/index
 
 .. toctree::
    :caption: About
