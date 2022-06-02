@@ -118,6 +118,12 @@ Print a help message for the CLI tool.
 
 ::
 
+    s1_nrb --version
+
+Print the processor version.
+
+::
+
     s1_nrb -c /path/to/config.ini
 
 Start the processor using parameters defined in the default section of a ``config.ini`` file.

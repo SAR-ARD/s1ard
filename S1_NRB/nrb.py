@@ -96,8 +96,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             'tile': tile,
             'id': product_id}
     meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
-    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake}_{tile}_{id}'
-    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake}-{tile}-{suffix}.tif'
+    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
+    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
     modify_existing = False
     nrb_base = skeleton_dir.format(**meta)

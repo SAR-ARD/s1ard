@@ -77,7 +77,7 @@ def main(config_file, section_name='GENERAL', debug=False):
     
     epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys()) if tile != 'align'])
     if len(epsg_set) != 1:
-        raise RuntimeError('The AOI covers multiple UTM zones: {}\n '
+        raise RuntimeError('The AOI covers MGRS tiles with multiple UTM zones: {}\n '
                            'This is currently not supported. '
                            'Please refine your AOI.'.format(list(epsg_set)))
     epsg = epsg_set.pop()

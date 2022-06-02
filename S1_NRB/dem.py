@@ -32,9 +32,11 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         The coordinate reference system as an EPSG code.
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
-        for the selected DEM type, the user is prompted interactively to provide credentials.
+        for the selected DEM type, the environment variable 'DEM_USER' is read.
+        If this is not set, the user is prompted interactively to provide credentials.
     password: str or None
-        The password for accessing the DEM tiles. If None: same behavior as for username.
+        The password for accessing the DEM tiles.
+        If None: same behavior as for username but with env. variable 'DEM_PASS'.
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -49,6 +51,11 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     dems_auth = wbm_dems
     wbm_dir = os.path.join(wbm_dir, dem_type)
     dem_dir = os.path.join(dem_dir, dem_type)
+    
+    if username is None:
+        username = os.getenv('DEM_USER')
+    if password is None:
+        password = os.getenv('DEM_PASS')
     
     for i, geometry in enumerate(geometries):
         print('###### [    DEM] processing geometry {0} of {1}'.format(i + 1, len(geometries)))
