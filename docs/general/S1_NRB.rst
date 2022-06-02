@@ -30,7 +30,7 @@ The code snippet below demonstrates the tile reading mechanism (using class :cla
             feat = None
         return wkt2vector(attrib['UTM_WKT'], int(attrib['EPSG']))
 
-The S1 images are managed in a local SQLite database to select scenes for processing (see section `Database Handling`_).
+The S1 images are managed in a local SQLite database to select scenes for processing (see pyroSAR's section on `Database Handling`_).
 
 After loading an MGRS tile as an :class:`spatialist.vector.Vector` object and selecting all relevant overlapping scenes
 from the database, processing can commence.
