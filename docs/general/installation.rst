@@ -28,4 +28,4 @@ repository for available versions.
 
 ::
 
-    pip install git+https://github.com/SAR-ARD/S1_NRB.git@v0.3.0
+    pip install git+https://github.com/SAR-ARD/S1_NRB.git@v0.4.1
