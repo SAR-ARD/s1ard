@@ -457,6 +457,8 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     """
     print(outname)
     
+    vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
+    
     # make sure order is right and co-polarization (VV or HH) is first
     pols = [re.search('[hv]{2}', os.path.basename(f)).group() for f in infiles]
     if pols[1] in ['vv', 'hh']:
@@ -469,7 +471,9 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         ov = ov.replace(x, '')
     
     # create VRT file and change its content
-    gdalbuildvrt(src=infiles, dst=outname, options={'separate': True})
+    gdalbuildvrt(src=infiles, dst=outname,
+                 options={'separate': True,
+                          'VRTNodata': vrt_nodata})
     
     tree = etree.parse(outname)
     root = tree.getroot()
@@ -478,8 +482,10 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     bands = tree.findall('VRTRasterBand')
     
     new_band = etree.SubElement(root, 'VRTRasterBand',
-                                attrib={'dataType': 'Float32', 'band': '3', 'subClass': 'VRTDerivedRasterBand'})
-    new_band.append(deepcopy(bands[0].find('NoDataValue')))
+                                attrib={'dataType': 'Float32', 'band': '3',
+                                        'subClass': 'VRTDerivedRasterBand'})
+    new_band_na = etree.SubElement(new_band, 'NoDataValue')
+    new_band_na.text = vrt_nodata
     pxfun_type = etree.SubElement(new_band, 'PixelFunctionType')
     pxfun_type.text = 'mul'
     new_band.append(deepcopy(bands[0].find('ComplexSource')))
@@ -495,6 +501,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         <SRS dataAxisToSRSAxisMapping="1,2">{srs}</SRS>
         <GeoTransform>{geotrans}</GeoTransform>
         <VRTRasterBand dataType="{dtype}" band="1" subClass="VRTDerivedRasterBand">
+            <NoDataValue>{vrt_nodata}</NoDataValue>
             <PixelFunctionType>{px_fun}</PixelFunctionType>
             <ComplexSource>
               <SourceFilename relativeToVRT="1">{fname}</SourceFilename>
@@ -508,7 +515,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         <OverviewList resampling="{ov_resampling}">{ov}</OverviewList>
     </VRTDataset>
     """.format(rasterxsize=src_attr['RasterXSize'], rasterysize=src_attr['RasterYSize'], srs=srs, geotrans=geotrans,
-               dtype=src_attr['DataType'], px_fun='inv', fname=fname_old,
+               dtype=src_attr['DataType'], px_fun='inv', fname=fname_old, vrt_nodata=vrt_nodata,
                blockxsize=src_attr['BlockXSize'], blockysize=src_attr['BlockYSize'],
                nodata=nodata, ov_resampling=overview_resampling.lower(), ov=ov))
     
@@ -517,9 +524,6 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         color = etree.Element('ColorInterp')
         color.text = col
         band.insert(0, color)
-    for i, band in enumerate(bands):
-        if i in [0, 1]:
-            band.remove(band.find('NoDataValue'))
     
     ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': overview_resampling.lower()})
     ovr.text = ov
