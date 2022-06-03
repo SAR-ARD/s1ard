@@ -71,9 +71,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     ovr_resampling = 'AVERAGE'
     driver = 'COG'
     blocksize = 512
-    src_nodata_snap = 0
-    dst_nodata = 'nan'
-    dst_nodata_mask = 255
+    src_nodata = 0
+    dst_nodata_float = -9999.0
+    dst_nodata_byte = 255
     vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
     
     # determine processing timestamp and generate unique ID
@@ -100,7 +100,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
-    modify_existing = False
+    modify_existing = False  # modify existing products so that only missing files are re-created
     nrb_base = skeleton_dir.format(**meta)
     existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
     if len(existing) > 0:
@@ -183,8 +183,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
             gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
-                              'dstNodata': dst_nodata, 'multithread': multithread,
+                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
+                              'dstNodata': dst_nodata_float, 'multithread': multithread,
                               'creationOptions': write_options[key]})
         nrb_tifs.append(outname)
     
@@ -208,7 +208,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                          snap_datasets=snap_datasets, extent=extent, epsg=epsg,
                          driver=driver, creation_opt=write_options['layoverShadowMask'],
                          overviews=overviews, overview_resampling=ovr_resampling,
-                         wbm=wbm, dst_nodata=dst_nodata_mask)
+                         wbm=wbm, dst_nodata=dst_nodata_byte)
     nrb_tifs.append(dm_path)
     
     # create acquisition ID image raster (-id.tif)
@@ -218,7 +218,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                             snap_datamasks=snap_datamasks, src_ids=src_ids,
                             extent=extent, epsg=epsg, driver=driver,
                             creation_opt=write_options['acquisitionImage'],
-                            overviews=overviews, dst_nodata=dst_nodata_mask)
+                            overviews=overviews, dst_nodata=dst_nodata_byte)
     nrb_tifs.append(id_path)
     
     # create color composite VRT (-cc-g-lin.vrt)
