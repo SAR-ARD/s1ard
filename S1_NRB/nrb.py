@@ -74,6 +74,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     src_nodata_snap = 0
     dst_nodata = 'nan'
     dst_nodata_mask = 255
+    vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
     
     # determine processing timestamp and generate unique ID
     start_time = time.time()
@@ -227,13 +228,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
     
+    vrt_options = {'VRTNodata': vrt_nodata}
+    
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
     for item in measure_tifs:
         gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
             create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                       options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
@@ -244,13 +247,13 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
             create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul',
-                       relpaths=True, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       relpaths=True, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
             create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10',
-                       scale=10, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       scale=10, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # copy support files
