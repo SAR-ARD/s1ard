@@ -566,7 +566,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['licence'] = None
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
-    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381' if meta['prod']['NRApplied'] else None
+    meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
+                                  'Generated-by-Sentinel-1-IPF' if meta['prod']['NRApplied'] else None
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numLines'] = str(prod_meta['rows'])
