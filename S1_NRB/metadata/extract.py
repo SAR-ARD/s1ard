@@ -551,7 +551,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
     meta['prod']['geoCorrAccuracy_rRMSE'] = None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://www.mdpi.com/2072-4292/9/6/607'
+    meta['prod']['geoCorrAccuracyReference'] = None
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
