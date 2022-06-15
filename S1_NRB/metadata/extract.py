@@ -663,8 +663,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         else:
             meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = read_manifest('.//s1sarl1:missionDataTakeID')
-        url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
-        meta['source'][uid]['doi'] = url
+        meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/' \
+                                     'Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
         meta['source'][uid]['filename'] = src_sid[uid].file
@@ -710,8 +710,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
         meta['source'][uid]['azimuthResolution'] = res_az
         meta['source'][uid]['rangeResolution'] = res_rg
-        url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
-        meta['source'][uid]['sensorCalibration'] = url
+        meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/' \
+                                                   'sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(read_manifest('.//s1:stopTimeANX')))
