@@ -106,6 +106,8 @@ DEM_MAP = {
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
     }
 
+# XML namespaces are identifiers and it is not their goal to be directly usable for schema retrieval:
+# https://stackoverflow.com/a/30761004
 NS_MAP = {'nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
                   'product': 'http://earth.esa.int/sentinel-1/nrb/product/1.0'},
           'sar': 'http://www.opengis.net/sar/2.1',
