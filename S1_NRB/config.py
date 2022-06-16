@@ -98,6 +98,19 @@ def get_config(config_file, proc_section='PROCESSING'):
     
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
     
+    # METADATA section
+    meta_keys = ['access_url', 'licence', 'doi', 'processing_center']
+    try:
+        meta_sec = parser['METADATA']
+        out_dict['meta'] = {}
+        for k, v in meta_sec.items():
+            v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
+            # No need to check values. Only requirement is that they're strings, which is configparser's default.
+            out_dict['meta'][k] = v
+    except KeyError:
+        # Use None for all relevant fields if the metadata section doesn't exist.
+        out_dict['meta'] = dict([(k, None) for k in meta_keys])
+    
     return out_dict
 
 

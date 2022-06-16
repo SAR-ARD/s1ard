@@ -519,7 +519,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
-    meta['prod']['access'] = None
+    meta['prod']['access'] = config['meta']['access_url']
     meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
                                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
@@ -540,7 +540,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = dem_subtype
     meta['prod']['demAccess'] = dem_access
-    meta['prod']['doi'] = None
+    meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['fileBitsPerSample'] = '32'
     meta['prod']['fileByteOrder'] = 'little-endian'
@@ -564,7 +564,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['geom_xml_envelope'] = xml_envelop
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
-    meta['prod']['licence'] = None
+    meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
     meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
@@ -574,7 +574,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
-    meta['prod']['processingCenter'] = 'FSU'
+    meta['prod']['processingCenter'] = config['meta']['processing_center']
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
