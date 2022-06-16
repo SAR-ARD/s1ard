@@ -42,7 +42,8 @@ def main(config_file, section_name='GENERAL', debug=False):
     
     ####################################################################################################################
     # archive / scene selection
-    scenes = finder(config['scene_dir'], [r'^S1[AB].*\.zip$'], regex=True, recursive=True)
+    scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
+                    regex=True, recursive=True, foldermode=1)
     
     if config['acq_mode'] == 'SM':
         acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
