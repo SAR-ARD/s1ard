@@ -4,15 +4,15 @@ from datetime import datetime
 from osgeo import gdal
 
 
-def get_config(config_file, section_name='GENERAL'):
+def get_config(config_file, proc_section='PROCESSING'):
     """Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
     config_file: str
         Full path to the config file that should be parsed to a dictionary.
-    section_name: str, optional
-        Section name of the config file that parameters should be parsed from. Default is 'GENERAL'.
+    proc_section: str, optional
+        Section of the config file that processing parameters should be parsed from. Default is 'PROCESSING'.
     
     Returns
     -------
@@ -25,14 +25,19 @@ def get_config(config_file, section_name='GENERAL'):
     parser = configparser.ConfigParser(allow_no_value=True, converters={'_datetime': _parse_datetime,
                                                                         '_tile_list': _parse_tile_list})
     parser.read(config_file)
-    parser_sec = parser[section_name]
+    out_dict = {}
     
+    # PROCESSING section
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
                     'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'dem_dir', 'wbm_dir',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                     'etad', 'etad_dir', 'product']
-    out_dict = {}
-    for k, v in parser_sec.items():
+    try:
+        proc_sec = parser[proc_section]
+    except KeyError:
+        raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+    
+    for k, v in proc_sec.items():
         if k not in allowed_keys:
             raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(k, allowed_keys))
         v = _val_cleanup(v)
@@ -44,34 +49,34 @@ def get_config(config_file, section_name='GENERAL'):
             v = v.lower()
         if k == 'aoi_tiles':
             if v is not None:
-                v = parser_sec.get_tile_list(k)
+                v = proc_sec.get_tile_list(k)
         if k == 'aoi_geometry':
             if v is not None:
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
         if k.endswith('date'):
-            v = parser_sec.get_datetime(k)
+            v = proc_sec.get_datetime(k)
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
             assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
         dir_ignore = ['work_dir']
-        if parser_sec['etad'] == 'False':
+        if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
         if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
                 os.makedirs(v, exist_ok=True)
         if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
             else:
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
         if k == 'db_file':
             if not any(x in v for x in ['/', '\\']):
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
         if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
