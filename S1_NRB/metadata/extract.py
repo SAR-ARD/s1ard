@@ -427,7 +427,7 @@ def get_header_size(tif):
     return headers_size
 
 
-def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
@@ -435,6 +435,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     
     Parameters
     ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
     target: str
         A path pointing to the NRB product scene being created.
     src_ids: list[pyroSAR.drivers.ID]
@@ -442,8 +444,6 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     snap_datasets: list[str]
         List of output files processed with :func:`pyroSAR.snap.util.geocode` that match the source SLC scenes
         overlapping with the current MGRS tile.
-    dem_type: str
-        The DEM type used for processing.
     proc_time: datetime.datetime
         The processing time object used to generate the unique product identifier.
     start: datetime.datetime
@@ -480,6 +480,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
+    dem_type = config['dem_type']
     dem_access = DEM_MAP[dem_type]['access']
     dem_ref = DEM_MAP[dem_type]['ref']
     dem_subtype = DEM_MAP[dem_type]['type']

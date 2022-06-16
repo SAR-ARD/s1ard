@@ -264,9 +264,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # create metadata files in XML and (STAC) JSON formats
     start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
-    meta = extract.meta_dict(target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
-                             dem_type=config['dem_type'], proc_time=proc_time, start=start,
-                             stop=stop, compression=compress)
+    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, snap_datasets=snap_datasets,
+                             proc_time=proc_time, start=start, stop=stop, compression=compress)
     xml.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
     stac.parse(meta=meta, target=nrb_dir, tifs=nrb_tifs, exist_ok=True)
     return str(round((time.time() - start_time), 2))
