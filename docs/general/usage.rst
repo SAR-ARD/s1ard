@@ -98,10 +98,12 @@ will be ignored.
 Sections
 --------
 Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
-section name. The ``config.ini`` file used with the S1_NRB package should at least have the default section ``[GENERAL]``.
+section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
+related parameters. This section is by default named ``[PROCESSING]`` (see `example config file <https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini>`_).
 
 Users might create several sections in the same configuration file with parameter values that correspond to different
-processing scenarios. Note that each section must contain all necessary configuration parameters.
+processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
+configuration parameters even if only a few are varied between the sections.
 
 Command Line Interface
 =======================
