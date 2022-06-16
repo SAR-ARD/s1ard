@@ -38,11 +38,8 @@ def get_config(config_file, proc_section='PROCESSING'):
         raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
     
     for k, v in proc_sec.items():
-        if k not in allowed_keys:
-            raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(k, allowed_keys))
-        v = _val_cleanup(v)
-        if v in ['None', 'none', '']:
-            v = None
+        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        
         if k == 'mode':
             allowed = ['nrb', 'snap', 'all']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
@@ -144,9 +141,16 @@ def _parse_tile_list(s):
     return tile_list
 
 
-def _val_cleanup(val):
-    """Helper function to clean up value strings while parsing a config file."""
-    return val.replace('"', '').replace("'", "")
+def _keyval_check(key, val, allowed_keys):
+    """Helper function to check and clean up key,value pairs while parsing a config file."""
+    if key not in allowed_keys:
+        raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(key, allowed_keys))
+    
+    val = val.replace('"', '').replace("'", "")
+    if val in ['None', 'none', '']:
+        val = None
+    
+    return val
 
 
 def geocode_conf(config):
