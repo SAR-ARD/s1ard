@@ -1,4 +1,4 @@
-name: nrb_env
+name: nrb_env_dev
 channels:
   - conda-forge
   - defaults
