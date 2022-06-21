@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schema xmlns="http://www.w3.org/2001/XMLSchema"
-        xmlns:nrb="http://earth.esa.int/sentinel-1/nrb/source/1.0"
+        xmlns:s1-nrb="http://earth.esa.int/sentinel-1/nrb/source/1.0"
         xmlns:sar="http://www.opengis.net/sar/2.1"
         xmlns:eop="http://www.opengis.net/eop/2.1"
         xmlns:gml="http://www.opengis.net/gml/3.2"
@@ -14,7 +14,7 @@
     <import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
     <import namespace="http://www.opengis.net/ows/2.0" schemaLocation="http://schemas.opengis.net/ows/2.0/owsAll.xsd"/>
     <import namespace="http://www.w3.org/1999/xlink" schemaLocation="http://www.w3.org/1999/xlink.xsd"/>
-    <element name="EarthObservation" type="nrb:EarthObservationType" substitutionGroup="sar:EarthObservation">
+    <element name="EarthObservation" type="s1-nrb:EarthObservationType" substitutionGroup="sar:EarthObservation">
         <annotation>
             <documentation>eop root element for NRB SAR Earth Observation Product</documentation>
         </annotation>
@@ -26,12 +26,12 @@
     </complexType>
     <complexType name="EarthObservationPropertyType">
         <sequence minOccurs="1" maxOccurs="1">
-            <element ref="nrb:EarthObservation"/>
+            <element ref="s1-nrb:EarthObservation"/>
         </sequence>
         <attributeGroup ref="gml:AssociationAttributeGroup"/>
         <attributeGroup ref="gml:OwnershipAttributeGroup"/>
     </complexType>
-    <element name="Platform" type="nrb:PlatformType" substitutionGroup="eop:Platform">
+    <element name="Platform" type="s1-nrb:PlatformType" substitutionGroup="eop:Platform">
         <annotation>
             <documentation>Extends eop Platform for NRB products</documentation>
         </annotation>
@@ -58,7 +58,7 @@
     </complexType>
     <complexType name="PlatformPropertyType">
         <sequence>
-            <element ref="nrb:Platform"/>
+            <element ref="s1-nrb:Platform"/>
         </sequence>
         <attributeGroup ref="gml:OwnershipAttributeGroup"/>
     </complexType>

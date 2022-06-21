@@ -106,7 +106,7 @@ DEM_MAP = {
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
     }
 
-NS_MAP = {'nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
+NS_MAP = {'s1-nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
                   'product': 'http://earth.esa.int/sentinel-1/nrb/product/1.0'},
           'sar': 'http://www.opengis.net/sar/2.1',
           'eop': 'http://www.opengis.net/eop/2.1',

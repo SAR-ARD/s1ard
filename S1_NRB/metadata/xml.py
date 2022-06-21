@@ -77,13 +77,13 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     if prod:
         platform1 = etree.SubElement(platform0, _nsc('eop:Platform', nsmap))
     else:
-        platform1 = etree.SubElement(platform0, _nsc('nrb:Platform', nsmap))
+        platform1 = etree.SubElement(platform0, _nsc('s1-nrb:Platform', nsmap))
     shortName = etree.SubElement(platform1, _nsc('eop:shortName', nsmap))
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier', nsmap))
     serialIdentifier.text = meta['common']['platformIdentifier']
     if not prod:
-        satReference = etree.SubElement(platform1, _nsc('nrb:satelliteReference', nsmap),
+        satReference = etree.SubElement(platform1, _nsc('s1-nrb:satelliteReference', nsmap),
                                         attrib={_nsc('xlink:href', nsmap): meta['common']['platformReference']})
     
     # eop:instrument
@@ -94,7 +94,7 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     
     # eop:sensor
     sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor', nsmap))
-    sensor1 = etree.SubElement(sensor0, _nsc('nrb:Sensor', nsmap))
+    sensor1 = etree.SubElement(sensor0, _nsc('s1-nrb:Sensor', nsmap))
     sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType', nsmap))
     sensorType.text = meta['common']['sensorType']
     operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode', nsmap),
@@ -103,13 +103,13 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier', nsmap),
                                        attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
     swathIdentifier.text = meta['common']['swathIdentifier']
-    radarBand = etree.SubElement(sensor1, _nsc('nrb:radarBand', nsmap))
+    radarBand = etree.SubElement(sensor1, _nsc('s1-nrb:radarBand', nsmap))
     radarBand.text = meta['common']['radarBand']
     if not prod:
-        radarCenterFreq = etree.SubElement(sensor1, _nsc('nrb:radarCenterFrequency', nsmap),
+        radarCenterFreq = etree.SubElement(sensor1, _nsc('s1-nrb:radarCenterFrequency', nsmap),
                                            attrib={'uom': 'Hz'})
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
-        sensorCalibration = etree.SubElement(sensor1, _nsc('nrb:sensorCalibration', nsmap),
+        sensorCalibration = etree.SubElement(sensor1, _nsc('s1-nrb:sensorCalibration', nsmap),
                                              attrib={
                                                  _nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
     
@@ -656,8 +656,8 @@ def parse(meta, target, tifs, exist_ok=False):
     """
     NS_MAP_prod = deepcopy(NS_MAP)
     NS_MAP_src = deepcopy(NS_MAP)
-    NS_MAP_prod['nrb'] = NS_MAP['nrb']['product']
-    NS_MAP_src['nrb'] = NS_MAP['nrb']['source']
+    NS_MAP_prod['s1-nrb'] = NS_MAP['s1-nrb']['product']
+    NS_MAP_src['s1-nrb'] = NS_MAP['s1-nrb']['source']
     
     source_xml(meta=meta, target=target, nsmap=NS_MAP_src, exist_ok=exist_ok)
     product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod, exist_ok=exist_ok)
