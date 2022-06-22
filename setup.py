@@ -24,8 +24,7 @@ setup(
                       'scipy',
                       's1etad>=0.5.3'],
     extras_require={
-          'docs': ['sphinx', 'sphinxcontrib-bibtex',
-                   'cairosvg', 'sphinxcontrib-svg2pdfconverter'],
+          'docs': ['sphinx', 'sphinxcontrib-bibtex'],
     },
     python_requires='>=3.8',
     licence='MIT',
