@@ -552,7 +552,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
     meta['prod']['geoCorrAccuracy_rRMSE'] = None
-    meta['prod']['geoCorrAccuracyReference'] = None
+    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/{}/general/geoaccuracy.html' \
+                                               ''.format(S1_NRB.__version__)
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
