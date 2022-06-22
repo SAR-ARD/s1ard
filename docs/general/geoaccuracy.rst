@@ -26,6 +26,8 @@ where
 :math:`\sigma_{DEM}` = DEM accuracy at :math:`1\sigma` (LE68)
 
 
+Limitations
+-----------
 Currently, the following simplifications need to be considered for the calculation of rRMSE values found in the metadata
 of each S1-NRB product:
 
@@ -34,9 +36,13 @@ of each S1-NRB product:
 
     * Global: LE90 = 2.57; LE68 :math:`\approx` 1.56
 
+* rRMSE is only calculated if a COP-DEM was used for processing, otherwise the value is set to ``None``
 
-References:
+Development Status
+------------------
+The development status is tracked and discussed in the following Github issue: https://github.com/SAR-ARD/S1_NRB/issues/33
 
-[1] https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf
-
-[2] https://spacedata.copernicus.eu/documents/20126/0/GEO1988-CopernicusDEM-SPE-002_ProductHandbook_I1.00.pdf/082dd479-f908-bf42-51bf-4c0053129f7c?t=1586526993604
+References
+-----------
+* [1] https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf
+* [2] https://spacedata.copernicus.eu/documents/20126/0/GEO1988-CopernicusDEM-SPE-002_ProductHandbook_I1.00.pdf/082dd479-f908-bf42-51bf-4c0053129f7c?t=1586526993604
