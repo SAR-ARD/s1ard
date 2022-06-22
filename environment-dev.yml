@@ -16,7 +16,4 @@ dependencies:
   - s1etad_tools>=0.8.1
   - sphinx
   - sphinxcontrib-bibtex>=2.2
-  - cairosvg
   - nbsphinx
-  - pip:
-      - sphinxcontrib-svg2pdfconverter
