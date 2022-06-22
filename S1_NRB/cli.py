@@ -5,8 +5,8 @@ import S1_NRB
 @click.command()
 @click.option('--config-file', '-c', required=False, type=click.Path(),
               help='Full path to an INI-style configuration text file.')
-@click.option('--section', '-s', required=False, type=str, default='GENERAL', show_default=True,
-              help='Section of the configuration file to read parameters from.')
+@click.option('--section', '-s', required=False, type=str, default='PROCESSING', show_default=True,
+              help='Section of the configuration file to read processing related parameters from.')
 @click.option('--debug', is_flag=True,
               help='Print debugging information for pyroSAR modules.')
 @click.option('--version', is_flag=True,

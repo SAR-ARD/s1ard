@@ -427,7 +427,7 @@ def get_header_size(tif):
     return headers_size
 
 
-def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
@@ -435,6 +435,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     
     Parameters
     ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
     target: str
         A path pointing to the NRB product scene being created.
     src_ids: list[pyroSAR.drivers.ID]
@@ -442,8 +444,6 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     snap_datasets: list[str]
         List of output files processed with :func:`pyroSAR.snap.util.geocode` that match the source SLC scenes
         overlapping with the current MGRS tile.
-    dem_type: str
-        The DEM type used for processing.
     proc_time: datetime.datetime
         The processing time object used to generate the unique product identifier.
     start: datetime.datetime
@@ -480,6 +480,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
     stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
     
+    dem_type = config['dem_type']
     dem_access = DEM_MAP[dem_type]['access']
     dem_ref = DEM_MAP[dem_type]['ref']
     dem_subtype = DEM_MAP[dem_type]['type']
@@ -518,9 +519,9 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
-    meta['prod']['access'] = None
-    meta['prod'][
-        'ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    meta['prod']['access'] = config['meta']['access_url']
+    meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
+                                        '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
@@ -539,7 +540,7 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = dem_subtype
     meta['prod']['demAccess'] = dem_access
-    meta['prod']['doi'] = None
+    meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['fileBitsPerSample'] = '32'
     meta['prod']['fileByteOrder'] = 'little-endian'
@@ -551,10 +552,10 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
     meta['prod']['geoCorrAccuracy_rRMSE'] = None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://www.mdpi.com/2072-4292/9/6/607'
+    meta['prod']['geoCorrAccuracyReference'] = None
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
-    meta['prod'][
-        'geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf'
+    meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
+                                       'Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
     meta['prod']['geom_stac_bbox_4326'] = stac_bbox
@@ -563,16 +564,17 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
     meta['prod']['geom_xml_envelope'] = xml_envelop
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
-    meta['prod']['licence'] = None
+    meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
-    meta['prod']['NRAlgorithm'] = 'https://doi.org/10.1109/tgrs.2018.2889381' if meta['prod']['NRApplied'] else None
+    meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
+                                  'Generated-by-Sentinel-1-IPF' if meta['prod']['NRApplied'] else None
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
-    meta['prod']['processingCenter'] = 'FSU'
+    meta['prod']['processingCenter'] = config['meta']['processing_center']
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
@@ -662,8 +664,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         else:
             meta['source'][uid]['dataGeometry'] = 'slant range'
         meta['source'][uid]['datatakeID'] = read_manifest('.//s1sarl1:missionDataTakeID')
-        url = 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification'
-        meta['source'][uid]['doi'] = url
+        meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/' \
+                                     'Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
         meta['source'][uid]['filename'] = src_sid[uid].file
@@ -709,8 +711,8 @@ def meta_dict(target, src_ids, snap_datasets, dem_type, proc_time, start, stop, 
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
         meta['source'][uid]['azimuthResolution'] = res_az
         meta['source'][uid]['rangeResolution'] = res_rg
-        url = 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration'
-        meta['source'][uid]['sensorCalibration'] = url
+        meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/' \
+                                                   'sentinel-1-sar/sar-instrument/calibration'
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(read_manifest('.//s1:stopTimeANX')))

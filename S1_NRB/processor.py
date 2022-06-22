@@ -15,7 +15,7 @@ import S1_NRB.tile_extraction as tile_ex
 gdal.UseExceptions()
 
 
-def main(config_file, section_name='GENERAL', debug=False):
+def main(config_file, section_name='PROCESSING', debug=False):
     """
     Main function that initiates and controls the processing workflow.
     
@@ -24,11 +24,11 @@ def main(config_file, section_name='GENERAL', debug=False):
     config_file: str
         Full path to a `config.ini` file.
     section_name: str, optional
-        Section name of the `config.ini` file that parameters should be parsed from. Default is 'GENERAL'.
+        Section name of the `config.ini` file that processing parameters should be parsed from. Default is 'PROCESSING'.
     debug: bool, optional
         Set pyroSAR logging level to DEBUG? Default is False.
     """
-    config = get_config(config_file=config_file, section_name=section_name)
+    config = get_config(config_file=config_file, proc_section=section_name)
     logger = set_logging(config=config, debug=debug)
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
