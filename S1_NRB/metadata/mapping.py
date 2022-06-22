@@ -150,3 +150,17 @@ SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                                   'unit': 'dB',
                                   'role': 'noise-power',
                                   'title': 'Noise Power'}}
+
+# https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf
+SLC_ACC_MAP = {'SM': {'ALE': {'rg': -3.02,
+                              'az': 2.02},
+                      '1sigma': {'rg': 0.26,
+                                 'az': 0.41}},
+               'IW': {'ALE': {'rg': -2.99,
+                              'az': 2.03},
+                      '1sigma': {'rg': 0.22,
+                                 'az': 0.53}},
+               'EW': {'ALE': {'rg': -3.41,
+                              'az': 1.37},
+                      '1sigma': {'rg': 0.7,
+                                 'az': 2.27}}}
