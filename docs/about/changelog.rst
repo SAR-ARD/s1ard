@@ -2,13 +2,20 @@
 Changelog
 #########
 
+0.4.2 | 2022-06-16
+==================
+
+* Update documentation (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/27>`_
+* find unpacked .SAFE scenes in scene_dir (instead of just .zip) (`aea53a5 <https://github.com/SAR-ARD/S1_NRB/commit/aea53a57bc5fa1418fea4f46f69b41b7332909b1>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.1...v0.4.2>`_
+
 0.4.1 | 2022-06-01
 ==================
 
 * handle ETAD products as zip, tar, and SAFE (`#25 <https://github.com/SAR-ARD/S1_NRB/pull/25>`_)
 * set dem download authentication via env. variables (`#26 <https://github.com/SAR-ARD/S1_NRB/pull/26>`_)
 * various bug fixes
-
 
 `Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.0...v0.4.1>`_
 
@@ -44,7 +51,6 @@ Changelog
 ==================
 
 `Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.1.0...v0.2.0>`_
-
 
 0.1.0 | 2022-01-14
 ==================
