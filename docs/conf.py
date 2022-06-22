@@ -37,7 +37,6 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
-    'sphinxcontrib.cairosvgconverter',
     'nbsphinx'
 ]
 
