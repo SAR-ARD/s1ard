@@ -471,12 +471,14 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     rmse_dem_planar = copdem_glob_1sigma_le68 / math.tan(math.radians(ei_min))
     
     # Calculation of RMSE_planar
-    rmse_planar = round(math.sqrt(
-        (math.sqrt(slc_acc['ALE']['rg'] ** 2 + slc_acc['1sigma']['rg'] ** 2) / math.sin(math.radians(ei_min))) ** 2 +
-        (slc_acc['ALE']['az'] ** 2 + slc_acc['1sigma']['az'] ** 2) +
-        rmse_dem_planar ** 2), 2)
+    rmse_rg = math.sqrt(slc_acc['ALE']['rg'] ** 2 + slc_acc['1sigma']['rg'] ** 2)
+    rmse_az = math.sqrt(slc_acc['ALE']['az'] ** 2 + slc_acc['1sigma']['az'] ** 2)
     
-    return rmse_planar
+    rmse_planar = math.sqrt((rmse_rg / math.sin(math.radians(ei_min))) ** 2 +
+                            rmse_az ** 2 +
+                            rmse_dem_planar ** 2)
+    
+    return round(rmse_planar, 2)
 
 
 def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
