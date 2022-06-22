@@ -71,9 +71,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     ovr_resampling = 'AVERAGE'
     driver = 'COG'
     blocksize = 512
-    src_nodata_snap = 0
-    dst_nodata = 'nan'
-    dst_nodata_mask = 255
+    src_nodata = 0
+    dst_nodata_float = -9999.0
+    dst_nodata_byte = 255
+    vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
     
     # determine processing timestamp and generate unique ID
     start_time = time.time()
@@ -99,7 +100,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
-    modify_existing = False
+    modify_existing = False  # modify existing products so that only missing files are re-created
     nrb_base = skeleton_dir.format(**meta)
     existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
     if len(existing) > 0:
@@ -182,8 +183,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
             gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata_snap,
-                              'dstNodata': dst_nodata, 'multithread': multithread,
+                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
+                              'dstNodata': dst_nodata_float, 'multithread': multithread,
                               'creationOptions': write_options[key]})
         nrb_tifs.append(outname)
     
@@ -207,7 +208,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                          snap_datasets=snap_datasets, extent=extent, epsg=epsg,
                          driver=driver, creation_opt=write_options['layoverShadowMask'],
                          overviews=overviews, overview_resampling=ovr_resampling,
-                         wbm=wbm, dst_nodata=dst_nodata_mask)
+                         wbm=wbm, dst_nodata=dst_nodata_byte)
     nrb_tifs.append(dm_path)
     
     # create acquisition ID image raster (-id.tif)
@@ -217,7 +218,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                             snap_datamasks=snap_datamasks, src_ids=src_ids,
                             extent=extent, epsg=epsg, driver=driver,
                             creation_opt=write_options['acquisitionImage'],
-                            overviews=overviews, dst_nodata=dst_nodata_mask)
+                            overviews=overviews, dst_nodata=dst_nodata_byte)
     nrb_tifs.append(id_path)
     
     # create color composite VRT (-cc-g-lin.vrt)
@@ -227,13 +228,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
     
+    vrt_options = {'VRTNodata': vrt_nodata}
+    
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
     for item in measure_tifs:
         gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
             create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                       options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
@@ -244,13 +247,13 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
             create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul',
-                       relpaths=True, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       relpaths=True, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
             create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10',
-                       scale=10, options={'VRTNodata': 'NaN'}, overviews=overviews,
+                       scale=10, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # copy support files
@@ -469,32 +472,39 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         ov = ov.replace(x, '')
     
     # create VRT file and change its content
-    gdalbuildvrt(src=infiles, dst=outname, options={'separate': True})
+    gdalbuildvrt(src=infiles, dst=outname,
+                 options={'separate': True})
     
     tree = etree.parse(outname)
     root = tree.getroot()
     srs = tree.find('SRS').text
     geotrans = tree.find('GeoTransform').text
     bands = tree.findall('VRTRasterBand')
+    vrt_nodata = bands[0].find('NoDataValue').text
+    complex_src = [band.find('ComplexSource') for band in bands]
+    for cs in complex_src:
+        cs.remove(cs.find('NODATA'))
     
     new_band = etree.SubElement(root, 'VRTRasterBand',
-                                attrib={'dataType': 'Float32', 'band': '3', 'subClass': 'VRTDerivedRasterBand'})
-    new_band.append(deepcopy(bands[0].find('NoDataValue')))
+                                attrib={'dataType': 'Float32', 'band': '3',
+                                        'subClass': 'VRTDerivedRasterBand'})
+    new_band_na = etree.SubElement(new_band, 'NoDataValue')
+    new_band_na.text = 'nan'
     pxfun_type = etree.SubElement(new_band, 'PixelFunctionType')
     pxfun_type.text = 'mul'
-    new_band.append(deepcopy(bands[0].find('ComplexSource')))
-    new_band.append(deepcopy(bands[1].find('ComplexSource')))
+    for cs in complex_src:
+        new_band.append(deepcopy(cs))
     
     src = new_band.findall('ComplexSource')[1]
     fname = src.find('SourceFilename')
     fname_old = fname.text
-    nodata = src.find('NODATA').text
     src_attr = src.find('SourceProperties').attrib
     fname.text = etree.CDATA("""
     <VRTDataset rasterXSize="{rasterxsize}" rasterYSize="{rasterysize}">
         <SRS dataAxisToSRSAxisMapping="1,2">{srs}</SRS>
         <GeoTransform>{geotrans}</GeoTransform>
         <VRTRasterBand dataType="{dtype}" band="1" subClass="VRTDerivedRasterBand">
+            <NoDataValue>{vrt_nodata}</NoDataValue>
             <PixelFunctionType>{px_fun}</PixelFunctionType>
             <ComplexSource>
               <SourceFilename relativeToVRT="1">{fname}</SourceFilename>
@@ -502,24 +512,20 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
               <SourceProperties RasterXSize="{rasterxsize}" RasterYSize="{rasterysize}" DataType="{dtype}" BlockXSize="{blockxsize}" BlockYSize="{blockysize}"/>
               <SrcRect xOff="0" yOff="0" xSize="{rasterxsize}" ySize="{rasterysize}"/>
               <DstRect xOff="0" yOff="0" xSize="{rasterxsize}" ySize="{rasterysize}"/>
-              <NODATA>{nodata}</NODATA>
             </ComplexSource>
         </VRTRasterBand>
         <OverviewList resampling="{ov_resampling}">{ov}</OverviewList>
     </VRTDataset>
     """.format(rasterxsize=src_attr['RasterXSize'], rasterysize=src_attr['RasterYSize'], srs=srs, geotrans=geotrans,
-               dtype=src_attr['DataType'], px_fun='inv', fname=fname_old,
+               dtype=src_attr['DataType'], px_fun='inv', fname=fname_old, vrt_nodata=vrt_nodata,
                blockxsize=src_attr['BlockXSize'], blockysize=src_attr['BlockYSize'],
-               nodata=nodata, ov_resampling=overview_resampling.lower(), ov=ov))
+               ov_resampling=overview_resampling.lower(), ov=ov))
     
     bands = tree.findall('VRTRasterBand')
     for band, col in zip(bands, ['Red', 'Green', 'Blue']):
         color = etree.Element('ColorInterp')
         color.text = col
         band.insert(0, color)
-    for i, band in enumerate(bands):
-        if i in [0, 1]:
-            band.remove(band.find('NoDataValue'))
     
     ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': overview_resampling.lower()})
     ovr.text = ov
