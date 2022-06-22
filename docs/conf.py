@@ -4,7 +4,9 @@ import datetime
 from importlib.metadata import version as get_version
 
 project = 'S1_NRB'
+project_latex = r'S1\_NRB'
 authors = 'the S1_NRB Developers'
+authors_latex = r'the S1\_NRB Developers'
 year = datetime.datetime.now().year
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -224,6 +226,9 @@ latex_elements = {
     
     # disable floating
     'figure_align': 'H',
+    
+    # https://stackoverflow.com/questions/5422997/sphinx-docs-remove-blank-pages-from-generated-pdfs
+    'extraclassoptions': 'openany,oneside'
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -232,8 +237,9 @@ latex_elements = {
 latex_documents = [
     ('index',
      '{}.tex'.format(project),
-     r'{} Documentation'.format(project),
-     authors, 'manual'),
+     r'{} Documentation'.format(project_latex),
+     authors_latex,
+     'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -264,8 +270,8 @@ latex_documents = [
 man_pages = [
     ('index',
      project,
-     '{} Documentation'.format(project),
-     [authors],
+     '{} Documentation'.format(project_latex),
+     [authors_latex],
      1)
 ]
 
@@ -281,8 +287,8 @@ man_pages = [
 texinfo_documents = [
     ('index',
      project,
-     '{} Documentation'.format(project),
-     authors,
+     '{} Documentation'.format(project_latex),
+     authors_latex,
      project,
      'One line description of project.',
      'Miscellaneous'),
