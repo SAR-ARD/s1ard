@@ -4,15 +4,15 @@ from datetime import datetime
 from osgeo import gdal
 
 
-def get_config(config_file, section_name='GENERAL'):
+def get_config(config_file, proc_section='PROCESSING'):
     """Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
     config_file: str
         Full path to the config file that should be parsed to a dictionary.
-    section_name: str, optional
-        Section name of the config file that parameters should be parsed from. Default is 'GENERAL'.
+    proc_section: str, optional
+        Section of the config file that processing parameters should be parsed from. Default is 'PROCESSING'.
     
     Returns
     -------
@@ -25,53 +25,55 @@ def get_config(config_file, section_name='GENERAL'):
     parser = configparser.ConfigParser(allow_no_value=True, converters={'_datetime': _parse_datetime,
                                                                         '_tile_list': _parse_tile_list})
     parser.read(config_file)
-    parser_sec = parser[section_name]
+    out_dict = {}
     
+    # PROCESSING section
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
                     'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'dem_dir', 'wbm_dir',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                     'etad', 'etad_dir', 'product']
-    out_dict = {}
-    for k, v in parser_sec.items():
-        if k not in allowed_keys:
-            raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(k, allowed_keys))
-        v = _val_cleanup(v)
-        if v in ['None', 'none', '']:
-            v = None
+    try:
+        proc_sec = parser[proc_section]
+    except KeyError:
+        raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+    
+    for k, v in proc_sec.items():
+        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        
         if k == 'mode':
             allowed = ['nrb', 'snap', 'all']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
             v = v.lower()
         if k == 'aoi_tiles':
             if v is not None:
-                v = parser_sec.get_tile_list(k)
+                v = proc_sec.get_tile_list(k)
         if k == 'aoi_geometry':
             if v is not None:
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
         if k.endswith('date'):
-            v = parser_sec.get_datetime(k)
+            v = proc_sec.get_datetime(k)
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
             assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
         dir_ignore = ['work_dir']
-        if parser_sec['etad'] == 'False':
+        if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
         if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
                 os.makedirs(v, exist_ok=True)
         if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
             else:
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
         if k == 'db_file':
             if not any(x in v for x in ['/', '\\']):
-                v = os.path.join(parser_sec['work_dir'], v)
+                v = os.path.join(proc_sec['work_dir'], v)
         if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
@@ -92,6 +94,19 @@ def get_config(config_file, section_name='GENERAL'):
         out_dict[k] = v
     
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
+    
+    # METADATA section
+    meta_keys = ['access_url', 'licence', 'doi', 'processing_center']
+    try:
+        meta_sec = parser['METADATA']
+        out_dict['meta'] = {}
+        for k, v in meta_sec.items():
+            v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
+            # No need to check values. Only requirement is that they're strings, which is configparser's default.
+            out_dict['meta'][k] = v
+    except KeyError:
+        # Use None for all relevant fields if the metadata section doesn't exist.
+        out_dict['meta'] = dict([(k, None) for k in meta_keys])
     
     return out_dict
 
@@ -126,9 +141,16 @@ def _parse_tile_list(s):
     return tile_list
 
 
-def _val_cleanup(val):
-    """Helper function to clean up value strings while parsing a config file."""
-    return val.replace('"', '').replace("'", "")
+def _keyval_check(key, val, allowed_keys):
+    """Helper function to check and clean up key,value pairs while parsing a config file."""
+    if key not in allowed_keys:
+        raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(key, allowed_keys))
+    
+    val = val.replace('"', '').replace("'", "")
+    if val in ['None', 'none', '']:
+        val = None
+    
+    return val
 
 
 def geocode_conf(config):

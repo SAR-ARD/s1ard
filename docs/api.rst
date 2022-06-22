@@ -1,5 +1,9 @@
+API Documentation
+=================
+
+
 Configuration
-=============
+-------------
 
 .. automodule:: S1_NRB.config
     :members:
@@ -14,7 +18,7 @@ Configuration
         get_config
 
 Processing
-==========
+----------
 
 .. automodule:: S1_NRB.processor
     :members:
@@ -27,7 +31,7 @@ Processing
         main
 
 NRB
-----
+^^^
 
 .. automodule:: S1_NRB.nrb
     :members:
@@ -46,7 +50,7 @@ NRB
         get_datasets
 
 ETAD
-----
+^^^^
 
 .. automodule:: S1_NRB.etad
     :members:
@@ -59,7 +63,7 @@ ETAD
         process
 
 DEM
----
+^^^
 
 .. automodule:: S1_NRB.dem
     :members:
@@ -73,7 +77,7 @@ DEM
         prepare
 
 Tile Extraction
-===============
+---------------
 
 .. automodule:: S1_NRB.tile_extraction
     :members:
@@ -90,7 +94,7 @@ Tile Extraction
         tiles_from_aoi
 
 Ancillary Functions
-===================
+-------------------
 
 .. automodule:: S1_NRB.ancillary
     :members:
@@ -106,10 +110,10 @@ Ancillary Functions
         set_logging
 
 Metadata
-========
+--------
 
 Extraction
-----------
+^^^^^^^^^^
 
 .. automodule:: S1_NRB.metadata.extract
     :members:
@@ -130,7 +134,7 @@ Extraction
         vec_from_srccoords
 
 XML
-----
+^^^
 
 .. automodule:: S1_NRB.metadata.xml
     :members:
@@ -145,7 +149,7 @@ XML
         source_xml
 
 STAC
------
+^^^^
 
 .. automodule:: S1_NRB.metadata.stac
     :members:

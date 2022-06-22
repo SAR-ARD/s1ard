@@ -14,8 +14,7 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     vectorobject: spatialist.vector.Vector
         The vector object to read.
     kml: str
-        Path to the Sentinel-2 tiling grid kml file provided by ESA, which can be retrieved from:
-        https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2/data-products
+        Path to the Sentinel-2 tiling grid KML file.
     epsg: int or list[int] or None
         Define which EPSG code(s) are allowed for the tile selection.
         If None, all tile IDs are returned regardless of projection.
@@ -29,6 +28,11 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
     -------
     tiles: list[str]
         A list of unique MGRS tile IDs.
+    
+    Notes
+    -----
+    The global Sentinel-2 tiling grid can be retrieved from:
+    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
     if isinstance(epsg, int):
         epsg = [epsg]
