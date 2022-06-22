@@ -169,7 +169,7 @@ def etree_from_sid(sid):
 def convert_coordinates(coords, stac=False):
     """
     Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes stored in an
-    :class:`~pyroSAR.drivers.ID` object OR a product extent retrieved using :func:`spatialist.vector.Vector.extent` to
+    :class:`~pyroSAR.drivers.ID` object OR a product extent retrieved using :class:`spatialist.vector.Vector.extent` to
     either `envelop` and `center` for usage in the XML metadata files or `bbox` and `geometry` for usage in STAC
     metadata files. The latter is returned if the optional parameter `stac` is set to True, else the former is returned.
     
@@ -177,7 +177,7 @@ def convert_coordinates(coords, stac=False):
     ----------
     coords: list[tuple(float, float)] or dict
         List of coordinate tuple pairs as retrieved from an :class:`~pyroSAR.drivers.ID` objects of source SLC scenes
-        OR the product extent retrieved using :func:`spatialist.vector.Vector.extent` in the form of a dictionary with
+        OR the product extent retrieved using :class:`spatialist.vector.Vector.extent` in the form of a dictionary with
         keys: xmin, xmax, ymin, ymax
     stac: bool, optional
         If set to True, `bbox` and `geometry` are returned for usage in STAC metadata file. If set to False (default)

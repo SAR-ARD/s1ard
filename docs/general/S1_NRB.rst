@@ -1,6 +1,5 @@
-#################
 S1-NRB Production
-#################
+=================
 
 The following describes the current workflow for producing the Sentinel-1 Normalised Radar Backscatter product (S1-NRB), which is being developed in study 1 of the COPA project.
 This is not part of the official pyroSAR documentation.
@@ -65,7 +64,7 @@ The Copernicus GLO-30 DEM can easily be used for processing as it is available v
 Copernicus EEA-10 DEM usage has been implemented as part of the function :func:`pyroSAR.auxdata.dem_autoload`.
 
 Many DEMs contain heights relative to a geoid such as EGM96. For SAR processing this information needs to be converted to WGS84 ellipsoid heights.
-pyroSAR offers a function :func:`pyroSAR.auxdata.get_egm96_lookup` to download a conversion file used by SNAP. However, SNAP itself will also automatically download this file if not found.
+pyroSAR offers a function :func:`pyroSAR.auxdata.get_egm_lookup` to download a conversion file used by SNAP. However, SNAP itself will also automatically download this file if not found.
 
 Alternative to the auto-download options, a custom DEM can be passed to :func:`pyroSAR.snap.util.geocode` via argument ``externalDEMFile``.
 The function :func:`pyroSAR.auxdata.dem_create` can be used to directly convert between EGM96 and WGS84 heights using GDAL.

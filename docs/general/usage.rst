@@ -1,9 +1,8 @@
-######
 Usage
-######
+=====
 
 Configuration
-=============
+-------------
 Usage of the S1_NRB package currently relies on a configuration file that needs to be set up by the user. The configuration
 file follows the INI format, which uses plain text to store properties as key-value pairs. INI files can be created and
 opened with any text editor. An example ``config.ini`` file for the S1_NRB package can be found here:
@@ -96,7 +95,7 @@ and a new SLC is created in ``tmp_dir``, which is then used for all other proces
 will be ignored.
 
 Sections
---------
+^^^^^^^^
 Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
 section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
 related parameters. This section is by default named ``[PROCESSING]`` (see `example config file <https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini>`_).
@@ -106,7 +105,7 @@ processing scenarios (e.g., for different areas of interest). Note that each sec
 configuration parameters even if only a few are varied between the sections.
 
 Command Line Interface
-=======================
+----------------------
 Once a configuration file has been created and all of its parameters have been properly defined, it can be used to start
 the processor using the command line interface (CLI) tool provided with the S1_NRB package.
 
