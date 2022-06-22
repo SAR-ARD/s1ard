@@ -123,6 +123,7 @@ Extraction
     .. autosummary::
         :nosignatures:
 
+        calc_geolocation_accuracy
         calc_performance_estimates
         convert_coordinates
         etree_from_sid

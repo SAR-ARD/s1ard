@@ -433,10 +433,10 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     geoCorrAccuracyEasternBias.text = meta['prod']['geoCorrAccuracyEasternBias']
     geoCorrAccuracy_rRMSE = etree.SubElement(earthObservationMetaData,
                                              _nsc('nrb:geoCorrAccuracy_rRMSE', nsmap), attrib={'uom': 'm'})
-    geoCorrAccuracy_rRMSE.text = meta['prod']['geoCorrAccuracy_rRMSE']
+    geoCorrAccuracy_rRMSE.text = str(meta['prod']['geoCorrAccuracy_rRMSE'])
+    geoacc_ref = meta['prod']['geoCorrAccuracyReference']
     geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData, _nsc('nrb:geoCorrAccuracyReference', nsmap),
-                                                attrib={_nsc('xlink:href', nsmap): meta['prod'][
-                                                    'geoCorrAccuracyReference']})
+                                                attrib={_nsc('xlink:href', nsmap): geoacc_ref})
     numLines = etree.SubElement(earthObservationMetaData, _nsc('nrb:numLines', nsmap))
     numLines.text = meta['prod']['numLines']
     numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('nrb:numPixelsPerLine', nsmap))

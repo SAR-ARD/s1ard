@@ -1,6 +1,6 @@
 import os
 import re
-from math import isclose
+import math
 from lxml import etree
 from datetime import datetime
 import numpy as np
@@ -12,7 +12,7 @@ from spatialist.vector import wkt2vector, bbox
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
 
 gdal.UseExceptions()
 
@@ -100,10 +100,10 @@ def vec_from_srccoords(coord_list):
     """
     if len(coord_list) == 2:
         # determine joined border between footprints
-        if isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
+        if math.isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
             c1 = coord_list[1]
             c2 = coord_list[0]
-        elif isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
+        elif math.isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
             c1 = coord_list[0]
             c2 = coord_list[1]
         else:
@@ -427,6 +427,58 @@ def get_header_size(tif):
     return headers_size
 
 
+def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
+    """
+    Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
+    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html
+    
+    Parameters
+    ----------
+    swath_identifier: str
+        Swath identifier dependent on acquisition mode.
+    ei_tif: str
+        Path to the annotation GeoTIFF layer 'Ellipsoidal Incident Angle' of the current product.
+    dem_type: str
+        The DEM type used for processing.
+    etad: bool
+        Was the ETAD correction applied?
+    
+    Returns
+    -------
+    rmse_planar: float
+        The calculated rRMSE value rounded to two decimal places.
+    """
+    if 'copernicus' not in dem_type.lower():
+        return None
+    
+    if etad:
+        # https://sentinel.esa.int/nl/web/sentinel/missions/sentinel-1/data-products/etad-dataset
+        slc_acc = {'ALE': {'rg': 0,
+                           'az': 0},
+                   '1sigma': {'rg': 0.2,
+                              'az': 0.1}}
+    else:
+        swath_id = 'SM' if re.search('S[1-6]', swath_identifier) is not None else swath_identifier
+        slc_acc = SLC_ACC_MAP[swath_id]
+    
+    # min/max ellipsoidal incidence angle
+    with Raster(ei_tif) as ras:
+        stats = ras.allstats(approximate=False)
+        ei_min = stats[0]['min']
+    
+    # COP-DEM global mean accuracy (LE68) based on LE90 under assumption of gaussian distribution:
+    copdem_glob_1sigma_le68 = 1.56
+    rmse_dem_planar = copdem_glob_1sigma_le68 / math.tan(math.radians(ei_min))
+    
+    # Calculation of RMSE_planar
+    rmse_planar = round(math.sqrt(
+        (math.sqrt(slc_acc['ALE']['rg'] ** 2 + slc_acc['1sigma']['rg'] ** 2) / math.sin(math.radians(ei_min))) ** 2 +
+        (slc_acc['ALE']['az'] ** 2 + slc_acc['1sigma']['az'] ** 2) +
+        rmse_dem_planar ** 2), 2)
+    
+    return rmse_planar
+
+
 def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
@@ -471,6 +523,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     
     ref_tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
+    ei_tif = finder(target, ['-ei.tif$'], regex=True)[0]
     
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif, src_ids=src_ids,
@@ -489,6 +542,9 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
+    
+    geocorr_acc = calc_geolocation_accuracy(swath_identifier=meta['common']['swathIdentifier'], ei_tif=ei_tif,
+                                            dem_type=dem_type, etad=config['etad'])
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -551,7 +607,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
-    meta['prod']['geoCorrAccuracy_rRMSE'] = None
+    meta['prod']['geoCorrAccuracy_rRMSE'] = geocorr_acc
     meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/{}/general/geoaccuracy.html' \
                                                ''.format(S1_NRB.__version__)
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
