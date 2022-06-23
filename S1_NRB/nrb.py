@@ -257,6 +257,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                        scale=10, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
+    # https://github.com/OSGeo/gdal/issues/4847
+    # Issue is closed, but this might still occur (was observed in GDAL 3.5)
+    aux = finder(nrb_dir, ['*.tif.aux.xml'], recursive=True)
+    for file in aux:
+        os.remove(file)
+    
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
     schemas = [os.path.join(schema_dir, schema) for schema in os.listdir(schema_dir)]
