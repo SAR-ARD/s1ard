@@ -522,6 +522,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         src_sid[uid] = sid
         src_xml[uid] = etree_from_sid(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
+    swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
     ref_tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
@@ -545,8 +546,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    geocorr_acc = calc_geolocation_accuracy(swath_identifier=meta['common']['swathIdentifier'], ei_tif=ei_tif,
-                                            dem_type=dem_type, etad=config['etad'])
+    geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif, dem_type=dem_type,
+                                            etad=config['etad'])
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -572,8 +573,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = 5405000000
     meta['common']['sensorType'] = 'RADAR'
-    meta['common']['swathIdentifier'] = re.search('_(IW|EW|S[1-6])_',
-                                                  os.path.basename(sid0.file)).group().replace('_', '')
+    meta['common']['swathIdentifier'] = swath_id
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # Product metadata (sorted alphabetically)
