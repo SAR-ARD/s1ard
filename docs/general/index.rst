@@ -7,3 +7,4 @@ General Topics
    installation.rst
    usage.rst
    S1_NRB.rst
+   geoaccuracy.rst
