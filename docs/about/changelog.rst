@@ -1,10 +1,22 @@
 Changelog
 =========
 
+1.0.0 | 2022-06-23
+------------------
+
+* Dockerfile to build S1_NRB image (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/31>`_)
+* adjustments to nodata value (`#28 <https://github.com/SAR-ARD/S1_NRB/pull/28>`_)
+* renamed XML tag 'nrb' to 's1-nrb' (`#36 <https://github.com/SAR-ARD/S1_NRB/pull/36>`_)
+* Metadata & Config Improvements (`#30 <https://github.com/SAR-ARD/S1_NRB/pull/30>`_)
+* Geolocation accuracy (`#40 <https://github.com/SAR-ARD/S1_NRB/pull/40>`_)
+* various bug fixes and documentation improvements
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.2...v1.0.0>`_
+
 0.4.2 | 2022-06-16
 ------------------
 
-* Update documentation (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/27>`_
+* Update documentation (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/27>`_)
 * find unpacked .SAFE scenes in scene_dir (instead of just .zip) (`aea53a5 <https://github.com/SAR-ARD/S1_NRB/commit/aea53a57bc5fa1418fea4f46f69b41b7332909b1>`_)
 
 `Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.1...v0.4.2>`_
