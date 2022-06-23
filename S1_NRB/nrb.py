@@ -240,13 +240,14 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
+    gs_path = ref_tif.replace(ref_tif_suffix, '-gs.tif')
     for item in measure_tifs:
         sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
         sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
         
         if not os.path.isfile(sigma0_rtc_lin):
             print(sigma0_rtc_lin)
-            create_vrt(src=[item, ref_tif], dst=sigma0_rtc_lin, fun='mul',
+            create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
                        relpaths=True, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
         
