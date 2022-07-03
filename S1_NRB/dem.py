@@ -98,7 +98,8 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         if not os.path.isfile(fname_dem_tmp):
             dem_autoload([geometry], demType=dem_type,
                          vrt=fname_dem_tmp, buffer=buffer, product='dem',
-                         username=username, password=password)
+                         username=username, password=password,
+                         dst_nodata=0, hide_nodata=True)
         ###############################################
         if len(dem_target.keys()) > 0:
             print('### creating DEM MGRS tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
@@ -111,7 +112,8 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                 dem_create(src=fname_dem_tmp, dst=filename,
                            t_srs=epsg_tile, tr=(tr, tr), pbar=True,
                            geoid_convert=geoid_convert, geoid=geoid,
-                           outputBounds=bounds, threads=threads)
+                           outputBounds=bounds, threads=threads,
+                           nodata=-32767)
         if os.path.isfile(fname_wbm_tmp):
             if len(wbm_target.keys()) > 0:
                 print('### creating WBM MGRS tiles: \n{tiles}'.format(tiles=list(wbm_target.keys())))
