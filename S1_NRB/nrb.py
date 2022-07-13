@@ -162,9 +162,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             print(outname)
             bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
             
+            ras = None
             if isinstance(ds, tuple):
-                with Raster(list(ds), list_separate=False) as ras:
-                    source = ras.filename
+                ras = Raster(list(ds), list_separate=False)
+                source = ras.filename
             elif isinstance(ds, str):
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
                 gdalbuildvrt(ds, source)
@@ -186,6 +187,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                      options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
                               'dstNodata': dst_nodata_float, 'multithread': multithread,
                               'creationOptions': write_options[key]})
+            if ras is not None:
+                ras.close()
         nrb_tifs.append(outname)
     
     # reformat `snap_datasets` to a flattened list if necessary
