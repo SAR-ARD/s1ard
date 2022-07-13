@@ -231,12 +231,20 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     vrt_options = {'VRTNodata': vrt_nodata}
     
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
+    if gdal.__version__ >= '3.5':
+        fun = 'dB'
+        args = {'fact': 10}
+        scale = None
+    else:
+        fun = 'log10'
+        args = None
+        scale = 10
     for item in measure_tifs:
         gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
-            create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                       options=vrt_options, overviews=overviews,
+            create_vrt(src=item, dst=gamma0_rtc_log, fun=fun, scale=scale,
+                       args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
@@ -393,7 +401,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
     args: dict, optional
-        arguments for `fun` passed as `PixelFunctionArguments`.
+        arguments for `fun` passed as `PixelFunctionArguments`. Requires GDAL>=3.5 to be read.
     options: dict, optional
         Additional parameters passed to `gdal.BuildVRT`.
     overviews: list[int], optional
