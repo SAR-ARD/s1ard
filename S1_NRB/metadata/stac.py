@@ -177,6 +177,8 @@ def product_json(meta, target, tifs, exist_ok=False):
                                       media_type=pystac.MediaType.XML,
                                       roles=['metadata', 'card4l']))
     for tif in tifs:
+        with Raster(tif) as ras:
+            nodata = ras.nodata
         relpath = './' + os.path.relpath(tif, target).replace('\\', '/')
         size = os.path.getsize(tif)
         header_size = get_header_size(tif=tif)
@@ -186,7 +188,7 @@ def product_json(meta, target, tifs, exist_ok=False):
             created = datetime.fromtimestamp(os.path.getctime(tif)).isoformat()
             extra_fields = {'created': created,
                             'raster:bands': [{'unit': 'natural',
-                                              'nodata': 'NaN',
+                                              'nodata': nodata,
                                               'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                                          meta['prod']['fileBitsPerSample']),
                                               'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
@@ -217,7 +219,7 @@ def product_json(meta, target, tifs, exist_ok=False):
             
             if key in ['-dm.tif', '-id.tif']:
                 ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
-                                  'nodata': 255,
+                                  'nodata': nodata,
                                   'data_type': 'uint8',
                                   'bits_per_sample': 8}
                 raster_bands = []
@@ -251,7 +253,7 @@ def product_json(meta, target, tifs, exist_ok=False):
             
             else:
                 raster_bands = {'unit': SAMPLE_MAP[key]['unit'],
-                                'nodata': 'NaN',
+                                'nodata': nodata,
                                 'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                            meta['prod']['fileBitsPerSample']),
                                 'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}
