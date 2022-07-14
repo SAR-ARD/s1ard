@@ -16,7 +16,7 @@ setup(
     author_email="john.truckenbrodt@uni-jena.de",
     packages=find_packages(where='.'),
     include_package_data=True,
-    install_requires=['gdal>=3.4.1',
+    install_requires=['gdal>=3.5.0',
                       'click',
                       'lxml',
                       'pystac',
