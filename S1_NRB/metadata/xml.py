@@ -252,6 +252,9 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         pattern = '|'.join(z_errors.keys())
         match = re.search(pattern, os.path.basename(tif))
         
+        with Raster(tif) as ras:
+            nodata = ras.nodata
+        
         product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
         productInformation = etree.SubElement(product, _nsc('s1-nrb:ProductInformation', nsmap))
         fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
@@ -272,7 +275,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         bitsPerSample = etree.SubElement(productInformation, _nsc('s1-nrb:bitsPerSample', nsmap))
         bitsPerSample.text = meta['prod']['fileBitsPerSample']
         noDataVal = etree.SubElement(productInformation, _nsc('s1-nrb:noDataValue', nsmap))
-        noDataVal.text = 'NaN'
+        noDataVal.text = str(nodata)
         compressionType = etree.SubElement(productInformation, _nsc('s1-nrb:compressionType', nsmap))
         compressionType.text = meta['prod']['compression_type']
         if match is not None:
@@ -289,7 +292,6 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
             if key in ['-dm.tif', '-id.tif']:
                 dataType.text = 'UINT'
                 bitsPerSample.text = '8'
-                noDataVal.text = '255'
                 
                 if key == '-dm.tif':
                     with Raster(tif) as dm_ras:
