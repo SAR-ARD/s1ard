@@ -234,12 +234,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     vrt_options = {'VRTNodata': vrt_nodata}
     
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
+    fun = 'dB'
+    args = {'fact': 10}
+    scale = None
     for item in measure_tifs:
         gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(gamma0_rtc_log):
             print(gamma0_rtc_log)
-            create_vrt(src=item, dst=gamma0_rtc_log, fun='log10', scale=10,
-                       options=vrt_options, overviews=overviews,
+            create_vrt(src=item, dst=gamma0_rtc_log, fun=fun, scale=scale,
+                       args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
@@ -368,7 +371,7 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     return ids, datasets, datamasks
 
 
-def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
+def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None,
                options=None, overviews=None, overview_resampling=None):
     """
     Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
@@ -381,9 +384,9 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
     dst: str
         The output dataset.
     fun: str
-        A PixelFunctionType that should be applied on the fly when opening the VRT file. The function is applied to a
+        A `PixelFunctionType` that should be applied on the fly when opening the VRT file. The function is applied to a
         band that derives its pixel information from the source bands. A list of possible options can be found here:
-        https://gdal.org/drivers/raster/vrt.html#default-pixel-functions
+        https://gdal.org/drivers/raster/vrt.html#default-pixel-functions.
         Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
         Python code for decibel conversion (10*log10).
     relpaths: bool, optional
@@ -395,12 +398,39 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
     offset: float, optional
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
+    args: dict, optional
+        arguments for `fun` passed as `PixelFunctionArguments`. Requires GDAL>=3.5 to be read.
     options: dict, optional
         Additional parameters passed to `gdal.BuildVRT`.
     overviews: list[int], optional
         Internal overview levels to be created for each raster file.
     overview_resampling: str, optional
         Resampling method for overview levels.
+
+    Examples
+    --------
+    linear backscatter as input:
+
+    >>> src = 's1a-iw-nrb-20220601t052704-043465-0530a1-32tpt-vh-g-lin.tif'
+
+    decibel scaling I:
+    use `log10` pixel function and additional `Scale` parameter.
+    Known to display well in QGIS, but `Scale` is ignored when reading array in Python.
+
+    >>> dst = src.replace('-lin.tif', '-log1.vrt')
+    >>> create_vrt(src=src, dst=dst, fun='log10', scale=10)
+
+    decibel scaling II:
+    use custom Python pixel function. Requires additional environment variable GDAL_VRT_ENABLE_PYTHON set to YES.
+
+    >>> dst = src.replace('-lin.tif', '-log2.vrt')
+    >>> create_vrt(src=src, dst=dst, fun='decibel')
+
+    decibel scaling III:
+    use `dB` pixel function with additional `PixelFunctionArguments`. Works best but requires GDAL>=3.5.
+
+    >>> dst = src.replace('-lin.tif', '-log3.vrt')
+    >>> create_vrt(src=src, dst=dst, fun='dB', args={'fact': 10})
     """
     gdalbuildvrt(src=src, dst=dst, options=options)
     tree = etree.parse(dst)
@@ -422,6 +452,10 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None,
     else:
         pixfun_type = etree.SubElement(band, 'PixelFunctionType')
         pixfun_type.text = fun
+        if args is not None:
+            arg = etree.SubElement(band, 'PixelFunctionArguments')
+            for key, value in args.items():
+                arg.attrib[key] = str(value)
         if scale is not None:
             sc = etree.SubElement(band, 'Scale')
             sc.text = str(scale)

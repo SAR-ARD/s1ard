@@ -5,7 +5,7 @@ channels:
   - s1-etad
 dependencies:
   - python>=3.8
-  - gdal>=3.4.1
+  - gdal>=3.5.0
   - click
   - lxml
   - pip
