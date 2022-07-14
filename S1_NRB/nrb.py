@@ -234,14 +234,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     vrt_options = {'VRTNodata': vrt_nodata}
     
     # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
-    if gdal.__version__ >= '3.5':
-        fun = 'dB'
-        args = {'fact': 10}
-        scale = None
-    else:
-        fun = 'log10'
-        args = None
-        scale = 10
+    fun = 'dB'
+    args = {'fact': 10}
+    scale = None
     for item in measure_tifs:
         gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(gamma0_rtc_log):
