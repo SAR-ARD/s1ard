@@ -22,7 +22,8 @@ setup(
                       'pystac',
                       'pyroSAR>=0.17.3',
                       'scipy',
-                      's1etad>=0.5.3'],
+                      's1etad>=0.5.3',
+                      's1etad_tools>=0.8.1'],
     extras_require={
           'docs': ['sphinx', 'sphinxcontrib-bibtex'],
     },
