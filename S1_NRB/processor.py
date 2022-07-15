@@ -101,6 +101,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
         else:
             ex_dem_nodata = None
     
+    dem_short = {'Copernicus 10m EEA DEM': 'EEA10', 'Copernicus 30m Global DEM II': 'GLO30II',
+                 'Copernicus 30m Global DEM': 'GLO30', 'GETASSE30': 'GETASSE30'}
     ####################################################################################################################
     # SNAP RTC processing
     if snap_flag:
@@ -114,7 +116,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             os.makedirs(out_dir_scene_epsg, exist_ok=True)
             os.makedirs(tmp_dir_scene_epsg, exist_ok=True)
             fname_dem = os.path.join(tmp_dir_scene_epsg,
-                                     scene.outname_base() + '_DEM_{}.tif'.format(epsg))
+                                     scene.outname_base() + '_{}_{}.tif'.format(dem_short[config['dem_type']], epsg))
             ###############################################
             # scene-specific DEM preparation
             with scene.bbox() as geometry:
