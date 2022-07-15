@@ -176,36 +176,55 @@ def product_json(meta, target, tifs, exist_ok=False):
                                       title='Metadata in XML format.',
                                       media_type=pystac.MediaType.XML,
                                       roles=['metadata', 'card4l']))
-    for tif in tifs:
-        with Raster(tif) as ras:
-            nodata = ras.nodata
-        relpath = './' + os.path.relpath(tif, target).replace('\\', '/')
-        size = os.path.getsize(tif)
-        header_size = get_header_size(tif=tif)
+    
+    vrts = finder(target, ['.vrt$'], regex=True, recursive=True)
+    assets = tifs + vrts
+    measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
+    for asset in assets:
+        relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
+        size = os.path.getsize(asset)
         
-        if 'measurement' in tif:
-            pol = re.search('[vh]{2}', tif).group().lower()
-            created = datetime.fromtimestamp(os.path.getctime(tif)).isoformat()
-            extra_fields = {'created': created,
-                            'raster:bands': [{'unit': 'natural',
-                                              'nodata': nodata,
-                                              'data_type': '{}{}'.format(meta['prod']['fileDataType'],
-                                                                         meta['prod']['fileBitsPerSample']),
-                                              'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
-                            'file:byte_order': meta['prod']['fileByteOrder'],
-                            'file:size': size,
-                            'file:header_size': header_size,
-                            'card4l:border_pixels': meta['prod']['numBorderPixels']}
+        if 'measurement' in asset:
+            key = re.search('[a-z]{2}-[g|s]-(lin|log)', asset).group()
             
-            item.add_asset(key=pol,
+            if key == 'cc-g-lin':
+                title = 'RGB color composite (vv-g-lin, vh-g-lin, vv-g-lin/vh-g-lin)'
+            else:
+                pol = re.search('[vh]{2}', asset).group()
+                nought = measurement_title_dict[re.search('-[g|s]-', asset).group().replace('-', '')]
+                scaling = measurement_title_dict[re.search('(lin|log)', asset).group()]
+                title = '{} scaled {} backscatter ({})'.format(scaling.capitalize(), nought, pol.upper())
+            
+            header_size = get_header_size(tif=asset)
+            if asset.endswith('.tif'):
+                with Raster(asset) as ras:
+                    nodata = ras.nodata
+                created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
+                extra_fields = {'created': created,
+                                'raster:bands': [{'unit': 'natural',
+                                                  'nodata': nodata,
+                                                  'data_type': '{}{}'.format(meta['prod']['fileDataType'],
+                                                                             meta['prod']['fileBitsPerSample']),
+                                                  'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
+                                'file:byte_order': meta['prod']['fileByteOrder'],
+                                'file:size': size,
+                                'file:header_size': header_size,
+                                'card4l:border_pixels': meta['prod']['numBorderPixels']}
+            else:
+                extra_fields = {'file:byte_order': meta['prod']['fileByteOrder'],
+                                'file:size': size}
+            
+            item.add_asset(key=key,
                            asset=pystac.Asset(href=relpath,
-                                              title='{} backscatter data'.format(pol.upper()),
+                                              title=title,
                                               media_type=pystac.MediaType[meta['prod']['fileFormat']],
                                               roles=['backscatter', 'data'],
                                               extra_fields=extra_fields))
         
-        elif 'annotation' in tif:
-            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
+        elif 'annotation' in asset:
+            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
+            header_size = get_header_size(tif=asset)
+            
             np_pat = '-np-[vh]{2}.tif'
             if re.search(np_pat, key) is not None:
                 pol = re.search('[vh]{2}', key).group()
@@ -224,7 +243,7 @@ def product_json(meta, target, tifs, exist_ok=False):
                                   'bits_per_sample': 8}
                 raster_bands = []
                 if key == '-dm.tif':
-                    with Raster(tif) as dm_ras:
+                    with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
                     if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
@@ -235,7 +254,7 @@ def product_json(meta, target, tifs, exist_ok=False):
                             band_dict.update(vals)
                             raster_bands.append(band_dict)
                     else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
+                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [
