@@ -181,6 +181,9 @@ def product_json(meta, target, tifs, exist_ok=False):
     assets = tifs + vrts
     measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
     for asset in assets:
+        if asset.endswith('.tif'):
+            with Raster(asset) as ras:
+                nodata = ras.nodata
         relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         size = os.path.getsize(asset)
         
@@ -197,8 +200,6 @@ def product_json(meta, target, tifs, exist_ok=False):
             
             header_size = get_header_size(tif=asset)
             if asset.endswith('.tif'):
-                with Raster(asset) as ras:
-                    nodata = ras.nodata
                 created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
                 extra_fields = {'created': created,
                                 'raster:bands': [{'unit': 'natural',
