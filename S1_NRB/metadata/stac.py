@@ -193,7 +193,7 @@ def product_json(meta, target, tifs, exist_ok=False):
                 pol = re.search('[vh]{2}', asset).group()
                 nought = measurement_title_dict[re.search('-[g|s]-', asset).group().replace('-', '')]
                 scaling = measurement_title_dict[re.search('(lin|log)', asset).group()]
-                title = '{} scaled {} backscatter ({})'.format(scaling.capitalize(), nought, pol.upper())
+                title = '{} {} RTC backscatter, {} scaling'.format(pol.upper(), nought, scaling.capitalize())
             
             header_size = get_header_size(tif=asset)
             if asset.endswith('.tif'):
