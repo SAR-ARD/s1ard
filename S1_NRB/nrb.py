@@ -259,9 +259,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         
         if not os.path.isfile(sigma0_rtc_log):
             print(sigma0_rtc_log)
-            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun='log10',
-                       scale=10, options=vrt_options, overviews=overviews,
-                       overview_resampling=ovr_resampling)
+            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
+                       scale=scale, options=vrt_options, overviews=overviews,
+                       overview_resampling=ovr_resampling, args=args)
     
     # https://github.com/OSGeo/gdal/issues/4847
     # Issue is closed, but this might still occur (was observed in GDAL 3.5)
