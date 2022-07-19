@@ -178,9 +178,11 @@ def product_json(meta, target, tifs, exist_ok=False):
                                       roles=['metadata', 'card4l']))
     
     vrts = finder(target, ['.vrt$'], regex=True, recursive=True)
-    assets = tifs + vrts
+    assets_fnames = tifs + vrts
+    assets = {'measurement': {},
+              'annotation': {}}
     measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
-    for asset in assets:
+    for asset in assets_fnames:
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
@@ -196,7 +198,7 @@ def product_json(meta, target, tifs, exist_ok=False):
                 pol = re.search('[vh]{2}', asset).group()
                 nought = measurement_title_dict[re.search('-[g|s]-', asset).group().replace('-', '')]
                 scaling = measurement_title_dict[re.search('(lin|log)', asset).group()]
-                title = '{} {} RTC backscatter, {} scaling'.format(pol.upper(), nought, scaling.capitalize())
+                title = '{} {} RTC backscatter, {} scaling'.format(pol.upper(), nought, scaling)
             
             header_size = get_header_size(tif=asset)
             if asset.endswith('.tif'):
@@ -215,12 +217,11 @@ def product_json(meta, target, tifs, exist_ok=False):
                 extra_fields = {'file:byte_order': meta['prod']['fileByteOrder'],
                                 'file:size': size}
             
-            item.add_asset(key=key,
-                           asset=pystac.Asset(href=relpath,
-                                              title=title,
-                                              media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                              roles=['backscatter', 'data'],
-                                              extra_fields=extra_fields))
+            assets['measurement'][key] = pystac.Asset(href=relpath,
+                                                      title=title,
+                                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                                      roles=['backscatter', 'data'],
+                                                      extra_fields=extra_fields)
         
         elif 'annotation' in asset:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
@@ -286,12 +287,14 @@ def product_json(meta, target, tifs, exist_ok=False):
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
-            item.add_asset(key=asset_key,
-                           asset=pystac.Asset(href=relpath,
-                                              title=SAMPLE_MAP[key]['title'],
-                                              media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                              roles=[SAMPLE_MAP[key]['role'], 'metadata'],
-                                              extra_fields=extra_fields))
+            assets['annotation'][asset_key] = pystac.Asset(href=relpath,
+                                                           title=SAMPLE_MAP[key]['title'],
+                                                           media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                                           roles=[SAMPLE_MAP[key]['role'], 'metadata'],
+                                                           extra_fields=extra_fields)
+    for category in ['measurement', 'annotation']:
+        for key in sorted(assets[category].keys()):
+            item.add_asset(key=key, asset=assets[category][key])
     item.save_object(dest_href=outname)
 
 
