@@ -466,6 +466,11 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
         stats = ras.allstats(approximate=False)
         ei_min = stats[0]['min']
     
+    # Remove generated '.aux.xml' file
+    aux = finder(os.path.dirname(ei_tif), ['.tif.aux.xml$'], regex=True, recursive=False)
+    for file in aux:
+        os.remove(file)
+    
     # COP-DEM global mean accuracy (LE68) based on LE90 under assumption of gaussian distribution:
     copdem_glob_1sigma_le68 = 1.56
     rmse_dem_planar = copdem_glob_1sigma_le68 / math.tan(math.radians(ei_min))
