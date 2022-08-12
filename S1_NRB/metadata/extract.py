@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import json
 from lxml import etree
 from datetime import datetime
 import numpy as np
@@ -46,7 +47,6 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
-            out['extent'] = vec.extent
             out['wkt'] = srs.ExportToWkt()
             out['epsg'] = vec.getProjection(type='epsg')
             out['rows'] = ras.rows
@@ -55,8 +55,7 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
             geo = ras.geo
             out['transform'] = [geo['xres'], geo['rotation_x'], geo['xmin'],
                                 geo['rotation_y'], geo['yres'], geo['ymax']]
-            vec.reproject(4326)
-            out['extent_4326'] = vec.extent
+            out['geom'] = geometry_from_vec(vectorobject=vec)
             
             # Calculate number of nodata border pixels based on source scene(s) footprint
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
@@ -166,70 +165,43 @@ def etree_from_sid(sid):
             'annotation': annotation_dict}
 
 
-def convert_coordinates(coords, stac=False):
+def geometry_from_vec(vectorobject):
     """
-    Converts footprint coordinates that have been retrieved from the metadata of source SLC scenes stored in an
-    :class:`~pyroSAR.drivers.ID` object OR a product extent retrieved using :class:`spatialist.vector.Vector.extent` to
-    either `envelop` and `center` for usage in the XML metadata files or `bbox` and `geometry` for usage in STAC
-    metadata files. The latter is returned if the optional parameter `stac` is set to True, else the former is returned.
+    Get geometry information for usage in STAC and XML metadata from a :class:`spatialist.vector.Vector` object.
     
     Parameters
     ----------
-    coords: list[tuple(float, float)] or dict
-        List of coordinate tuple pairs as retrieved from an :class:`~pyroSAR.drivers.ID` objects of source SLC scenes
-        OR the product extent retrieved using :class:`spatialist.vector.Vector.extent` in the form of a dictionary with
-        keys: xmin, xmax, ymin, ymax
-    stac: bool, optional
-        If set to True, `bbox` and `geometry` are returned for usage in STAC metadata file. If set to False (default)
-        `envelop` and `center` are returned for usage in XML metadata files.
+    vectorobject: :class:`spatialist.vector.Vector`
+        The vector object to extract geometry information from.
     
     Returns
     -------
-    envelop: str
-        Acquisition footprint coordinates for the XML element 'eop:Footprint/multiExtentOf'.
-    center: str
-        Acquisition center coordinates for the XML element 'eop:Footprint/centerOf'.
-    
-    Notes
-    -------
-    If `stac=True` the following results are returned instead of `envelop` and `center`:
-    
-    bbox: list[float]
-        Acquisition bounding box for usage in STAC Items. Formatted in accordance with RFC 7946, section 5:
-        https://datatracker.ietf.org/doc/html/rfc7946#section-5
-    geometry: dict
-        Acquisition footprint geometry for usage in STAC Items. Formatted in accordance with RFC 7946, section 3.1.:
-        https://datatracker.ietf.org/doc/html/rfc7946#section-3.1
+    out: dict
+        A dictionary containing the geometry information extracted from the vectorobject.
     """
-    if isinstance(coords, (list, tuple)) and len(coords) == 4:
-        c = coords
-        x = [c[0][0], c[1][0], c[2][0], c[3][0]]
-        y = [c[0][1], c[1][1], c[2][1], c[3][1]]
-        xmin = min(x)
-        xmax = max(x)
-        ymin = min(y)
-        ymax = max(y)
-    elif isinstance(coords, dict) and len(coords.keys()) == 4:
-        xmin = coords['xmin']
-        xmax = coords['xmax']
-        ymin = coords['ymin']
-        ymax = coords['ymax']
-        x = [xmin, xmin, xmax, xmax]
-        y = [ymin, ymax, ymax, ymin]
-    else:
-        raise RuntimeError('Coordinates must be provided as a list of coordinate tuples OR as a dictionary with '
-                           'keys xmin, xmax, ymin, ymax')
-    if stac:
-        bbox = [xmin, ymin, xmax, ymax]
-        geometry = {'type': 'Polygon', 'coordinates': (((x[0], y[0]), (x[1], y[1]), (x[2], y[2]), (x[3], y[3]),
-                                                        (x[0], y[0])),)}
-        return bbox, geometry
-    else:
-        x_c = (xmax + xmin) / 2
-        y_c = (ymax + ymin) / 2
-        center = '{} {}'.format(y_c, x_c)
-        envelop = '{} {} {} {} {} {} {} {} {} {}'.format(y[0], x[0], y[1], x[1], y[2], x[2], y[3], x[3], y[0], x[0])
-        return center, envelop
+    out = {}
+    vec = vectorobject
+    
+    # For STAC metadata
+    if vec.getProjection(type='epsg') != 4326:
+        ext = vec.extent
+        out['bbox_native'] = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+        vec.reproject(4326)
+    feat = vec.getfeatures()[0]
+    geom = feat.GetGeometryRef()
+    out['geometry'] = json.loads(geom.ExportToJson())
+    ext = vec.extent
+    out['bbox'] = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+    
+    # For XML metadata
+    c_x = (ext['xmax'] + ext['xmin']) / 2
+    c_y = (ext['ymax'] + ext['ymin']) / 2
+    out['center'] = '{} {}'.format(c_y, c_x)
+    wkt = geom.ExportToWkt().removeprefix('POLYGON ((').removesuffix('))')
+    wkt_list = ['{} {}'.format(x[1], x[0]) for x in [y.split(' ') for y in wkt.split(',')]]
+    out['envelop'] = ' '.join(wkt_list)
+    
+    return out
 
 
 def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
@@ -537,10 +509,6 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif, src_ids=src_ids,
                               snap_outdir=os.path.dirname(snap_datasets[0]))
     
-    xml_center, xml_envelop = convert_coordinates(coords=prod_meta['extent_4326'])
-    stac_bbox, stac_geometry = convert_coordinates(coords=prod_meta['extent_4326'], stac=True)
-    stac_bbox_native = convert_coordinates(coords=prod_meta['extent'], stac=True)[0]
-    
     dem_type = config['dem_type']
     dem_access = DEM_MAP[dem_type]['access']
     dem_ref = DEM_MAP[dem_type]['ref']
@@ -621,11 +589,11 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
-    meta['prod']['geom_stac_bbox_native'] = stac_bbox_native
-    meta['prod']['geom_stac_bbox_4326'] = stac_bbox
-    meta['prod']['geom_stac_geometry_4326'] = stac_geometry
-    meta['prod']['geom_xml_center'] = xml_center
-    meta['prod']['geom_xml_envelope'] = xml_envelop
+    meta['prod']['geom_stac_bbox_native'] = prod_meta['geom']['bbox_native']
+    meta['prod']['geom_stac_bbox_4326'] = prod_meta['geom']['bbox']
+    meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
+    meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
+    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = config['meta']['licence']
@@ -670,10 +638,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
             else:
                 swaths.append(item)
         osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
-        
-        coords = src_sid[uid].meta['coordinates']
-        xml_center, xml_envelop = convert_coordinates(coords=coords)
-        stac_bbox, stac_geometry = convert_coordinates(coords=coords, stac=True)
+        with src_sid[uid].geometry() as vec:
+            geom = geometry_from_vec(vectorobject=vec)
         
         az_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                pattern='.//azimuthProcessing/lookBandwidth',
@@ -733,10 +699,10 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
         meta['source'][uid]['filename'] = src_sid[uid].file
-        meta['source'][uid]['geom_stac_bbox_4326'] = stac_bbox
-        meta['source'][uid]['geom_stac_geometry_4326'] = stac_geometry
-        meta['source'][uid]['geom_xml_center'] = xml_center
-        meta['source'][uid]['geom_xml_envelop'] = xml_envelop
+        meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
+        meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
+        meta['source'][uid]['geom_xml_center'] = geom['center']
+        meta['source'][uid]['geom_xml_envelop'] = geom['envelop']
         meta['source'][uid]['incidenceAngleMax'] = np.max(inc_vals)
         meta['source'][uid]['incidenceAngleMin'] = np.min(inc_vals)
         meta['source'][uid]['incidenceAngleMidSwath'] = np.max(inc_vals) - ((np.max(inc_vals) - np.min(inc_vals)) / 2)
