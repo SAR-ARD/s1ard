@@ -107,8 +107,8 @@ def vec_from_srccoords(coord_list):
             c1 = coord_list[0]
             c2 = coord_list[1]
         else:
-            RuntimeError('Not able to find joined border of source scene footprint coordinates:'
-                         '\n{} \n{}'.format(coord_list[0], coord_list[1]))
+            raise RuntimeError('Not able to find joined border of source scene footprint coordinates:'
+                               '\n{} \n{}'.format(coord_list[0], coord_list[1]))
         
         c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
         c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
