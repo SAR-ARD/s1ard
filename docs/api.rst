@@ -125,10 +125,10 @@ Extraction
 
         calc_geolocation_accuracy
         calc_performance_estimates
-        convert_coordinates
         etree_from_sid
         extract_pslr_islr
         find_in_annotation
+        geometry_from_vec
         get_header_size
         get_prod_meta
         meta_dict
