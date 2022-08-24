@@ -88,6 +88,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
     
     ####################################################################################################################
     # DEM download and MGRS-tiling
+    ex_dem_nodata = None
     if snap_flag:
         geometries = [scene.bbox() for scene in ids]
         dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
@@ -98,8 +99,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
         
         if config['dem_type'] == 'Copernicus 30m Global DEM':
             ex_dem_nodata = -99
-        else:
-            ex_dem_nodata = None
     
     dem_short = {'Copernicus 10m EEA DEM': 'EEA10', 'Copernicus 30m Global DEM II': 'GLO30II',
                  'Copernicus 30m Global DEM': 'GLO30', 'GETASSE30': 'GETASSE30'}
