@@ -126,7 +126,8 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                     dem_create(src=fname_wbm_tmp, dst=filename,
                                t_srs=epsg_tile, tr=(tr, tr),
                                resampling_method='mode', pbar=True,
-                               outputBounds=bounds, threads=threads)
+                               outputBounds=bounds, threads=threads,
+                               nodata='None')
         print('=' * 40)
 
 
