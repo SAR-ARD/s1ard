@@ -8,12 +8,12 @@ RUN apt-get install -y git python3-pip wget libpq-dev
 
 
 WORKDIR /tmp/
-RUN wget https://download.esa.int/step/snap/8.0/installers/esa-snap_sentinel_unix_8_0.sh
+RUN wget https://download.esa.int/step/snap/9.0/installers/esa-snap_sentinel_unix_9_0_0.sh
 COPY docker/esa-snap.varfile /tmp/esa-snap.varfile
-RUN chmod +x esa-snap_sentinel_unix_8_0.sh
+RUN chmod +x esa-snap_sentinel_unix_9_0_0.sh
 
 ## install and update snap
-RUN /tmp/esa-snap_sentinel_unix_8_0.sh -q /tmp/varfile esa-snap.varfile
+RUN /tmp/esa-snap_sentinel_unix_9_0_0.sh -q /tmp/varfile esa-snap.varfile
 RUN apt install -y fonts-dejavu fontconfig
 COPY docker/update_snap.sh /tmp/update_snap.sh
 RUN chmod +x update_snap.sh
@@ -38,8 +38,3 @@ RUN source ~/.bashrc \
 COPY docker/entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
-
-
-
-
-
