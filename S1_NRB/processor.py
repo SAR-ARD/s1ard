@@ -1,5 +1,4 @@
 import os
-import re
 import time
 from osgeo import gdal
 from spatialist import Vector
@@ -139,12 +138,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
                          'EW': 1}[config['acq_mode']]
             else:
                 rlks = azlks = None
-            
-            # SLC SM noise removal is currently not possible with SNAP
-            # see https://forum.step.esa.int/t/stripmap-slc-error-during-thermal-noise-removal/32688
-            remove_noise = True
-            if scene.product == 'SLC' and re.search('S[1-6]', scene.acquisition_mode):
-                remove_noise = False
             ###############################################
             list_processed = finder(out_dir_scene_epsg, ['*'])
             exclude = list(np_dict.values())
@@ -157,7 +150,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
                             standardGridOriginX=geo_dict['align']['xmax'],
                             standardGridOriginY=geo_dict['align']['ymin'],
                             externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata,
-                            rlks=rlks, azlks=azlks, **geocode_prms, removeS1ThermalNoise=remove_noise)
+                            rlks=rlks, azlks=azlks, **geocode_prms)
                     t = round((time.time() - start_time), 2)
                     log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
                     if t <= 500:
@@ -171,8 +164,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 print('### ' + msg)
                 log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
             ###############################################
-            if not remove_noise:
-                continue
             print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
                                                                          scene=scene.scene))
             if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
