@@ -1,6 +1,26 @@
 Changelog
 =========
 
+1.0.2 | 2022-08-24
+------------------
+
+* Fix error in handling of temporary VRTs (`#50 <https://github.com/SAR-ARD/S1_NRB/pull/50>`_)
+* Adjustments to VRT log scaling (`#52 <https://github.com/SAR-ARD/S1_NRB/pull/52>`_)
+* [metadata] read nodata values directly from files (instead of hard-coding them) (`#53 <https://github.com/SAR-ARD/S1_NRB/pull/53>`_)
+* use type identifier in scene-specific DEM file names (`#55 <https://github.com/SAR-ARD/S1_NRB/pull/55>`_)
+* Add VRT assets to STAC files (`#56 <https://github.com/SAR-ARD/S1_NRB/pull/56>`_)
+* Fix and improve metadata geometry handling (`#57 <https://github.com/SAR-ARD/S1_NRB/pull/57>`_)
+* SNAP 9 compatibility (`#58 <https://github.com/SAR-ARD/S1_NRB/pull/58>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.1...v1.0.2>`_
+
+1.0.1 | 2022-07-03
+------------------
+
+* dem handling improvements (`#45 <https://github.com/SAR-ARD/S1_NRB/pull/45>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.0...v1.0.1>`_
+
 1.0.0 | 2022-06-23
 ------------------
 
