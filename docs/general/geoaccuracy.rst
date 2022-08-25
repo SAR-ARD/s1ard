@@ -1,8 +1,8 @@
 Geolocation Accuracy
 ====================
 
-Item 4.3 of the CARD4L NRB specification requires, as minimum, an estimate of the absolute location error (ALE) “as
-bias and standard deviation, provided in slant range/azimuth, or Northing/Easting” [1]. As desired target the accuracy
+Item 4.3 of the CARD4L NRB specification requires, as minimum, an estimate of the absolute location error (ALE) "as
+bias and standard deviation, provided in slant range/azimuth, or Northing/Easting" [1]. As desired target the accuracy
 is less or equal 0.1 pixels radial root mean square error (rRMSE), which can be defined as:
 
 .. math::
