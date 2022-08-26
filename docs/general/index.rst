@@ -8,7 +8,4 @@ General Topics
     usage.rst
     S1_NRB.rst
     geoaccuracy.rst
-
-    .. only:: html
-
-        folderstructure.md
+    folderstructure.md
