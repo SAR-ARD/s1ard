@@ -18,3 +18,4 @@ dependencies:
   - sphinxcontrib-bibtex>=2.2
   - nbsphinx
   - sphinx_rtd_theme
+  - sphinx-toolbox

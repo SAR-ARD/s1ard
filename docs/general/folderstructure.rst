@@ -1,0 +1,247 @@
+Folder Structure
+================
+
+The following describes the structure created to store intermediate and final files during a processor run.
+The structure is based on the default configuration defined in the `config.ini` file and can be modified by a user.
+Folders are highlighted in bold.
+
+.. only:: latex
+
+    This section is currently not supported with LaTeX/PDF as it was written with collapsible elements in HTML.
+
+.. only:: html
+
+    .. collapse:: <b>work_dir</b>
+        :open:
+
+            .. collapse:: <b>dem_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        DEM tiles in MGRS grid and WGS84 vertical datum for fast mosaicing of scene-specific DEMs during RTC processing.
+                        Tiles with a non-native UTM zone additionally contain the EPSG code in the name.
+                        For example, the native projection of tile 33TUL is 33N/EPSG:32633 but a variant in EPSG:32632 might exist for full coverage of a SAR scene.
+
+                    .. collapse:: <b>Copernicus 10m EEA DEM</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_DEM.tif
+                            | 32TPS_DEM.tif
+                            | 33TUL_32632_DEM.tif
+                            | ...
+
+                    .. collapse:: <b>Copernicus 30m Global DEM</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_DEM.tif
+                            | 32TPS_DEM.tif
+                            | 33TUL_32632_DEM.tif
+                            | ...
+
+                    .. collapse:: <b>Copernicus 30m Global DEM II</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_DEM.tif
+                            | 32TPS_DEM.tif
+                            | 33TUL_32632_DEM.tif
+                            | ...
+
+                    .. collapse:: <b>GETASSE30</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_DEM.tif
+                            | 32TPS_DEM.tif
+                            | 33TUL_32632_DEM.tif
+                            | ...
+
+            .. collapse:: <b>log_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        Log files for each processor run containing the full processor configuration (`config.ini`),
+                        the versions of relevant installed software, and details on individual processing steps.
+
+                    | 20220719T1339_process.log
+                    | 20220719T1032_process.log
+                    | 20220708T1118_process.log
+                    | ...
+
+            .. collapse:: <b>nrb_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        The final S1-NRB tiles sorted into subfolders by MGRS tile.
+                        Additional STAC files can be generated using function :func:`S1_NRB.metadata.stac.make_catalog`:
+
+                        - `collection.json`: a STAC collection file referencing the product-specific STAC item files per MGRS tile
+                        - `catalog.json`: a STAC catalog referencing all collections
+
+                    .. collapse:: <b>32TPS</b>
+
+                        .. pull-quote::
+
+                            .. collapse:: <b>S1A_IW_NRB__1SDV_20200103T170705_030639_0382D5_32TPS_8090</b>
+
+                                .. pull-quote::
+
+                                    .. collapse:: <b>annotation</b>
+
+                                        .. pull-quote::
+
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-dm.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-ei.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-gs.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-id.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-lc.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-li.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-np-vh.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-np-vv.tif
+
+                                    .. collapse:: <b>measurement</b>
+
+                                        .. pull-quote::
+
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-cc-g-lin.vrt
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vh-g-lin.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vh-g-log.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vh-s-lin.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vh-s-log.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vv-g-lin.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vv-g-log.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vv-s-lin.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-vv-s-log.tif
+
+                                    .. collapse:: <b>source</b>
+
+                                        .. pull-quote::
+
+                                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.json
+                                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.xml
+
+                                    .. collapse:: <b>support</b>
+
+                                        .. pull-quote::
+
+                                            | product.xsd
+                                            | source.xsd
+
+                                    | S1A_IW_NRB__1SDV_20200103T170705_030639_0382D5_32TPS_8090.json
+                                    | S1A_IW_NRB__1SDV_20200103T170705_030639_0382D5_32TPS_8090.xml
+
+                            | ...
+                            | collection.json
+
+                    | ...
+                    | catalog.json
+
+            .. collapse:: <b>rtc_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        The RTC processing output per source scene per UTM zone.
+
+                    .. collapse:: <b>S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12</b>
+
+                        .. pull-quote::
+
+                            .. collapse:: <b>32632</b>
+
+                                .. pull-quote::
+
+                                    | S1A__IW___A_20200103T170700_Cal_NR_Deb_Orb_ML_TF_TC_proc.xml
+                                    | S1A__IW___A_20200103T170700_datamask.gpkg
+                                    | S1A__IW___A_20200103T170700_datamask.tif
+                                    | S1A__IW___A_20200103T170700_gammaSigmaRatio.tif
+                                    | S1A__IW___A_20200103T170700_incidenceAngleFromEllipsoid.tif
+                                    | S1A__IW___A_20200103T170700_layoverShadowMask.tif
+                                    | S1A__IW___A_20200103T170700_localIncidenceAngle.tif
+                                    | S1A__IW___A_20200103T170700_manifest.safe
+                                    | S1A__IW___A_20200103T170700_Orb_Cal_NR_Deb_ML_TC_proc.xml
+                                    | S1A__IW___A_20200103T170700_scatteringArea.tif
+                                    | S1A__IW___A_20200103T170700_VH_gamma0-rtc.tif
+                                    | S1A__IW___A_20200103T170700_VH_NESZ.tif
+                                    | S1A__IW___A_20200103T170700_VH_sigma0-rtc.tif
+                                    | S1A__IW___A_20200103T170700_VV_gamma0-rtc.tif
+                                    | S1A__IW___A_20200103T170700_VV_NESZ.tif
+                                    | S1A__IW___A_20200103T170700_VV_sigma0-rtc.tif
+
+                            ...
+
+                    ...
+
+            .. collapse:: <b>tmp_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        Intermediate RTC processor files per scene per UTM zone.
+
+                        - EPSG code subfolder: scene-specific DEM mosaic and intermediate (SNAP) processor files
+                        - unpacked ETAD files (\*_ETA_\*)
+                        - SLC_etad subfolder: ETAD-corrected SLCs
+
+                    .. collapse:: <b>S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12</b>
+
+                        .. pull-quote::
+
+                            .. collapse:: <b>32632</b>
+
+                                .. pull-quote::
+
+                                    S1A__IW___A_20200103T170700_EEA10_32632.tif
+
+                            | ...
+                            | S1A_IW_ETA__AXDV_20200103T170700_20200103T170727_030639_0382D5_256B.SAFE
+                            | ...
+
+                            .. collapse:: <b>SLC_etad</b>
+
+                                .. pull-quote::
+
+                                    S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.SAFE
+
+                    ...
+
+            .. collapse:: <b>wbm_dir</b>
+
+                .. pull-quote::
+
+                    .. note::
+
+                        WBM tiles in MGRS grid and WGS84 vertical datum.
+                        Tiles with a non-native UTM zone additionally contain the EPSG code in the name.
+                        For example, The native projection of tile 33TUL is 33N/EPSG:32633 but a variant in EPSG:32632 might exist for full coverage of a SAR scene.
+
+                    .. collapse:: <b>Copernicus 10m EEA DEM</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_WBM.tif
+                            | 32TPS_WBM.tif
+                            | 33TUL_32632_WBM.tif
+                            | ...
+
+
+                    .. collapse:: <b>Copernicus 30m Global DEM II</b>
+
+                        .. pull-quote::
+
+                            | 32TPR_WBM.tif
+                            | 32TPS_WBM.tif
+                            | 33TUL_32632_WBM.tif
+                            | ...
+
+            scenes.db

@@ -3,7 +3,7 @@ Usage
 
 Configuration
 -------------
-Usage of the S1_NRB package currently relies on a configuration file that needs to be set up by the user. The configuration
+Usage of the S1_NRB package relies on a configuration file that needs to be set up by the user. The configuration
 file follows the INI format, which uses plain text to store properties as key-value pairs. INI files can be created and
 opened with any text editor. An example ``config.ini`` file for the S1_NRB package can be found here:
 

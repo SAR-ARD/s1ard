@@ -25,10 +25,10 @@ setup(
                       's1etad>=0.5.3',
                       's1etad_tools>=0.8.1'],
     extras_require={
-          'docs': ['sphinx', 'sphinxcontrib-bibtex'],
+          'docs': ['sphinx', 'sphinxcontrib-bibtex', 'nbsphinx', 'sphinx_rtd_theme', 'sphinx-toolbox'],
     },
     python_requires='>=3.8',
-    licence='MIT',
+    license='MIT',
     zip_safe=False,
     entry_points={
         'console_scripts': ['s1_nrb=S1_NRB.cli:cli']
