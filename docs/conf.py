@@ -38,7 +38,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'nbsphinx',
-    'myst_parser'
+    'sphinx_toolbox.collapse'
 ]
 
 bibtex_bibfiles = ['references.bib']

@@ -8,4 +8,4 @@ General Topics
     usage.rst
     S1_NRB.rst
     geoaccuracy.rst
-    folderstructure.md
+    folderstructure.rst
