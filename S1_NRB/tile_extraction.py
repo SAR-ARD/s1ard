@@ -92,42 +92,46 @@ def aoi_from_tiles(kml, tiles):
 
 def extract_tile(kml, tile):
     """
-    Extract an MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
+    Extract one or multiple MGRS tiles from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
     object.
     
     Parameters
     ----------
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
-    tile: str
-        The MGRS tile ID that should be extracted and returned as a vector object.
+    tile: str or list[str]
+        The MGRS tile ID(s) that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
         of the tile is reprojected to the target EPSG code, its corner coordinates rounded to multiples
         of 10, and a new :class:`~spatialist.vector.Vector` object created.
     
     Returns
     -------
-    spatialist.vector.Vector
+    spatialist.vector.Vector or list[spatialist.vector.Vector]
+        either a single object or a list depending on `tile`
     
     Notes
     -----
     The global Sentinel-2 tiling grid can be retrieved from:
     https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
-    tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
-    with Vector(kml, driver='KML') as vec:
-        feat = vec.getFeatureByAttribute('Name', tilename)
-        attrib = description2dict(feat.GetField('Description'))
-        feat = None
-    if epsg is None:
-        return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+    if isinstance(tile, list):
+        return [extract_tile(kml=kml, tile=x) for x in tile]
     else:
-        with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
-            tmp.reproject(int(epsg))
-            ext = tmp.extent
-            for k, v in ext.items():
-                ext[k] = round(v / 10) * 10
-        return bbox(ext, crs=int(epsg))
+        tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
+        with Vector(kml, driver='KML') as vec:
+            feat = vec.getFeatureByAttribute('Name', tilename)
+            attrib = description2dict(feat.GetField('Description'))
+            feat = None
+        if epsg is None:
+            return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+        else:
+            with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+                tmp.reproject(int(epsg))
+                ext = tmp.extent
+                for k, v in ext.items():
+                    ext[k] = round(v / 10) * 10
+            return bbox(ext, crs=int(epsg))
 
 
 def description2dict(description):
