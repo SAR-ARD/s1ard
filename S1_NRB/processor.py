@@ -71,7 +71,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
     
     ####################################################################################################################
     # general setup
-    geo_dict = tile_ex.get_tile_dict(config=config, spacing=geocode_prms['spacing'])
+    geo_dict = tile_ex.get_tile_dict(aoi_geometry=config['aoi_geometry'],
+                                     aoi_tiles=config['aoi_tiles'],
+                                     spacing=geocode_prms['spacing'],
+                                     kml_file=config['kml_file'])
     aoi_tiles = list(geo_dict.keys())
     aoi_tiles.remove('align')
     

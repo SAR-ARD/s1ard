@@ -152,7 +152,7 @@ def description2dict(description):
     return attrib
 
 
-def get_tile_dict(config, spacing):
+def get_tile_dict(kml_file, spacing, aoi_geometry=None, aoi_tiles=None):
     """
     Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
     well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
@@ -160,25 +160,31 @@ def get_tile_dict(config, spacing):
     
     Parameters
     ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
+    kml_file: str
+        The KML file containing the MGRS tile geometries.
     spacing: int
         The target pixel spacing in meters, which is passed to :func:`pyroSAR.snap.util.geocode`.
+    aoi_geometry: str or None
+        A vector geometry file name.
+    aoi_tiles: list[str] or None
+        a list with MGRS tile names.
     
     Returns
     -------
     tile_dict: dict
         The output dictionary containing information about each unique MGRS tile ID and alignment coordinates.
     """
-    try:
-        with Vector(config['aoi_geometry']) as aoi:
-            tiles = tiles_from_aoi(aoi, kml=config['kml_file'])
-    except AttributeError:
-        tiles = config['aoi_tiles']
+    if aoi_geometry is not None:
+        with Vector(aoi_geometry) as aoi:
+            tiles = tiles_from_aoi(aoi, kml=kml_file)
+    elif aoi_tiles is not None:
+        tiles = aoi_tiles
+    else:
+        raise RuntimeError("either 'aoi_geometry' or 'aoi_tiles' must be defined")
     
     geo_dict = {}
     for tile in tiles:
-        with extract_tile(kml=config['kml_file'], tile=tile) as vec:
+        with extract_tile(kml=kml_file, tile=tile) as vec:
             ext = vec.extent
             epsg = vec.getProjection('epsg')
             xmax = ext['xmax'] - spacing / 2
