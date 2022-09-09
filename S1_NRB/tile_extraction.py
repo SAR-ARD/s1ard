@@ -4,9 +4,9 @@ from spatialist.vector import Vector, wkt2vector, bbox
 from S1_NRB.ancillary import get_max_ext
 
 
-def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
+def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=False):
     """
-    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a
+    Return a list of MGRS tile IDs or vector objects overlapping with an area of interest (AOI) provided as a
     :class:`~spatialist.vector.Vector` object.
     
     Parameters
@@ -23,11 +23,14 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         or also allow reprojection of neighbouring tiles?
         In the latter case a tile name takes the form <tile ID>_<EPSG code>, e.g. `33TUN_32632`.
         Only applies if argument `epsg` is of type `int` or a list with one element.
+    return_geometries: bool
+        return a list of :class:`spatialist.vector.Vector` geometry objects (or just the tile names)?
     
     Returns
     -------
-    tiles: list[str]
-        A list of unique MGRS tile IDs.
+    tiles: list[str or spatialist.vector.Vector]
+        A list of unique MGRS tile IDs or :class:`spatialist.vector.Vector`
+        objects with an attribute `mgrs` containing the tile ID.
     
     Notes
     -----
@@ -38,27 +41,37 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         epsg = [epsg]
     if vectorobject.getProjection('epsg') != 4326:
         raise RuntimeError('the CRS of the input vector object must be EPSG:4326')
+    sortkey = None
+    if return_geometries:
+        if not strict:
+            raise RuntimeError("returning geometries is not supported when 'strict' is False")
+        sortkey = lambda x: x.mgrs
     with Vector(kml, driver='KML') as vec:
-        tilenames = []
+        tiles = []
         vectorobject.layer.ResetReading()
         for item in vectorobject.layer:
             geom = item.GetGeometryRef()
             vec.layer.SetSpatialFilter(geom)
             for tile in vec.layer:
                 tilename = tile.GetField('Name')
-                if tilename not in tilenames:
+                if tilename not in tiles:
                     attrib = description2dict(tile.GetField('Description'))
                     if epsg is not None and attrib['EPSG'] not in epsg:
                         if len(epsg) == 1 and not strict:
                             tilename += '_{}'.format(epsg[0])
                         else:
                             continue
-                    tilenames.append(tilename)
+                    if return_geometries:
+                        geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                        geom.mgrs = tilename
+                        tiles.append(geom)
+                    else:
+                        tiles.append(tilename)
         vectorobject.layer.ResetReading()
         tile = None
         geom = None
         item = None
-        return sorted(tilenames)
+        return sorted(tiles, key=sortkey)
 
 
 def aoi_from_tiles(kml, tiles):
