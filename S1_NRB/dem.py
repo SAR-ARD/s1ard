@@ -45,7 +45,7 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         geoid_convert = True
     geoid = 'EGM2008'
     
-    buffer = 1.5  # degrees to ensure full coverage of all overlapping MGRS tiles
+    buffer = 0.5  # degrees to ensure full coverage of all overlapping MGRS tiles
     tr = spacing
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
@@ -90,7 +90,7 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                 dem_autoload([geometry], demType=dem_type,
                              vrt=fname_wbm_tmp, buffer=buffer, product='wbm',
                              username=username, password=password,
-                             nodata=1, hide_nodata=True)
+                             nodata=1, hide_nodata=True, crop=False)
         
         if dem_dir is not None:
             os.makedirs(dem_dir, exist_ok=True)
@@ -98,7 +98,7 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                 dem_autoload([geometry], demType=dem_type,
                              vrt=fname_dem_tmp, buffer=buffer, product='dem',
                              username=username, password=password,
-                             dst_nodata=0, hide_nodata=True)
+                             dst_nodata=0, hide_nodata=True, crop=False)
         ###############################################
         if len(dem_target.keys()) > 0:
             print('### creating DEM MGRS tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
