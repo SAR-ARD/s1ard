@@ -21,8 +21,8 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         The DEM type.
     spacing: int
         The target pixel spacing.
-    dem_dir: str
-        The DEM target directory.
+    dem_dir: str or None
+        The DEM target directory. DEM preparation can be skipped if set to None.
     wbm_dir: str
         The WBM target directory.
     kml_file: str
@@ -50,17 +50,25 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
     wbm_dir = os.path.join(wbm_dir, dem_type)
-    dem_dir = os.path.join(dem_dir, dem_type)
     
     for i, geometry in enumerate(geometries):
         print('###### [    DEM] processing geometry {0} of {1}'.format(i + 1, len(geometries)))
         ###############################################
+        extent = geometry.extent
+        ext_id = generate_unique_id(encoded_str=str(extent).encode())
+        
         tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
                                        epsg=epsg, strict=False)
+        if dem_dir is not None:
+            dem_dir = os.path.join(dem_dir, dem_type)
+            dem_names = [os.path.join(dem_dir, '{}_DEM.tif'.format(tile)) for tile in tiles]
+            dem_target = {tile: name for tile, name in zip(tiles, dem_names)
+                          if not os.path.isfile(name)}
+            fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
+        else:
+            dem_target = dict()
+            fname_dem_tmp = None
         tiles_wbm = [x for x in tiles if not re.search('_[0-9]*', x)]
-        dem_names = [os.path.join(dem_dir, '{}_DEM.tif'.format(tile)) for tile in tiles]
-        dem_target = {tile: name for tile, name in zip(tiles, dem_names)
-                      if not os.path.isfile(name)}
         wbm_names = [os.path.join(wbm_dir, '{}_WBM.tif'.format(tile)) for tile in tiles_wbm]
         wbm_target = {tile: name for tile, name in zip(tiles_wbm, wbm_names)
                       if not os.path.isfile(name)}
@@ -68,14 +76,12 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         if len(dem_target.keys()) == 0 and len(wbm_target.keys()) == 0:
             continue
         ###############################################
-        extent = geometry.extent
-        ext_id = generate_unique_id(encoded_str=str(extent).encode())
         
         fname_wbm_tmp = os.path.join(wbm_dir, 'mosaic_{}.vrt'.format(ext_id))
-        fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
         
-        if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
-            username, password = authenticate(username, password)
+        if not os.path.isfile(fname_wbm_tmp) \
+                or not (dem_dir is None or os.path.isfile(fname_dem_tmp)):
+            username, password = authenticate(dem_type=dem_type, username=username, password=password)
         
         print('### downloading DEM tiles')
         if dem_type in wbm_dems:
@@ -86,12 +92,13 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                              username=username, password=password,
                              nodata=1, hide_nodata=True)
         
-        os.makedirs(dem_dir, exist_ok=True)
-        if not os.path.isfile(fname_dem_tmp):
-            dem_autoload([geometry], demType=dem_type,
-                         vrt=fname_dem_tmp, buffer=buffer, product='dem',
-                         username=username, password=password,
-                         dst_nodata=0, hide_nodata=True)
+        if dem_dir is not None:
+            os.makedirs(dem_dir, exist_ok=True)
+            if not os.path.isfile(fname_dem_tmp):
+                dem_autoload([geometry], demType=dem_type,
+                             vrt=fname_dem_tmp, buffer=buffer, product='dem',
+                             username=username, password=password,
+                             dst_nodata=0, hide_nodata=True)
         ###############################################
         if len(dem_target.keys()) > 0:
             print('### creating DEM MGRS tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
