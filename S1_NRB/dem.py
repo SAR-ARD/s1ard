@@ -159,9 +159,16 @@ def authenticate(dem_type, username=None, password=None):
     return username, password
 
 
-def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
+def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
+           dem_dir=None, username=None, password=None, threads=4):
     """
-    Create a new mosaic GeoTIFF file from MGRS-tiled DEMs as created by :func:`S1_NRB.dem.prepare`.
+    Create a new scene-specific DEM mosaic GeoTIFF file.
+    Can be created from MGRS-tiled DEMs as created by :func:`S1_NRB.dem.prepare`
+    or ad hoc using :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
+    In the former case the arguments `username`, `password` and `threads` are ignored and
+    all tiles found in `dem_dir` are read.
+    In the latter case the arguments `epsg`, `kml_file` and `dem_dir` are ignored and the DEM is
+    only mosaiced and geoid-corrected.
     
     Parameters
     ----------
@@ -177,20 +184,46 @@ def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
         The KML file containing the MGRS tile geometries.
     dem_dir: str
         The directory containing the DEM MGRS tiles.
+    username: str or None
+        The username for accessing the DEM tiles. If None and authentication is required
+        for the selected DEM type, the environment variable 'DEM_USER' is read.
+        If this is not set, the user is prompted interactively to provide credentials.
+    password: str or None
+        The password for accessing the DEM tiles.
+        If None: same behavior as for username but with env. variable 'DEM_PASS'.
+    threads: int
+        The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     """
-    dem_buffer = 200  # meters
     if not os.path.isfile(outname):
         print('### creating scene-specific DEM mosaic:', outname)
-        with geometry.clone() as footprint:
-            footprint.reproject(epsg)
-            extent = footprint.extent
-            extent['xmin'] -= dem_buffer
-            extent['ymin'] -= dem_buffer
-            extent['xmax'] += dem_buffer
-            extent['ymax'] += dem_buffer
-            with bbox(extent, epsg) as dem_box:
-                tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
-                                               epsg=epsg, strict=False)
-                dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
-                with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
-                    dem_mosaic.write(outname, format='GTiff')
+        if dem_dir is not None:
+            dem_buffer = 200  # meters
+            with geometry.clone() as footprint:
+                footprint.reproject(epsg)
+                extent = footprint.extent
+                extent['xmin'] -= dem_buffer
+                extent['ymin'] -= dem_buffer
+                extent['xmax'] += dem_buffer
+                extent['ymax'] += dem_buffer
+                with bbox(extent, epsg) as dem_box:
+                    tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
+                                                   epsg=epsg, strict=False)
+                    dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
+                    with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
+                        dem_mosaic.write(outname, format='GTiff')
+        else:
+            username, password = authenticate(dem_type=dem_type, username=username, password=password)
+            buffer = 0.01  # degrees
+            if dem_type == 'GETASSE30':
+                geoid_convert = False
+            else:
+                geoid_convert = True
+            geoid = 'EGM2008'
+            vrt = outname.replace('.tif', '.vrt')
+            dem_autoload([geometry], demType=dem_type,
+                         vrt=vrt, buffer=buffer, product='dem',
+                         username=username, password=password,
+                         dst_nodata=0, hide_nodata=True)
+            dem_create(src=vrt, dst=outname, pbar=True,
+                       geoid_convert=geoid_convert, geoid=geoid,
+                       threads=threads, nodata=-32767)
