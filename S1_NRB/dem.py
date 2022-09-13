@@ -1,4 +1,5 @@
 import os
+import re
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import S1_NRB.tile_extraction as tile_ex
@@ -56,11 +57,12 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         ###############################################
         tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
                                        epsg=epsg, strict=False)
+        tiles_wbm = [x for x in tiles if not re.search('_[0-9]*', x)]
         dem_names = [os.path.join(dem_dir, '{}_DEM.tif'.format(tile)) for tile in tiles]
         dem_target = {tile: name for tile, name in zip(tiles, dem_names)
                       if not os.path.isfile(name)}
-        wbm_names = [os.path.join(wbm_dir, '{}_WBM.tif'.format(tile)) for tile in tiles]
-        wbm_target = {tile: name for tile, name in zip(tiles, wbm_names)
+        wbm_names = [os.path.join(wbm_dir, '{}_WBM.tif'.format(tile)) for tile in tiles_wbm]
+        wbm_target = {tile: name for tile, name in zip(tiles_wbm, wbm_names)
                       if not os.path.isfile(name)}
         
         if len(dem_target.keys()) == 0 and len(wbm_target.keys()) == 0:
