@@ -48,14 +48,8 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     tr = spacing
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
-    dems_auth = wbm_dems
     wbm_dir = os.path.join(wbm_dir, dem_type)
     dem_dir = os.path.join(dem_dir, dem_type)
-    
-    if username is None:
-        username = os.getenv('DEM_USER')
-    if password is None:
-        password = os.getenv('DEM_PASS')
     
     for i, geometry in enumerate(geometries):
         print('###### [    DEM] processing geometry {0} of {1}'.format(i + 1, len(geometries)))
@@ -79,11 +73,7 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         fname_dem_tmp = os.path.join(dem_dir, 'mosaic_{}.vrt'.format(ext_id))
         
         if not os.path.isfile(fname_wbm_tmp) or not os.path.isfile(fname_dem_tmp):
-            if dem_type in dems_auth:
-                if username is None:
-                    username = input('Please enter your DEM access username:')
-                if password is None:
-                    password = getpass('Please enter your DEM access password:')
+            username, password = authenticate(username, password)
         
         print('### downloading DEM tiles')
         if dem_type in wbm_dems:
@@ -129,6 +119,44 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                                outputBounds=bounds, threads=threads,
                                nodata='None')
         print('=' * 40)
+
+
+def authenticate(dem_type, username=None, password=None):
+    """
+    Query the username and password. If None, environment variables DEM_USER and DEM_PASS are read.
+    If they are also None, the user is queried interactively.
+    
+    Parameters
+    ----------
+    dem_type: str
+        the DEM type. Needed for determining whether authentication is needed.
+    username: str or None
+        The username for accessing the DEM tiles. If None and authentication is required
+        for the selected DEM type, the environment variable 'DEM_USER' is read.
+        If this is not set, the user is prompted interactively to provide credentials.
+    password: str or None
+        The password for accessing the DEM tiles.
+        If None: same behavior as for username but with env. variable 'DEM_PASS'.
+
+    Returns
+    -------
+    tuple
+        the username and password
+    """
+    dems_auth = ['Copernicus 10m EEA DEM',
+                 'Copernicus 30m Global DEM II']
+    if dem_type not in dems_auth:
+        return None, None
+    
+    if username is None:
+        username = os.getenv('DEM_USER')
+    if password is None:
+        password = os.getenv('DEM_PASS')
+    if username is None:
+        username = input('Please enter your DEM access username:')
+    if password is None:
+        password = getpass('Please enter your DEM access password:')
+    return username, password
 
 
 def mosaic(geometry, dem_type, outname, epsg, kml_file, dem_dir):
