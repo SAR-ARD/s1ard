@@ -156,6 +156,7 @@ def _log_process_config(logger, config):
     db_file = {config['db_file']}
     kml_file = {config['kml_file']}
     dem_type = {config.get('dem_type')}
+    gdal_threads = {config.get('gdal_threads')}
     
     ====================================================================================================================
     SOFTWARE
@@ -167,7 +168,6 @@ def _log_process_config(logger, config):
     python-pyroSAR: {pyroSAR.__version__}
     python-spatialist: {spatialist.__version__}
     python-GDAL: {gdal.__version__}
-    gdal_threads = {config.get('gdal_threads')}
     
     ====================================================================================================================
     """
