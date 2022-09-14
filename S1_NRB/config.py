@@ -168,7 +168,7 @@ def geocode_conf(config):
     dict
         Dictionary of parameters that can be passed to :func:`pyroSAR.snap.util.geocode`
     """
-    return {'spacing': {'IW': 60,
+    return {'spacing': {'IW': 10,
                         'SM': 10,
                         'EW': 20}[config['acq_mode']],
             'allow_res_osv': True,
