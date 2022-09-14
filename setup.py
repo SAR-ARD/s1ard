@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 import pathlib
 
 here = pathlib.Path(__file__).parent.resolve()
@@ -14,7 +14,7 @@ setup(
     url="https://github.com/SAR-ARD/S1_NRB",
     author="John Truckenbrodt, Marco Wolsza",
     author_email="john.truckenbrodt@uni-jena.de",
-    packages=find_packages(where='.'),
+    packages=find_namespace_packages(where='.'),
     include_package_data=True,
     install_requires=['gdal>=3.5.0',
                       'click',
