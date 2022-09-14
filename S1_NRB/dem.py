@@ -7,8 +7,8 @@ from S1_NRB.ancillary import generate_unique_id
 from spatialist import Raster, bbox
 
 
-def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
-            kml_file, threads, epsg=None, username=None, password=None):
+def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
+            threads, epsg=None, username=None, password=None):
     """
     Downloads DEM tiles and restructures them into the MGRS tiling scheme including re-projection
     and vertical datum conversion.
@@ -19,8 +19,6 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
         A list of geometries for which to prepare the DEM tiles.
     dem_type: str
         The DEM type.
-    spacing: int
-        The target pixel spacing.
     dem_dir: str or None
         The DEM target directory. DEM preparation can be skipped if set to None.
     wbm_dir: str
@@ -46,13 +44,12 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
     geoid = 'EGM2008'
     
     buffer = 0.5  # degrees to ensure full coverage of all overlapping MGRS tiles
-    tr = spacing
+    tr = 10
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM II']
     wbm_dir = os.path.join(wbm_dir, dem_type)
     
     for i, geometry in enumerate(geometries):
-        print('###### [    DEM] processing geometry {0} of {1}'.format(i + 1, len(geometries)))
         ###############################################
         extent = geometry.extent
         ext_id = generate_unique_id(encoded_str=str(extent).encode())
@@ -83,7 +80,6 @@ def prepare(geometries, dem_type, spacing, dem_dir, wbm_dir,
                 or not (dem_dir is None or os.path.isfile(fname_dem_tmp)):
             username, password = authenticate(dem_type=dem_type, username=username, password=password)
         
-        print('### downloading DEM tiles')
         if dem_type in wbm_dems:
             os.makedirs(wbm_dir, exist_ok=True)
             if not os.path.isfile(fname_wbm_tmp):
@@ -204,7 +200,6 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     """
     if not os.path.isfile(outname):
-        print('### creating scene-specific DEM mosaic:', outname)
         if dem_dir is not None:
             dem_buffer = 200  # meters
             with geometry.clone() as footprint:

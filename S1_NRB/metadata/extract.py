@@ -6,19 +6,19 @@ from lxml import etree
 from datetime import datetime
 import numpy as np
 from statistics import median
-from pyroSAR.snap.auxil import parse_recipe
 from spatialist import Raster
 from spatialist.ancillary import finder, dissolve
-from spatialist.vector import wkt2vector, bbox
+from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
 from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB import snap
 
 gdal.UseExceptions()
 
 
-def get_prod_meta(product_id, tif, src_ids, snap_outdir):
+def get_prod_meta(product_id, tif, src_ids, rtc_dir):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -32,8 +32,8 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
         The path to a measurement GeoTIFF file of the product scene.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
-    snap_outdir: str
-        A path pointing to the SNAP processed datasets of the product.
+    rtc_dir: str
+        A path pointing to the processed datasets of the product.
     
     Returns
     -------
@@ -62,15 +62,6 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
-    pat = 'S1[AB]__(IW|EW|S[1-6])___(A|D)_[0-9]{8}T[0-9]{6}.+ML.+xml$'
-    wf_path = finder(snap_outdir, [pat], regex=True)
-    if len(wf_path) > 0:
-        wf = parse_recipe(wf_path[0])
-        rlks = int(wf['Multilook'].parameters['nRgLooks'])
-        azlks = int(wf['Multilook'].parameters['nAzLooks'])
-    else:
-        rlks = azlks = 1
-    
     src_xml = etree_from_sid(sid=src_ids[0])
     az_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//azimuthProcessing/numberOfLooks',
@@ -78,8 +69,9 @@ def get_prod_meta(product_id, tif, src_ids, snap_outdir):
     rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//rangeProcessing/numberOfLooks',
                                       out_type='int')
-    out['ML_nRgLooks'] = rlks * median(rg_num_looks.values())
-    out['ML_nAzLooks'] = azlks * median(az_num_looks.values())
+    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=rtc_dir)
+    out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
+    out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
     return out
 
 
@@ -271,7 +263,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
-def calc_performance_estimates(files, ref_tif):
+def calc_performance_estimates(files):
     """
     Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images if available.
     
@@ -279,9 +271,6 @@ def calc_performance_estimates(files, ref_tif):
     ----------
     files: list[str]
         List of paths pointing to the noise power images the estimates should be calculated for.
-    ref_tif: str
-        A path pointing to a reference product raster, which is used to get spatial information about the current MGRS
-        tile.
     
     Returns
     -------
@@ -289,20 +278,18 @@ def calc_performance_estimates(files, ref_tif):
         Dictionary containing the calculated estimates for each available polarization.
     """
     out = {}
-    with Raster(ref_tif) as ref:
-        for f in files:
-            pol = re.search('[VH]{2}', f).group().upper()
-            with bbox(ref.extent, crs=ref.epsg) as vec:
-                with Raster(f)[vec] as ras:
-                    arr = ras.array()
-                    # The following need to be of type float, not numpy.float32 in order to be JSON serializable
-                    _min = float(np.nanmin(arr))
-                    _max = float(np.nanmax(arr))
-                    _mean = float(np.nanmean(arr))
-                    del arr
-            out[pol] = {'minimum': _min,
-                        'maximum': _max,
-                        'mean': _mean}
+    for f in files:
+        pol = re.search('[vh]{2}', f).group().upper()
+        with Raster(f) as ras:
+            arr = ras.array()
+            # The following need to be of type float, not numpy.float32 in order to be JSON serializable
+            _min = float(np.nanmin(arr))
+            _max = float(np.nanmax(arr))
+            _mean = float(np.nanmean(arr))
+            del arr
+        out[pol] = {'minimum': _min,
+                    'maximum': _max,
+                    'mean': _mean}
     return out
 
 
@@ -371,6 +358,7 @@ def get_header_size(tif):
     header_size: int
         The size of all IFD headers of the GeoTIFF file in bytes.
     """
+    
     def _get_block_offset(band):
         blockxsize, blockysize = band.GetBlockSize()
         for y in range(int((band.YSize + blockysize - 1) / blockysize)):
@@ -458,7 +446,7 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     return round(rmse_planar, 2)
 
 
-def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
@@ -472,9 +460,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         A path pointing to the NRB product scene being created.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    snap_datasets: list[str]
-        List of output files processed with :func:`pyroSAR.snap.util.geocode` that match the source SLC scenes
-        overlapping with the current MGRS tile.
+    rtc_dir: str
+        The RTC processing output directory.
     proc_time: datetime.datetime
         The processing time object used to generate the unique product identifier.
     start: datetime.datetime
@@ -492,7 +479,7 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     meta = {'prod': {},
             'source': {},
             'common': {}}
-    src_sid = {}
+    src_sid = dict()
     src_xml = {}
     for i, sid in enumerate(src_ids):
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
@@ -506,8 +493,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     ei_tif = finder(target, ['-ei.tif$'], regex=True)[0]
     
     product_id = os.path.basename(target)
-    prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif, src_ids=src_ids,
-                              snap_outdir=os.path.dirname(snap_datasets[0]))
+    prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
+                              src_ids=src_ids, rtc_dir=rtc_dir)
     
     dem_type = config['dem_type']
     dem_access = DEM_MAP[dem_type]['access']
@@ -516,11 +503,11 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
     egm_ref = DEM_MAP[dem_type]['egm']
     dem_name = dem_type.replace(' II', '')
     
-    tups = [(ITEM_MAP[key]['suffix'], ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
+    tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif, dem_type=dem_type,
-                                            etad=config['etad'])
+    geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
+                                            dem_type=dem_type, etad=config['etad'])
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -652,11 +639,10 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
         inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                  pattern='.//geolocationGridPoint/incidenceAngle',
                                  out_type='float')
-        inc_vals = dissolve(inc.values())
+        inc_vals = dissolve(list(inc.values()))
         lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                          pattern='.//applicationLutId', single=True)
         pslr, islr = extract_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        np_files = [ds for ds in snap_datasets if re.search('_NE[BGS]Z', ds) is not None]
         rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                                pattern='.//rangeProcessing/lookBandwidth',
                                                out_type='float')
@@ -715,8 +701,8 @@ def meta_dict(config, target, src_ids, snap_datasets, proc_time, start, stop, co
             if orb in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
-        if len(np_files) > 0:
-            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_files, ref_tif=ref_tif)
+        if len(np_tifs) > 0:
+            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
         else:
             stats = {stat: None for stat in ['minimum', 'mean', 'maximum']}

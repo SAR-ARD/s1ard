@@ -13,34 +13,20 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
 
 # 'z_error': Maximum error threshold on values for LERC* compression.
 # Will be ignored if a compression algorithm is used that isn't related to LERC.
-ITEM_MAP = {'VV_gamma0': {'suffix': 'vv-g-lin',
-                          'z_error': 1e-4},
-            'VH_gamma0': {'suffix': 'vh-g-lin',
-                          'z_error': 1e-4},
-            'HH_gamma0': {'suffix': 'hh-g-lin',
-                          'z_error': 1e-4},
-            'HV_gamma0': {'suffix': 'hv-g-lin',
-                          'z_error': 1e-4},
-            'incidenceAngleFromEllipsoid': {'suffix': 'ei',
-                                            'z_error': 1e-3},
-            'layoverShadowMask': {'suffix': 'dm',
-                                  'z_error': 0.0},
-            'localIncidenceAngle': {'suffix': 'li',
-                                    'z_error': 1e-2},
-            'scatteringArea': {'suffix': 'lc',
-                               'z_error': 0.1},
-            'gammaSigmaRatio': {'suffix': 'gs',
-                                'z_error': 1e-4},
-            'acquisitionImage': {'suffix': 'id',
-                                 'z_error': 0.0},
-            'VV_NESZ': {'suffix': 'np-vv',
-                        'z_error': 2e-5},
-            'VH_NESZ': {'suffix': 'np-vh',
-                        'z_error': 2e-5},
-            'HH_NESZ': {'suffix': 'np-hh',
-                        'z_error': 2e-5},
-            'HV_NESZ': {'suffix': 'np-hv',
-                        'z_error': 2e-5}}
+ITEM_MAP = {'vv-g-lin': {'z_error': 1e-4},
+            'vh-g-lin': {'z_error': 1e-4},
+            'hh-g-lin': {'z_error': 1e-4},
+            'hv-g-lin': {'z_error': 1e-4},
+            'ei': {'z_error': 1e-3},
+            'dm': {'z_error': 0.0},
+            'li': {'z_error': 1e-2},
+            'lc': {'z_error': 0.1},
+            'gs': {'z_error': 1e-4},
+            'id': {'z_error': 0.0},
+            'np-vv': {'z_error': 2e-5},
+            'np-vh': {'z_error': 2e-5},
+            'np-hh': {'z_error': 2e-5},
+            'np-hv': {'z_error': 2e-5}}
 
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
@@ -104,7 +90,7 @@ DEM_MAP = {
          'ref': 'https://spacedata.copernicus.eu/web/cscda/dataset-details?articleId=394198',
          'type': 'surface',
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
-    }
+}
 
 # XML namespaces are identifiers and it is not their goal to be directly usable for schema retrieval:
 # https://stackoverflow.com/a/30761004

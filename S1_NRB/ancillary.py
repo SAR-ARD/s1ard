@@ -150,7 +150,6 @@ def _log_process_config(logger, config):
     rtc_dir = {config['rtc_dir']}
     tmp_dir = {config['tmp_dir']}
     nrb_dir = {config['nrb_dir']}
-    dem_dir = {config['dem_dir']}
     wbm_dir = {config['wbm_dir']}
     log_dir = {config['log_dir']}
     db_file = {config['db_file']}
@@ -174,7 +173,7 @@ def _log_process_config(logger, config):
     logger.info(header)
 
 
-def log(handler, mode, proc_step, scenes, epsg, msg):
+def log(handler, mode, proc_step, scenes, msg):
     """
     Format and handle log messages during processing.
     
@@ -188,14 +187,12 @@ def log(handler, mode, proc_step, scenes, epsg, msg):
         The processing step for which the message is logged.
     scenes: str or list[str]
         Scenes that are currently being processed.
-    epsg: int
-        The coordinate reference system as an EPSG code.
     msg: Any
         The massage that should be logged.
     """
     proc_step = proc_step.zfill(7).replace('0', ' ')
-    message = '[{proc_step}] -- {scenes} [{epsg}] -- {msg}'
-    message = message.format(proc_step=proc_step, scenes=scenes, epsg=epsg, msg=msg)
+    message = '[{proc_step}] -- {scenes} -- {msg}'
+    message = message.format(proc_step=proc_step, scenes=scenes, msg=msg)
     if mode == 'info':
         handler.info(message)
     elif mode == 'warning':

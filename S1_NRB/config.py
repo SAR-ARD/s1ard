@@ -29,7 +29,7 @@ def get_config(config_file, proc_section='PROCESSING'):
     
     # PROCESSING section
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'dem_dir', 'wbm_dir',
+                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                     'etad', 'etad_dir', 'product']
     try:
@@ -168,22 +168,19 @@ def geocode_conf(config):
     dict
         Dictionary of parameters that can be passed to :func:`pyroSAR.snap.util.geocode`
     """
-    return {'spacing': {'IW': 10,
+    return {'spacing': {'IW': 60,
                         'SM': 10,
                         'EW': 20}[config['acq_mode']],
-            'scaling': 'linear',
-            'groupsize': 1,
-            'allow_RES_OSV': True,
-            'alignToStandardGrid': True,
-            'export_extra': ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
-                             'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio'],
-            'refarea': ['sigma0', 'gamma0'],
-            'externalDEMApplyEGM': False,
-            'demResamplingMethod': 'BILINEAR_INTERPOLATION',
-            'clean_edges': True,
-            'clean_edges_npixels': 4,
-            'test': False,
-            'cleanup': True}
+            'allow_res_osv': True,
+            'export_extra': ['localIncidenceAngle',
+                             'incidenceAngleFromEllipsoid',
+                             'layoverShadowMask'],
+            'dem_resampling_method': 'BILINEAR_INTERPOLATION',
+            'img_resampling_method': 'BILINEAR_INTERPOLATION',
+            'slc_clean_edges': True,
+            'slc_clean_edges_pixels': 4,
+            'cleanup': False
+            }
 
 
 def gdal_conf(config):
