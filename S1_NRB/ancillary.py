@@ -138,38 +138,39 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     PROCESSING CONFIGURATION
     
-    mode = {config['mode']}
-    aoi_tiles = {config['aoi_tiles']}
-    aoi_geometry = {config['aoi_geometry']}
-    mindate = {config['mindate'].isoformat()}
-    maxdate = {config['maxdate'].isoformat()}
-    acq_mode = {config['acq_mode']}
+    mode                {config['mode']}
+    aoi_tiles           {config['aoi_tiles']}
+    aoi_geometry        {config['aoi_geometry']}
+    mindate             {config['mindate'].isoformat()}
+    maxdate             {config['maxdate'].isoformat()}
+    acq_mode            {config['acq_mode']}
     
-    work_dir = {config['work_dir']}
-    scene_dir = {config['scene_dir']}
-    rtc_dir = {config['rtc_dir']}
-    tmp_dir = {config['tmp_dir']}
-    nrb_dir = {config['nrb_dir']}
-    wbm_dir = {config['wbm_dir']}
-    log_dir = {config['log_dir']}
-    db_file = {config['db_file']}
-    kml_file = {config['kml_file']}
-    dem_type = {config.get('dem_type')}
-    gdal_threads = {config.get('gdal_threads')}
+    work_dir            {config['work_dir']}
+    scene_dir           {config['scene_dir']}
+    rtc_dir             {config['rtc_dir']}
+    tmp_dir             {config['tmp_dir']}
+    nrb_dir             {config['nrb_dir']}
+    wbm_dir             {config['wbm_dir']}
+    log_dir             {config['log_dir']}
+    db_file             {config['db_file']}
+    kml_file            {config['kml_file']}
+    dem_type            {config.get('dem_type')}
+    gdal_threads        {config.get('gdal_threads')}
     
     ====================================================================================================================
     SOFTWARE
     
-    S1_NRB: {S1_NRB.__version__}
-    snap-core: {snap_core}
-    snap-s1tbx: {snap_s1tbx}
-    python: {sys.version}
-    python-pyroSAR: {pyroSAR.__version__}
-    python-spatialist: {spatialist.__version__}
-    python-GDAL: {gdal.__version__}
+    S1_NRB              {S1_NRB.__version__}
+    snap-core           {snap_core}
+    snap-s1tbx          {snap_s1tbx}
+    python              {sys.version}
+    python-pyroSAR      {pyroSAR.__version__}
+    python-spatialist   {spatialist.__version__}
+    python-GDAL         {gdal.__version__}
     
     ====================================================================================================================
     """
+    print(header)
     logger.info(header)
 
 
