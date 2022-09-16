@@ -64,7 +64,6 @@ def get_config(config_file, proc_section='PROCESSING'):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
-                os.makedirs(v, exist_ok=True)
         if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
