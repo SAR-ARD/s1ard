@@ -127,6 +127,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION')
         tf.parameters['reGridMethod'] = False
     tf.parameters['outputSigma0'] = True
     tf.parameters['outputSimulatedImage'] = True
+    tf.parameters['demName'] = 'External DEM'
     tf.parameters['externalDEMFile'] = dem
     tf.parameters['externalDEMApplyEGM'] = False
     with Raster(dem) as ras:
