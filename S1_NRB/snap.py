@@ -11,9 +11,6 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     sub_parametrize, erode_edges
 from S1_NRB.tile_extraction import tiles_from_aoi, extract_tile
 from S1_NRB.ancillary import get_max_ext
-import logging
-
-logging.basicConfig(level=logging.INFO)
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=True):
