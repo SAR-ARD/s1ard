@@ -52,8 +52,9 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
     read.parameters['file'] = scene.scene
     wf.insert_node(read)
     ############################################
-    orb = orb_parametrize(scene=scene, workflow=wf, before=read.id,
-                          formatName='SENTINEL-1', allow_RES_OSV=allow_res_osv)
+    orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
+                          allow_RES_OSV=allow_res_osv)
+    wf.insert_node(orb, before=read.id)
     last = orb
     ############################################
     if scene.sensor in ['S1A', 'S1B'] and scene.product == 'GRD':
@@ -79,9 +80,9 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
         wf.insert_node(deb, before=last.id)
         last = deb
     ############################################
-    ml = mli_parametrize(scene=scene, workflow=wf, before=last.id,
-                         spacing=spacing, rlks=rlks, azlks=azlks)
+    ml = mli_parametrize(scene=scene, spacing=spacing, rlks=rlks, azlks=azlks)
     if ml is not None:
+        wf.insert_node(ml, before=last.id)
         last = ml
     ############################################
     write = parse_node('Write')
@@ -222,7 +223,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     workflow: str
         the target XML workflow file name
     spacing: int or float
-        the target pixel spacing
+        the target pixel spacing in meters
     crs: int or str
         the target coordinate reference system
     geometry: dict or spatialist.vector.Vector or str or None
@@ -268,17 +269,19 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         wf.insert_node(read)
         read_ids.append(read.id)
     ############################################
-    merge = parse_node('BandMerge')
-    wf.insert_node(merge, before=read_ids)
-    last = merge
+    if len(scenes) > 1:
+        merge = parse_node('BandMerge')
+        wf.insert_node(merge, before=read_ids)
+        last = merge
+    else:
+        last = wf['Read']
     ############################################
     if geometry is not None:
-        sub = sub_parametrize(scene=scenes[0], workflow=wf, before=merge.id,
-                              geometry=geometry, buffer=buffer)
+        sub = sub_parametrize(scene=scenes[0], geometry=geometry, buffer=buffer)
+        wf.insert_node(sub, before=last.id)
         last = sub
     ############################################
-    tc = tc_parametrize(workflow=wf, before=last.id,
-                        spacing=spacing, t_srs=crs,
+    tc = tc_parametrize(spacing=spacing, t_srs=crs,
                         export_extra=export_extra,
                         alignToStandardGrid=True,
                         externalDEMFile=dem,
@@ -288,6 +291,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
                         standardGridAreaOrPoint='area',
                         demResamplingMethod=dem_resampling_method,
                         imgResamplingMethod=img_resampling_method)
+    wf.insert_node(tc, before=last.id)
     ############################################
     write = parse_node('Write')
     wf.insert_node(write, before=tc.id)
