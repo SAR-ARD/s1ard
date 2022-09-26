@@ -311,27 +311,41 @@ def process(scene, outdir, spacing, kml, dem,
             allow_res_osv=True, slc_clean_edges=True, slc_clean_edges_pixels=4,
             cleanup=True):
     """
+    Main function for RTC processing with SNAP.
     
     Parameters
     ----------
     scene: str
+        The SAR scene file name
     outdir: str
+        the output directory for storing hte final results
     spacing: int or float
+        the output pixel spacing in meters
     kml: str
-    dem_type: str
-    dem_dir: str or None
+        Path to the Sentinel-2 tiling grid KML file.
+    dem: str
+        The Dme filename.
     dem_resampling_method: str
+        The DEM resampling method
     img_resampling_method: str
+        The image resampling method
     rlks: int or None
+        The number of range looks
     azlks: int or None
+        The number of azimuth looks
     tmpdir: str or None
+        path to a temporary directory for intermediate products
     export_extra: list[str] or None
+        A list of ancillary layers to create
     allow_res_osv: bool
+        Also allow the less accurate RES orbit files to be used?
     slc_clean_edges: bool
+        erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
+        Does not apply to layover-shadow mask.
     slc_clean_edges_pixels: int
+        the number of pixels to erode.
     cleanup: bool
-    username: str or None
-    password: str or None
+        Delete intermediate files after successful process termination?
 
     Returns
     -------
