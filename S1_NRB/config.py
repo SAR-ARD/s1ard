@@ -172,7 +172,7 @@ def geocode_conf(config):
                         'EW': 20}[config['acq_mode']],
             'allow_res_osv': True,
             'export_extra': ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
-                             'layoverShadowMask', 'gammaSigmaRatio'],
+                             'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio'],
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
             'slc_clean_edges': True,

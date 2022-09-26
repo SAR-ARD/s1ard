@@ -91,7 +91,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION', sigma0=True):
+def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION', sigma0=True, scattering_area=True):
     """
     Radiometric Terrain Flattening.
     
@@ -109,6 +109,8 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         the DEM resampling method.
     sigma0: bool
         output sigma0 RTC backscatter?
+    scattering_area:bool
+        output scattering area image?
 
     Returns
     -------
@@ -129,7 +131,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
     if 'reGridMethod' in tf.parameters.keys():
         tf.parameters['reGridMethod'] = False
     tf.parameters['outputSigma0'] = sigma0
-    tf.parameters['outputSimulatedImage'] = True
+    tf.parameters['outputSimulatedImage'] = scattering_area
     tf.parameters['demName'] = 'External DEM'
     tf.parameters['externalDEMFile'] = dem
     tf.parameters['externalDEMApplyEGM'] = False
@@ -384,7 +386,8 @@ def process(scene, outdir, spacing, kml, dem,
     if not os.path.isfile(out_rtc):
         rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
             dem_resampling_method=dem_resampling_method,
-            sigma0='gammaSigmaRatio' in export_extra)
+            sigma0='gammaSigmaRatio' in export_extra,
+            scattering_area='scatteringArea' in export_extra)
     ############################################################################
     # gamma-sigma ratio computation
     out_gsr = None
@@ -417,7 +420,9 @@ def process(scene, outdir, spacing, kml, dem,
             scene1 = identify(out_mli)
             pols = scene1.polarizations
             bands0 = ['NESZ_{}'.format(pol) for pol in pols]
-            bands1 = ['Gamma0_{}'.format(pol) for pol in pols] + ['simulatedImage']
+            bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
+            if 'scatteringArea' in export_extra:
+                bands1.append('simulatedImage')
             geo(out_mli, out_rtc, out_gsr, dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
