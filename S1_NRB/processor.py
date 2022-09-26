@@ -8,7 +8,7 @@ from pyroSAR import identify_many, Archive
 from pyroSAR.ancillary import groupbyTime, seconds
 from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log, get_max_ext
+from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -31,6 +31,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
     logger = set_logging(config=config, debug=debug)
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
+    
+    check_spacing(geocode_prms['spacing'])
     
     snap_flag = True
     nrb_flag = True

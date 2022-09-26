@@ -304,25 +304,6 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def check_spacing(spacing):
-    """
-    perform a check whether the spacing fits into the MGRS tile boundaries
-    
-    Parameters
-    ----------
-    spacing: int or float
-        the target pixel spacing in meters
-
-    Returns
-    -------
-
-    """
-    if 10980 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 10980 m.')
-    if 9780 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile overlap of 9780 m.')
-
-
 def process(scene, outdir, spacing, kml, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',

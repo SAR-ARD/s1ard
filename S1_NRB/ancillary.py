@@ -10,6 +10,25 @@ from pyroSAR import examine
 import S1_NRB
 
 
+def check_spacing(spacing):
+    """
+    perform a check whether the spacing fits into the MGRS tile boundaries
+
+    Parameters
+    ----------
+    spacing: int or float
+        the target pixel spacing in meters
+
+    Returns
+    -------
+
+    """
+    if 10980 % spacing != 0:
+        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 10980 m.')
+    if 9780 % spacing != 0:
+        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile overlap of 9780 m.')
+
+
 def generate_unique_id(encoded_str):
     """
     Returns a unique product identifier as a hexa-decimal string generated from the time of execution in isoformat.
