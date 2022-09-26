@@ -11,9 +11,6 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     sub_parametrize, erode_edges
 from S1_NRB.tile_extraction import tiles_from_aoi, extract_tile
 from S1_NRB.ancillary import get_max_ext
-import logging
-
-logging.basicConfig(level=logging.INFO)
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=True):
@@ -131,6 +128,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION')
         tf.parameters['reGridMethod'] = False
     tf.parameters['outputSigma0'] = True
     tf.parameters['outputSimulatedImage'] = True
+    tf.parameters['demName'] = 'External DEM'
     tf.parameters['externalDEMFile'] = dem
     tf.parameters['externalDEMApplyEGM'] = False
     with Raster(dem) as ras:

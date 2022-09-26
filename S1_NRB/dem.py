@@ -123,7 +123,6 @@ def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
                                resampling_method='mode', pbar=True,
                                outputBounds=bounds, threads=threads,
                                nodata='None')
-        print('=' * 40)
 
 
 def authenticate(dem_type, username=None, password=None):
