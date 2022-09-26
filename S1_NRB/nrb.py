@@ -173,15 +173,16 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         datasets_nrb[key] = outname
     
     # define a reference raster from the annotation datasets and list all gamma0 backscatter measurement rasters
-    ref_tif = datasets_nrb['lc']
     measure_tifs = [v for k, v in datasets_nrb.items() if re.search('g-lin', k)]
+    ref_key = list(datasets_nrb.keys())[0]
+    ref_tif = datasets_nrb[ref_key]
     
     # create data mask raster (-dm.tif)
     if wbm is not None:
         if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
             raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
     
-    dm_path = ref_tif.replace('-lc.tif', '-dm.tif')
+    dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
     if not os.path.isfile(dm_path):
         create_data_mask(outname=dm_path, datasets=datasets, extent=extent, epsg=epsg,
                          driver=driver, creation_opt=write_options['dm'],
@@ -190,7 +191,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     datasets_nrb['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
-    id_path = ref_tif.replace('-lc.tif', '-id.tif')
+    id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
     if not os.path.isfile(id_path):
         create_acq_id_image(outname=id_path, ref_tif=ref_tif,
                             datasets=datasets, src_ids=src_ids,
@@ -221,22 +222,23 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
-    gs_path = datasets_nrb['gs']
-    for item in measure_tifs:
-        sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
-        sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
-        
-        if not os.path.isfile(sigma0_rtc_lin):
-            print(sigma0_rtc_lin)
-            create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
-                       relpaths=True, options=vrt_options, overviews=overviews,
-                       overview_resampling=ovr_resampling)
-        
-        if not os.path.isfile(sigma0_rtc_log):
-            print(sigma0_rtc_log)
-            create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
-                       scale=scale, options=vrt_options, overviews=overviews,
-                       overview_resampling=ovr_resampling, args=args)
+    if 'gs' in datasets_nrb.keys():
+        gs_path = datasets_nrb['gs']
+        for item in measure_tifs:
+            sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
+            sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
+            
+            if not os.path.isfile(sigma0_rtc_lin):
+                print(sigma0_rtc_lin)
+                create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
+                           relpaths=True, options=vrt_options, overviews=overviews,
+                           overview_resampling=ovr_resampling)
+            
+            if not os.path.isfile(sigma0_rtc_log):
+                print(sigma0_rtc_log)
+                create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
+                           scale=scale, options=vrt_options, overviews=overviews,
+                           overview_resampling=ovr_resampling, args=args)
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
