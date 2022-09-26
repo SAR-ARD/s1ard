@@ -91,7 +91,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION'):
+def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION', sigma0=True):
     """
     Radiometric Terrain Flattening.
     
@@ -107,6 +107,8 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION')
         the input DEM file name.
     dem_resampling_method: str
         the DEM resampling method.
+    sigma0: bool
+        output sigma0 RTC backscatter?
 
     Returns
     -------
@@ -126,7 +128,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION')
     tf.parameters['sourceBands'] = bands
     if 'reGridMethod' in tf.parameters.keys():
         tf.parameters['reGridMethod'] = False
-    tf.parameters['outputSigma0'] = True
+    tf.parameters['outputSigma0'] = sigma0
     tf.parameters['outputSimulatedImage'] = True
     tf.parameters['demName'] = 'External DEM'
     tf.parameters['externalDEMFile'] = dem
@@ -256,7 +258,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     """
     wf = parse_recipe('blank')
     ############################################
-    scenes = identify_many(list(src))
+    scenes = identify_many(list(filter(None, src)))
     read_ids = []
     for i, scene in enumerate(scenes):
         read = parse_node('Read')
@@ -364,10 +366,12 @@ def process(scene, outdir, spacing, kml, dem,
     tmp_base = os.path.join(tmpdir_scene, basename)
     
     id = identify(scene)
+    workflows = []
     ############################################################################
     # general pre-processing
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
+    workflows.append(out_mli_wf)
     if not os.path.isfile(out_mli):
         mli(src=scene, dst=out_mli, workflow=out_mli_wf,
             spacing=spacing, rlks=rlks, azlks=azlks,
@@ -376,15 +380,20 @@ def process(scene, outdir, spacing, kml, dem,
     # radiometric terrain flattening
     out_rtc = tmp_base + '_rtc.dim'
     out_rtc_wf = out_rtc.replace('.dim', '.xml')
+    workflows.append(out_rtc_wf)
     if not os.path.isfile(out_rtc):
         rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
-            dem_resampling_method=dem_resampling_method)
+            dem_resampling_method=dem_resampling_method,
+            sigma0='gammaSigmaRatio' in export_extra)
     ############################################################################
     # gamma-sigma ratio computation
-    out_gsr = tmp_base + '_gsr.dim'
-    out_gsr_wf = out_gsr.replace('.dim', '.xml')
-    if not os.path.isfile(out_gsr):
-        gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf)
+    out_gsr = None
+    if 'gammaSigmaRatio' in export_extra:
+        out_gsr = tmp_base + '_gsr.dim'
+        out_gsr_wf = out_gsr.replace('.dim', '.xml')
+        workflows.append(out_gsr_wf)
+        if not os.path.isfile(out_gsr):
+            gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf)
     ############################################################################
     # geocoding
     with id.bbox() as geom:
@@ -419,7 +428,7 @@ def process(scene, outdir, spacing, kml, dem,
                 img_resampling_method=img_resampling_method)
             postprocess(out_geo, slc_clean_edges=slc_clean_edges,
                         slc_clean_edges_pixels=slc_clean_edges_pixels)
-        for wf in [out_mli_wf, out_rtc_wf, out_gsr_wf]:
+        for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
             shutil.copyfile(src=wf, dst=wf_dst)
     if cleanup:
