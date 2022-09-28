@@ -7,7 +7,7 @@ from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
-    orb_parametrize, mli_parametrize, tc_parametrize, \
+    orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
 from S1_NRB.tile_extraction import tiles_from_aoi, extract_tile
 from S1_NRB.ancillary import get_max_ext
@@ -283,16 +283,16 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         wf.insert_node(sub, before=last.id)
         last = sub
     ############################################
-    tc = tc_parametrize(spacing=spacing, t_srs=crs,
-                        export_extra=export_extra,
-                        alignToStandardGrid=True,
-                        externalDEMFile=dem,
-                        externalDEMApplyEGM=False,
-                        standardGridOriginX=standard_grid_origin_x,
-                        standardGridOriginY=standard_grid_origin_y,
-                        standardGridAreaOrPoint='area',
-                        demResamplingMethod=dem_resampling_method,
-                        imgResamplingMethod=img_resampling_method)
+    tc = geo_parametrize(spacing=spacing, t_srs=crs,
+                         export_extra=export_extra,
+                         alignToStandardGrid=True,
+                         externalDEMFile=dem,
+                         externalDEMApplyEGM=False,
+                         standardGridOriginX=standard_grid_origin_x,
+                         standardGridOriginY=standard_grid_origin_y,
+                         standardGridAreaOrPoint='area',
+                         demResamplingMethod=dem_resampling_method,
+                         imgResamplingMethod=img_resampling_method)
     wf.insert_node(tc, before=last.id)
     ############################################
     write = parse_node('Write')
