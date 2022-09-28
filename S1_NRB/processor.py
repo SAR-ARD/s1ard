@@ -1,14 +1,14 @@
 import os
 import time
+import itertools
 from osgeo import gdal
-from spatialist import Vector
+from spatialist import Vector, bbox
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
-from pyroSAR.snap.util import geocode, noise_power
 from pyroSAR.ancillary import groupbyTime, seconds
-from S1_NRB import etad, dem, nrb
+from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, geocode_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log
+from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -32,6 +32,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
     geocode_prms = geocode_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
+    check_spacing(geocode_prms['spacing'])
+    
     snap_flag = True
     nrb_flag = True
     if config['mode'] == 'snap':
@@ -51,8 +53,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
     
     if config['aoi_tiles'] is not None:
         vec = tile_ex.aoi_from_tiles(kml=config['kml_file'], tiles=config['aoi_tiles'])
+        aoi_tiles = config['aoi_tiles']
     else:
         vec = Vector(config['aoi_geometry'])
+        aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
@@ -67,64 +71,58 @@ def main(config_file, section_name='PROCESSING', debug=False):
                   "mindate '{mindate}' and maxdate '{maxdate}' in directory '{scene_dir}'."
         raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
                                           maxdate=config['maxdate'], scene_dir=config['scene_dir']))
-    ids = identify_many(selection)
-    
+    scenes = identify_many(selection)
     ####################################################################################################################
-    # general setup
-    geo_dict = tile_ex.get_tile_dict(config=config, spacing=geocode_prms['spacing'])
-    aoi_tiles = list(geo_dict.keys())
-    aoi_tiles.remove('align')
-    
-    epsg_set = set([geo_dict[tile]['epsg'] for tile in list(geo_dict.keys()) if tile != 'align'])
-    if len(epsg_set) != 1:
-        raise RuntimeError('The AOI covers MGRS tiles with multiple UTM zones: {}\n '
-                           'This is currently not supported. '
-                           'Please refine your AOI.'.format(list(epsg_set)))
-    epsg = epsg_set.pop()
-    
-    np_dict = {'sigma0': 'NESZ', 'beta0': 'NEBZ', 'gamma0': 'NEGZ'}
-    np_refarea = 'sigma0'
-    
-    ####################################################################################################################
-    # DEM download and MGRS-tiling
-    ex_dem_nodata = None
+    # DEM download and WBM MGRS-tiling
     if snap_flag:
-        geometries = [scene.bbox() for scene in ids]
-        dem.prepare(geometries=geometries, threads=gdal_prms['threads'],
-                    epsg=epsg, spacing=geocode_prms['spacing'],
-                    dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
-                    dem_type=config['dem_type'], kml_file=config['kml_file'])
-        del geometries
-        
-        if config['dem_type'] == 'Copernicus 30m Global DEM':
-            ex_dem_nodata = -99
-    
-    dem_short = {'Copernicus 10m EEA DEM': 'EEA10', 'Copernicus 30m Global DEM II': 'GLO30II',
-                 'Copernicus 30m Global DEM': 'GLO30', 'GETASSE30': 'GETASSE30'}
-    ####################################################################################################################
-    # SNAP RTC processing
-    if snap_flag:
-        for i, scene in enumerate(ids):
-            ###############################################
+        username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
+        for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
-            out_dir_scene_epsg = os.path.join(out_dir_scene, str(epsg))
-            tmp_dir_scene_epsg = os.path.join(tmp_dir_scene, str(epsg))
-            os.makedirs(out_dir_scene_epsg, exist_ok=True)
-            os.makedirs(tmp_dir_scene_epsg, exist_ok=True)
-            fname_dem = os.path.join(tmp_dir_scene_epsg,
-                                     scene.outname_base() + '_{}_{}.tif'.format(dem_short[config['dem_type']], epsg))
-            ###############################################
-            # scene-specific DEM preparation
-            with scene.bbox() as geometry:
-                dem.mosaic(geometry, outname=fname_dem, epsg=epsg,
-                           dem_type=config['dem_type'], kml_file=config['kml_file'],
-                           dem_dir=config['dem_dir'])
+            
+            tiles = tile_ex.tiles_from_aoi(vectorobject=scene.bbox(),
+                                           kml=config['kml_file'],
+                                           return_geometries=True)
+            
+            for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
+                geometries = list(group)
+                ext = get_max_ext(geometries=geometries, buffer=200)
+                with bbox(coordinates=ext, crs=epsg) as geom:
+                    geom.reproject(4326)
+                    print(f'###### [    DEM] processing EPSG:{epsg}')
+                    dem.prepare(geometries=[geom], threads=gdal_prms['threads'],
+                                epsg=epsg, dem_dir=None, wbm_dir=config['wbm_dir'],
+                                dem_type=config['dem_type'], kml_file=config['kml_file'],
+                                username=username, password=password)
+            
+            dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
+                               'Copernicus 30m Global DEM II': 'GLO30II',
+                               'Copernicus 30m Global DEM': 'GLO30',
+                               'GETASSE30': 'GETASSE30'}
+            dem_type_short = dem_type_lookup[config['dem_type']]
+            fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
+            fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
+            os.makedirs(tmp_dir_scene, exist_ok=True)
+            print('###### [    DEM] creating scene-specific mosaic:', fname_dem)
+            with scene.bbox() as geom:
+                dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
+                           username=username, password=password)
+            ############################################################################################################
+            # RTC processing
+            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            if os.path.isdir(out_dir_scene):
+                msg = 'Already processed - Skip!'
+                print('### ' + msg)
+                log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
+                continue
+            else:
+                os.makedirs(out_dir_scene)
+                os.makedirs(tmp_dir_scene, exist_ok=True)
             ###############################################
             # ETAD correction
             if config['etad']:
-                print('###### [   ETAD] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
+                print('###### [   ETAD] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(scenes),
                                                                              scene=scene.scene))
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
                                      out_dir=tmp_dir_scene, log=logger)
@@ -133,62 +131,25 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 rlks = {'IW': 5,
                         'SM': 6,
                         'EW': 3}[config['acq_mode']]
+                rlks *= int(geocode_prms['spacing'] / 10)
                 azlks = {'IW': 1,
                          'SM': 6,
                          'EW': 1}[config['acq_mode']]
+                azlks *= int(geocode_prms['spacing'] / 10)
             else:
                 rlks = azlks = None
             ###############################################
-            list_processed = finder(out_dir_scene_epsg, ['*'])
-            exclude = list(np_dict.values())
-            print('###### [GEOCODE] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
-                                                                         scene=scene.scene))
-            if len([item for item in list_processed if not any(ex in item for ex in exclude)]) < 4:
-                start_time = time.time()
-                try:
-                    geocode(infile=scene, outdir=out_dir_scene_epsg, t_srs=epsg, tmpdir=tmp_dir_scene_epsg,
-                            standardGridOriginX=geo_dict['align']['xmax'],
-                            standardGridOriginY=geo_dict['align']['ymin'],
-                            externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata,
-                            rlks=rlks, azlks=azlks, **geocode_prms)
-                    t = round((time.time() - start_time), 2)
-                    log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=t)
-                    if t <= 500:
-                        msg = 'Processing might have terminated prematurely. Check terminal for uncaught SNAP errors!'
-                        log(handler=logger, mode='warning', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
-                except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=e)
-                    continue
-            else:
-                msg = 'Already processed - Skip!'
-                print('### ' + msg)
-                log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, epsg=epsg, msg=msg)
-            ###############################################
-            print('###### [NOISE_P] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(ids),
-                                                                         scene=scene.scene))
-            if len([item for item in list_processed if np_dict[np_refarea] in item]) == 0:
-                start_time = time.time()
-                try:
-                    noise_power(infile=scene.scene, outdir=out_dir_scene_epsg, polarizations=scene.polarizations,
-                                spacing=geocode_prms['spacing'], refarea=np_refarea, tmpdir=tmp_dir_scene_epsg,
-                                externalDEMFile=fname_dem, externalDEMNoDataValue=ex_dem_nodata, t_srs=epsg,
-                                externalDEMApplyEGM=geocode_prms['externalDEMApplyEGM'],
-                                alignToStandardGrid=geocode_prms['alignToStandardGrid'],
-                                standardGridOriginX=geo_dict['align']['xmax'],
-                                standardGridOriginY=geo_dict['align']['ymin'],
-                                clean_edges=geocode_prms['clean_edges'],
-                                clean_edges_npixels=geocode_prms['clean_edges_npixels'],
-                                rlks=rlks, azlks=rlks)
-                    log(handler=logger, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg,
-                        msg=round((time.time() - start_time), 2))
-                except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=e)
-                    continue
-            else:
-                msg = 'Already processed - Skip!'
-                print('### ' + msg)
-                log(handler=logger, mode='info', proc_step='NOISE_P', scenes=scene.scene, epsg=epsg, msg=msg)
-    
+            start_time = time.time()
+            try:
+                snap.process(scene=scene.scene, outdir=config['rtc_dir'],
+                             tmpdir=config['tmp_dir'], kml=config['kml_file'],
+                             dem=fname_dem,
+                             rlks=rlks, azlks=azlks, **geocode_prms)
+                t = round((time.time() - start_time), 2)
+                log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+            except Exception as e:
+                log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                continue
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
@@ -208,13 +169,16 @@ def main(config_file, section_name='PROCESSING', debug=False):
                                                                scenes=[os.path.basename(s) for s in scenes],
                                                                s=s + 1, s_total=len(selection_grouped)))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'], outdir=outdir,
-                                     tile=tile, extent=geo_dict[tile]['ext'], epsg=epsg, wbm=wbm,
-                                     multithread=gdal_prms['multithread'])
+                    with tile_ex.extract_tile(kml=config['kml_file'], tile=tile) as geom:
+                        extent = geom.extent
+                        epsg = geom.getProjection('epsg')
+                    msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'],
+                                     outdir=outdir, tile=tile, extent=extent, epsg=epsg,
+                                     wbm=wbm, multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, epsg=epsg, msg=msg)
+                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, msg=msg)
                 except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, epsg=epsg, msg=e)
+                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, msg=e)
                     continue
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

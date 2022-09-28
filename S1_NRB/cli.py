@@ -1,5 +1,4 @@
 import click
-import S1_NRB
 
 
 @click.command()
@@ -12,6 +11,7 @@ import S1_NRB
 @click.option('--version', is_flag=True,
               help='Print S1_NRB version information. Overrides all other arguments.')
 def cli(config_file, section, debug, version):
+    import S1_NRB
     if version:
         print(S1_NRB.__version__)
     else:

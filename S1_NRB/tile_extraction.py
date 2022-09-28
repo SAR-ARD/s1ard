@@ -4,9 +4,9 @@ from spatialist.vector import Vector, wkt2vector, bbox
 from S1_NRB.ancillary import get_max_ext
 
 
-def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
+def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=False):
     """
-    Return a list of unique MGRS tile IDs that overlap with an area of interest (AOI) provided as a
+    Return a list of MGRS tile IDs or vector objects overlapping with an area of interest (AOI) provided as a
     :class:`~spatialist.vector.Vector` object.
     
     Parameters
@@ -23,11 +23,14 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         or also allow reprojection of neighbouring tiles?
         In the latter case a tile name takes the form <tile ID>_<EPSG code>, e.g. `33TUN_32632`.
         Only applies if argument `epsg` is of type `int` or a list with one element.
+    return_geometries: bool
+        return a list of :class:`spatialist.vector.Vector` geometry objects (or just the tile names)?
     
     Returns
     -------
-    tiles: list[str]
-        A list of unique MGRS tile IDs.
+    tiles: list[str or spatialist.vector.Vector]
+        A list of unique MGRS tile IDs or :class:`spatialist.vector.Vector`
+        objects with an attribute `mgrs` containing the tile ID.
     
     Notes
     -----
@@ -38,27 +41,37 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True):
         epsg = [epsg]
     if vectorobject.getProjection('epsg') != 4326:
         raise RuntimeError('the CRS of the input vector object must be EPSG:4326')
+    sortkey = None
+    if return_geometries:
+        if not strict:
+            raise RuntimeError("returning geometries is not supported when 'strict' is False")
+        sortkey = lambda x: x.mgrs
     with Vector(kml, driver='KML') as vec:
-        tilenames = []
+        tiles = []
         vectorobject.layer.ResetReading()
         for item in vectorobject.layer:
             geom = item.GetGeometryRef()
             vec.layer.SetSpatialFilter(geom)
             for tile in vec.layer:
                 tilename = tile.GetField('Name')
-                if tilename not in tilenames:
+                if tilename not in tiles:
                     attrib = description2dict(tile.GetField('Description'))
                     if epsg is not None and attrib['EPSG'] not in epsg:
                         if len(epsg) == 1 and not strict:
                             tilename += '_{}'.format(epsg[0])
                         else:
                             continue
-                    tilenames.append(tilename)
+                    if return_geometries:
+                        geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                        geom.mgrs = tilename
+                        tiles.append(geom)
+                    else:
+                        tiles.append(tilename)
         vectorobject.layer.ResetReading()
         tile = None
         geom = None
         item = None
-        return sorted(tilenames)
+        return sorted(tiles, key=sortkey)
 
 
 def aoi_from_tiles(kml, tiles):
@@ -92,42 +105,46 @@ def aoi_from_tiles(kml, tiles):
 
 def extract_tile(kml, tile):
     """
-    Extract an MGRS tile from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
+    Extract one or multiple MGRS tiles from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
     object.
     
     Parameters
     ----------
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
-    tile: str
-        The MGRS tile ID that should be extracted and returned as a vector object.
+    tile: str or list[str]
+        The MGRS tile ID(s) that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
         of the tile is reprojected to the target EPSG code, its corner coordinates rounded to multiples
         of 10, and a new :class:`~spatialist.vector.Vector` object created.
     
     Returns
     -------
-    spatialist.vector.Vector
+    spatialist.vector.Vector or list[spatialist.vector.Vector]
+        either a single object or a list depending on `tile`
     
     Notes
     -----
     The global Sentinel-2 tiling grid can be retrieved from:
     https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
-    tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
-    with Vector(kml, driver='KML') as vec:
-        feat = vec.getFeatureByAttribute('Name', tilename)
-        attrib = description2dict(feat.GetField('Description'))
-        feat = None
-    if epsg is None:
-        return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+    if isinstance(tile, list):
+        return [extract_tile(kml=kml, tile=x) for x in tile]
     else:
-        with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
-            tmp.reproject(int(epsg))
-            ext = tmp.extent
-            for k, v in ext.items():
-                ext[k] = round(v / 10) * 10
-        return bbox(ext, crs=int(epsg))
+        tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
+        with Vector(kml, driver='KML') as vec:
+            feat = vec.getFeatureByAttribute('Name', tilename)
+            attrib = description2dict(feat.GetField('Description'))
+            feat = None
+        if epsg is None:
+            return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+        else:
+            with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+                tmp.reproject(int(epsg))
+                ext = tmp.extent
+                for k, v in ext.items():
+                    ext[k] = round(v / 10) * 10
+            return bbox(ext, crs=int(epsg))
 
 
 def description2dict(description):
@@ -152,7 +169,7 @@ def description2dict(description):
     return attrib
 
 
-def get_tile_dict(config, spacing):
+def get_tile_dict(kml_file, spacing, aoi_geometry=None, aoi_tiles=None):
     """
     Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
     well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
@@ -160,25 +177,31 @@ def get_tile_dict(config, spacing):
     
     Parameters
     ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
+    kml_file: str
+        The KML file containing the MGRS tile geometries.
     spacing: int
         The target pixel spacing in meters, which is passed to :func:`pyroSAR.snap.util.geocode`.
+    aoi_geometry: str or None
+        A vector geometry file name.
+    aoi_tiles: list[str] or None
+        a list with MGRS tile names.
     
     Returns
     -------
     tile_dict: dict
         The output dictionary containing information about each unique MGRS tile ID and alignment coordinates.
     """
-    try:
-        with Vector(config['aoi_geometry']) as aoi:
-            tiles = tiles_from_aoi(aoi, kml=config['kml_file'])
-    except AttributeError:
-        tiles = config['aoi_tiles']
+    if aoi_geometry is not None:
+        with Vector(aoi_geometry) as aoi:
+            tiles = tiles_from_aoi(aoi, kml=kml_file)
+    elif aoi_tiles is not None:
+        tiles = aoi_tiles
+    else:
+        raise RuntimeError("either 'aoi_geometry' or 'aoi_tiles' must be defined")
     
     geo_dict = {}
     for tile in tiles:
-        with extract_tile(kml=config['kml_file'], tile=tile) as vec:
+        with extract_tile(kml=kml_file, tile=tile) as vec:
             ext = vec.extent
             epsg = vec.getProjection('epsg')
             xmax = ext['xmax'] - spacing / 2
