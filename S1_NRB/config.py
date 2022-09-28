@@ -152,9 +152,9 @@ def _keyval_check(key, val, allowed_keys):
     return val
 
 
-def geocode_conf(config):
+def snap_conf(config):
     """
-    Returns a dictionary of additional parameters for :func:`pyroSAR.snap.util.geocode` based on processing
+    Returns a dictionary of additional parameters for :func:`S1_NRB.snap.process` based on processing
     configurations provided by the config file.
     
     Parameters
@@ -165,7 +165,7 @@ def geocode_conf(config):
     Returns
     -------
     dict
-        Dictionary of parameters that can be passed to :func:`pyroSAR.snap.util.geocode`
+        Dictionary of parameters that can be passed to :func:`S1_NRB.snap.process`
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
@@ -177,7 +177,7 @@ def geocode_conf(config):
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
             'slc_clean_edges': True,
             'slc_clean_edges_pixels': 4,
-            'cleanup': False
+            'cleanup': True
             }
 
 
