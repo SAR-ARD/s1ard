@@ -50,7 +50,7 @@ Both need to be provided as full paths to existing directories. ``work_dir`` is 
 subdirectories and files are stored that are generated during processing. ``scene_dir`` will be searched recursively for
 any Sentinel-1 scenes using the regex pattern ``'^S1[AB].*\.zip$'``.
 
-- **rtc_dir**, **tmp_dir**, **nrb_dir**, **dem_dir**, **wbm_dir** & **log_dir**
+- **rtc_dir**, **tmp_dir**, **nrb_dir**, **wbm_dir** & **log_dir**
 
 Processing S1-NRB products creates many intermediate files that are expected to be stored in separate subdirectories. The
 default values provided in the example configuration file linked above are recommended and will automatically create

@@ -15,8 +15,8 @@ from S1_NRB.ancillary import get_max_ext
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=True):
     """
-    | create a multi-looked image (MLI) using the following operators (optional steps in brackets):
-    | Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst->Multilook)
+    Create a multi-looked image (MLI). The following operators are used (optional steps in brackets):
+    Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst->Multilook)
     
     Parameters
     ----------
@@ -151,7 +151,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
 
 def gsr(src, dst, workflow, src_sigma=None):
     """
-    gamma-sigma ratio computation for either ellipsoidal and RTC sigma nought.
+    Gamma-sigma ratio computation for either ellipsoidal and RTC sigma nought.
     
     Parameters
     ----------
@@ -214,7 +214,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         img_resampling_method='BILINEAR_INTERPOLATION', **bands):
     """
-    geocoding
+    Geocoding.
     
     Parameters
     ----------
@@ -316,40 +316,62 @@ def process(scene, outdir, spacing, kml, dem,
     Parameters
     ----------
     scene: str
-        The SAR scene file name
+        The SAR scene file name.
     outdir: str
-        the output directory for storing hte final results
+        The output directory for storing the final results.
     spacing: int or float
-        the output pixel spacing in meters
+        The output pixel spacing in meters.
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
     dem: str
-        The Dme filename.
+        The DEM filename. Can be created with :func:`S1_NRB.dem.mosaic`.
     dem_resampling_method: str
-        The DEM resampling method
+        The DEM resampling method.
     img_resampling_method: str
-        The image resampling method
+        The image resampling method.
     rlks: int or None
-        The number of range looks
+        The number of range looks.
     azlks: int or None
-        The number of azimuth looks
+        The number of azimuth looks.
     tmpdir: str or None
-        path to a temporary directory for intermediate products
+        Path to a temporary directory for intermediate products.
     export_extra: list[str] or None
-        A list of ancillary layers to create
+        A list of ancillary layers to create. Options:
+        
+         - DEM
+         - gammaSigmaRatio
+         - incidenceAngleFromEllipsoid
+         - layoverShadowMask
+         - localIncidenceAngle
+         - projectedLocalIncidenceAngle
+         - scatteringArea
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
     slc_clean_edges: bool
-        erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
+        Erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
         Does not apply to layover-shadow mask.
     slc_clean_edges_pixels: int
-        the number of pixels to erode.
+        The number of pixels to erode.
     cleanup: bool
         Delete intermediate files after successful process termination?
 
     Returns
     -------
 
+    Examples
+    --------
+    >>> from S1_NRB import snap
+    >>> scene = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.zip'
+    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    >>> dem = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif'
+    >>> outdir = '.'
+    >>> spacing = 10
+    >>> rlks = 5
+    >>> azlks = 1
+    >>> export_extra = ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
+    >>>                 'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio']
+    >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, kml=kml, dem=dem,
+    >>>              rlks=rlks, azlks=azlks, export_extra=export_extra)
     """
     if tmpdir is None:
         tmpdir = outdir
@@ -441,7 +463,7 @@ def process(scene, outdir, spacing, kml, dem,
 
 def postprocess(src, slc_clean_edges=True, slc_clean_edges_pixels=4):
     """
-    performs SLC edge cleaning and sets the nodata value in the output ENVI HDR files.
+    Performs SLC edge cleaning and sets the nodata value in the output ENVI HDR files.
     
     Parameters
     ----------
@@ -484,7 +506,7 @@ def find_datasets(scene, outdir, epsg):
     dict or None
         Either None if no datasets were found or a dictionary with the
         following keys and values pointing to the file names
-        (keys in brackets depending on available polarizations):
+        (polarization-specific keys depending on product availability):
         
          - hh-g-lin: gamma nought RTC backscatter HH polarization
          - hv-g-lin: gamma nought RTC backscatter HV polarization
@@ -495,10 +517,10 @@ def find_datasets(scene, outdir, epsg):
          - gs: gamma-sigma ratio
          - lc: local contributing area (aka scattering area)
          - li: local incident angle
-         - (np-hh): noise power HH polarization
-         - (np-hv): noise power HV polarization
-         - (np-vh): noise power VH polarization
-         - (np-vv): noise power VV polarization
+         - np-hh: noise power HH polarization
+         - np-hv: noise power HV polarization
+         - np-vh: noise power VH polarization
+         - np-vv: noise power VV polarization
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
@@ -531,7 +553,7 @@ def find_datasets(scene, outdir, epsg):
 
 def get_metadata(scene, outdir):
     """
-    Get processing metadata needed for NRB metadata
+    Get processing metadata needed for NRB metadata.
     
     Parameters
     ----------

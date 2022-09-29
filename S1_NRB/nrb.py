@@ -25,8 +25,7 @@ from S1_NRB.snap import find_datasets
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            multithread=True, compress=None, overviews=None):
     """
-    Finalizes the generation of Sentinel-1 NRB products after processing steps via :func:`pyroSAR.snap.util.geocode` and
-    :func:`pyroSAR.snap.util.noise_power` have finished. This includes the following:
+    Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
     - Creating additional annotation datasets in Virtual Raster Tile (VRT) format
     - Applying the NRB product directory structure & naming convention
@@ -286,9 +285,8 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     ids: list[:class:`pyroSAR.drivers.ID`]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     datasets: list[dict]
-        List of output files processed with :func:`pyroSAR.snap.util.geocode` that match each
-        :class:`~pyroSAR.drivers.ID` object of `ids`. The format is a list of strings if only a single object is stored
-        in `ids`, else it is a list of lists.
+        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `scenes`.
+        The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
     """
     ids = identify_many(scenes)
     datasets = []

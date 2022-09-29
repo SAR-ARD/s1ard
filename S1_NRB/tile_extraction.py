@@ -173,14 +173,14 @@ def get_tile_dict(kml_file, spacing, aoi_geometry=None, aoi_tiles=None):
     """
     Creates a dictionary with information for each unique MGRS tile ID that is being processed (extent, epsg code) as
     well as alignment coordinates that can be passed to the `standardGridOriginX` and `standardGridOriginY` parameters
-    of :func:`pyroSAR.snap.util.geocode`
+    of :func:`S1_NRB.snap.process`.
     
     Parameters
     ----------
     kml_file: str
         The KML file containing the MGRS tile geometries.
     spacing: int
-        The target pixel spacing in meters, which is passed to :func:`pyroSAR.snap.util.geocode`.
+        The target pixel spacing in meters, which is passed to the RTC processing function (e.g. :func:`S1_NRB.snap.process`).
     aoi_geometry: str or None
         A vector geometry file name.
     aoi_tiles: list[str] or None
