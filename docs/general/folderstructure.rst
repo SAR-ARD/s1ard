@@ -166,9 +166,8 @@ Folders are highlighted in bold.
 
                     .. note::
 
-                        WBM tiles in MGRS grid and WGS84 vertical datum.
-                        Tiles with a non-native UTM zone additionally contain the EPSG code in the name.
-                        For example, The native projection of tile 33TUL is 33N/EPSG:32633 but a variant in EPSG:32632 might exist for full coverage of a SAR scene.
+                        Water Body Mask tiles in MGRS grid per DEM type.
+                        The type names are taken from :func:`pyroSAR.auxdata.dem_autoload`.
 
                     .. collapse:: <b>Copernicus 10m EEA DEM</b>
 
@@ -176,7 +175,7 @@ Folders are highlighted in bold.
 
                             | 32TPR_WBM.tif
                             | 32TPS_WBM.tif
-                            | 33TUL_32632_WBM.tif
+                            | 33TUL_WBM.tif
                             | ...
 
 
@@ -186,7 +185,7 @@ Folders are highlighted in bold.
 
                             | 32TPR_WBM.tif
                             | 32TPS_WBM.tif
-                            | 33TUL_32632_WBM.tif
+                            | 33TUL_WBM.tif
                             | ...
 
             scenes.db
