@@ -1,7 +1,6 @@
 API Documentation
 =================
 
-
 Configuration
 -------------
 
@@ -14,7 +13,7 @@ Configuration
         :nosignatures:
 
         gdal_conf
-        geocode_conf
+        snap_conf
         get_config
 
 Processing
@@ -29,6 +28,34 @@ Processing
         :nosignatures:
 
         main
+
+SNAP
+^^^^
+
+.. automodule:: S1_NRB.snap
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. rubric:: core processing
+
+    .. autosummary::
+        :nosignatures:
+
+        process
+        geo
+        gsr
+        mli
+        rtc
+
+    .. rubric:: ancillary functions
+
+    .. autosummary::
+        :nosignatures:
+
+        find_datasets
+        get_metadata
+        postprocess
 
 NRB
 ^^^

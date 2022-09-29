@@ -14,52 +14,6 @@ Folders are highlighted in bold.
     .. collapse:: <b>work_dir</b>
         :open:
 
-            .. collapse:: <b>dem_dir</b>
-
-                .. pull-quote::
-
-                    .. note::
-
-                        DEM tiles in MGRS grid and WGS84 vertical datum for fast mosaicing of scene-specific DEMs during RTC processing.
-                        Tiles with a non-native UTM zone additionally contain the EPSG code in the name.
-                        For example, the native projection of tile 33TUL is 33N/EPSG:32633 but a variant in EPSG:32632 might exist for full coverage of a SAR scene.
-
-                    .. collapse:: <b>Copernicus 10m EEA DEM</b>
-
-                        .. pull-quote::
-
-                            | 32TPR_DEM.tif
-                            | 32TPS_DEM.tif
-                            | 33TUL_32632_DEM.tif
-                            | ...
-
-                    .. collapse:: <b>Copernicus 30m Global DEM</b>
-
-                        .. pull-quote::
-
-                            | 32TPR_DEM.tif
-                            | 32TPS_DEM.tif
-                            | 33TUL_32632_DEM.tif
-                            | ...
-
-                    .. collapse:: <b>Copernicus 30m Global DEM II</b>
-
-                        .. pull-quote::
-
-                            | 32TPR_DEM.tif
-                            | 32TPS_DEM.tif
-                            | 33TUL_32632_DEM.tif
-                            | ...
-
-                    .. collapse:: <b>GETASSE30</b>
-
-                        .. pull-quote::
-
-                            | 32TPR_DEM.tif
-                            | 32TPS_DEM.tif
-                            | 33TUL_32632_DEM.tif
-                            | ...
-
             .. collapse:: <b>log_dir</b>
 
                 .. pull-quote::
@@ -150,32 +104,19 @@ Folders are highlighted in bold.
 
                     .. note::
 
-                        The RTC processing output per source scene per UTM zone.
+                        The RTC processing output and SNAP workflows per source scene.
+                        Geocoded products carry an EPSG code suffix.
 
                     .. collapse:: <b>S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12</b>
 
                         .. pull-quote::
 
-                            .. collapse:: <b>32632</b>
-
-                                .. pull-quote::
-
-                                    | S1A__IW___A_20200103T170700_Cal_NR_Deb_Orb_ML_TF_TC_proc.xml
-                                    | S1A__IW___A_20200103T170700_datamask.gpkg
-                                    | S1A__IW___A_20200103T170700_datamask.tif
-                                    | S1A__IW___A_20200103T170700_gammaSigmaRatio.tif
-                                    | S1A__IW___A_20200103T170700_incidenceAngleFromEllipsoid.tif
-                                    | S1A__IW___A_20200103T170700_layoverShadowMask.tif
-                                    | S1A__IW___A_20200103T170700_localIncidenceAngle.tif
-                                    | S1A__IW___A_20200103T170700_manifest.safe
-                                    | S1A__IW___A_20200103T170700_Orb_Cal_NR_Deb_ML_TC_proc.xml
-                                    | S1A__IW___A_20200103T170700_scatteringArea.tif
-                                    | S1A__IW___A_20200103T170700_VH_gamma0-rtc.tif
-                                    | S1A__IW___A_20200103T170700_VH_NESZ.tif
-                                    | S1A__IW___A_20200103T170700_VH_sigma0-rtc.tif
-                                    | S1A__IW___A_20200103T170700_VV_gamma0-rtc.tif
-                                    | S1A__IW___A_20200103T170700_VV_NESZ.tif
-                                    | S1A__IW___A_20200103T170700_VV_sigma0-rtc.tif
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_geo_32632.data
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_geo_32632.dim
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_geo_32632.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.xml
 
                             ...
 
@@ -187,9 +128,9 @@ Folders are highlighted in bold.
 
                     .. note::
 
-                        Intermediate RTC processor files per scene per UTM zone.
+                        Intermediate non-geocoded RTC processor files per scene.
 
-                        - EPSG code subfolder: scene-specific DEM mosaic and intermediate (SNAP) processor files
+                        - scene-specific DEM mosaic and intermediate (SNAP) processor files
                         - unpacked ETAD files (\*_ETA_\*)
                         - SLC_etad subfolder: ETAD-corrected SLCs
 
@@ -197,14 +138,18 @@ Folders are highlighted in bold.
 
                         .. pull-quote::
 
-                            .. collapse:: <b>32632</b>
-
-                                .. pull-quote::
-
-                                    S1A__IW___A_20200103T170700_EEA10_32632.tif
-
-                            | ...
                             | S1A_IW_ETA__AXDV_20200103T170700_20200103T170727_030639_0382D5_256B.SAFE
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.data
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.data
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.data
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.vrt
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.dim
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.dim
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.dim
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.xml
                             | ...
 
                             .. collapse:: <b>SLC_etad</b>
@@ -221,9 +166,8 @@ Folders are highlighted in bold.
 
                     .. note::
 
-                        WBM tiles in MGRS grid and WGS84 vertical datum.
-                        Tiles with a non-native UTM zone additionally contain the EPSG code in the name.
-                        For example, The native projection of tile 33TUL is 33N/EPSG:32633 but a variant in EPSG:32632 might exist for full coverage of a SAR scene.
+                        Water Body Mask tiles in MGRS grid per DEM type.
+                        The type names are taken from :func:`pyroSAR.auxdata.dem_autoload`.
 
                     .. collapse:: <b>Copernicus 10m EEA DEM</b>
 
@@ -231,7 +175,7 @@ Folders are highlighted in bold.
 
                             | 32TPR_WBM.tif
                             | 32TPS_WBM.tif
-                            | 33TUL_32632_WBM.tif
+                            | 33TUL_WBM.tif
                             | ...
 
 
@@ -241,7 +185,7 @@ Folders are highlighted in bold.
 
                             | 32TPR_WBM.tif
                             | 32TPS_WBM.tif
-                            | 33TUL_32632_WBM.tif
+                            | 33TUL_WBM.tif
                             | ...
 
             scenes.db

@@ -29,7 +29,7 @@ The latest bundle that was used during release of version 1.0.0 is available her
 S1_NRB
 ------
 
-The S1_NRB package is not yet available via conda-forge or other common package distribution channels. In the meantime,
+The S1_NRB package is not yet available via conda-forge or other common package distribution channels. For now,
 the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed:
 
 1. Create and then activate the conda environment
