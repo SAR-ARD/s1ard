@@ -34,12 +34,12 @@ def main(config_file, section_name='PROCESSING', debug=False):
     
     check_spacing(geocode_prms['spacing'])
     
-    snap_flag = True
+    rtc_flag = True
     nrb_flag = True
-    if config['mode'] == 'snap':
+    if config['mode'] == 'rtc':
         nrb_flag = False
     elif config['mode'] == 'nrb':
-        snap_flag = False
+        rtc_flag = False
     
     ####################################################################################################################
     # archive / scene selection
@@ -74,7 +74,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
     scenes = identify_many(selection)
     ####################################################################################################################
     # DEM download and WBM MGRS-tiling
-    if snap_flag:
+    if rtc_flag:
         username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
