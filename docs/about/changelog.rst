@@ -1,6 +1,18 @@
 Changelog
 =========
 
+1.1.0 | 2022-09-29
+------------------
+
+* documentation improvements (`#60 <https://github.com/SAR-ARD/S1_NRB/pull/60>`_)
+* installation update (`#61 <https://github.com/SAR-ARD/S1_NRB/pull/61>`_)
+* Process restructuring (`#63 <https://github.com/SAR-ARD/S1_NRB/pull/63>`_)
+* minor structural changes and bug fixes (`#65 <https://github.com/SAR-ARD/S1_NRB/pull/65>`_)
+* documentation update reflecting the recent process restructuring (`#66 <https://github.com/SAR-ARD/S1_NRB/pull/66>`_)
+* renamed processing mode 'snap' to 'rtc' (`#67 <https://github.com/SAR-ARD/S1_NRB/pull/67>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.2...v1.1.0>`_
+
 1.0.2 | 2022-08-24
 ------------------
 
