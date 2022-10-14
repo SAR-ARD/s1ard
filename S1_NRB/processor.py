@@ -51,10 +51,12 @@ def main(config_file, section_name='PROCESSING', debug=False):
     else:
         acq_mode_search = config['acq_mode']
     
+    vec = None
+    aoi_tiles = None
     if config['aoi_tiles'] is not None:
         vec = tile_ex.aoi_from_tiles(kml=config['kml_file'], tiles=config['aoi_tiles'])
         aoi_tiles = config['aoi_tiles']
-    else:
+    elif config['aoi_geometry'] is not None:
         vec = Vector(config['aoi_geometry'])
         aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
     
@@ -153,6 +155,12 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
+        if aoi_tiles is None:
+            if config['aoi_tiles'] is not None:
+                aoi_tiles = config['aoi_tiles']
+            elif config['aoi_geometry'] is not None:
+                with Vector(config['aoi_geometry']) as vec:
+                    aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
         selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
         for t, tile in enumerate(aoi_tiles):
             outdir = os.path.join(config['nrb_dir'], tile)
