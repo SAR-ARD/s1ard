@@ -1,4 +1,4 @@
-FROM conda/miniconda3
+FROM conda/miniconda3 as snap
 
 USER root
 
@@ -21,6 +21,8 @@ RUN apt install -y fonts-dejavu fontconfig
 COPY docker/update_snap.sh /tmp/update_snap.sh
 RUN chmod +x update_snap.sh
 RUN /tmp/update_snap.sh
+
+FROM snap as s1_nrb
 
 # install S1_NRB
 SHELL [ "/bin/bash", "--login", "-c" ]
