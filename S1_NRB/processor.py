@@ -7,7 +7,7 @@ from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing, group_by_time
+from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing, group_by_time, check_scene_consistency
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -166,28 +166,38 @@ def main(config_file, section_name='PROCESSING', debug=False):
     # NRB - final product generation
     if nrb_flag:
         selection_grouped = group_by_time(scenes=scenes)
-        for t, tile in enumerate(aoi_tiles):
-            outdir = os.path.join(config['nrb_dir'], tile)
-            os.makedirs(outdir, exist_ok=True)
-            wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
-            if not os.path.isfile(wbm):
-                wbm = None
-            with tile_ex.aoi_from_tile(kml=config['kml_file'], tile=tile) as geom:
-                extent = geom.extent
-                epsg = geom.getProjection('epsg')
-            for s, scenes in enumerate(selection_grouped):
-                print('###### [    NRB] Tile {t}/{t_total}: {tile} | '
-                      'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
-                                                               scenes=[os.path.basename(s) for s in scenes],
-                                                               s=s + 1, s_total=len(selection_grouped)))
+        for s, scenes in enumerate(selection_grouped):
+            scenes_fnames = [x.scene for x in scenes]
+            # check that the scenes can really be grouped together
+            check_scene_consistency(scenes=scenes)
+            # get the tiles that have been pre-selected and overlap with the current scene group
+            vec = [x.bbox() for x in scenes]
+            tiles = tile_ex.tile_from_aoi(vector=vec,
+                                          kml=config['kml_file'],
+                                          return_geometries=True)
+            del vec
+            tiles = [x for x in tiles if x.mgrs in aoi_tiles]
+            for t, tile in enumerate(tiles):
+                outdir = os.path.join(config['nrb_dir'], tile.mgrs)
+                os.makedirs(outdir, exist_ok=True)
+                wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile.mgrs))
+                if not os.path.isfile(wbm):
+                    wbm = None
+                extent = tile.extent
+                epsg = tile.getProjection('epsg')
+                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes {s}/{s_total}: {scenes} '
+                print(msg.format(tile=tile.mgrs, t=t + 1, t_total=len(aoi_tiles),
+                                 scenes=[os.path.basename(s.scene) for s in scenes],
+                                 s=s + 1, s_total=len(selection_grouped)))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'],
-                                     outdir=outdir, tile=tile, extent=extent, epsg=epsg,
+                    msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
+                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=wbm, multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, msg=msg)
+                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
                 except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, msg=e)
+                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
                     continue
+            del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

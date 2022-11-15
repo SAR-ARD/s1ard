@@ -176,16 +176,16 @@ def group_by_time(scenes, time=3):
 
     Returns
     -------
-    list[list[str]]
+    list[list[pyroSAR.drivers.ID]]
         a list of sub-lists containing the file names of the grouped scenes
     """
     # sort images by time stamp
     scenes = identify_many(scenes, sortkey='start')
     
     if len(scenes) < 2:
-        return [[scenes]]
+        return [scenes]
     
-    groups = [[scenes[0].scene]]
+    groups = [[scenes[0]]]
     group = groups[0]
     
     for i in range(1, len(scenes)):
@@ -193,9 +193,9 @@ def group_by_time(scenes, time=3):
         stop_pred = datetime.strptime(scenes[i - 1].stop, '%Y%m%dT%H%M%S')
         diff = (stop_pred - start).total_seconds()
         if diff <= time:
-            group.append(scenes[i].scene)
+            group.append(scenes[i])
         else:
-            groups.append([scenes[i].scene])
+            groups.append([scenes[i]])
             group = groups[-1]
     return groups
 
