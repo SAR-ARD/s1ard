@@ -50,21 +50,26 @@ def main(config_file, section_name='PROCESSING', debug=False):
     else:
         acq_mode_search = config['acq_mode']
     
-    vec = None
+    vec = [None]
     aoi_tiles = None
+    selection = []
     if config['aoi_tiles'] is not None:
-        vec = tile_ex.aoi_from_tiles(kml=config['kml_file'], tiles=config['aoi_tiles'])
+        vec = tile_ex.extract_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
         aoi_tiles = config['aoi_tiles']
     elif config['aoi_geometry'] is not None:
-        vec = Vector(config['aoi_geometry'])
-        aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
+        vec = [Vector(config['aoi_geometry'])]
+        aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec[0], kml=config['kml_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
-        selection = archive.select(vectorobject=vec,
-                                   product=config['product'],
-                                   acquisition_mode=acq_mode_search,
-                                   mindate=config['mindate'], maxdate=config['maxdate'])
+        for item in vec:
+            selection.extend(
+                archive.select(vectorobject=item,
+                               product=config['product'],
+                               acquisition_mode=acq_mode_search,
+                               mindate=config['mindate'],
+                               maxdate=config['maxdate']))
+    selection = list(set(selection))
     del vec
     
     if len(selection) == 0:
