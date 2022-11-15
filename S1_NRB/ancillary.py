@@ -10,6 +10,35 @@ from pyroSAR import examine, identify_many
 import S1_NRB
 
 
+def check_scene_consistency(scenes):
+    """
+    Check the consistency of a scene selection.
+    The following pyroSAR object attributes must be the same:
+    
+     - sensor
+     - acquisition_mode
+     - product
+     - frameNumber (data take ID)
+    
+    Parameters
+    ----------
+    scenes: list[str or pyroSAR.drivers.ID]
+
+    Returns
+    -------
+    
+    Raises
+    ------
+    RuntimeError
+    """
+    scenes = identify_many(scenes)
+    for attr in ['sensor', 'acquisition_mode', 'product', 'frameNumber']:
+        values = set([getattr(x, attr) for x in scenes])
+        if not len(values) == 1:
+            msg = f"scene selection differs in attribute '{attr}': {values}"
+            raise RuntimeError(msg)
+
+
 def check_spacing(spacing):
     """
     perform a check whether the spacing fits into the MGRS tile boundaries
