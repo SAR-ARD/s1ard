@@ -172,16 +172,15 @@ def main(config_file, section_name='PROCESSING', debug=False):
             wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
             if not os.path.isfile(wbm):
                 wbm = None
-            
+            with tile_ex.extract_tile(kml=config['kml_file'], tile=tile) as geom:
+                extent = geom.extent
+                epsg = geom.getProjection('epsg')
             for s, scenes in enumerate(selection_grouped):
                 print('###### [    NRB] Tile {t}/{t_total}: {tile} | '
                       'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
                                                                scenes=[os.path.basename(s) for s in scenes],
                                                                s=s + 1, s_total=len(selection_grouped)))
                 try:
-                    with tile_ex.extract_tile(kml=config['kml_file'], tile=tile) as geom:
-                        extent = geom.extent
-                        epsg = geom.getProjection('epsg')
                     msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile, extent=extent, epsg=epsg,
                                      wbm=wbm, multithread=gdal_prms['multithread'])
