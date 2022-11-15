@@ -54,13 +54,13 @@ def main(config_file, section_name='PROCESSING', debug=False):
     aoi_tiles = None
     selection = []
     if config['aoi_tiles'] is not None:
-        vec = tile_ex.extract_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
+        vec = tile_ex.aoi_from_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
         if not isinstance(vec, list):
             vec = [vec]
         aoi_tiles = config['aoi_tiles']
     elif config['aoi_geometry'] is not None:
         vec = [Vector(config['aoi_geometry'])]
-        aoi_tiles = tile_ex.tiles_from_aoi(vector=vec[0], kml=config['kml_file'])
+        aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
@@ -82,7 +82,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
     scenes = identify_many(selection)
     if aoi_tiles is None:
         vec = [x.bbox() for x in scenes]
-        aoi_tiles = tile_ex.tiles_from_aoi(vector=vec, kml=config['kml_file'])
+        aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
         del vec
     ####################################################################################################################
     # DEM download and WBM MGRS-tiling
@@ -93,9 +93,9 @@ def main(config_file, section_name='PROCESSING', debug=False):
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            tiles = tile_ex.tiles_from_aoi(vector=scene.bbox(),
-                                           kml=config['kml_file'],
-                                           return_geometries=True)
+            tiles = tile_ex.tile_from_aoi(vector=scene.bbox(),
+                                          kml=config['kml_file'],
+                                          return_geometries=True)
             
             for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
                 geometries = list(group)
@@ -172,7 +172,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
             if not os.path.isfile(wbm):
                 wbm = None
-            with tile_ex.extract_tile(kml=config['kml_file'], tile=tile) as geom:
+            with tile_ex.aoi_from_tile(kml=config['kml_file'], tile=tile) as geom:
                 extent = geom.extent
                 epsg = geom.getProjection('epsg')
             for s, scenes in enumerate(selection_grouped):

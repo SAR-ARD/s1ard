@@ -54,8 +54,8 @@ def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
         extent = geometry.extent
         ext_id = generate_unique_id(encoded_str=str(extent).encode())
         
-        tiles = tile_ex.tiles_from_aoi(vector=geometry, kml=kml_file,
-                                       epsg=epsg, strict=False)
+        tiles = tile_ex.tile_from_aoi(vector=geometry, kml=kml_file,
+                                      epsg=epsg, strict=False)
         if dem_dir is not None:
             dem_dir = os.path.join(dem_dir, dem_type)
             dem_names = [os.path.join(dem_dir, '{}_DEM.tif'.format(tile)) for tile in tiles]
@@ -99,7 +99,7 @@ def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
         if len(dem_target.keys()) > 0:
             print('### creating DEM MGRS tiles: \n{tiles}'.format(tiles=list(dem_target.keys())))
         for tilename, filename in dem_target.items():
-            with tile_ex.extract_tile(kml_file, tilename) as tile:
+            with tile_ex.aoi_from_tile(kml_file, tilename) as tile:
                 epsg_tile = tile.getProjection('epsg')
                 ext = tile.extent
                 bounds = [ext['xmin'], ext['ymin'],
@@ -113,7 +113,7 @@ def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
             if len(wbm_target.keys()) > 0:
                 print('### creating WBM MGRS tiles: \n{tiles}'.format(tiles=list(wbm_target.keys())))
             for tilename, filename in wbm_target.items():
-                with tile_ex.extract_tile(kml_file, tilename) as tile:
+                with tile_ex.aoi_from_tile(kml_file, tilename) as tile:
                     epsg_tile = tile.getProjection('epsg')
                     ext = tile.extent
                     bounds = [ext['xmin'], ext['ymin'],
@@ -209,8 +209,8 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
                 extent['xmax'] += dem_buffer
                 extent['ymax'] += dem_buffer
                 with bbox(extent, epsg) as dem_box:
-                    tiles = tile_ex.tiles_from_aoi(vector=geometry, kml=kml_file,
-                                                   epsg=epsg, strict=False)
+                    tiles = tile_ex.tile_from_aoi(vector=geometry, kml=kml_file,
+                                                  epsg=epsg, strict=False)
                     dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
                     with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
                         dem_mosaic.write(outname, format='GTiff')

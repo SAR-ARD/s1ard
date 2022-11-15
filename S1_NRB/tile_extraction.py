@@ -3,7 +3,7 @@ from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 
 
-def tiles_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
+def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
     """
     Return a list of MGRS tile IDs or vector objects overlapping one or multiple areas of interest.
     
@@ -78,7 +78,7 @@ def tiles_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False)
         return sorted(tiles, key=sortkey)
 
 
-def extract_tile(kml, tile):
+def aoi_from_tile(kml, tile):
     """
     Extract one or multiple MGRS tiles from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
     object.
@@ -104,7 +104,7 @@ def extract_tile(kml, tile):
     https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
     if isinstance(tile, list):
-        return [extract_tile(kml=kml, tile=x) for x in tile]
+        return [aoi_from_tile(kml=kml, tile=x) for x in tile]
     else:
         tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
         with Vector(kml, driver='KML') as vec:
