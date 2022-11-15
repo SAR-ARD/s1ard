@@ -55,6 +55,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
     selection = []
     if config['aoi_tiles'] is not None:
         vec = tile_ex.extract_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
+        if not isinstance(vec, list):
+            vec = [vec]
         aoi_tiles = config['aoi_tiles']
     elif config['aoi_geometry'] is not None:
         vec = [Vector(config['aoi_geometry'])]
@@ -78,6 +80,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
         raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
                                           maxdate=config['maxdate'], scene_dir=config['scene_dir']))
     scenes = identify_many(selection)
+    if aoi_tiles is None:
+        vec = [x.bbox() for x in scenes]
+        aoi_tiles = tile_ex.tiles_from_aoi(vector=vec, kml=config['kml_file'])
+        del vec
     ####################################################################################################################
     # DEM download and WBM MGRS-tiling
     if rtc_flag:
@@ -159,12 +165,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
-        if aoi_tiles is None:
-            if config['aoi_tiles'] is not None:
-                aoi_tiles = config['aoi_tiles']
-            elif config['aoi_geometry'] is not None:
-                with Vector(config['aoi_geometry']) as vec:
-                    aoi_tiles = tile_ex.tiles_from_aoi(vector=vec, kml=config['kml_file'])
         selection_grouped = group_by_time(scenes=scenes)
         for t, tile in enumerate(aoi_tiles):
             outdir = os.path.join(config['nrb_dir'], tile)
