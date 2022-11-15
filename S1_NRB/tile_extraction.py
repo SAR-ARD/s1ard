@@ -1,18 +1,16 @@
 import re
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
-from S1_NRB.ancillary import get_max_ext
 
 
-def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=False):
+def tiles_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
     """
-    Return a list of MGRS tile IDs or vector objects overlapping with an area of interest (AOI) provided as a
-    :class:`~spatialist.vector.Vector` object.
+    Return a list of MGRS tile IDs or vector objects overlapping one or multiple areas of interest.
     
     Parameters
     -------
-    vectorobject: spatialist.vector.Vector
-        The vector object to read.
+    vector: spatialist.vector.Vector or list[spatialist.vector.Vector]
+        The vector object(s) to read.
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
     epsg: int or list[int] or None
@@ -39,8 +37,13 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=
     """
     if isinstance(epsg, int):
         epsg = [epsg]
-    if vectorobject.getProjection('epsg') != 4326:
-        raise RuntimeError('the CRS of the input vector object must be EPSG:4326')
+    if not isinstance(vector, list):
+        vectors = [vector]
+    else:
+        vectors = vector
+    for vector in vectors:
+        if vector.getProjection('epsg') != 4326:
+            raise RuntimeError('the CRS of the input vector object(s) must be EPSG:4326')
     sortkey = None
     if return_geometries:
         if not strict:
@@ -48,26 +51,27 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=
         sortkey = lambda x: x.mgrs
     with Vector(kml, driver='KML') as vec:
         tiles = []
-        vectorobject.layer.ResetReading()
-        for item in vectorobject.layer:
-            geom = item.GetGeometryRef()
-            vec.layer.SetSpatialFilter(geom)
-            for tile in vec.layer:
-                tilename = tile.GetField('Name')
-                if tilename not in tiles:
-                    attrib = description2dict(tile.GetField('Description'))
-                    if epsg is not None and attrib['EPSG'] not in epsg:
-                        if len(epsg) == 1 and not strict:
-                            tilename += '_{}'.format(epsg[0])
+        for vector in vectors:
+            vector.layer.ResetReading()
+            for item in vector.layer:
+                geom = item.GetGeometryRef()
+                vec.layer.SetSpatialFilter(geom)
+                for tile in vec.layer:
+                    tilename = tile.GetField('Name')
+                    if tilename not in tiles:
+                        attrib = description2dict(tile.GetField('Description'))
+                        if epsg is not None and attrib['EPSG'] not in epsg:
+                            if len(epsg) == 1 and not strict:
+                                tilename += '_{}'.format(epsg[0])
+                            else:
+                                continue
+                        if return_geometries:
+                            geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                            geom.mgrs = tilename
+                            tiles.append(geom)
                         else:
-                            continue
-                    if return_geometries:
-                        geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
-                        geom.mgrs = tilename
-                        tiles.append(geom)
-                    else:
-                        tiles.append(tilename)
-        vectorobject.layer.ResetReading()
+                            tiles.append(tilename)
+            vector.layer.ResetReading()
         tile = None
         geom = None
         item = None
@@ -164,7 +168,7 @@ def get_tile_dict(kml_file, spacing, aoi_geometry=None, aoi_tiles=None):
     """
     if aoi_geometry is not None:
         with Vector(aoi_geometry) as aoi:
-            tiles = tiles_from_aoi(aoi, kml=kml_file)
+            tiles = tiles_from_aoi(vector=aoi, kml=kml_file)
     elif aoi_tiles is not None:
         tiles = aoi_tiles
     else:

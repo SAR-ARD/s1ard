@@ -58,7 +58,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
         aoi_tiles = config['aoi_tiles']
     elif config['aoi_geometry'] is not None:
         vec = [Vector(config['aoi_geometry'])]
-        aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec[0], kml=config['kml_file'])
+        aoi_tiles = tile_ex.tiles_from_aoi(vector=vec[0], kml=config['kml_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
@@ -87,7 +87,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            tiles = tile_ex.tiles_from_aoi(vectorobject=scene.bbox(),
+            tiles = tile_ex.tiles_from_aoi(vector=scene.bbox(),
                                            kml=config['kml_file'],
                                            return_geometries=True)
             
@@ -164,7 +164,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 aoi_tiles = config['aoi_tiles']
             elif config['aoi_geometry'] is not None:
                 with Vector(config['aoi_geometry']) as vec:
-                    aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
+                    aoi_tiles = tile_ex.tiles_from_aoi(vector=vec, kml=config['kml_file'])
         selection_grouped = group_by_time(scenes=scenes)
         for t, tile in enumerate(aoi_tiles):
             outdir = os.path.join(config['nrb_dir'], tile)

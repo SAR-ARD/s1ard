@@ -421,7 +421,7 @@ def process(scene, outdir, spacing, kml, dem,
     ############################################################################
     # geocoding
     with id.bbox() as geom:
-        tiles = tiles_from_aoi(vectorobject=geom, kml=kml)
+        tiles = tiles_from_aoi(vector=geom, kml=kml)
     
     for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
         group = list(group)

@@ -54,7 +54,7 @@ def prepare(geometries, dem_type, dem_dir, wbm_dir, kml_file,
         extent = geometry.extent
         ext_id = generate_unique_id(encoded_str=str(extent).encode())
         
-        tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
+        tiles = tile_ex.tiles_from_aoi(vector=geometry, kml=kml_file,
                                        epsg=epsg, strict=False)
         if dem_dir is not None:
             dem_dir = os.path.join(dem_dir, dem_type)
@@ -209,7 +209,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
                 extent['xmax'] += dem_buffer
                 extent['ymax'] += dem_buffer
                 with bbox(extent, epsg) as dem_box:
-                    tiles = tile_ex.tiles_from_aoi(vectorobject=geometry, kml=kml_file,
+                    tiles = tile_ex.tiles_from_aoi(vector=geometry, kml=kml_file,
                                                    epsg=epsg, strict=False)
                     dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
                     with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
