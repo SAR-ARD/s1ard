@@ -6,7 +6,7 @@ from datetime import datetime
 from osgeo import gdal
 import spatialist
 import pyroSAR
-from pyroSAR import examine
+from pyroSAR import examine, identify_many
 import S1_NRB
 
 
@@ -131,6 +131,44 @@ def set_logging(config, debug=False):
     fh.setFormatter(form)
     
     return log_local
+
+
+def group_by_time(scenes, time=3):
+    """
+    function to group scenes by their acquisition time difference
+
+    Parameters
+    ----------
+    scenes:list[pyroSAR.drivers.ID or str]
+        a list of image names
+    time: int or float
+        a time difference in seconds by which to group the scenes.
+        The default of 3 seconds incorporates the overlap between SLCs.
+
+    Returns
+    -------
+    list[list[str]]
+        a list of sub-lists containing the file names of the grouped scenes
+    """
+    # sort images by time stamp
+    scenes = identify_many(scenes, sortkey='start')
+    
+    if len(scenes) < 2:
+        return [[scenes]]
+    
+    groups = [[scenes[0].scene]]
+    group = groups[0]
+    
+    for i in range(1, len(scenes)):
+        start = datetime.strptime(scenes[i].start, '%Y%m%dT%H%M%S')
+        stop_pred = datetime.strptime(scenes[i - 1].stop, '%Y%m%dT%H%M%S')
+        diff = (stop_pred - start).total_seconds()
+        if diff <= time:
+            group.append(scenes[i].scene)
+        else:
+            groups.append([scenes[i].scene])
+            group = groups[-1]
+    return groups
 
 
 def _log_process_config(logger, config):

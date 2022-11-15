@@ -5,10 +5,9 @@ from osgeo import gdal
 from spatialist import Vector, bbox
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
-from pyroSAR.ancillary import groupbyTime, seconds
 from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing
+from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing, group_by_time
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -161,7 +160,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             elif config['aoi_geometry'] is not None:
                 with Vector(config['aoi_geometry']) as vec:
                     aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
-        selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
+        selection_grouped = group_by_time(scenes=scenes)
         for t, tile in enumerate(aoi_tiles):
             outdir = os.path.join(config['nrb_dir'], tile)
             os.makedirs(outdir, exist_ok=True)
@@ -170,8 +169,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 wbm = None
             
             for s, scenes in enumerate(selection_grouped):
-                if isinstance(scenes, str):
-                    scenes = [scenes]
                 print('###### [    NRB] Tile {t}/{t_total}: {tile} | '
                       'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
                                                                scenes=[os.path.basename(s) for s in scenes],
