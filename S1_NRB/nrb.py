@@ -81,7 +81,11 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     t = proc_time.isoformat().encode()
     product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, tile=tile, extent=extent, epsg=epsg)
+    src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    if len(src_ids) == 0:
+        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
+                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+    
     nrb_start, nrb_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
@@ -261,10 +265,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     return str(round((time.time() - start_time), 2))
 
 
-def get_datasets(scenes, datadir, tile, extent, epsg):
+def get_datasets(scenes, datadir, extent, epsg):
     """
-    Identifies all source SLC/GRD scenes, finds matching output files in `datadir`
-    and filters both lists depending on the actual overlap of each SLC footprint
+    Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
+    and filters both lists depending on the actual overlap of each SLC/GRD footprint
     with the current MGRS tile geometry.
 
     Parameters
@@ -273,8 +277,6 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
         The directory containing the datasets processed from the source scenes using pyroSAR.
-    tile: str
-        ID of an MGRS tile.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -283,9 +285,9 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     Returns
     -------
     ids: list[:class:`pyroSAR.drivers.ID`]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
     datasets: list[dict]
-        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `scenes`.
+        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
         The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
     """
     ids = identify_many(scenes)
@@ -327,10 +329,6 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
                     datasets[i]['datamask'] = dm_ras
                     i += 1
                     inter.close()
-    if len(ids) == 0:
-        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
-                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
-    
     return ids, datasets
 
 
