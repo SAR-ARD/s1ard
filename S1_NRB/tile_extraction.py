@@ -74,35 +74,6 @@ def tiles_from_aoi(vectorobject, kml, epsg=None, strict=True, return_geometries=
         return sorted(tiles, key=sortkey)
 
 
-def aoi_from_tiles(kml, tiles):
-    """
-    Returns the bounding box of a list of MGRS tile IDs as a :class:`~spatialist.vector.Vector` object.
-    
-    Parameters
-    ----------
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
-    tiles: list[str]
-        A list of unique MGRS tile IDs.
-    
-    Returns
-    -------
-    spatialist.vector.Vector
-    
-    Notes
-    -----
-    The global Sentinel-2 tiling grid can be retrieved from:
-    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
-    """
-    geometries = []
-    for tile in tiles:
-        geom = extract_tile(kml=kml, tile=tile)
-        geom.reproject(4326)
-        geometries.append(geom)
-    max_ext = get_max_ext(geometries=geometries)
-    return bbox(max_ext, crs=4326)
-
-
 def extract_tile(kml, tile):
     """
     Extract one or multiple MGRS tiles from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
