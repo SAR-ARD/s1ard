@@ -526,7 +526,7 @@ def find_datasets(scene, outdir, epsg):
     scenedir = os.path.join(outdir, basename)
     subdir = os.path.join(scenedir, basename + f'_geo_{epsg}.data')
     if not os.path.isdir(subdir):
-        raise RuntimeError('no RTC processing output found')
+        return
     lookup = {'dm': r'layoverShadowMask\.img',
               'ei': r'incidenceAngleFromEllipsoid\.img',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img',
