@@ -397,10 +397,6 @@ def process(scene, outdir, spacing, kml, dem,
             allow_res_osv=allow_res_osv)
     ############################################################################
     # radiometric terrain flattening
-    if id.product == 'SLC' and 'scatteringArea' in export_extra:
-        print('RTC scattering area computation for SLCs is currently disabled. '
-              'It will most likely be fixed with release of S1TBX 9.0.1.')
-        del export_extra[export_extra.index('scatteringArea')]
     out_rtc = tmp_base + '_rtc.dim'
     out_rtc_wf = out_rtc.replace('.dim', '.xml')
     workflows.append(out_rtc_wf)
