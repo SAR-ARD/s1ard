@@ -29,6 +29,8 @@ COPY environment.yaml environment.yaml
 RUN conda update conda
 RUN conda env create --force --file environment.yaml
 
+RUN echo "export PROJ_LIB=/usr/local/envs/nrb_env/share/proj" >> ~/.bashrc
+
 RUN echo "conda init bash" >> ~/.bashrc
 RUN source ~/.bashrc
 RUN echo "conda activate nrb_env" >> ~/.bashrc
