@@ -175,12 +175,13 @@ def main(config_file, section_name='PROCESSING', debug=False):
             scenes_fnames = [x.scene for x in scenes]
             # check that the scenes can really be grouped together
             anc.check_scene_consistency(scenes=scenes)
-            # get the tiles that have been pre-selected and overlap with the current scene group
-            vec = [x.bbox() for x in scenes]
+            # get the geometries of all tiles that overlap with the current scene group
+            vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           kml=config['kml_file'],
                                           return_geometries=True)
             del vec
+            # filter the tile selection based on the user geometry config
             tiles = [x for x in tiles if x.mgrs in aoi_tiles]
             for t, tile in enumerate(tiles):
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
