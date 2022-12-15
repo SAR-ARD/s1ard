@@ -7,7 +7,7 @@ from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing, group_by_time, check_scene_consistency
+import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -27,11 +27,11 @@ def main(config_file, section_name='PROCESSING', debug=False):
         Set pyroSAR logging level to DEBUG? Default is False.
     """
     config = get_config(config_file=config_file, proc_section=section_name)
-    logger = set_logging(config=config, debug=debug)
+    logger = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
-    check_spacing(geocode_prms['spacing'])
+    anc.check_spacing(geocode_prms['spacing'])
     
     rtc_flag = True
     nrb_flag = True
@@ -71,15 +71,20 @@ def main(config_file, section_name='PROCESSING', debug=False):
                                acquisition_mode=acq_mode_search,
                                mindate=config['mindate'],
                                maxdate=config['maxdate']))
-    selection = list(set(selection))
-    del vec
-    
-    if len(selection) == 0:
-        message = "No scenes could be found for acquisition mode '{acq_mode}', " \
-                  "mindate '{mindate}' and maxdate '{maxdate}' in directory '{scene_dir}'."
-        raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
-                                          maxdate=config['maxdate'], scene_dir=config['scene_dir']))
-    scenes = identify_many(selection)
+        selection = list(set(selection))
+        del vec
+        
+        if len(selection) == 0:
+            message = "No scenes could be found for the following search query:\n" \
+                      " product:   '{product}'\n" \
+                      " acq. mode: '{acq_mode}'\n" \
+                      " mindate:   '{mindate}'\n" \
+                      " maxdate:   '{maxdate}'\n"
+            raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
+                                              mindate=config['mindate'], maxdate=config['maxdate'],
+                                              scene_dir=config['scene_dir']))
+        scenes = identify_many(selection)
+        anc.check_acquisition_completeness(scenes=scenes, archive=archive)
     if aoi_tiles is None:
         vec = [x.bbox() for x in scenes]
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
@@ -99,7 +104,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             
             for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
                 geometries = list(group)
-                ext = get_max_ext(geometries=geometries, buffer=200)
+                ext = anc.get_max_ext(geometries=geometries, buffer=200)
                 with bbox(coordinates=ext, crs=epsg) as geom:
                     geom.reproject(4326)
                     print(f'###### [    DEM] processing EPSG:{epsg}')
@@ -126,7 +131,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             if os.path.isdir(out_dir_scene):
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
+                anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
                 continue
             else:
                 os.makedirs(out_dir_scene)
@@ -158,18 +163,18 @@ def main(config_file, section_name='PROCESSING', debug=False):
                              dem=fname_dem,
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+                anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
             except Exception as e:
-                log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
                 continue
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
-        selection_grouped = group_by_time(scenes=scenes)
+        selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
             scenes_fnames = [x.scene for x in scenes]
             # check that the scenes can really be grouped together
-            check_scene_consistency(scenes=scenes)
+            anc.check_scene_consistency(scenes=scenes)
             # get the tiles that have been pre-selected and overlap with the current scene group
             vec = [x.bbox() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
@@ -195,9 +200,9 @@ def main(config_file, section_name='PROCESSING', debug=False):
                                      wbm=wbm, multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
                 except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
                     continue
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

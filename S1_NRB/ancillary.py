@@ -2,12 +2,80 @@ import os
 import sys
 import logging
 import binascii
-from datetime import datetime
+from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
 import pyroSAR
 from pyroSAR import examine, identify_many
 import S1_NRB
+
+
+def check_acquisition_completeness(scenes, archive):
+    """
+    Check that for each scene a predecessor and successor can be queried
+    from the database unless the scene is at the start or end of the data take.
+    This ensures that no scene that could be covering an area of interested is missed
+    during processing.
+    
+    Parameters
+    ----------
+    scenes: list[pyroSAR.drivers.ID]
+        a list of scenes
+    archive: pyroSAR.drivers.Archive
+        an open scene archive connection
+
+    Returns
+    -------
+    
+    Raises
+    ------
+    RuntimeError
+    """
+    messages = []
+    for scene in scenes:
+        print(scene.scene)
+        slice = scene.meta['sliceNumber']
+        n_slices = scene.meta['totalSlices']
+        groupsize = 3
+        has_successor = True
+        has_predecessor = True
+        if slice == 1:  # first slice in the data take
+            groupsize -= 1
+            has_predecessor = False
+        if slice == n_slices:  # last slice in the data take
+            groupsize -= 1
+            has_successor = False
+        f = '%Y%m%dT%H%M%S'
+        td = timedelta(seconds=2)
+        start = datetime.strptime(scene.start, f) - td
+        start = datetime.strftime(start, f)
+        stop = datetime.strptime(scene.stop, f) + td
+        stop = datetime.strftime(stop, f)
+        # Do another database selection to get the scene in question as well as its potential
+        # predecessor and successor by adding an acquisition time buffer of two seconds.
+        group = archive.select(product=scene.product,
+                               acquisition_mode=scene.acquisition_mode,
+                               mindate=start,
+                               maxdate=stop,
+                               date_strict=False)
+        group = identify_many(group)
+        # if the number of selected scenes is lower than the expected group size,
+        # check whether the predecessor, the successor or both are missing.
+        if len(group) < groupsize:
+            start_min = min([x.start for x in group])
+            stop_max = max([x.stop for x in group])
+            print(start, start_min)
+            print(stop, stop_max)
+            missing = []
+            if start_min > start and has_predecessor:
+                missing.append('predecessor')
+            if stop_max < stop and has_successor:
+                missing.append('successor')
+            base = os.path.basename(scene.scene)
+            messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
+    if len(messages) != 0:
+        text = '\n - '.join(messages)
+        raise RuntimeError(f'missing the following scenes:\n - {text}')
 
 
 def check_scene_consistency(scenes):
