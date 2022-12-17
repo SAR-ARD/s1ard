@@ -156,8 +156,9 @@ def get_max_ext(geometries, buffer=None):
     ----------
     geometries: list[spatialist.vector.Vector]
         List of :class:`~spatialist.vector.Vector` geometries.
-    buffer: float, optional
-        The buffer in degrees to add to the extent.
+    buffer: float or None
+        The buffer in units of the geometries' CRS to add to the extent.
+    
     Returns
     -------
     max_ext: dict
