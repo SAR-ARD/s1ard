@@ -517,6 +517,7 @@ def process(scene, outdir, spacing, kml, dem,
         # buffering
         out_buffer = tmp_base + '_buf.dim'
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
+        workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
             grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                        neighbors=out_pre_neighbors)
@@ -660,22 +661,22 @@ def find_datasets(scene, outdir, epsg):
     subdir = os.path.join(scenedir, basename + f'_geo_{epsg}.data')
     if not os.path.isdir(subdir):
         return
-    lookup = {'dm': r'layoverShadowMask\.img',
-              'ei': r'incidenceAngleFromEllipsoid\.img',
-              'gs': r'gammaSigmaRatio_[VH]{2}\.img',
-              'lc': r'simulatedImage_[VH]{2}\.img',
-              'li': r'localIncidenceAngle\.img'}
+    lookup = {'dm': r'layoverShadowMask\.img$',
+              'ei': r'incidenceAngleFromEllipsoid\.img$',
+              'gs': r'gammaSigmaRatio_[VH]{2}\.img$',
+              'lc': r'simulatedImage_[VH]{2}\.img$',
+              'li': r'localIncidenceAngle\.img$'}
     out = {}
     for key, pattern in lookup.items():
         match = finder(target=subdir, matchlist=[pattern], regex=True)
         if len(match) > 0:
             out[key] = match[0]
-    pattern = r'Gamma0_(?P<pol>[VH]{2})\.img'
+    pattern = r'Gamma0_(?P<pol>[VH]{2})\.img$'
     gamma = finder(target=subdir, matchlist=[pattern], regex=True)
     for item in gamma:
         pol = re.search(pattern, item).group('pol')
         out[f'{pol.lower()}-g-lin'] = item
-    pattern = r'NESZ_(?P<pol>[VH]{2})\.img'
+    pattern = r'NESZ_(?P<pol>[VH]{2})\.img$'
     nesz = finder(target=subdir, matchlist=[pattern], regex=True)
     for item in nesz:
         pol = re.search(pattern, item).group('pol')
@@ -701,12 +702,12 @@ def get_metadata(scene, outdir):
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
-    wf_mli = finder(scenedir, ['*mli.xml'])[0]
-    wf = parse_recipe(wf_mli)
-    if 'Multilook' in wf.operators:
-        rlks = int(wf['Multilook'].parameters['nRgLooks'])
-        azlks = int(wf['Multilook'].parameters['nAzLooks'])
-    else:
-        rlks = azlks = 1
+    rlks = azlks = 1
+    wf_mli = finder(scenedir, ['*mli.xml'])
+    if len(wf_mli) > 0:
+        wf = parse_recipe(wf_mli)
+        if 'Multilook' in wf.operators:
+            rlks = int(wf['Multilook'].parameters['nRgLooks'])
+            azlks = int(wf['Multilook'].parameters['nAzLooks'])
     return {'azlks': azlks,
             'rlks': rlks}
