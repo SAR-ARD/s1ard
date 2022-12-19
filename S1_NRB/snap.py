@@ -13,10 +13,9 @@ from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
 from S1_NRB.ancillary import get_max_ext
 
 
-def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=True):
+def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
     """
-    Create a multi-looked image (MLI). The following operators are used (optional steps in brackets):
-    Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst->Multilook)
+    Multi-looing.
     
     Parameters
     ----------
@@ -30,9 +29,55 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
         the target pixel spacing for automatic determination of looks
         using function :func:`pyroSAR.ancillary.multilook_factors`.
         Overridden by arguments `rlks` and `azlks` if they are not None.
-    rlks: int
+    rlks: int or None
         the number of range looks.
-    azlks: int
+    azlks: int or None
+        the number of azimuth looks.
+
+    Returns
+    -------
+
+    """
+    scene = identify(src)
+    wf = parse_recipe('blank')
+    ############################################
+    read = parse_node('Read')
+    read.parameters['file'] = scene.scene
+    wf.insert_node(read)
+    ############################################
+    ml = mli_parametrize(scene=scene, spacing=spacing, rlks=rlks, azlks=azlks)
+    if ml is not None:
+        wf.insert_node(ml, before=read.id)
+        ############################################
+        write = parse_node('Write')
+        wf.insert_node(write, before=ml.id)
+        write.parameters['file'] = dst
+        write.parameters['formatName'] = 'BEAM-DIMAP'
+        ############################################
+        wf.write(workflow)
+        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+
+
+def pre(src, dst, workflow, allow_res_osv=True):
+    """
+    SAR preprocessing. The following operators are used (optional steps in brackets):
+    Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
+
+    Parameters
+    ----------
+    src: str
+        the file name of the source scene
+    dst: str
+        the file name of the target scene. Format is BEAM-DIMAP.
+    workflow: str
+        the output SNAP XML workflow filename.
+    spacing: int or float
+        the target pixel spacing for automatic determination of looks
+        using function :func:`pyroSAR.ancillary.multilook_factors`.
+        Overridden by arguments `rlks` and `azlks` if they are not None.
+    rlks: int or None
+        the number of range looks.
+    azlks: int or None
         the number of azimuth looks.
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
@@ -77,11 +122,6 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
         wf.insert_node(deb, before=last.id)
         last = deb
     ############################################
-    ml = mli_parametrize(scene=scene, spacing=spacing, rlks=rlks, azlks=azlks)
-    if ml is not None:
-        wf.insert_node(ml, before=last.id)
-        last = ml
-    ############################################
     write = parse_node('Write')
     wf.insert_node(write, before=last.id)
     write.parameters['file'] = dst
@@ -91,7 +131,65 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, allow_res_osv=T
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION', sigma0=True, scattering_area=True):
+def grd_buffer(src, dst, workflow, neighbors, buffer=10):
+    """
+    GRDs, unlike SLCs, do not overlap in azimuth.
+    With this function, a GRD can be buffered using the neighboring acquisitions.
+    First, all images are mosaicked using the `SliceAssembly` operator
+    and then subsetted to the extent of the main scene including a buffer.
+    
+    Parameters
+    ----------
+    src: str
+        the file name of the source scene
+    dst: str
+        the file name of the target scene. Format is BEAM-DIMAP.
+    workflow: str
+        the output SNAP XML workflow filename.
+    neighbors: list[str]
+        the file names of neighboring scenes
+    buffer: int
+        the number of pixels to buffer
+
+    Returns
+    -------
+
+    """
+    scenes = identify_many([src] + neighbors, sortkey='start')
+    wf = parse_recipe('blank')
+    ############################################
+    read_ids = []
+    for scene in scenes:
+        read = parse_node('Read')
+        read.parameters['file'] = scene.scene
+        wf.insert_node(read)
+        read_ids.append(read.id)
+    ############################################
+    asm = parse_node('SliceAssembly')
+    wf.insert_node(asm, before=read_ids)
+    ############################################
+    id_main = [x.scene for x in scenes].index(src)
+    xmin = 0
+    width = scenes[id_main].samples
+    ymin = 0 if id_main == 0 else scenes[0].lines - buffer
+    height = scenes[id_main].lines + buffer * 2
+    sub = parse_node('Subset')
+    sub.parameters['region'] = [xmin, ymin, width, height]
+    sub.parameters['geoRegion'] = ''
+    sub.parameters['copyMetadata'] = True
+    wf.insert_node(sub, before=asm.id)
+    ############################################
+    write = parse_node('Write')
+    wf.insert_node(write, before=sub.id)
+    write.parameters['file'] = dst
+    write.parameters['formatName'] = 'BEAM-DIMAP'
+    ############################################
+    wf.write(workflow)
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+
+
+def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
+        sigma0=True, scattering_area=True):
     """
     Radiometric Terrain Flattening.
     
@@ -218,7 +316,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     
     Parameters
     ----------
-    src
+    src: list[str or None]
         variable number of input scene file names
     dst: str
         the file name of the target scene. Format is BEAM-DIMAP.
@@ -251,7 +349,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     img_resampling_method: str
         the SAR image resampling method
     bands
-        band ids for the input scenes in `args` as lists with keys bands<index>,
+        band ids for the input scenes in `src` as lists with keys bands<index>,
         e.g., bands1=['NESZ_VV'], bands2=['Gamma0_VV'], ...
 
     Returns
@@ -309,7 +407,7 @@ def process(scene, outdir, spacing, kml, dem,
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
             allow_res_osv=True, slc_clean_edges=True, slc_clean_edges_pixels=4,
-            cleanup=True):
+            neighbors=None, cleanup=True):
     """
     Main function for RTC processing with SNAP.
     
@@ -352,6 +450,10 @@ def process(scene, outdir, spacing, kml, dem,
         Does not apply to layover-shadow mask.
     slc_clean_edges_pixels: int
         The number of pixels to erode.
+    neighbors: list[str] or None
+        (only applies to GRD) an optional list of neighboring scenes to add
+        a buffer around the main scene. If GRDs are processed compeletely
+        independently, gaps are introduced due to a missing overlap between GRDs.
     cleanup: bool
         Delete intermediate files after successful process termination?
 
@@ -388,13 +490,48 @@ def process(scene, outdir, spacing, kml, dem,
     workflows = []
     ############################################################################
     # general pre-processing
+    out_pre = tmp_base + '_pre.dim'
+    out_pre_wf = out_pre.replace('.dim', '.xml')
+    workflows.append(out_pre_wf)
+    if not os.path.isfile(out_pre):
+        pre(src=scene, dst=out_pre, workflow=out_pre_wf,
+            allow_res_osv=allow_res_osv)
+    ############################################################################
+    # GRD buffering
+    if neighbors is not None:
+        # general preprocessing of neighboring scenes
+        out_pre_neighbors = []
+        for item in neighbors:
+            basename_nb = os.path.splitext(os.path.basename(item))[0]
+            tmpdir_nb = os.path.join(tmpdir, basename_nb)
+            os.makedirs(tmpdir_nb, exist_ok=True)
+            tmp_base_nb = os.path.join(tmpdir_nb, basename_nb)
+            out_pre_nb = tmp_base_nb + '_pre.dim'
+            out_pre_nb_wf = out_pre_nb.replace('.dim', '.xml')
+            if not os.path.isfile(out_pre_nb):
+                print('### preprocessing neighbor:', item)
+                pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
+                    allow_res_osv=allow_res_osv)
+            out_pre_neighbors.append(out_pre_nb)
+        ########################################################################
+        # buffering
+        out_buffer = tmp_base + '_buf.dim'
+        out_buffer_wf = out_buffer.replace('.dim', '.xml')
+        if not os.path.isfile(out_buffer):
+            grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
+                       neighbors=out_pre_neighbors)
+        out_pre = out_buffer
+    ############################################################################
+    # multi-looking
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
-    workflows.append(out_mli_wf)
     if not os.path.isfile(out_mli):
-        mli(src=scene, dst=out_mli, workflow=out_mli_wf,
-            spacing=spacing, rlks=rlks, azlks=azlks,
-            allow_res_osv=allow_res_osv)
+        mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
+            spacing=spacing, rlks=rlks, azlks=azlks)
+    if not os.path.isfile(out_mli):
+        out_mli = out_pre
+    else:
+        workflows.append(out_mli_wf)
     ############################################################################
     # radiometric terrain flattening
     out_rtc = tmp_base + '_rtc.dim'

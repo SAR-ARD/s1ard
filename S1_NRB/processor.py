@@ -8,6 +8,7 @@ from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
+from datetime import datetime, timedelta
 
 gdal.UseExceptions()
 
@@ -90,7 +91,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
         del vec
     ####################################################################################################################
-    # DEM download and WBM MGRS-tiling
+    # main SAR processing
     if rtc_flag:
         username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
         for i, scene in enumerate(scenes):
@@ -98,6 +99,17 @@ def main(config_file, section_name='PROCESSING', debug=False):
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
+            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            if os.path.isdir(out_dir_scene):
+                msg = 'Already processed - Skip!'
+                print('### ' + msg)
+                anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
+                continue
+            else:
+                os.makedirs(out_dir_scene)
+                os.makedirs(tmp_dir_scene, exist_ok=True)
+            ############################################################################################################
+            # Preparation of DEM and WBM
             dem.prepare(vector=scene.bbox(), threads=gdal_prms['threads'],
                         dem_dir=None, wbm_dir=config['wbm_dir'],
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
@@ -116,24 +128,14 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
                            username=username, password=password)
             ############################################################################################################
-            # RTC processing
-            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
-            if os.path.isdir(out_dir_scene):
-                msg = 'Already processed - Skip!'
-                print('### ' + msg)
-                anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
-                continue
-            else:
-                os.makedirs(out_dir_scene)
-                os.makedirs(tmp_dir_scene, exist_ok=True)
-            ###############################################
             # ETAD correction
             if config['etad']:
                 msg = '###### [   ETAD] Scene {s}/{s_total}: {scene}'
                 print(msg.format(s=i + 1, s_total=len(scenes), scene=scene.scene))
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
                                      out_dir=tmp_dir_scene, log=logger)
-            ###############################################
+            ############################################################################################################
+            # determination of look factors
             if scene.product == 'SLC':
                 rlks = {'IW': 5,
                         'SM': 6,
@@ -145,12 +147,29 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 azlks *= int(geocode_prms['spacing'] / 10)
             else:
                 rlks = azlks = None
-            ###############################################
+            ############################################################################################################
+            # get neighbouring GRD scenes to add a buffer to the geocoded scenes
+            # otherwise there will be a gap between final geocoded images.
+            neighbors = None
+            if scene.product == 'GRD':
+                f = '%Y%m%dT%H%M%S'
+                td = timedelta(seconds=2)
+                start = datetime.strptime(scene.start, f) - td
+                start = datetime.strftime(start, f)
+                stop = datetime.strptime(scene.stop, f) + td
+                stop = datetime.strftime(stop, f)
+                with Archive(config['db_file']) as db:
+                    neighbors = db.select(mindate=start, maxdate=stop, date_strict=False,
+                                          sensor=scene.sensor, product=scene.product,
+                                          acquisition_mode=scene.acquisition_mode)
+                del neighbors[neighbors.index(scene.scene)]
+            ############################################################################################################
+            # main processing routine
             start_time = time.time()
             try:
                 snap.process(scene=scene.scene, outdir=config['rtc_dir'],
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
-                             dem=fname_dem,
+                             dem=fname_dem, neighbors=neighbors,
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
                 anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
