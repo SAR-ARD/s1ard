@@ -192,6 +192,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
             del vec
             # filter the tile selection based on the user geometry config
             tiles = [x for x in tiles if x.mgrs in aoi_tiles]
+            t_total = len(tiles)
+            s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
@@ -200,10 +202,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
                     wbm = None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes {s}/{s_total}: {scenes} '
-                print(msg.format(tile=tile.mgrs, t=t + 1, t_total=len(aoi_tiles),
+                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
+                print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
                                  scenes=[os.path.basename(s.scene) for s in scenes],
-                                 s=s + 1, s_total=len(selection_grouped)))
+                                 s=s + 1, s_total=s_total))
                 try:
                     msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,

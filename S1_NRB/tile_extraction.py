@@ -48,6 +48,7 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
     if return_geometries:
         sortkey = lambda x: x.mgrs
     with Vector(kml, driver='KML') as vec:
+        tilenames_src = []
         tiles = []
         for vector in vectors:
             vector.layer.ResetReading()
@@ -56,7 +57,8 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
                 vec.layer.SetSpatialFilter(geom)
                 for tile in vec.layer:
                     tilename = tile.GetField('Name')
-                    if tilename not in tiles:
+                    if tilename not in tilenames_src:
+                        tilenames_src.append(tilename)
                         attrib = description2dict(tile.GetField('Description'))
                         reproject = False
                         if epsg is not None and attrib['EPSG'] not in epsg:
