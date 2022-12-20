@@ -9,7 +9,7 @@ from spatialist import Raster, bbox
 
 
 def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
-            threads, username=None, password=None):
+            threads=None, username=None, password=None):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -26,8 +26,9 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
         The WBM target directory.
     kml_file: str
         The KML file containing the MGRS tile geometries.
-    threads: int
+    threads: int or None
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
+        Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the environment variable 'DEM_USER' is read.
