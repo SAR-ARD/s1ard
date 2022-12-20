@@ -41,6 +41,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
     elif config['mode'] == 'nrb':
         rtc_flag = False
     
+    # DEM download authentication
+    username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
     ####################################################################################################################
     # archive / scene selection
     scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
@@ -93,7 +95,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # main SAR processing
     if rtc_flag:
-        username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
@@ -109,12 +110,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 os.makedirs(out_dir_scene)
                 os.makedirs(tmp_dir_scene, exist_ok=True)
             ############################################################################################################
-            # Preparation of DEM and WBM
-            dem.prepare(vector=scene.bbox(), threads=gdal_prms['threads'],
-                        dem_dir=None, wbm_dir=config['wbm_dir'],
-                        dem_type=config['dem_type'], kml_file=config['kml_file'],
-                        username=username, password=password)
-            
+            # Preparation of DEM for SAR processing
             dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
                                'Copernicus 30m Global DEM II': 'GLO30II',
                                'Copernicus 30m Global DEM': 'GLO30',
@@ -192,6 +188,15 @@ def main(config_file, section_name='PROCESSING', debug=False):
             del vec
             # filter the tile selection based on the user geometry config
             tiles = [x for x in tiles if x.mgrs in aoi_tiles]
+            
+            # prepare DEM and WBM MGRS tiles
+            for scene in scenes:
+                dem.prepare(vector=scene.geometry(), threads=gdal_prms['threads'],
+                            dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
+                            dem_type=config['dem_type'], kml_file=config['kml_file'],
+                            tilenames=aoi_tiles, username=username, password=password,
+                            dem_strict=True)
+            
             t_total = len(tiles)
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
