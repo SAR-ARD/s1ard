@@ -8,7 +8,7 @@ from S1_NRB.ancillary import generate_unique_id, get_max_ext
 from spatialist import Raster, bbox
 
 
-def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
+def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
             threads=None, username=None, password=None):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
@@ -26,6 +26,9 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
         The WBM target directory. WBM preparation can be skipped if set to None
     kml_file: str
         The KML file containing the MGRS tile geometries.
+    dem_strict: bool
+        strictly only create DEM tiles in the native CRS of the MGRS tile or
+        also allow reprojection to ensure full coverage of the vector object in every CRS.
     threads: int or None
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
         Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
@@ -36,6 +39,29 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     password: str or None
         The password for accessing the DEM tiles.
         If None: same behavior as for username but with env. variable 'DEM_PASS'.
+    
+    Examples
+    --------
+    >>> from S1_NRB import dem
+    >>> from spatialist import bbox
+    >>> ext = {'xmin': 12, 'xmax': 13, 'ymin': 50, 'ymax': 51}
+    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    # strictly only create overlapping DEM tiles in their native CRS.
+    # Will create tiles 32UQA, 32UQB, 33UUR and 33UUS.
+    >>> with bbox(coordinates=ext, crs=4326) as vec:
+    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=True,
+    >>>                 kml_file=kml, threads=4)
+    # Process all overlapping DEM tiles to each CRS.
+    # Will additionally create tiles 32UQA_32633, 32UQB_32633, 33UUR_32632 and 33UUS_32632.
+    >>> with bbox(coordinates=ext, crs=4326) as vec:
+    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=False,
+    >>>                 kml_file=kml, threads=4)
+    
+    See Also
+    --------
+    S1_NRB.tile_extraction.tile_from_aoi
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -71,7 +97,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
         # UTM zone covering the AOI while fully covering it. This was needed for processing
         # full SAR scenes to different UTM zones. In the current workflow this in no longer
         # used.
-        if dem_dir is not None:
+        if dem_dir is not None and not dem_strict:
             vectors = tile_ex.tile_from_aoi(
                 vector=vector.bbox(),
                 kml=kml_file, epsg=epsg,

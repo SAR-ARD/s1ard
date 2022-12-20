@@ -114,11 +114,9 @@ Tile Extraction
     .. autosummary::
         :nosignatures:
 
-        aoi_from_tiles
+        aoi_from_tile
         description2dict
-        extract_tile
-        get_tile_dict
-        tiles_from_aoi
+        tile_from_aoi
 
 Ancillary Functions
 -------------------
