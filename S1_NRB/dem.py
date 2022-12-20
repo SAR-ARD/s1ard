@@ -9,7 +9,7 @@ from spatialist import Raster, bbox
 
 
 def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
-            threads=None, username=None, password=None):
+            tilenames=None, threads=None, username=None, password=None):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -18,6 +18,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     ----------
     vector: spatialist.vector.Vector
         The vector object for which to prepare the DEM and WBM tiles.
+        CRS must be EPSG:4236.
     dem_type: str
         The DEM type.
     dem_dir: str or None
@@ -29,6 +30,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     dem_strict: bool
         strictly only create DEM tiles in the native CRS of the MGRS tile or
         also allow reprojection to ensure full coverage of the vector object in every CRS.
+    tilenames: list[str] or None
+        an optional list of MGRS tile names. Default None: process all overalapping tiles.
     threads: int or None
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
         Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
@@ -86,6 +89,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     tiles = tile_ex.tile_from_aoi(vector=vector,
                                   kml=kml_file,
                                   return_geometries=True)
+    if tilenames is not None:
+        tiles = [x for x in tiles if x.mgrs in tilenames]
     # group the returned tiles by CRS and process them separately
     for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
         print(f'###### [    DEM] processing EPSG:{epsg}')
@@ -103,6 +108,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                 kml=kml_file, epsg=epsg,
                 strict=False,
                 return_geometries=True)
+            if tilenames is not None:
+                vectors = [x for x in vectors if x.mgrs in tilenames]
         
         # Get the bounding box of the tile vector objects and use this from here on
         ext = get_max_ext(geometries=vectors, buffer=200)

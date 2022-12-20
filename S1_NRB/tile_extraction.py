@@ -10,7 +10,7 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
     Parameters
     -------
     vector: spatialist.vector.Vector or list[spatialist.vector.Vector]
-        The vector object(s) to read.
+        The vector object(s) to read. CRS must be EPSG:4236.
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
     epsg: int or list[int] or None
