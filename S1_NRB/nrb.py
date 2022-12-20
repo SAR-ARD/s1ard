@@ -11,7 +11,7 @@ from copy import deepcopy
 from scipy.interpolate import griddata
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
-from spatialist.auxil import gdalwarp, gdalbuildvrt
+from spatialist.auxil import gdalwarp, gdalbuildvrt, gdal_translate
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 import S1_NRB
@@ -23,7 +23,7 @@ from S1_NRB.snap import find_datasets
 
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           multithread=True, compress=None, overviews=None):
+           dem=None, multithread=True, compress=None, overviews=None):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -49,6 +49,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         The CRS used for the NRB product; provided as an EPSG code.
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
+    dem: str or None
+        Path to a DEM file with the dimensions of an MGRS tile.
     multithread: bool
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
@@ -85,6 +87,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     if len(src_ids) == 0:
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+    
+    # GDAL output bounds
+    bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
     nrb_start, nrb_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
@@ -146,7 +151,6 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(outname):
             os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
-            bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
             images = [ds[key] for ds in datasets]
             ras = None
             if len(images) > 1:
@@ -202,6 +206,27 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                             creation_opt=write_options['id'],
                             overviews=overviews, dst_nodata=dst_nodata_byte)
     datasets_nrb['id'] = id_path
+    
+    # create DEM (-em.tif)
+    if dem is not None:
+        print(write_options['em'])
+        options = {'format': driver,
+                   'noData': dst_nodata_float,
+                   'creationOptions': write_options['em']}
+        with Raster(dem) as ras:
+            res_source = ras.res
+        with Raster(ref_tif) as ras:
+            res_target = ras.res
+        if res_source != res_target:
+            options['xRes'] = res_target[0]
+            options['yRes'] = res_target[1]
+            options['resampleAlg'] = 'average'
+        
+        em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
+        if not os.path.isfile(em_path):
+            print(em_path)
+            gdal_translate(src=dem, dst=em_path, options=options)
+        datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-g-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:

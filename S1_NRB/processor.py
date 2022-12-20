@@ -202,9 +202,14 @@ def main(config_file, section_name='PROCESSING', debug=False):
             for t, tile in enumerate(tiles):
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
-                wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile.mgrs))
-                if not os.path.isfile(wbm):
-                    wbm = None
+                fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
+                                         '{}_WBM.tif'.format(tile.mgrs))
+                if not os.path.isfile(fname_wbm):
+                    fname_wbm = None
+                fname_dem = os.path.join(config['dem_dir'], config['dem_type'],
+                                         '{}_DEM.tif'.format(tile.mgrs))
+                if not os.path.isfile(fname_dem):
+                    fname_dem = None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
                 msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
@@ -214,7 +219,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 try:
                     msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=wbm, multithread=gdal_prms['multithread'])
+                                     wbm=fname_wbm, dem=fname_dem, multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
