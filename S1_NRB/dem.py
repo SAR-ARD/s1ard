@@ -22,8 +22,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
         The DEM type.
     dem_dir: str or None
         The DEM target directory. DEM preparation can be skipped if set to None.
-    wbm_dir: str
-        The WBM target directory.
+    wbm_dir: str or None
+        The WBM target directory. WBM preparation can be skipped if set to None
     kml_file: str
         The KML file containing the MGRS tile geometries.
     threads: int or None
@@ -48,7 +48,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM',
                 'Copernicus 30m Global DEM II']
-    if dem_type in wbm_dems:
+    if wbm_dir is not None and dem_type in wbm_dems:
         wbm_dir = os.path.join(wbm_dir, dem_type)
     else:
         wbm_dir = None
