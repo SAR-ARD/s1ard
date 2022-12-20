@@ -27,7 +27,7 @@ def product_json(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     scene_id = os.path.basename(target)
@@ -308,7 +308,7 @@ def source_json(meta, target, exist_ok=False):
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
@@ -458,7 +458,7 @@ def parse(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
@@ -478,9 +478,9 @@ def make_catalog(directory, recursive=True, silent=False):
     ----------
     directory: str
         Path to a directory that contains Sentinel-1 NRB products.
-    recursive: bool, optional
+    recursive: bool
         Search for NRB products in `directory` recursively? Default is True.
-    silent: bool, optional
+    silent: bool
         Should the output during directory reorganization be suppressed? Default is False.
     
     Returns
@@ -574,11 +574,11 @@ def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
     ----------
     directory: str
         Path to a directory that contains Sentinel-1 NRB products.
-    products: list[str], optional
+    products: list[str] or None
         List of NRB product paths. Will be created from `directory` if not provided.
-    recursive: bool, optional
+    recursive: bool
         Search for NRB products in `directory` recursively? Default is True.
-    silent: bool, optional
+    silent: bool
         If False (default), a message for each NRB product is printed if it has been moved to a new location or not.
 
     Returns

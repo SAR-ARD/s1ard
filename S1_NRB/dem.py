@@ -221,11 +221,11 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
         The DEM type.
     outname: str
         The name of the mosaic.
-    epsg: int
+    epsg: int or None
         The coordinate reference system as an EPSG code.
-    kml_file: str
+    kml_file: str or None
         The KML file containing the MGRS tile geometries.
-    dem_dir: str
+    dem_dir: str or None
         The directory containing the DEM MGRS tiles.
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required

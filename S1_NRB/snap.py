@@ -71,14 +71,6 @@ def pre(src, dst, workflow, allow_res_osv=True):
         the file name of the target scene. Format is BEAM-DIMAP.
     workflow: str
         the output SNAP XML workflow filename.
-    spacing: int or float
-        the target pixel spacing for automatic determination of looks
-        using function :func:`pyroSAR.ancillary.multilook_factors`.
-        Overridden by arguments `rlks` and `azlks` if they are not None.
-    rlks: int or None
-        the number of range looks.
-    azlks: int or None
-        the number of azimuth looks.
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
 
@@ -207,7 +199,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         the DEM resampling method.
     sigma0: bool
         output sigma0 RTC backscatter?
-    scattering_area:bool
+    scattering_area: bool
         output scattering area image?
 
     Returns
