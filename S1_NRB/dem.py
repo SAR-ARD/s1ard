@@ -194,7 +194,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                       ext['xmax'], ext['ymax']]
             dem_create(src=fname_wbm_tmp, dst=filename,
                        t_srs=epsg, tr=(tr, tr),
-                       resampling_method='mode', pbar=True,
+                       resampleAlg='mode', pbar=True,
                        outputBounds=bounds, threads=threads)
 
 

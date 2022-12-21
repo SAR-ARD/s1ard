@@ -158,7 +158,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 source = ras.filename
             else:
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
-                gdalbuildvrt(images[0], source)
+                gdalbuildvrt(src=images[0], dst=source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             tree = etree.parse(source)
@@ -171,10 +171,11 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             etree.indent(root)
             tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
             
-            gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
-                              'dstNodata': dst_nodata_float, 'multithread': multithread,
-                              'creationOptions': write_options[key]})
+            options = {'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
+                       'dstNodata': dst_nodata_float, 'multithread': multithread,
+                       'creationOptions': write_options[key]}
+            
+            gdalwarp(src=source, dst=outname, **options)
             if ras is not None:
                 ras.close()
         datasets_nrb[key] = outname
@@ -225,7 +226,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
             print(em_path)
-            gdal_translate(src=dem, dst=em_path, options=options)
+            gdal_translate(src=dem, dst=em_path, **options)
         datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-g-lin.vrt)
@@ -418,7 +419,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
     >>> dst = src.replace('-lin.tif', '-log3.vrt')
     >>> create_vrt(src=src, dst=dst, fun='dB', args={'fact': 10})
     """
-    gdalbuildvrt(src=src, dst=dst, options=options)
+    gdalbuildvrt(src=src, dst=dst, **options)
     tree = etree.parse(dst)
     root = tree.getroot()
     band = tree.find('VRTRasterBand')
@@ -501,8 +502,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         ov = ov.replace(x, '')
     
     # create VRT file and change its content
-    gdalbuildvrt(src=infiles, dst=outname,
-                 options={'separate': True})
+    gdalbuildvrt(src=infiles, dst=outname, separate=True)
     
     tree = etree.parse(outname)
     root = tree.getroot()
@@ -706,9 +706,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     vrt_ls = '/vsimem/' + os.path.dirname(outname) + 'ls.vrt'
     vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'valid.vrt'
     vrt_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'gamma0.vrt'
-    gdalbuildvrt(ls, vrt_ls, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(datamask, vrt_valid, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(gamma0, vrt_gamma0, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(src=ls, dst=vrt_ls, outputBounds=tile_bounds, void=False)
+    gdalbuildvrt(src=datamask, dst=vrt_valid, outputBounds=tile_bounds, void=False)
+    gdalbuildvrt(src=gamma0, dst=vrt_gamma0, outputBounds=tile_bounds, void=False)
     
     with Raster(vrt_ls) as ras_ls:
         with bbox(extent, crs=epsg) as tile_vec:
@@ -727,9 +727,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     if cols_ratio > 1:
                         res = int(ras_ls_res[0])
                         wbm_lowres = wbm.replace('.tif', f'_{res}m.vrt')
-                        gdalbuildvrt(src=wbm, dst=wbm_lowres,
-                                     options={'xRes': res, 'yRes': res,
-                                              'resampleAlg': 'mode'})
+                        options = {'xRes': res, 'yRes': res,
+                                   'resampleAlg': 'mode'}
+                        gdalbuildvrt(src=wbm, dst=wbm_lowres, **options)
                         with Raster(wbm_lowres) as ras_wbm_lowres:
                             arr_wbm = ras_wbm_lowres.array()
                     else:
@@ -843,7 +843,7 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     arr_list = []
     for dataset in datasets:
         vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
-        gdalbuildvrt(dataset['datamask'], vrt_valid, options={'outputBounds': tile_bounds}, void=False)
+        gdalbuildvrt(src=dataset['datamask'], dst=vrt_valid, outputBounds=tile_bounds, void=False)
         with bbox(extent, crs=epsg) as tile_vec:
             with Raster(vrt_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()
