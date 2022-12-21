@@ -73,6 +73,9 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     geoid = 'EGM2008'  # applies to all Copernicus DEM options
     
     tr = 10  # target resolution. Lower resolutions can be created virtually using VRTs.
+    # additional creation option for gdalwarp
+    create_options = ['COMPRESS=LERC_ZSTD', 'MAX_Z_ERROR=0']
+    
     # DEM options with WBMs
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM',
@@ -183,7 +186,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                        t_srs=epsg, tr=(tr, tr), pbar=True,
                        geoid_convert=geoid_convert, geoid=geoid,
                        outputBounds=bounds, threads=threads,
-                       nodata=-32767)
+                       nodata=-32767, creationOptions=create_options)
         ###############################################
         if len(wbm_target) > 0:
             msg = '### creating WBM MGRS tiles: \n{tiles}'
@@ -195,7 +198,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
             dem_create(src=fname_wbm_tmp, dst=filename,
                        t_srs=epsg, tr=(tr, tr),
                        resampleAlg='mode', pbar=True,
-                       outputBounds=bounds, threads=threads)
+                       outputBounds=bounds, threads=threads,
+                       creationOptions=create_options)
 
 
 def authenticate(dem_type, username=None, password=None):
