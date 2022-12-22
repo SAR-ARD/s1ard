@@ -73,7 +73,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     geoid = 'EGM2008'  # applies to all Copernicus DEM options
     
     tr = 10  # target resolution. Lower resolutions can be created virtually using VRTs.
-    # additional creation option for gdalwarp
+    # additional creation options for gdalwarp
     create_options = ['COMPRESS=LERC_ZSTD', 'MAX_Z_ERROR=0']
     
     # DEM options with WBMs
@@ -91,9 +91,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     # get the geometries of all tiles overlapping with the AOI
     tiles = tile_ex.tile_from_aoi(vector=vector,
                                   kml=kml_file,
-                                  return_geometries=True)
-    if tilenames is not None:
-        tiles = [x for x in tiles if x.mgrs in tilenames]
+                                  return_geometries=True,
+                                  tilenames=tilenames)
     # group the returned tiles by CRS and process them separately
     for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
         print(f'###### [    DEM] processing EPSG:{epsg}')
@@ -110,9 +109,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                 vector=vector.bbox(),
                 kml=kml_file, epsg=epsg,
                 strict=False,
-                return_geometries=True)
-            if tilenames is not None:
-                vectors = [x for x in vectors if x.mgrs in tilenames]
+                return_geometries=True,
+                tilenames=tilenames)
         
         # Get the bounding box of the tile vector objects and use this from here on
         ext = get_max_ext(geometries=vectors, buffer=200)
@@ -221,7 +219,7 @@ def authenticate(dem_type, username=None, password=None):
 
     Returns
     -------
-    tuple
+    tuple[str or None]
         the username and password
     """
     dems_auth = ['Copernicus 10m EEA DEM',
