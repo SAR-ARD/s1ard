@@ -131,13 +131,14 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
     
-    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif), ellipsoidal incident angle (-ei.tif),
-    # gamma-to-sigma ratio (-gs.tif), local contributing area (-lc.tif), local incident angle (-li.tif),
+    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif),
+    # ellipsoidal incident angle (-ei.tif), gamma-to-sigma ratio (-gs.tif),
+    # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_nrb = dict()
     for key in list(datasets[0].keys()):
         if key == 'dm' or key not in ITEM_MAP.keys():
-            # the data mask raster (-dm.tif) will be created later on in the processing workflow
+            # the data mask raster (-dm.tif) will be created later
             continue
         
         meta_lower['suffix'] = key
@@ -161,15 +162,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 gdalbuildvrt(src=images[0], dst=source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
-            tree = etree.parse(source)
-            root = tree.getroot()
-            ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': ovr_resampling.lower()})
-            ov = str(overviews)
-            for x in ['[', ']', ',']:
-                ov = ov.replace(x, '')
-            ovr.text = ov
-            etree.indent(root)
-            tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
+            vrt_add_overviews(vrt=source, overviews=overviews, resampling=ovr_resampling)
             
             options = {'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
                        'dstNodata': dst_nodata_float, 'multithread': multithread,
@@ -213,19 +206,22 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         options = {'format': driver,
                    'noData': dst_nodata_float,
                    'creationOptions': write_options['em']}
+        vrt_options = {}
         with Raster(dem) as ras:
             res_source = ras.res
         with Raster(ref_tif) as ras:
             res_target = ras.res
         if res_source != res_target:
-            options['xRes'] = res_target[0]
-            options['yRes'] = res_target[1]
-            options['resampleAlg'] = 'average'
-        
+            vrt_options = {'xRes': res_target[0],
+                           'yRes': res_target[1],
+                           'resampleAlg': 'AVERAGE'}
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
             print(em_path)
-            gdal_translate(src=dem, dst=em_path, **options)
+            vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
+            gdalbuildvrt(src=dem, dst=vrt, **vrt_options)
+            vrt_add_overviews(vrt=vrt, overviews=overviews, resampling=ovr_resampling)
+            gdal_translate(src=vrt, dst=em_path, **options)
         datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-g-lin.vrt)
@@ -862,3 +858,28 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     with Raster(ref_tif) as ref_ras:
         ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=dst_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
+
+
+def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
+    """
+    Add overviews to an existing VRT file.
+    
+    Parameters
+    ----------
+    vrt: str
+        the VRT file
+    overviews: list[int]
+         the overview levels
+    resampling: str
+        the overview resampling method
+
+    Returns
+    -------
+
+    """
+    tree = etree.parse(vrt)
+    root = tree.getroot()
+    ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': resampling.lower()})
+    ovr.text = ' '.join([str(x) for x in overviews])
+    etree.indent(root)
+    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
