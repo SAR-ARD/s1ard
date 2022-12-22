@@ -210,7 +210,6 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     # create DEM (-em.tif)
     if dem is not None:
-        print(write_options['em'])
         options = {'format': driver,
                    'noData': dst_nodata_float,
                    'creationOptions': write_options['em']}

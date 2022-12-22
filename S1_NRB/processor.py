@@ -1,7 +1,7 @@
 import os
 import time
 from osgeo import gdal
-from spatialist import Vector
+from spatialist import Vector, bbox
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
@@ -175,6 +175,17 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
+        # prepare DEM and WBM MGRS tiles
+        vec = [x.geometry() for x in scenes]
+        extent = anc.get_max_ext(geometries=vec)
+        del vec
+        with bbox(coordinates=extent, crs=4326) as box:
+            dem.prepare(vector=box, threads=gdal_prms['threads'],
+                        dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
+                        dem_type=config['dem_type'], kml_file=config['kml_file'],
+                        tilenames=aoi_tiles, username=username, password=password,
+                        dem_strict=True)
+        
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
             scenes_fnames = [x.scene for x in scenes]
@@ -187,15 +198,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
             del vec
-            
-            # prepare DEM and WBM MGRS tiles
-            for scene in scenes:
-                dem.prepare(vector=scene.geometry(), threads=gdal_prms['threads'],
-                            dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
-                            dem_type=config['dem_type'], kml_file=config['kml_file'],
-                            tilenames=aoi_tiles, username=username, password=password,
-                            dem_strict=True)
-            
             t_total = len(tiles)
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
