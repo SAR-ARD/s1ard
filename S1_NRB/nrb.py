@@ -863,6 +863,7 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
 def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
     """
     Add overviews to an existing VRT file.
+    Existing overviews will be overwritten.
     
     Parameters
     ----------
@@ -879,7 +880,10 @@ def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
     """
     tree = etree.parse(vrt)
     root = tree.getroot()
-    ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': resampling.lower()})
+    ovr = root.find('OverviewList')
+    if ovr is None:
+        ovr = etree.SubElement(root, 'OverviewList')
     ovr.text = ' '.join([str(x) for x in overviews])
+    ovr.attrib['resampling'] = resampling.lower()
     etree.indent(root)
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
