@@ -181,7 +181,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
             bounds = [ext['xmin'], ext['ymin'],
                       ext['xmax'], ext['ymax']]
             dem_create(src=fname_dem_tmp, dst=filename,
-                       t_srs=epsg, tr=(tr, tr), pbar=True,
+                       t_srs=epsg, tr=(tr, tr), pbar=False,
                        geoid_convert=geoid_convert, geoid=geoid,
                        outputBounds=bounds, threads=threads,
                        nodata=-32767, creationOptions=create_options)
@@ -195,7 +195,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                       ext['xmax'], ext['ymax']]
             dem_create(src=fname_wbm_tmp, dst=filename,
                        t_srs=epsg, tr=(tr, tr),
-                       resampleAlg='mode', pbar=True,
+                       resampleAlg='mode', pbar=False,
                        outputBounds=bounds, threads=threads,
                        creationOptions=create_options)
 
