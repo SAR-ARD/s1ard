@@ -1,10 +1,11 @@
 import os
 import re
+import tempfile
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import S1_NRB.tile_extraction as tile_ex
-from S1_NRB.ancillary import generate_unique_id, get_max_ext
+from S1_NRB.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
 from spatialist import Raster, bbox
 
 
@@ -304,3 +305,60 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
             dem_create(src=vrt, dst=outname, pbar=True,
                        geoid_convert=geoid_convert, geoid=geoid,
                        threads=threads, nodata=-32767)
+
+
+def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
+            create_options=None, threads=None, pbar=False):
+    """
+    Create an MGRS-tiled DEM file.
+    
+    Parameters
+    ----------
+    tile: str
+        the MGRS tile ID
+    dst: str
+        the destination file name
+    kml: str
+        The KML file containing the MGRS tile geometries.
+    dem_type: str
+        The DEM type.
+    overviews: list[int]
+        The overview levels
+    tr: tuple[int or float]
+        the target resolution as (x, y)
+    format: str
+        the output file format
+    create_options: list[str] or None
+        additional creation options to be passed to :func:`spatialist.auxil.gdalwarp`.
+    threads: int or None
+        The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
+        Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
+    pbar: bool
+
+    Returns
+    -------
+
+    """
+    if dem_type == 'GETASSE30':
+        geoid_convert = False
+    else:
+        geoid_convert = True
+    geoid = 'EGM2008'  # applies to all Copernicus DEM options
+    with tile_ex.aoi_from_tile(kml=kml, tile=tile) as vec:
+        ext = vec.extent
+        epsg = vec.getProjection('epsg')
+    bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+    buffer = 200
+    ext['xmin'] -= buffer
+    ext['ymin'] -= buffer
+    ext['xmax'] += buffer
+    ext['ymax'] += buffer
+    vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
+    with bbox(coordinates=ext, crs=epsg) as vec:
+        vec.reproject(4326)
+        dem_autoload(geometries=[vec], demType=dem_type, vrt=vrt)
+    vrt_add_overviews(vrt=vrt, overviews=overviews)
+    dem_create(src=vrt, dst=dst, t_srs=epsg, tr=tr,
+               geoid_convert=geoid_convert, geoid=geoid, pbar=pbar,
+               outputBounds=bounds, threads=threads, format=format,
+               creationOptions=create_options)
