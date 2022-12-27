@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import binascii
+from lxml import etree
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
@@ -357,3 +358,32 @@ def log(handler, mode, proc_step, scenes, msg):
         handler.exception(message)
     else:
         raise RuntimeError('log mode {} is not supported'.format(mode))
+
+
+def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
+    """
+    Add overviews to an existing VRT file.
+    Existing overviews will be overwritten.
+
+    Parameters
+    ----------
+    vrt: str
+        the VRT file
+    overviews: list[int]
+         the overview levels
+    resampling: str
+        the overview resampling method
+
+    Returns
+    -------
+
+    """
+    tree = etree.parse(vrt)
+    root = tree.getroot()
+    ovr = root.find('OverviewList')
+    if ovr is None:
+        ovr = etree.SubElement(root, 'OverviewList')
+    ovr.text = ' '.join([str(x) for x in overviews])
+    ovr.attrib['resampling'] = resampling.lower()
+    etree.indent(root)
+    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
