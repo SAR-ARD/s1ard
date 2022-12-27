@@ -20,7 +20,7 @@ def _om_time(root, nsmap, scene_id, time_start, time_stop):
     
     Parameters
     ----------
-    root: etree.Element
+    root: lxml.etree.Element
         Root XML element.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
@@ -53,7 +53,7 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     
     Parameters
     ----------
-    root: etree.Element
+    root: lxml.etree.Element
         Root XML element.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
@@ -61,9 +61,9 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         Scene basename.
     meta: dict
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
-    uid: str, optional
+    uid: str or None
         Unique identifier of a source SLC scene.
-    prod: bool, optional
+    prod: bool
         Return XML subelements for further usage in :func:`~S1_NRB.metadata.xml.product_xml` parsing function?
         Default is True. If False, the XML subelements for further usage in the :func:`~S1_NRB.metadata.xml.source_xml`
         parsing function will be returned.
@@ -167,7 +167,7 @@ def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
     
     Parameters
     ----------
-    root: etree.Element
+    root: lxml.etree.Element
         Root XML element.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
@@ -213,7 +213,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         List of paths to all GeoTIFF files of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     scene_id = os.path.basename(target)
@@ -484,7 +484,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
@@ -653,7 +653,7 @@ def parse(meta, target, tifs, exist_ok=False):
         A path pointing to the root directory of a product scene.
     tifs: list[str]
         List of paths to all GeoTIFF files of the currently processed NRB product.
-    exist_ok: bool, optional
+    exist_ok: bool
         Do not create files if they already exist?
     """
     NS_MAP_prod = deepcopy(NS_MAP)

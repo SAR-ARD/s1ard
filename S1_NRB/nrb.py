@@ -47,15 +47,15 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
         The CRS used for the NRB product; provided as an EPSG code.
-    wbm: str, optional
+    wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
-    multithread: bool, optional
+    multithread: bool
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
-    compress: str, optional
+    compress: str or None
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
-    overviews: list[int], optional
+    overviews: list[int] or None
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
 
     Returns
@@ -350,22 +350,22 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
         https://gdal.org/drivers/raster/vrt.html#default-pixel-functions.
         Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
         Python code for decibel conversion (10*log10).
-    relpaths: bool, optional
+    relpaths: bool
         Should all `SourceFilename` XML elements with attribute `@relativeToVRT="0"` be updated to be paths relative to
         the output VRT file? Default is False.
-    scale: int, optional
+    scale: int or None
          The scale that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
          Will be ignored if `fun='decibel'`.
-    offset: float, optional
+    offset: float or None
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
-    args: dict, optional
+    args: dict or None
         arguments for `fun` passed as `PixelFunctionArguments`. Requires GDAL>=3.5 to be read.
-    options: dict, optional
+    options: dict or None
         Additional parameters passed to `gdal.BuildVRT`.
-    overviews: list[int], optional
+    overviews: list[int] or None
         Internal overview levels to be created for each raster file.
-    overview_resampling: str, optional
+    overview_resampling: str or None
         Resampling method for overview levels.
 
     Examples
@@ -556,10 +556,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
     Returns
     -------
-    start: str
-        Start time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
-    stop: str
-        Stop time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
+    tuple[str]
+    
+    - Start time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
+    - Stop time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -658,7 +658,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Resampling method for overview levels.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-    wbm: str, optional
+    wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
     """
     print(outname)

@@ -193,7 +193,7 @@ def set_logging(config, debug=False):
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    debug: bool, optional
+    debug: bool
         Set pyroSAR logging level to DEBUG? Default is False.
     
     Returns
@@ -275,7 +275,7 @@ def _log_process_config(logger, config):
     
     Parameters
     ----------
-    logger: Logger
+    logger: logging.Logger
         The logger to which the header is added to.
     config: dict
         Dictionary of the parsed config parameters for the current process.
@@ -344,7 +344,7 @@ def log(handler, mode, proc_step, scenes, msg):
     scenes: str or list[str]
         Scenes that are currently being processed.
     msg: Any
-        The massage that should be logged.
+        The message that should be logged.
     """
     proc_step = proc_step.zfill(7).replace('0', ' ')
     message = '[{proc_step}] -- {scenes} -- {msg}'

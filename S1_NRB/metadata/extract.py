@@ -81,7 +81,7 @@ def vec_from_srccoords(coord_list):
     
     Parameters
     ----------
-    coord_list: list[list[tuple(float, float)]]
+    coord_list: list[list[tuple[float]]]
         List containing for each source scene a list of coordinate pairs as retrieved from the metadata stored in an
         :class:`~pyroSAR.drivers.ID` object.
     
@@ -126,13 +126,13 @@ def vec_from_srccoords(coord_list):
 
 def etree_from_sid(sid):
     """
-    Retrieve the manifest and annotation XML data of a scene as a dictionary using an :class:`~pyroSAR.drivers.ID`
+    Retrieve the manifest and annotation XML data of a scene as a dictionary using an :class:`pyroSAR.drivers.ID`
     object.
     
     Parameters
     ----------
-    sid:  :class:`pyroSAR.drivers.ID`
-        A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with :func:`pyroSAR.drivers.identify`.
+    sid:  pyroSAR.drivers.ID
+        A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with e.g. :func:`pyroSAR.drivers.identify`.
     
     Returns
     -------
@@ -163,13 +163,13 @@ def geometry_from_vec(vectorobject):
     
     Parameters
     ----------
-    vectorobject: :class:`spatialist.vector.Vector`
+    vectorobject: spatialist.vector.Vector
         The vector object to extract geometry information from.
     
     Returns
     -------
     out: dict
-        A dictionary containing the geometry information extracted from the vectorobject.
+        A dictionary containing the geometry information extracted from the vector object.
     """
     out = {}
     vec = vectorobject
@@ -206,21 +206,21 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         A dict of annotation files in the form: {'swath ID': `lxml.etree._Element` object}
     pattern: str
         The pattern to search for in each annotation file.
-    single: bool, optional
+    single: bool
         If True, the results found in each annotation file are expected to be the same and therefore only a single
         value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
-    out_type: str, optional
+    out_type: str
         Output type to convert the results to. Can be one of the following:
         
-        - str (default)
-        - float
-        - int
+        - 'str' (default)
+        - 'float'
+        - 'int'
     
     Returns
     -------
     out: dict
         A dictionary of the results containing a list for each of the annotation files. E.g.,
-        {'swath ID': list[str, float or int]}
+        {'swath ID': list[str or float or int]}
     """
     out = {}
     for s, a in annotation_dict.items():
@@ -305,10 +305,11 @@ def extract_pslr_islr(annotation_dict):
     
     Returns
     -------
-    pslr: float
-        Mean PSLR value for all swaths of the scene.
-    islr: float
-        Mean ISLR value for all swaths of the scene.
+    tuple[float]
+        a tuple with the following values:
+        
+        - pslr: Mean PSLR value for all swaths of the scene.
+        - islr: Mean ISLR value for all swaths of the scene.
     """
     swaths = list(annotation_dict.keys())
     pslr_dict = find_in_annotation(annotation_dict=annotation_dict, pattern='.//crossCorrelationPslr', out_type='float')
