@@ -44,8 +44,10 @@ SNAP
 
         process
         geo
+        grd_buffer
         gsr
         mli
+        pre
         rtc
 
     .. rubric:: ancillary functions
