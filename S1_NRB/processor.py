@@ -181,7 +181,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
         del vec
         with bbox(coordinates=extent, crs=4326) as box:
             dem.prepare(vector=box, threads=gdal_prms['threads'],
-                        dem_dir=config['dem_dir'], wbm_dir=config['wbm_dir'],
+                        dem_dir=None, wbm_dir=config['wbm_dir'],
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
@@ -207,10 +207,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
                                          '{}_WBM.tif'.format(tile.mgrs))
                 if not os.path.isfile(fname_wbm):
                     fname_wbm = None
-                fname_dem = os.path.join(config['dem_dir'], config['dem_type'],
-                                         '{}_DEM.tif'.format(tile.mgrs))
-                if not os.path.isfile(fname_dem):
-                    fname_dem = None
+                add_dem = True  # add the DEM as output layer?
+                nrb_dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
                 msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
@@ -220,7 +218,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 try:
                     msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem=fname_dem, multithread=gdal_prms['multithread'])
+                                     wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
+                                     multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)

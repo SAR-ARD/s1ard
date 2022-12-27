@@ -2,6 +2,7 @@ import os
 import re
 import time
 import shutil
+import logging
 import tempfile
 from datetime import datetime, timezone
 import numpy as np
@@ -11,19 +12,21 @@ from copy import deepcopy
 from scipy.interpolate import griddata
 from osgeo import gdal
 from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
-from spatialist.auxil import gdalwarp, gdalbuildvrt, gdal_translate
+from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 import S1_NRB
+from S1_NRB import dem
 from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import ITEM_MAP
-from S1_NRB.ancillary import generate_unique_id
+from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
 from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
 from S1_NRB.snap import find_datasets
 
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           dem=None, multithread=True, compress=None, overviews=None):
+           dem_type=None, multithread=True, compress=None,
+           overviews=None, kml=None):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -49,8 +52,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         The CRS used for the NRB product; provided as an EPSG code.
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
-    dem: str or None
-        Path to a DEM file with the dimensions of an MGRS tile.
+    dem_type: str or None
+        if defined, a DEM layer will be added to the product. The suffix `em` (elevation model) is used.
+        Default `None`: do not add a DEm layer.
     multithread: bool
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
@@ -59,6 +63,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int] or None
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
+    kml: str or None
+        The KML file containing the MGRS tile geometries. Only needs to be defined if `dem_type!=None`.
 
     Returns
     -------
@@ -202,27 +208,23 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     datasets_nrb['id'] = id_path
     
     # create DEM (-em.tif)
-    if dem is not None:
-        options = {'format': driver,
-                   'noData': dst_nodata_float,
-                   'creationOptions': write_options['em']}
-        vrt_options = {}
-        with Raster(dem) as ras:
-            res_source = ras.res
-        with Raster(ref_tif) as ras:
-            res_target = ras.res
-        if res_source != res_target:
-            vrt_options = {'xRes': res_target[0],
-                           'yRes': res_target[1],
-                           'resampleAlg': 'AVERAGE'}
+    if dem_type is not None:
+        if kml is None:
+            raise RuntimeError("If 'dem_type' is not None, `kml` needs to be defined.")
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
             print(em_path)
-            vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
-            gdalbuildvrt(src=dem, dst=vrt, **vrt_options)
-            vrt_add_overviews(vrt=vrt, overviews=overviews, resampling=ovr_resampling)
-            gdal_translate(src=vrt, dst=em_path, **options)
-        datasets_nrb['em'] = em_path
+            with Raster(ref_tif) as ras:
+                tr = ras.res
+            log_pyro = logging.getLogger('pyroSAR')
+            level = log_pyro.level
+            log_pyro.setLevel('NOTSET')
+            dem.to_mgrs(dem_type=dem_type, dst=em_path, kml=kml,
+                        overviews=overviews, tile=tile, tr=tr,
+                        create_options=write_options['em'],
+                        pbar=False)
+            log_pyro.setLevel(level)
+            datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-g-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -858,32 +860,3 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     with Raster(ref_tif) as ref_ras:
         ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=dst_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
-
-
-def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
-    """
-    Add overviews to an existing VRT file.
-    Existing overviews will be overwritten.
-    
-    Parameters
-    ----------
-    vrt: str
-        the VRT file
-    overviews: list[int]
-         the overview levels
-    resampling: str
-        the overview resampling method
-
-    Returns
-    -------
-
-    """
-    tree = etree.parse(vrt)
-    root = tree.getroot()
-    ovr = root.find('OverviewList')
-    if ovr is None:
-        ovr = etree.SubElement(root, 'OverviewList')
-    ovr.text = ' '.join([str(x) for x in overviews])
-    ovr.attrib['resampling'] = resampling.lower()
-    etree.indent(root)
-    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')

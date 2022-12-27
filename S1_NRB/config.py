@@ -29,7 +29,7 @@ def get_config(config_file, proc_section='PROCESSING'):
     
     # PROCESSING section
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'dem_dir',
+                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                     'etad', 'etad_dir', 'product']
     try:
