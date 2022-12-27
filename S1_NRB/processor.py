@@ -1,8 +1,7 @@
 import os
 import time
-import itertools
 from osgeo import gdal
-from spatialist import Vector, bbox
+from spatialist import Vector
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
@@ -21,9 +20,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ----------
     config_file: str
         Full path to a `config.ini` file.
-    section_name: str, optional
-        Section name of the `config.ini` file that processing parameters should be parsed from. Default is 'PROCESSING'.
-    debug: bool, optional
+    section_name: str
+        Section name of the `config.ini` file that processing parameters
+        should be parsed from. Default is 'PROCESSING'.
+    debug: bool
         Set pyroSAR logging level to DEBUG? Default is False.
     """
     config = get_config(config_file=config_file, proc_section=section_name)
@@ -98,20 +98,10 @@ def main(config_file, section_name='PROCESSING', debug=False):
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            tiles = tile_ex.tile_from_aoi(vector=scene.bbox(),
-                                          kml=config['kml_file'],
-                                          return_geometries=True)
-            
-            for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
-                geometries = list(group)
-                ext = anc.get_max_ext(geometries=geometries, buffer=200)
-                with bbox(coordinates=ext, crs=epsg) as geom:
-                    geom.reproject(4326)
-                    print(f'###### [    DEM] processing EPSG:{epsg}')
-                    dem.prepare(geometries=[geom], threads=gdal_prms['threads'],
-                                epsg=epsg, dem_dir=None, wbm_dir=config['wbm_dir'],
-                                dem_type=config['dem_type'], kml_file=config['kml_file'],
-                                username=username, password=password)
+            dem.prepare(vector=scene.bbox(), threads=gdal_prms['threads'],
+                        dem_dir=None, wbm_dir=config['wbm_dir'],
+                        dem_type=config['dem_type'], kml_file=config['kml_file'],
+                        username=username, password=password)
             
             dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
                                'Copernicus 30m Global DEM II': 'GLO30II',
@@ -139,8 +129,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
             ###############################################
             # ETAD correction
             if config['etad']:
-                print('###### [   ETAD] Scene {s}/{s_total}: {scene}'.format(s=i + 1, s_total=len(scenes),
-                                                                             scene=scene.scene))
+                msg = '###### [   ETAD] Scene {s}/{s_total}: {scene}'
+                print(msg.format(s=i + 1, s_total=len(scenes), scene=scene.scene))
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
                                      out_dir=tmp_dir_scene, log=logger)
             ###############################################

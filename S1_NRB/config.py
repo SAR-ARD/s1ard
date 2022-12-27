@@ -11,7 +11,7 @@ def get_config(config_file, proc_section='PROCESSING'):
     ----------
     config_file: str
         Full path to the config file that should be parsed to a dictionary.
-    proc_section: str, optional
+    proc_section: str
         Section of the config file that processing parameters should be parsed from. Default is 'PROCESSING'.
     
     Returns

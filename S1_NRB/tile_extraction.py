@@ -17,7 +17,7 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
         Define which EPSG code(s) are allowed for the tile selection.
         If None, all tile IDs are returned regardless of projection.
     strict: bool
-        Strictly only return the names of the overlapping tiles in the target projection
+        Strictly only return the names/geometries of the overlapping tiles in the target projection
         or also allow reprojection of neighbouring tiles?
         In the latter case a tile name takes the form <tile ID>_<EPSG code>, e.g. `33TUN_32632`.
         Only applies if argument `epsg` is of type `int` or a list with one element.
@@ -46,8 +46,6 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
             raise RuntimeError('the CRS of the input vector object(s) must be EPSG:4326')
     sortkey = None
     if return_geometries:
-        if not strict:
-            raise RuntimeError("returning geometries is not supported when 'strict' is False")
         sortkey = lambda x: x.mgrs
     with Vector(kml, driver='KML') as vec:
         tiles = []
@@ -60,13 +58,24 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
                     tilename = tile.GetField('Name')
                     if tilename not in tiles:
                         attrib = description2dict(tile.GetField('Description'))
+                        reproject = False
                         if epsg is not None and attrib['EPSG'] not in epsg:
                             if len(epsg) == 1 and not strict:
-                                tilename += '_{}'.format(epsg[0])
+                                epsg_target = int(epsg[0])
+                                tilename += '_{}'.format(epsg_target)
+                                reproject = True
                             else:
                                 continue
                         if return_geometries:
-                            geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                            if reproject:
+                                with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+                                    tmp.reproject(epsg_target)
+                                    ext = tmp.extent
+                                    for k, v in ext.items():
+                                        ext[k] = round(v / 10) * 10
+                                geom = bbox(ext, crs=epsg_target)
+                            else:
+                                geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
                             geom.mgrs = tilename
                             tiles.append(geom)
                         else:
