@@ -163,7 +163,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             # main processing routine
             start_time = time.time()
             try:
-                snap.process(scene=scene.scene, outdir=config['rtc_dir'],
+                snap.process(scene=scene.scene, outdir=config['rtc_dir'], convention='gamma',
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
                              rlks=rlks, azlks=azlks, **geocode_prms)
