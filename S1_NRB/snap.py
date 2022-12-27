@@ -9,7 +9,7 @@ from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from S1_NRB.tile_extraction import tiles_from_aoi, extract_tile
+from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
 from S1_NRB.ancillary import get_max_ext
 
 
@@ -417,11 +417,11 @@ def process(scene, outdir, spacing, kml, dem,
     ############################################################################
     # geocoding
     with id.bbox() as geom:
-        tiles = tiles_from_aoi(vectorobject=geom, kml=kml)
+        tiles = tile_from_aoi(vector=geom, kml=kml)
     
     for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
         group = list(group)
-        geometries = [extract_tile(kml=kml, tile=x) for x in group]
+        geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
         epsg = geometries[0].getProjection(type='epsg')
         print(f'### processing EPSG:{epsg}')
         ext = get_max_ext(geometries=geometries)
@@ -522,7 +522,7 @@ def find_datasets(scene, outdir, epsg):
     scenedir = os.path.join(outdir, basename)
     subdir = os.path.join(scenedir, basename + f'_geo_{epsg}.data')
     if not os.path.isdir(subdir):
-        raise RuntimeError('no RTC processing output found')
+        return
     lookup = {'dm': r'layoverShadowMask\.img',
               'ei': r'incidenceAngleFromEllipsoid\.img',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img',

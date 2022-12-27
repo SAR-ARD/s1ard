@@ -2,12 +2,109 @@ import os
 import sys
 import logging
 import binascii
-from datetime import datetime
+from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
 import pyroSAR
-from pyroSAR import examine
+from pyroSAR import examine, identify_many
 import S1_NRB
+
+
+def check_acquisition_completeness(scenes, archive):
+    """
+    Check that for each scene a predecessor and successor can be queried
+    from the database unless the scene is at the start or end of the data take.
+    This ensures that no scene that could be covering an area of interested is missed
+    during processing.
+    
+    Parameters
+    ----------
+    scenes: list[pyroSAR.drivers.ID]
+        a list of scenes
+    archive: pyroSAR.drivers.Archive
+        an open scene archive connection
+
+    Returns
+    -------
+    
+    Raises
+    ------
+    RuntimeError
+    """
+    messages = []
+    for scene in scenes:
+        print(scene.scene)
+        slice = scene.meta['sliceNumber']
+        n_slices = scene.meta['totalSlices']
+        groupsize = 3
+        has_successor = True
+        has_predecessor = True
+        if slice == 1:  # first slice in the data take
+            groupsize -= 1
+            has_predecessor = False
+        if slice == n_slices:  # last slice in the data take
+            groupsize -= 1
+            has_successor = False
+        f = '%Y%m%dT%H%M%S'
+        td = timedelta(seconds=2)
+        start = datetime.strptime(scene.start, f) - td
+        start = datetime.strftime(start, f)
+        stop = datetime.strptime(scene.stop, f) + td
+        stop = datetime.strftime(stop, f)
+        # Do another database selection to get the scene in question as well as its potential
+        # predecessor and successor by adding an acquisition time buffer of two seconds.
+        group = archive.select(product=scene.product,
+                               acquisition_mode=scene.acquisition_mode,
+                               mindate=start,
+                               maxdate=stop,
+                               date_strict=False)
+        group = identify_many(group)
+        # if the number of selected scenes is lower than the expected group size,
+        # check whether the predecessor, the successor or both are missing.
+        if len(group) < groupsize:
+            start_min = min([x.start for x in group])
+            stop_max = max([x.stop for x in group])
+            print(start, start_min)
+            print(stop, stop_max)
+            missing = []
+            if start_min > start and has_predecessor:
+                missing.append('predecessor')
+            if stop_max < stop and has_successor:
+                missing.append('successor')
+            base = os.path.basename(scene.scene)
+            messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
+    if len(messages) != 0:
+        text = '\n - '.join(messages)
+        raise RuntimeError(f'missing the following scenes:\n - {text}')
+
+
+def check_scene_consistency(scenes):
+    """
+    Check the consistency of a scene selection.
+    The following pyroSAR object attributes must be the same:
+    
+     - sensor
+     - acquisition_mode
+     - product
+     - frameNumber (data take ID)
+    
+    Parameters
+    ----------
+    scenes: list[str or pyroSAR.drivers.ID]
+
+    Returns
+    -------
+    
+    Raises
+    ------
+    RuntimeError
+    """
+    scenes = identify_many(scenes)
+    for attr in ['sensor', 'acquisition_mode', 'product', 'frameNumber']:
+        values = set([getattr(x, attr) for x in scenes])
+        if not len(values) == 1:
+            msg = f"scene selection differs in attribute '{attr}': {values}"
+            raise RuntimeError(msg)
 
 
 def check_spacing(spacing):
@@ -23,8 +120,8 @@ def check_spacing(spacing):
     -------
 
     """
-    if 10980 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 10980 m.')
+    if 109800 % spacing != 0:
+        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 109800 m.')
     if 9780 % spacing != 0:
         raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile overlap of 9780 m.')
 
@@ -131,6 +228,44 @@ def set_logging(config, debug=False):
     fh.setFormatter(form)
     
     return log_local
+
+
+def group_by_time(scenes, time=3):
+    """
+    function to group scenes by their acquisition time difference
+
+    Parameters
+    ----------
+    scenes:list[pyroSAR.drivers.ID or str]
+        a list of image names
+    time: int or float
+        a time difference in seconds by which to group the scenes.
+        The default of 3 seconds incorporates the overlap between SLCs.
+
+    Returns
+    -------
+    list[list[pyroSAR.drivers.ID]]
+        a list of sub-lists containing the file names of the grouped scenes
+    """
+    # sort images by time stamp
+    scenes = identify_many(scenes, sortkey='start')
+    
+    if len(scenes) < 2:
+        return [scenes]
+    
+    groups = [[scenes[0]]]
+    group = groups[0]
+    
+    for i in range(1, len(scenes)):
+        start = datetime.strptime(scenes[i].start, '%Y%m%dT%H%M%S')
+        stop_pred = datetime.strptime(scenes[i - 1].stop, '%Y%m%dT%H%M%S')
+        diff = (stop_pred - start).total_seconds()
+        if diff <= time:
+            group.append(scenes[i])
+        else:
+            groups.append([scenes[i]])
+            group = groups[-1]
+    return groups
 
 
 def _log_process_config(logger, config):

@@ -81,7 +81,11 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     t = proc_time.isoformat().encode()
     product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, tile=tile, extent=extent, epsg=epsg)
+    src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    if len(src_ids) == 0:
+        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
+                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+    
     nrb_start, nrb_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
@@ -261,10 +265,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     return str(round((time.time() - start_time), 2))
 
 
-def get_datasets(scenes, datadir, tile, extent, epsg):
+def get_datasets(scenes, datadir, extent, epsg):
     """
-    Identifies all source SLC/GRD scenes, finds matching output files in `datadir`
-    and filters both lists depending on the actual overlap of each SLC footprint
+    Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
+    and filters both lists depending on the actual overlap of each SLC/GRD footprint
     with the current MGRS tile geometry.
 
     Parameters
@@ -273,8 +277,6 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
         The directory containing the datasets processed from the source scenes using pyroSAR.
-    tile: str
-        ID of an MGRS tile.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -283,9 +285,9 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     Returns
     -------
     ids: list[:class:`pyroSAR.drivers.ID`]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
     datasets: list[dict]
-        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `scenes`.
+        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
         The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
     """
     ids = identify_many(scenes)
@@ -300,22 +302,22 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
     i = 0
     while i < len(datasets):
         gbs = [datasets[i][x] for x in datasets[i].keys() if re.search('g-lin', x)]
-        snap_dm_ras = os.path.join(os.path.dirname(gbs[0]), 'datamask.tif')
-        snap_dm_vec = snap_dm_ras.replace('.tif', '.gpkg')
+        dm_ras = os.path.join(os.path.dirname(gbs[0]), 'datamask.tif')
+        dm_vec = dm_ras.replace('.tif', '.gpkg')
         
-        if not all([os.path.isfile(x) for x in [snap_dm_ras, snap_dm_vec]]):
+        if not all([os.path.isfile(x) for x in [dm_ras, dm_vec]]):
             with Raster(gbs[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
-                        if not os.path.isfile(snap_dm_ras):
+                        if not os.path.isfile(dm_ras):
                             print('creating raster mask', i)
-                            rasterize(vectorobject=bounds, reference=ras, outname=snap_dm_ras)
-                        if not os.path.isfile(snap_dm_vec):
+                            rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
+                        if not os.path.isfile(dm_vec):
                             print('creating vector mask', i)
-                            bounds.write(outfile=snap_dm_vec)
-        with Vector(snap_dm_vec) as bounds:
+                            bounds.write(outfile=dm_vec)
+        with Vector(dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
                 if inter is None:
@@ -323,13 +325,10 @@ def get_datasets(scenes, datadir, tile, extent, epsg):
                     del ids[i]
                     del datasets[i]
                 else:
-                    # Add snap_dm_ras to the datasets if it overlaps with the current tile
-                    datasets[i]['datamask'] = snap_dm_ras
+                    # Add dm_ras to the datasets if it overlaps with the current tile
+                    datasets[i]['datamask'] = dm_ras
                     i += 1
                     inter.close()
-    if len(ids) == 0:
-        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
-                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     return ids, datasets
 
 
@@ -693,7 +692,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             cols = ras_ls.cols
             geotrans = ras_ls.raster.GetGeoTransform()
             proj = ras_ls.raster.GetProjection()
-            arr_snap_dm = ras_ls.array()
+            arr_dm = ras_ls.array()
             
             # Add Water Body Mask
             if wbm is not None:
@@ -710,25 +709,25 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                             arr_wbm = ras_wbm_lowres.array()
                     else:
                         arr_wbm = ras_wbm.array()
-                    out_arr = np.where((arr_wbm == 1), 4, arr_snap_dm)
+                    out_arr = np.where((arr_wbm == 1), 4, arr_dm)
                     del arr_wbm
             else:
-                out_arr = arr_snap_dm
+                out_arr = arr_dm
                 dm_bands.pop(4)
-            del arr_snap_dm
+            del arr_dm
             
             # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
-            with Raster(vrt_valid)[tile_vec] as ras_snap_valid:
-                with Raster(vrt_gamma0)[tile_vec] as ras_snap_gamma0:
-                    arr_snap_valid = ras_snap_valid.array()
-                    arr_snap_gamma0 = ras_snap_gamma0.array()
+            with Raster(vrt_valid)[tile_vec] as ras_valid:
+                with Raster(vrt_gamma0)[tile_vec] as ras_gamma0:
+                    arr_valid = ras_valid.array()
+                    arr_gamma0 = ras_gamma0.array()
                     
                     out_arr = np.nan_to_num(out_arr)
-                    out_arr = np.where(((arr_snap_valid == 1) & (np.isnan(arr_snap_gamma0)) & (out_arr != 4)), 2,
+                    out_arr = np.where(((arr_valid == 1) & (np.isnan(arr_gamma0)) & (out_arr != 4)), 2,
                                        out_arr)
-                    out_arr[np.isnan(arr_snap_valid)] = dst_nodata
-                    del arr_snap_gamma0
-                    del arr_snap_valid
+                    out_arr[np.isnan(arr_valid)] = dst_nodata
+                    del arr_gamma0
+                    del arr_valid
         
         outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
         gdriver = gdal.GetDriverByName('GTiff')
@@ -818,10 +817,10 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     
     arr_list = []
     for dataset in datasets:
-        vrt_snap_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
-        gdalbuildvrt(dataset['datamask'], vrt_snap_valid, options={'outputBounds': tile_bounds}, void=False)
+        vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
+        gdalbuildvrt(dataset['datamask'], vrt_valid, options={'outputBounds': tile_bounds}, void=False)
         with bbox(extent, crs=epsg) as tile_vec:
-            with Raster(vrt_snap_valid)[tile_vec] as vrt_ras:
+            with Raster(vrt_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()
                 arr_list.append(vrt_arr)
                 del vrt_arr

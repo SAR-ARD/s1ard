@@ -5,10 +5,9 @@ from osgeo import gdal
 from spatialist import Vector, bbox
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
-from pyroSAR.ancillary import groupbyTime, seconds
 from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
-from S1_NRB.ancillary import set_logging, log, get_max_ext, check_spacing
+import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
 
 gdal.UseExceptions()
@@ -28,11 +27,11 @@ def main(config_file, section_name='PROCESSING', debug=False):
         Set pyroSAR logging level to DEBUG? Default is False.
     """
     config = get_config(config_file=config_file, proc_section=section_name)
-    logger = set_logging(config=config, debug=debug)
+    logger = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
-    check_spacing(geocode_prms['spacing'])
+    anc.check_spacing(geocode_prms['spacing'])
     
     rtc_flag = True
     nrb_flag = True
@@ -51,27 +50,45 @@ def main(config_file, section_name='PROCESSING', debug=False):
     else:
         acq_mode_search = config['acq_mode']
     
+    vec = [None]
+    aoi_tiles = None
+    selection = []
     if config['aoi_tiles'] is not None:
-        vec = tile_ex.aoi_from_tiles(kml=config['kml_file'], tiles=config['aoi_tiles'])
+        vec = tile_ex.aoi_from_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
+        if not isinstance(vec, list):
+            vec = [vec]
         aoi_tiles = config['aoi_tiles']
-    else:
-        vec = Vector(config['aoi_geometry'])
-        aoi_tiles = tile_ex.tiles_from_aoi(vectorobject=vec, kml=config['kml_file'])
+    elif config['aoi_geometry'] is not None:
+        vec = [Vector(config['aoi_geometry'])]
+        aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
     
     with Archive(dbfile=config['db_file']) as archive:
         archive.insert(scenes)
-        selection = archive.select(vectorobject=vec,
-                                   product=config['product'],
-                                   acquisition_mode=acq_mode_search,
-                                   mindate=config['mindate'], maxdate=config['maxdate'])
-    del vec
-    
-    if len(selection) == 0:
-        message = "No scenes could be found for acquisition mode '{acq_mode}', " \
-                  "mindate '{mindate}' and maxdate '{maxdate}' in directory '{scene_dir}'."
-        raise RuntimeError(message.format(acq_mode=config['acq_mode'], mindate=config['mindate'],
-                                          maxdate=config['maxdate'], scene_dir=config['scene_dir']))
-    scenes = identify_many(selection)
+        for item in vec:
+            selection.extend(
+                archive.select(vectorobject=item,
+                               product=config['product'],
+                               acquisition_mode=acq_mode_search,
+                               mindate=config['mindate'],
+                               maxdate=config['maxdate']))
+        selection = list(set(selection))
+        del vec
+        
+        if len(selection) == 0:
+            message = "No scenes could be found for the following search query:\n" \
+                      " product:   '{product}'\n" \
+                      " acq. mode: '{acq_mode}'\n" \
+                      " mindate:   '{mindate}'\n" \
+                      " maxdate:   '{maxdate}'\n"
+            raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
+                                              mindate=config['mindate'], maxdate=config['maxdate'],
+                                              scene_dir=config['scene_dir']))
+        scenes = identify_many(selection)
+        anc.check_acquisition_completeness(scenes=scenes, archive=archive)
+    if aoi_tiles is None:
+        vec = [x.bbox() for x in scenes]
+        aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
+        del vec
     ####################################################################################################################
     # DEM download and WBM MGRS-tiling
     if rtc_flag:
@@ -81,13 +98,13 @@ def main(config_file, section_name='PROCESSING', debug=False):
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            tiles = tile_ex.tiles_from_aoi(vectorobject=scene.bbox(),
-                                           kml=config['kml_file'],
-                                           return_geometries=True)
+            tiles = tile_ex.tile_from_aoi(vector=scene.bbox(),
+                                          kml=config['kml_file'],
+                                          return_geometries=True)
             
             for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
                 geometries = list(group)
-                ext = get_max_ext(geometries=geometries, buffer=200)
+                ext = anc.get_max_ext(geometries=geometries, buffer=200)
                 with bbox(coordinates=ext, crs=epsg) as geom:
                     geom.reproject(4326)
                     print(f'###### [    DEM] processing EPSG:{epsg}')
@@ -114,7 +131,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
             if os.path.isdir(out_dir_scene):
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
-                log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
+                anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
                 continue
             else:
                 os.makedirs(out_dir_scene)
@@ -146,39 +163,47 @@ def main(config_file, section_name='PROCESSING', debug=False):
                              dem=fname_dem,
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+                anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
             except Exception as e:
-                log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
                 continue
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
-        selection_grouped = groupbyTime(images=selection, function=seconds, time=60)
-        for t, tile in enumerate(aoi_tiles):
-            outdir = os.path.join(config['nrb_dir'], tile)
-            os.makedirs(outdir, exist_ok=True)
-            wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile))
-            if not os.path.isfile(wbm):
-                wbm = None
-            
-            for s, scenes in enumerate(selection_grouped):
-                if isinstance(scenes, str):
-                    scenes = [scenes]
-                print('###### [    NRB] Tile {t}/{t_total}: {tile} | '
-                      'Scenes {s}/{s_total}: {scenes} '.format(tile=tile, t=t + 1, t_total=len(aoi_tiles),
-                                                               scenes=[os.path.basename(s) for s in scenes],
-                                                               s=s + 1, s_total=len(selection_grouped)))
+        selection_grouped = anc.group_by_time(scenes=scenes)
+        for s, scenes in enumerate(selection_grouped):
+            scenes_fnames = [x.scene for x in scenes]
+            # check that the scenes can really be grouped together
+            anc.check_scene_consistency(scenes=scenes)
+            # get the geometries of all tiles that overlap with the current scene group
+            vec = [x.geometry() for x in scenes]
+            tiles = tile_ex.tile_from_aoi(vector=vec,
+                                          kml=config['kml_file'],
+                                          return_geometries=True)
+            del vec
+            # filter the tile selection based on the user geometry config
+            tiles = [x for x in tiles if x.mgrs in aoi_tiles]
+            for t, tile in enumerate(tiles):
+                outdir = os.path.join(config['nrb_dir'], tile.mgrs)
+                os.makedirs(outdir, exist_ok=True)
+                wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile.mgrs))
+                if not os.path.isfile(wbm):
+                    wbm = None
+                extent = tile.extent
+                epsg = tile.getProjection('epsg')
+                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes {s}/{s_total}: {scenes} '
+                print(msg.format(tile=tile.mgrs, t=t + 1, t_total=len(aoi_tiles),
+                                 scenes=[os.path.basename(s.scene) for s in scenes],
+                                 s=s + 1, s_total=len(selection_grouped)))
                 try:
-                    with tile_ex.extract_tile(kml=config['kml_file'], tile=tile) as geom:
-                        extent = geom.extent
-                        epsg = geom.getProjection('epsg')
-                    msg = nrb.format(config=config, scenes=scenes, datadir=config['rtc_dir'],
-                                     outdir=outdir, tile=tile, extent=extent, epsg=epsg,
+                    msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
+                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=wbm, multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    log(handler=logger, mode='info', proc_step='NRB', scenes=scenes, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
                 except Exception as e:
-                    log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
                     continue
+            del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
