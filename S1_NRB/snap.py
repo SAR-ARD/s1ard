@@ -15,7 +15,7 @@ from S1_NRB.ancillary import get_max_ext
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
     """
-    Multi-looing.
+    Multi-looking.
     
     Parameters
     ----------
@@ -36,7 +36,11 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
 
     Returns
     -------
-
+    
+    See Also
+    --------
+    pyroSAR.snap.auxil.mli_parametrize
+    pyroSAR.ancillary.multilook_factors
     """
     scene = identify(src)
     wf = parse_recipe('blank')
@@ -60,7 +64,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
 
 def pre(src, dst, workflow, allow_res_osv=True):
     """
-    SAR preprocessing. The following operators are used (optional steps in brackets):
+    General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
 
     Parameters
@@ -77,6 +81,9 @@ def pre(src, dst, workflow, allow_res_osv=True):
     Returns
     -------
 
+    See Also
+    --------
+    pyroSAR.snap.auxil.orb_parametrize
     """
     scene = identify(src)
     polarizations = scene.polarizations
@@ -125,6 +132,7 @@ def pre(src, dst, workflow, allow_res_osv=True):
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=10):
     """
+    GRD extent buffering.
     GRDs, unlike SLCs, do not overlap in azimuth.
     With this function, a GRD can be buffered using the neighboring acquisitions.
     First, all images are mosaicked using the `SliceAssembly` operator
@@ -304,7 +312,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         img_resampling_method='BILINEAR_INTERPOLATION', **bands):
     """
-    Geocoding.
+    Range-Doppler geocoding.
     
     Parameters
     ----------
@@ -342,11 +350,15 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         the SAR image resampling method
     bands
         band ids for the input scenes in `src` as lists with keys bands<index>,
-        e.g., bands1=['NESZ_VV'], bands2=['Gamma0_VV'], ...
+        e.g., ``bands1=['NESZ_VV'], bands2=['Gamma0_VV'], ...``
 
     Returns
     -------
 
+    See Also
+    --------
+    pyroSAR.snap.auxil.sub_parametrize
+    pyroSAR.snap.auxil.geo_parametrize
     """
     wf = parse_recipe('blank')
     ############################################
@@ -444,8 +456,9 @@ def process(scene, outdir, spacing, kml, dem,
         The number of pixels to erode.
     neighbors: list[str] or None
         (only applies to GRD) an optional list of neighboring scenes to add
-        a buffer around the main scene. If GRDs are processed compeletely
-        independently, gaps are introduced due to a missing overlap between GRDs.
+        a buffer around the main scene using function :func:`grd_buffer`.
+        If GRDs are processed compeletely independently, gaps are introduced
+        due to a missing overlap between GRDs.
     cleanup: bool
         Delete intermediate files after successful process termination?
 

@@ -3,14 +3,14 @@ from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 
 
-def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
+def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, tilenames=None):
     """
     Return a list of MGRS tile IDs or vector objects overlapping one or multiple areas of interest.
     
     Parameters
     -------
     vector: spatialist.vector.Vector or list[spatialist.vector.Vector]
-        The vector object(s) to read.
+        The vector object(s) to read. CRS must be EPSG:4236.
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
     epsg: int or list[int] or None
@@ -23,6 +23,8 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
         Only applies if argument `epsg` is of type `int` or a list with one element.
     return_geometries: bool
         return a list of :class:`spatialist.vector.Vector` geometry objects (or just the tile names)?
+    tilenames: list[str] or None
+        an optional list of MGRS tile names to limit the selection
     
     Returns
     -------
@@ -57,7 +59,9 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False):
                 vec.layer.SetSpatialFilter(geom)
                 for tile in vec.layer:
                     tilename = tile.GetField('Name')
-                    if tilename not in tilenames_src:
+                    c1 = tilename not in tilenames_src
+                    c2 = tilenames is None or tilename in tilenames
+                    if c1 and c2:
                         tilenames_src.append(tilename)
                         attrib = description2dict(tile.GetField('Description'))
                         reproject = False

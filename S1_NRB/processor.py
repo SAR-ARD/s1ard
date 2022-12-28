@@ -1,7 +1,7 @@
 import os
 import time
 from osgeo import gdal
-from spatialist import Vector
+from spatialist import Vector, bbox
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
@@ -41,6 +41,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
     elif config['mode'] == 'nrb':
         rtc_flag = False
     
+    # DEM download authentication
+    username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
     ####################################################################################################################
     # archive / scene selection
     scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
@@ -93,7 +95,6 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # main SAR processing
     if rtc_flag:
-        username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
             out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
@@ -109,12 +110,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 os.makedirs(out_dir_scene)
                 os.makedirs(tmp_dir_scene, exist_ok=True)
             ############################################################################################################
-            # Preparation of DEM and WBM
-            dem.prepare(vector=scene.bbox(), threads=gdal_prms['threads'],
-                        dem_dir=None, wbm_dir=config['wbm_dir'],
-                        dem_type=config['dem_type'], kml_file=config['kml_file'],
-                        username=username, password=password)
-            
+            # Preparation of DEM for SAR processing
             dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
                                'Copernicus 30m Global DEM II': 'GLO30II',
                                'Copernicus 30m Global DEM': 'GLO30',
@@ -179,6 +175,17 @@ def main(config_file, section_name='PROCESSING', debug=False):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
+        # prepare DEM and WBM MGRS tiles
+        vec = [x.geometry() for x in scenes]
+        extent = anc.get_max_ext(geometries=vec)
+        del vec
+        with bbox(coordinates=extent, crs=4326) as box:
+            dem.prepare(vector=box, threads=gdal_prms['threads'],
+                        dem_dir=None, wbm_dir=config['wbm_dir'],
+                        dem_type=config['dem_type'], kml_file=config['kml_file'],
+                        tilenames=aoi_tiles, username=username, password=password,
+                        dem_strict=True)
+        
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
             scenes_fnames = [x.scene for x in scenes]
@@ -188,18 +195,20 @@ def main(config_file, section_name='PROCESSING', debug=False):
             vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           kml=config['kml_file'],
-                                          return_geometries=True)
+                                          return_geometries=True,
+                                          tilenames=aoi_tiles)
             del vec
-            # filter the tile selection based on the user geometry config
-            tiles = [x for x in tiles if x.mgrs in aoi_tiles]
             t_total = len(tiles)
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
-                wbm = os.path.join(config['wbm_dir'], config['dem_type'], '{}_WBM.tif'.format(tile.mgrs))
-                if not os.path.isfile(wbm):
-                    wbm = None
+                fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
+                                         '{}_WBM.tif'.format(tile.mgrs))
+                if not os.path.isfile(fname_wbm):
+                    fname_wbm = None
+                add_dem = True  # add the DEM as output layer?
+                nrb_dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
                 msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
@@ -209,7 +218,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
                 try:
                     msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=wbm, multithread=gdal_prms['multithread'])
+                                     wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
+                                     multithread=gdal_prms['multithread'])
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)

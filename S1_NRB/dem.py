@@ -1,15 +1,16 @@
 import os
 import re
+import tempfile
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import S1_NRB.tile_extraction as tile_ex
-from S1_NRB.ancillary import generate_unique_id, get_max_ext
+from S1_NRB.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
 from spatialist import Raster, bbox
 
 
-def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
-            threads, username=None, password=None):
+def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
+            tilenames=None, threads=None, username=None, password=None):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -18,16 +19,23 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     ----------
     vector: spatialist.vector.Vector
         The vector object for which to prepare the DEM and WBM tiles.
+        CRS must be EPSG:4236.
     dem_type: str
         The DEM type.
     dem_dir: str or None
         The DEM target directory. DEM preparation can be skipped if set to None.
-    wbm_dir: str
-        The WBM target directory.
+    wbm_dir: str or None
+        The WBM target directory. WBM preparation can be skipped if set to None
     kml_file: str
         The KML file containing the MGRS tile geometries.
-    threads: int
+    dem_strict: bool
+        strictly only create DEM tiles in the native CRS of the MGRS tile or
+        also allow reprojection to ensure full coverage of the vector object in every CRS.
+    tilenames: list[str] or None
+        an optional list of MGRS tile names. Default None: process all overalapping tiles.
+    threads: int or None
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
+        Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the environment variable 'DEM_USER' is read.
@@ -35,6 +43,29 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     password: str or None
         The password for accessing the DEM tiles.
         If None: same behavior as for username but with env. variable 'DEM_PASS'.
+    
+    Examples
+    --------
+    >>> from S1_NRB import dem
+    >>> from spatialist import bbox
+    >>> ext = {'xmin': 12, 'xmax': 13, 'ymin': 50, 'ymax': 51}
+    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    # strictly only create overlapping DEM tiles in their native CRS.
+    # Will create tiles 32UQA, 32UQB, 33UUR and 33UUS.
+    >>> with bbox(coordinates=ext, crs=4326) as vec:
+    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=True,
+    >>>                 kml_file=kml, threads=4)
+    # Process all overlapping DEM tiles to each CRS.
+    # Will additionally create tiles 32UQA_32633, 32UQB_32633, 33UUR_32632 and 33UUS_32632.
+    >>> with bbox(coordinates=ext, crs=4326) as vec:
+    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=False,
+    >>>                 kml_file=kml, threads=4)
+    
+    See Also
+    --------
+    S1_NRB.tile_extraction.tile_from_aoi
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -43,11 +74,14 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     geoid = 'EGM2008'  # applies to all Copernicus DEM options
     
     tr = 10  # target resolution. Lower resolutions can be created virtually using VRTs.
+    # additional creation options for gdalwarp
+    create_options = ['COMPRESS=LERC_ZSTD', 'MAX_Z_ERROR=0']
+    
     # DEM options with WBMs
     wbm_dems = ['Copernicus 10m EEA DEM',
                 'Copernicus 30m Global DEM',
                 'Copernicus 30m Global DEM II']
-    if dem_type in wbm_dems:
+    if wbm_dir is not None and dem_type in wbm_dems:
         wbm_dir = os.path.join(wbm_dir, dem_type)
     else:
         wbm_dir = None
@@ -58,7 +92,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
     # get the geometries of all tiles overlapping with the AOI
     tiles = tile_ex.tile_from_aoi(vector=vector,
                                   kml=kml_file,
-                                  return_geometries=True)
+                                  return_geometries=True,
+                                  tilenames=tilenames)
     # group the returned tiles by CRS and process them separately
     for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
         print(f'###### [    DEM] processing EPSG:{epsg}')
@@ -70,12 +105,13 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
         # UTM zone covering the AOI while fully covering it. This was needed for processing
         # full SAR scenes to different UTM zones. In the current workflow this in no longer
         # used.
-        if dem_dir is not None:
+        if dem_dir is not None and not dem_strict:
             vectors = tile_ex.tile_from_aoi(
                 vector=vector.bbox(),
                 kml=kml_file, epsg=epsg,
                 strict=False,
-                return_geometries=True)
+                return_geometries=True,
+                tilenames=tilenames)
         
         # Get the bounding box of the tile vector objects and use this from here on
         ext = get_max_ext(geometries=vectors, buffer=200)
@@ -146,10 +182,10 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
             bounds = [ext['xmin'], ext['ymin'],
                       ext['xmax'], ext['ymax']]
             dem_create(src=fname_dem_tmp, dst=filename,
-                       t_srs=epsg, tr=(tr, tr), pbar=True,
+                       t_srs=epsg, tr=(tr, tr), pbar=False,
                        geoid_convert=geoid_convert, geoid=geoid,
                        outputBounds=bounds, threads=threads,
-                       nodata=-32767)
+                       nodata=-32767, creationOptions=create_options)
         ###############################################
         if len(wbm_target) > 0:
             msg = '### creating WBM MGRS tiles: \n{tiles}'
@@ -160,8 +196,9 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file,
                       ext['xmax'], ext['ymax']]
             dem_create(src=fname_wbm_tmp, dst=filename,
                        t_srs=epsg, tr=(tr, tr),
-                       resampling_method='mode', pbar=True,
-                       outputBounds=bounds, threads=threads)
+                       resampleAlg='mode', pbar=False,
+                       outputBounds=bounds, threads=threads,
+                       creationOptions=create_options)
 
 
 def authenticate(dem_type, username=None, password=None):
@@ -183,7 +220,7 @@ def authenticate(dem_type, username=None, password=None):
 
     Returns
     -------
-    tuple
+    tuple[str or None]
         the username and password
     """
     dems_auth = ['Copernicus 10m EEA DEM',
@@ -268,3 +305,60 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
             dem_create(src=vrt, dst=outname, pbar=True,
                        geoid_convert=geoid_convert, geoid=geoid,
                        threads=threads, nodata=-32767)
+
+
+def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
+            create_options=None, threads=None, pbar=False):
+    """
+    Create an MGRS-tiled DEM file.
+    
+    Parameters
+    ----------
+    tile: str
+        the MGRS tile ID
+    dst: str
+        the destination file name
+    kml: str
+        The KML file containing the MGRS tile geometries.
+    dem_type: str
+        The DEM type.
+    overviews: list[int]
+        The overview levels
+    tr: tuple[int or float]
+        the target resolution as (x, y)
+    format: str
+        the output file format
+    create_options: list[str] or None
+        additional creation options to be passed to :func:`spatialist.auxil.gdalwarp`.
+    threads: int or None
+        The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
+        Default `None`: use the value of `GDAL_NUM_THREADS` without modification.
+    pbar: bool
+
+    Returns
+    -------
+
+    """
+    if dem_type == 'GETASSE30':
+        geoid_convert = False
+    else:
+        geoid_convert = True
+    geoid = 'EGM2008'  # applies to all Copernicus DEM options
+    with tile_ex.aoi_from_tile(kml=kml, tile=tile) as vec:
+        ext = vec.extent
+        epsg = vec.getProjection('epsg')
+    bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+    buffer = 200
+    ext['xmin'] -= buffer
+    ext['ymin'] -= buffer
+    ext['xmax'] += buffer
+    ext['ymax'] += buffer
+    vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
+    with bbox(coordinates=ext, crs=epsg) as vec:
+        vec.reproject(4326)
+        dem_autoload(geometries=[vec], demType=dem_type, vrt=vrt)
+    vrt_add_overviews(vrt=vrt, overviews=overviews)
+    dem_create(src=vrt, dst=dst, t_srs=epsg, tr=tr,
+               geoid_convert=geoid_convert, geoid=geoid, pbar=pbar,
+               outputBounds=bounds, threads=threads, format=format,
+               creationOptions=create_options)

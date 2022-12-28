@@ -2,6 +2,7 @@ import os
 import re
 import time
 import shutil
+import logging
 import tempfile
 from datetime import datetime, timezone
 import numpy as np
@@ -15,15 +16,17 @@ from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 import S1_NRB
+from S1_NRB import dem
 from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import ITEM_MAP
-from S1_NRB.ancillary import generate_unique_id
+from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
 from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
 from S1_NRB.snap import find_datasets
 
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           multithread=True, compress=None, overviews=None):
+           dem_type=None, multithread=True, compress=None,
+           overviews=None, kml=None):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -49,6 +52,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         The CRS used for the NRB product; provided as an EPSG code.
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
+    dem_type: str or None
+        if defined, a DEM layer will be added to the product. The suffix `em` (elevation model) is used.
+        Default `None`: do not add a DEm layer.
     multithread: bool
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
@@ -57,6 +63,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int] or None
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
+    kml: str or None
+        The KML file containing the MGRS tile geometries. Only needs to be defined if `dem_type!=None`.
 
     Returns
     -------
@@ -85,6 +93,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     if len(src_ids) == 0:
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+    
+    # GDAL output bounds
+    bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
     nrb_start, nrb_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
@@ -126,13 +137,14 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
     
-    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif), ellipsoidal incident angle (-ei.tif),
-    # gamma-to-sigma ratio (-gs.tif), local contributing area (-lc.tif), local incident angle (-li.tif),
+    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif),
+    # ellipsoidal incident angle (-ei.tif), gamma-to-sigma ratio (-gs.tif),
+    # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_nrb = dict()
     for key in list(datasets[0].keys()):
         if key == 'dm' or key not in ITEM_MAP.keys():
-            # the data mask raster (-dm.tif) will be created later on in the processing workflow
+            # the data mask raster (-dm.tif) will be created later
             continue
         
         meta_lower['suffix'] = key
@@ -146,7 +158,6 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         if not os.path.isfile(outname):
             os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
-            bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
             images = [ds[key] for ds in datasets]
             ras = None
             if len(images) > 1:
@@ -154,23 +165,16 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 source = ras.filename
             else:
                 source = tempfile.NamedTemporaryFile(suffix='.vrt').name
-                gdalbuildvrt(images[0], source)
+                gdalbuildvrt(src=images[0], dst=source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
-            tree = etree.parse(source)
-            root = tree.getroot()
-            ovr = etree.SubElement(root, 'OverviewList', attrib={'resampling': ovr_resampling.lower()})
-            ov = str(overviews)
-            for x in ['[', ']', ',']:
-                ov = ov.replace(x, '')
-            ovr.text = ov
-            etree.indent(root)
-            tree.write(source, pretty_print=True, xml_declaration=False, encoding='utf-8')
+            vrt_add_overviews(vrt=source, overviews=overviews, resampling=ovr_resampling)
             
-            gdalwarp(source, outname,
-                     options={'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
-                              'dstNodata': dst_nodata_float, 'multithread': multithread,
-                              'creationOptions': write_options[key]})
+            options = {'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
+                       'dstNodata': dst_nodata_float, 'multithread': multithread,
+                       'creationOptions': write_options[key]}
+            
+            gdalwarp(src=source, dst=outname, **options)
             if ras is not None:
                 ras.close()
         datasets_nrb[key] = outname
@@ -202,6 +206,25 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                             creation_opt=write_options['id'],
                             overviews=overviews, dst_nodata=dst_nodata_byte)
     datasets_nrb['id'] = id_path
+    
+    # create DEM (-em.tif)
+    if dem_type is not None:
+        if kml is None:
+            raise RuntimeError("If 'dem_type' is not None, `kml` needs to be defined.")
+        em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
+        if not os.path.isfile(em_path):
+            print(em_path)
+            with Raster(ref_tif) as ras:
+                tr = ras.res
+            log_pyro = logging.getLogger('pyroSAR')
+            level = log_pyro.level
+            log_pyro.setLevel('NOTSET')
+            dem.to_mgrs(dem_type=dem_type, dst=em_path, kml=kml,
+                        overviews=overviews, tile=tile, tr=tr,
+                        create_options=write_options['em'],
+                        pbar=False)
+            log_pyro.setLevel(level)
+            datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-g-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -393,7 +416,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
     >>> dst = src.replace('-lin.tif', '-log3.vrt')
     >>> create_vrt(src=src, dst=dst, fun='dB', args={'fact': 10})
     """
-    gdalbuildvrt(src=src, dst=dst, options=options)
+    gdalbuildvrt(src=src, dst=dst, **options)
     tree = etree.parse(dst)
     root = tree.getroot()
     band = tree.find('VRTRasterBand')
@@ -476,8 +499,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
         ov = ov.replace(x, '')
     
     # create VRT file and change its content
-    gdalbuildvrt(src=infiles, dst=outname,
-                 options={'separate': True})
+    gdalbuildvrt(src=infiles, dst=outname, separate=True)
     
     tree = etree.parse(outname)
     root = tree.getroot()
@@ -681,9 +703,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     vrt_ls = '/vsimem/' + os.path.dirname(outname) + 'ls.vrt'
     vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'valid.vrt'
     vrt_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'gamma0.vrt'
-    gdalbuildvrt(ls, vrt_ls, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(datamask, vrt_valid, options={'outputBounds': tile_bounds}, void=False)
-    gdalbuildvrt(gamma0, vrt_gamma0, options={'outputBounds': tile_bounds}, void=False)
+    gdalbuildvrt(src=ls, dst=vrt_ls, outputBounds=tile_bounds, void=False)
+    gdalbuildvrt(src=datamask, dst=vrt_valid, outputBounds=tile_bounds, void=False)
+    gdalbuildvrt(src=gamma0, dst=vrt_gamma0, outputBounds=tile_bounds, void=False)
     
     with Raster(vrt_ls) as ras_ls:
         with bbox(extent, crs=epsg) as tile_vec:
@@ -702,9 +724,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     if cols_ratio > 1:
                         res = int(ras_ls_res[0])
                         wbm_lowres = wbm.replace('.tif', f'_{res}m.vrt')
-                        gdalbuildvrt(src=wbm, dst=wbm_lowres,
-                                     options={'xRes': res, 'yRes': res,
-                                              'resampleAlg': 'mode'})
+                        options = {'xRes': res, 'yRes': res,
+                                   'resampleAlg': 'mode'}
+                        gdalbuildvrt(src=wbm, dst=wbm_lowres, **options)
                         with Raster(wbm_lowres) as ras_wbm_lowres:
                             arr_wbm = ras_wbm_lowres.array()
                     else:
@@ -818,7 +840,7 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     arr_list = []
     for dataset in datasets:
         vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'mosaic.vrt'
-        gdalbuildvrt(dataset['datamask'], vrt_valid, options={'outputBounds': tile_bounds}, void=False)
+        gdalbuildvrt(src=dataset['datamask'], dst=vrt_valid, outputBounds=tile_bounds, void=False)
         with bbox(extent, crs=epsg) as tile_vec:
             with Raster(vrt_valid)[tile_vec] as vrt_ras:
                 vrt_arr = vrt_ras.array()

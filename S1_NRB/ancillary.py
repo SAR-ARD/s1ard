@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import binascii
+from lxml import etree
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
@@ -12,9 +13,10 @@ import S1_NRB
 
 def check_acquisition_completeness(scenes, archive):
     """
+    Check presence of neighboring acquisitions.
     Check that for each scene a predecessor and successor can be queried
     from the database unless the scene is at the start or end of the data take.
-    This ensures that no scene that could be covering an area of interested is missed
+    This ensures that no scene that could be covering an area of interest is missed
     during processing.
     
     Parameters
@@ -109,7 +111,7 @@ def check_scene_consistency(scenes):
 
 def check_spacing(spacing):
     """
-    perform a check whether the spacing fits into the MGRS tile boundaries
+    Check whether the spacing fits into the MGRS tile boundaries.
 
     Parameters
     ----------
@@ -128,14 +130,15 @@ def check_spacing(spacing):
 
 def generate_unique_id(encoded_str):
     """
-    Returns a unique product identifier as a hexa-decimal string generated from the time of execution in isoformat.
+    
+    Returns a unique product identifier as a hexadecimal string.
     The CRC-16 algorithm used to compute the unique identifier is CRC-CCITT (0xFFFF).
     
     Parameters
     ----------
     encoded_str: bytes
         A string that should be used to generate a unique id from. The string needs to be encoded; e.g.:
-        `'abc'.encode()`
+        ``'abc'.encode()``
     
     Returns
     -------
@@ -194,7 +197,7 @@ def set_logging(config, debug=False):
     config: dict
         Dictionary of the parsed config parameters for the current process.
     debug: bool
-        Set pyroSAR logging level to DEBUG? Default is False.
+        Set pyroSAR logging level to DEBUG?
     
     Returns
     -------
@@ -233,7 +236,7 @@ def set_logging(config, debug=False):
 
 def group_by_time(scenes, time=3):
     """
-    function to group scenes by their acquisition time difference
+    Group scenes by their acquisition time difference.
 
     Parameters
     ----------
@@ -337,8 +340,8 @@ def log(handler, mode, proc_step, scenes, msg):
     ----------
     handler: logging.Logger
         The log handler for the current process.
-    mode: str
-        One of ['info', 'warning', 'exception']. Calls the respective logging helper function. E.g., `handler.info()`.
+    mode: {'info', 'warning', 'exception'}
+        Calls the respective logging helper function. E.g., ``handler.info()``.
     proc_step: str
         The processing step for which the message is logged.
     scenes: str or list[str]
@@ -357,3 +360,32 @@ def log(handler, mode, proc_step, scenes, msg):
         handler.exception(message)
     else:
         raise RuntimeError('log mode {} is not supported'.format(mode))
+
+
+def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
+    """
+    Add overviews to an existing VRT file.
+    Existing overviews will be overwritten.
+
+    Parameters
+    ----------
+    vrt: str
+        the VRT file
+    overviews: list[int]
+         the overview levels
+    resampling: str
+        the overview resampling method
+
+    Returns
+    -------
+
+    """
+    tree = etree.parse(vrt)
+    root = tree.getroot()
+    ovr = root.find('OverviewList')
+    if ovr is None:
+        ovr = etree.SubElement(root, 'OverviewList')
+    ovr.text = ' '.join([str(x) for x in overviews])
+    ovr.attrib['resampling'] = resampling.lower()
+    etree.indent(root)
+    tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
