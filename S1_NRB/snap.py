@@ -642,7 +642,7 @@ def process(scene, outdir, convention, spacing, kml, dem,
                     src_gamma=out_rtc)
     ############################################################################
     # geocoding
-    with id.bbox() as geom:
+    with id.geometry() as geom:
         tiles = tile_from_aoi(vector=geom, kml=kml)
     
     for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
