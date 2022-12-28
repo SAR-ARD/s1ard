@@ -190,15 +190,27 @@ def product_json(meta, target, tifs, exist_ok=False):
         size = os.path.getsize(asset)
         
         if 'measurement' in asset:
-            key = re.search('[a-z]{2}-[g|s]-(lin|log)', asset).group()
+            pattern = '(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))'
+            info = re.search(pattern, asset).groupdict()
             
-            if key == 'cc-g-lin':
-                title = 'RGB color composite (vv-g-lin, vh-g-lin, vv-g-lin/vh-g-lin)'
+            if re.search('cc-[gs]-lin', info['key']):
+                pols = meta['common']['polarisationChannels']
+                co = pols.pop(0) if pols[0][0] == pols[0][1] else pols.pop(1)
+                cross = pols[0]
+                title = 'RGB color composite (' \
+                        '{co}-{nought}-lin, ' \
+                        '{cross}-{nought}-lin, ' \
+                        '{co}-{nought}-lin/{cross}-{nought}-lin)'
+                title = title.format(co=co.lower(),
+                                     cross=cross.lower(),
+                                     nought=info['nought'])
             else:
-                pol = re.search('[vh]{2}', asset).group()
-                nought = measurement_title_dict[re.search('-[g|s]-', asset).group().replace('-', '')]
-                scaling = measurement_title_dict[re.search('(lin|log)', asset).group()]
-                title = '{} {} RTC backscatter, {} scaling'.format(pol.upper(), nought, scaling)
+                skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
+                subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
+                title = skeleton.format(pol=info['pol'].upper(),
+                                        nought=measurement_title_dict[info['nought']],
+                                        subtype=subtype,
+                                        scale=measurement_title_dict[info['scaling']])
             
             header_size = get_header_size(tif=asset)
             if asset.endswith('.tif'):
