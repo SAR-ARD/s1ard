@@ -489,7 +489,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
-    ref_tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(target, ['-ei.tif$'], regex=True)[0]
     
