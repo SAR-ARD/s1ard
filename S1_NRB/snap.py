@@ -738,15 +738,20 @@ def find_datasets(scene, outdir, epsg):
          - hv-g-lin: gamma nought RTC backscatter HV polarization
          - vh-g-lin: gamma nought RTC backscatter VH polarization
          - vv-g-lin: gamma nought RTC backscatter VV polarization
+         - hh-s-lin: sigma nought ellipsoidal backscatter HH polarization
+         - hv-s-lin: sigma nought ellipsoidal backscatter HV polarization
+         - vh-s-lin: sigma nought ellipsoidal backscatter VH polarization
+         - vv-s-lin: sigma nought ellipsoidal backscatter VV polarization
          - dm: layover-shadow data mask
          - ei: ellipsoidal incident angle
          - gs: gamma-sigma ratio
          - lc: local contributing area (aka scattering area)
          - li: local incident angle
-         - np-hh: noise power HH polarization
-         - np-hv: noise power HV polarization
-         - np-vh: noise power VH polarization
-         - np-vv: noise power VV polarization
+         - sg: sigma-gamma ratio
+         - np-hh: NESZ HH polarization
+         - np-hv: NESZ HV polarization
+         - np-vh: NESZ VH polarization
+         - np-vv: NESZ VV polarization
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
@@ -757,17 +762,19 @@ def find_datasets(scene, outdir, epsg):
               'ei': r'incidenceAngleFromEllipsoid\.img$',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img$',
               'lc': r'simulatedImage_[VH]{2}\.img$',
-              'li': r'localIncidenceAngle\.img$'}
+              'li': r'localIncidenceAngle\.img$',
+              'sg': r'sigmaGammaRatio_[VH]{2}\.img$'}
     out = {}
     for key, pattern in lookup.items():
         match = finder(target=subdir, matchlist=[pattern], regex=True)
         if len(match) > 0:
             out[key] = match[0]
-    pattern = r'Gamma0_(?P<pol>[VH]{2})\.img$'
-    gamma = finder(target=subdir, matchlist=[pattern], regex=True)
-    for item in gamma:
-        pol = re.search(pattern, item).group('pol')
-        out[f'{pol.lower()}-g-lin'] = item
+    pattern = r'(?P<bsc>Gamma0|Sigma0)_(?P<pol>[VH]{2})\.img$'
+    backscatter = finder(target=subdir, matchlist=[pattern], regex=True)
+    for item in backscatter:
+        pol = re.search(pattern, item).group('pol').lower()
+        bsc = re.search(pattern, item).group('bsc')[0].lower()
+        out[f'{pol}-{bsc}-lin'] = item
     pattern = r'NESZ_(?P<pol>[VH]{2})\.img$'
     nesz = finder(target=subdir, matchlist=[pattern], regex=True)
     for item in nesz:
