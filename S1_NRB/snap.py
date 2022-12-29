@@ -62,7 +62,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def pre(src, dst, workflow, allow_res_osv=True):
+def pre(src, dst, workflow, allow_res_osv=True, output_noise=True, output_beta0=True):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -77,6 +77,10 @@ def pre(src, dst, workflow, allow_res_osv=True):
         the output SNAP XML workflow filename.
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
+    output_noise: bool
+        output the noise power images?
+    output_beta0: bool
+        output beta nought backscatter needed for RTC?
 
     Returns
     -------
@@ -107,13 +111,13 @@ def pre(src, dst, workflow, allow_res_osv=True):
     cal = parse_node('Calibration')
     wf.insert_node(cal, before=last.id)
     cal.parameters['selectedPolarisations'] = polarizations
-    cal.parameters['outputBetaBand'] = True
+    cal.parameters['outputBetaBand'] = output_beta0
     cal.parameters['outputSigmaBand'] = True
     cal.parameters['outputGammaBand'] = False
     ############################################
     tnr = parse_node('ThermalNoiseRemoval')
     wf.insert_node(tnr, before=cal.id)
-    tnr.parameters['outputNoise'] = True
+    tnr.parameters['outputNoise'] = output_noise
     last = tnr
     ############################################
     if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
