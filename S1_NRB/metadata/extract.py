@@ -391,7 +391,8 @@ def get_header_size(tif):
 def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     """
     Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
-    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html
+    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html.
+    Currently only the Copernicus DEM is supported.
     
     Parameters
     ----------
@@ -406,8 +407,8 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     
     Returns
     -------
-    rmse_planar: float
-        The calculated rRMSE value rounded to two decimal places.
+    rmse_planar: float or None
+        The calculated rRMSE value rounded to two decimal places or None if a DEM other than Copernicus is used.
     """
     if 'copernicus' not in dem_type.lower():
         return None
