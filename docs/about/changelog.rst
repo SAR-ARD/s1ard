@@ -1,6 +1,17 @@
 Changelog
 =========
 
+1.2.0 | 2022-12-29
+------------------
+
+* improved geometry handling (`#71 <https://github.com/SAR-ARD/S1_NRB/pull/71>`_)
+* DEM handling improvements (`#72 <https://github.com/SAR-ARD/S1_NRB/pull/72>`_)
+* GRD buffering by (`#73 <https://github.com/SAR-ARD/S1_NRB/pull/73>`_)
+* add DEM as additional output layer (`#70 <https://github.com/SAR-ARD/S1_NRB/pull/70>`_)
+* sigma0 processing and annotation layer configuration (`#74 <https://github.com/SAR-ARD/S1_NRB/pull/74>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.1.0...v1.2.0>`_
+
 1.1.0 | 2022-09-29
 ------------------
 
