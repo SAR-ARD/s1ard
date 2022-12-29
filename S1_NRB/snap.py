@@ -507,7 +507,8 @@ def process(scene, outdir, convention, spacing, kml, dem,
     tmpdir: str or None
         Path to a temporary directory for intermediate products.
     export_extra: list[str] or None
-        A list of ancillary layers to create. Options:
+        A list of ancillary layers to create. Default None: do not create any ancillary layers.
+        Options:
         
          - DEM
          - gammaSigmaRatio: sigma^0_T / gamma^0_T
@@ -552,6 +553,8 @@ def process(scene, outdir, convention, spacing, kml, dem,
     """
     if convention not in ['gamma', 'sigma']:
         raise RuntimeError("'convention' must either be 'gamma' or 'sigma'")
+    if export_extra is None:
+        export_extra = []
     if tmpdir is None:
         tmpdir = outdir
     basename = os.path.splitext(os.path.basename(scene))[0]
@@ -596,6 +599,7 @@ def process(scene, outdir, convention, spacing, kml, dem,
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
+            print('### buffering scene with neighboring acquisitions')
             grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                        neighbors=out_pre_neighbors)
         out_pre = out_buffer
