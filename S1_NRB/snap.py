@@ -470,7 +470,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def process(scene, outdir, convention, spacing, kml, dem,
+def process(scene, outdir, measurement, spacing, kml, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
@@ -485,8 +485,8 @@ def process(scene, outdir, convention, spacing, kml, dem,
         The SAR scene file name.
     outdir: str
         The output directory for storing the final results.
-    convention: {'sigma', 'gamma'}
-        the backscatter convention:
+    measurement: {'sigma', 'gamma'}
+        the backscatter measurement convention:
         
         - gamma: RTC gamma nought (gamma^0_T)
         - sigma: ellipsoidal sigmal nought (sigma^0_E)
@@ -552,8 +552,8 @@ def process(scene, outdir, convention, spacing, kml, dem,
     >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, kml=kml, dem=dem,
     >>>              rlks=rlks, azlks=azlks, export_extra=export_extra)
     """
-    if convention not in ['gamma', 'sigma']:
-        raise RuntimeError("'convention' must either be 'gamma' or 'sigma'")
+    if measurement not in ['gamma', 'sigma']:
+        raise RuntimeError("'measurement' must either be 'gamma' or 'sigma'")
     if export_extra is None:
         export_extra = []
     if tmpdir is None:
@@ -570,7 +570,7 @@ def process(scene, outdir, convention, spacing, kml, dem,
     id = identify(scene)
     workflows = []
     
-    apply_rtc = convention == 'gamma' \
+    apply_rtc = measurement == 'gamma' \
                 or 'sigmaGammaRatio' in export_extra \
                 or 'gammaSigmaRatio' in export_extra
     ############################################################################
@@ -676,7 +676,7 @@ def process(scene, outdir, convention, spacing, kml, dem,
             scene1 = identify(out_mli)
             pols = scene1.polarizations
             bands0 = ['NESZ_{}'.format(pol) for pol in pols]
-            if convention == 'gamma':
+            if measurement == 'gamma':
                 bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
             else:
                 bands0.extend(['Sigma0_{}'.format(pol) for pol in pols])
