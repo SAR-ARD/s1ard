@@ -26,7 +26,7 @@ from S1_NRB.snap import find_datasets
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None,
-           overviews=None, kml=None, annotation=None):
+           overviews=None, kml=None, annotation=None, update=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -78,6 +78,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         - np: noise power (NESZ, per polarization)
         - gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC
         - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
+    update: bool
+        modify existing products so that only missing files are re-created?
 
     Returns
     -------
@@ -141,11 +143,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
-    modify_existing = True  # modify existing products so that only missing files are re-created
     nrb_base = skeleton_dir.format(**meta)
     existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
     if len(existing) > 0:
-        if not modify_existing:
+        if not update:
             return 'Already processed - Skip!'
         else:
             nrb_dir = existing[0]
