@@ -15,21 +15,7 @@ A KML file is available online that will be used in the following steps:
 `S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_
 
 This file contains all relevant information about individual tiles, in particular the EPSG code of the respective UTM zone and the geometry of the tile in UTM coordinates.
-The code snippet below demonstrates the tile reading mechanism of function :func:`S1_NRB.tile_extraction.extract_tile` (using class :class:`spatialist.vector.Vector` and function :func:`spatialist.vector.wkt2vector`):
-
-.. code-block:: python
-
-    from lxml import html
-    from spatialist.vector import Vector, wkt2vector
-
-    def extract_tile(kml, tile):
-        with Vector(kml, driver='KML') as vec:
-            feat = vec.getFeatureByAttribute('Name', tile)
-            attrib = html.fromstring(feat.GetField('Description')
-            attrib = [x for x in attrib.xpath('//tr/td//text()') if x != ' ']
-            attrib = dict(zip(attrib[0::2], attrib[1::2]))
-            feat = None
-        return wkt2vector(attrib['UTM_WKT'], int(attrib['EPSG']))
+The function :func:`S1_NRB.tile_extraction.aoi_from_tile` can be used to extract one or multiple tiles as :class:`spatialist.vector.Vector` object.
 
 Scene Management
 ----------------
@@ -62,16 +48,17 @@ SNAP Processing
 The central function for processing backscatter data with SNAP is :func:`S1_NRB.snap.process`. It will perform all necessary steps to
 generate radiometrically terrain corrected gamma naught backscatter plus all relevant additional datasets like
 local incident angle and local contribution area (see argument ``export_extra``).
-The following functions are called in sequence:
+In a full processor run, the following functions are called in sequence:
 
-- :func:`S1_NRB.snap.mli`: creates multilooked image files (MLIs) per polarization including
+- :func:`S1_NRB.snap.pre`: general pre-processing including
 
   + Orbit state vector enhancement
   + (GRD only) border noise removal
-  + Calibration to beta naught
+  + Calibration to beta naught (for RTC) and sigma naught (for NESZ)
   + Thermal noise removal (including generation of noise equivalent sigma zero (NESZ) noise power images)
   + (SLC only) debursting and swath merging
-  + Multilooking
+
+- :func:`S1_NRB.snap.mli`: creates multi-looked image files (MLIs) per polarization if the target pixel spacing is larger than the source pixel spacing.
 
 - :func:`S1_NRB.snap.rtc`: radiometric terrain flattening.
   Output is backscatter in gamma naught RTC (:math:`\gamma^0_T`) and sigma naught RTC (:math:`\sigma^0_T`) as well as the scattering area (:math:`\beta^0 / \gamma^0_T`).
@@ -80,8 +67,16 @@ The following functions are called in sequence:
 
 - :func:`S1_NRB.snap.geo`: geocoding. This function may be called multiple times if the scene overlaps with multiple UTM zones.
 
-The output is a BEAM-DIMAP product which consists of a dim metadata file and a data folder containing the individual image layers in ENVI format (extension `img`).
+The output is a BEAM-DIMAP product which consists of a `dim` metadata file and a `data` folder containing the individual image layers in ENVI format (extension `img`).
 The function :func:`S1_NRB.snap.find_datasets` can be used to collect the individual images files for a scene.
+
+Depending on the user configuration parameters ``measurement`` and ``annotation``, some modifications to the workflow above are possible:
+
+- :func:`S1_NRB.snap.pre` may only calibrate to sigma naught if no RTC is necessary
+
+- execution of :func:`S1_NRB.snap.rtc` may be skipped
+
+- :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_E`)
 
 NRB Formatting
 --------------
@@ -91,7 +86,7 @@ If one tile overlaps with multiple scenes, these scenes are first virtually mosa
 The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB naming scheme.
 All steps are performed by :func:`S1_NRB.nrb.format`.
 The actual file format conversion is done with :func:`spatialist.auxil.gdalwarp`, which is a simple wrapper around the gdalwarp utility of GDAL.
-The following is another incomplete code example highlighting the general procedure of converting the individual images.
+The following is an incomplete code example highlighting the general procedure of converting the individual images.
 The ``outfile`` name is generated from information of the source images, the MGRS tile ID and the name of the respective file of the RTC processing step.
 
 .. code-block:: python
@@ -111,7 +106,7 @@ The ``outfile`` name is generated from information of the source images, the MGR
                       'outputBounds': [xmin, ymin, xmax, ymax],
                       'creationOptions': write_options})
 
-After all COG files have been created, GDAL VRT files are written for log scaling and sigma naught RTC backscatter computation using function :func:`S1_NRB.nrb.create_vrt`.
+After all COG files have been created, GDAL VRT files are written for log scaling and conversion to other backscatter conventions using function :func:`S1_NRB.nrb.create_vrt`.
 The code below demonstrates the generation of a VRT file for log-scaling using :func:`spatialist.auxil.gdalbuildvrt` followed by an XML
 modification to insert the pixel function (a way to achieve this with GDAL's gdalbuildvrt functionality has not yet been found).
 
