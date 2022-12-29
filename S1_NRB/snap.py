@@ -516,6 +516,7 @@ def process(scene, outdir, convention, spacing, kml, dem,
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
+         - NESZ: noise equivalent sigma zero
          - projectedLocalIncidenceAngle
          - scatteringArea
     allow_res_osv: bool
@@ -568,14 +569,20 @@ def process(scene, outdir, convention, spacing, kml, dem,
     
     id = identify(scene)
     workflows = []
+    
+    apply_rtc = convention == 'gamma' \
+                or 'sigmaGammaRatio' in export_extra \
+                or 'gammaSigmaRatio' in export_extra
     ############################################################################
     # general pre-processing
     out_pre = tmp_base + '_pre.dim'
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
+    output_noise = 'NESZ' in export_extra
     if not os.path.isfile(out_pre):
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
-            allow_res_osv=allow_res_osv)
+            allow_res_osv=allow_res_osv, output_noise=output_noise,
+            output_beta0=apply_rtc)
     ############################################################################
     # GRD buffering
     if neighbors is not None:
@@ -591,7 +598,8 @@ def process(scene, outdir, convention, spacing, kml, dem,
             if not os.path.isfile(out_pre_nb):
                 print('### preprocessing neighbor:', item)
                 pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
-                    allow_res_osv=allow_res_osv)
+                    allow_res_osv=allow_res_osv, output_noise=output_noise,
+                    output_beta0=apply_rtc)
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
@@ -616,9 +624,6 @@ def process(scene, outdir, convention, spacing, kml, dem,
         workflows.append(out_mli_wf)
     ############################################################################
     # radiometric terrain flattening
-    apply_rtc = convention == 'gamma' \
-                or 'sigmaGammaRatio' in export_extra \
-                or 'gammaSigmaRatio' in export_extra
     out_rtc = out_gsr = out_sgr = None
     if apply_rtc:
         out_rtc = tmp_base + '_rtc.dim'
