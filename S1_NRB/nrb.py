@@ -117,6 +117,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 allowed.append(key)
     else:
         allowed = list(datasets[0].keys())
+        annotation = []
     for item in ['em', 'id']:
         if item in annotation:
             allowed.append(item)
@@ -719,7 +720,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     outname: str
         Full path to the output data mask file.
     datasets: list[dict]
-        List of processed output files that match the source SLC scenes and overlap with the current MGRS tile.
+        List of processed output files that match the source scenes and overlap with the current MGRS tile.
+        An error will be thrown if not all datasets contain a key `datamask`.
+        The function will return without an error if not all datasets contain a key `dm`.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -737,12 +740,16 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
     """
-    print(outname)
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
     measurement = [scene[measurement_keys[0]] for scene in datasets]
     datamask = [scene['datamask'] for scene in datasets]
-    ls = [scene['dm'] for scene in datasets]
-    
+    ls = []
+    for scene in datasets:
+        if 'dm' in scene:
+            ls.append(scene['dm'])
+        else:
+            return  # do not create a data mask if not all scenes have a layover-shadow mask
+    print(outname)
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
                 2: {'arr_val': 1,
