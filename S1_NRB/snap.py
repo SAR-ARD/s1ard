@@ -62,7 +62,8 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def pre(src, dst, workflow, allow_res_osv=True):
+def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
+        output_noise=True, output_beta0=True):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -77,6 +78,12 @@ def pre(src, dst, workflow, allow_res_osv=True):
         the output SNAP XML workflow filename.
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
+    osv_continue_on_fail: bool
+        Continue processing if no OSV file can be downloaded or raise an error?
+    output_noise: bool
+        output the noise power images?
+    output_beta0: bool
+        output beta nought backscatter needed for RTC?
 
     Returns
     -------
@@ -94,7 +101,8 @@ def pre(src, dst, workflow, allow_res_osv=True):
     wf.insert_node(read)
     ############################################
     orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
-                          allow_RES_OSV=allow_res_osv)
+                          allow_RES_OSV=allow_res_osv,
+                          continueOnFail=osv_continue_on_fail)
     wf.insert_node(orb, before=read.id)
     last = orb
     ############################################
@@ -107,13 +115,13 @@ def pre(src, dst, workflow, allow_res_osv=True):
     cal = parse_node('Calibration')
     wf.insert_node(cal, before=last.id)
     cal.parameters['selectedPolarisations'] = polarizations
-    cal.parameters['outputBetaBand'] = True
+    cal.parameters['outputBetaBand'] = output_beta0
     cal.parameters['outputSigmaBand'] = True
     cal.parameters['outputGammaBand'] = False
     ############################################
     tnr = parse_node('ThermalNoiseRemoval')
     wf.insert_node(tnr, before=cal.id)
-    tnr.parameters['outputNoise'] = True
+    tnr.parameters['outputNoise'] = output_noise
     last = tnr
     ############################################
     if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
@@ -249,7 +257,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
 
 def gsr(src, dst, workflow, src_sigma=None):
     """
-    Gamma-sigma ratio computation for either ellipsoidal and RTC sigma nought.
+    Gamma-sigma ratio computation for either ellipsoidal or RTC sigma nought.
     
     Parameters
     ----------
@@ -260,7 +268,7 @@ def gsr(src, dst, workflow, src_sigma=None):
     workflow: str
         the output SNAP XML workflow filename.
     src_sigma: str or None
-        the optional file name of a second source scene from which to read the sigma bands.
+        the optional file name of a second source product from which to read the sigma band.
 
     Returns
     -------
@@ -290,6 +298,66 @@ def gsr(src, dst, workflow, src_sigma=None):
     wf.insert_node(math, before=last.id)
     ratio = 'gammaSigmaRatio'
     expression = f'Sigma0_{pol} / Gamma0_{pol}'
+    
+    math.parameters.clear_variables()
+    exp = math.parameters['targetBands'][0]
+    exp['name'] = ratio
+    exp['type'] = 'float32'
+    exp['expression'] = expression
+    exp['noDataValue'] = 0.0
+    ############################################
+    write = parse_node('Write')
+    wf.insert_node(write, before=math.id)
+    write.parameters['file'] = dst
+    write.parameters['formatName'] = 'BEAM-DIMAP'
+    ############################################
+    wf.write(workflow)
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+
+
+def sgr(src, dst, workflow, src_gamma=None):
+    """
+    Sigma-gamma ratio computation.
+
+    Parameters
+    ----------
+    src: str
+        the file name of the source scene. Both sigma and gamma bands are expected unless `src_gamma` is defined.
+    dst: str
+        the file name of the target scene. Format is BEAM-DIMAP.
+    workflow: str
+        the output SNAP XML workflow filename.
+    src_gamma: str or None
+        the optional file name of a second source product from which to read the gamma band.
+
+    Returns
+    -------
+
+    """
+    scene = identify(src)
+    pol = scene.polarizations[0]
+    wf = parse_recipe('blank')
+    ############################################
+    read = parse_node('Read')
+    read.parameters['file'] = scene.scene
+    wf.insert_node(read)
+    last = read
+    ############################################
+    if src_gamma is not None:
+        read.parameters['sourceBands'] = f'Sigma_{pol}'
+        read2 = parse_node('Read')
+        read2.parameters['file'] = src_gamma
+        read2.parameters['sourceBands'] = f'Gamma_{pol}'
+        wf.insert_node(read2)
+        ########################################
+        merge = parse_node('BandMerge')
+        wf.insert_node(merge, before=[read.id, read2.id])
+        last = merge
+    ############################################
+    math = parse_node('BandMaths')
+    wf.insert_node(math, before=last.id)
+    ratio = 'sigmaGammaRatio'
+    expression = f'Gamma0_{pol} / Sigma0_{pol}'
     
     math.parameters.clear_variables()
     exp = math.parameters['targetBands'][0]
@@ -406,14 +474,14 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def process(scene, outdir, spacing, kml, dem,
+def process(scene, outdir, measurement, spacing, kml, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
             allow_res_osv=True, slc_clean_edges=True, slc_clean_edges_pixels=4,
             neighbors=None, cleanup=True):
     """
-    Main function for RTC processing with SNAP.
+    Main function for SAR processing with SNAP.
     
     Parameters
     ----------
@@ -421,6 +489,11 @@ def process(scene, outdir, spacing, kml, dem,
         The SAR scene file name.
     outdir: str
         The output directory for storing the final results.
+    measurement: {'sigma', 'gamma'}
+        the backscatter measurement convention:
+        
+        - gamma: RTC gamma nought (gamma^0_T)
+        - sigma: ellipsoidal sigmal nought (sigma^0_E)
     spacing: int or float
         The output pixel spacing in meters.
     kml: str
@@ -438,13 +511,16 @@ def process(scene, outdir, spacing, kml, dem,
     tmpdir: str or None
         Path to a temporary directory for intermediate products.
     export_extra: list[str] or None
-        A list of ancillary layers to create. Options:
+        A list of ancillary layers to create. Default None: do not create any ancillary layers.
+        Options:
         
          - DEM
-         - gammaSigmaRatio
+         - gammaSigmaRatio: sigma^0_T / gamma^0_T
+         - sigmaGammaRatio: gamma^0_T / sigma^0_E
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
+         - NESZ: noise equivalent sigma zero
          - projectedLocalIncidenceAngle
          - scatteringArea
     allow_res_osv: bool
@@ -480,6 +556,10 @@ def process(scene, outdir, spacing, kml, dem,
     >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, kml=kml, dem=dem,
     >>>              rlks=rlks, azlks=azlks, export_extra=export_extra)
     """
+    if measurement not in ['gamma', 'sigma']:
+        raise RuntimeError("'measurement' must either be 'gamma' or 'sigma'")
+    if export_extra is None:
+        export_extra = []
     if tmpdir is None:
         tmpdir = outdir
     basename = os.path.splitext(os.path.basename(scene))[0]
@@ -493,14 +573,20 @@ def process(scene, outdir, spacing, kml, dem,
     
     id = identify(scene)
     workflows = []
+    
+    apply_rtc = measurement == 'gamma' \
+                or 'sigmaGammaRatio' in export_extra \
+                or 'gammaSigmaRatio' in export_extra
     ############################################################################
     # general pre-processing
     out_pre = tmp_base + '_pre.dim'
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
+    output_noise = 'NESZ' in export_extra
     if not os.path.isfile(out_pre):
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
-            allow_res_osv=allow_res_osv)
+            allow_res_osv=allow_res_osv, output_noise=output_noise,
+            output_beta0=apply_rtc)
     ############################################################################
     # GRD buffering
     if neighbors is not None:
@@ -516,7 +602,8 @@ def process(scene, outdir, spacing, kml, dem,
             if not os.path.isfile(out_pre_nb):
                 print('### preprocessing neighbor:', item)
                 pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
-                    allow_res_osv=allow_res_osv)
+                    allow_res_osv=allow_res_osv, output_noise=output_noise,
+                    output_beta0=apply_rtc)
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
@@ -524,6 +611,7 @@ def process(scene, outdir, spacing, kml, dem,
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
+            print('### buffering scene with neighboring acquisitions')
             grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                        neighbors=out_pre_neighbors)
         out_pre = out_buffer
@@ -540,26 +628,38 @@ def process(scene, outdir, spacing, kml, dem,
         workflows.append(out_mli_wf)
     ############################################################################
     # radiometric terrain flattening
-    out_rtc = tmp_base + '_rtc.dim'
-    out_rtc_wf = out_rtc.replace('.dim', '.xml')
-    workflows.append(out_rtc_wf)
-    if not os.path.isfile(out_rtc):
-        rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
-            dem_resampling_method=dem_resampling_method,
-            sigma0='gammaSigmaRatio' in export_extra,
-            scattering_area='scatteringArea' in export_extra)
-    ############################################################################
-    # gamma-sigma ratio computation
-    out_gsr = None
-    if 'gammaSigmaRatio' in export_extra:
-        out_gsr = tmp_base + '_gsr.dim'
-        out_gsr_wf = out_gsr.replace('.dim', '.xml')
-        workflows.append(out_gsr_wf)
-        if not os.path.isfile(out_gsr):
-            gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf)
+    out_rtc = out_gsr = out_sgr = None
+    if apply_rtc:
+        out_rtc = tmp_base + '_rtc.dim'
+        out_rtc_wf = out_rtc.replace('.dim', '.xml')
+        workflows.append(out_rtc_wf)
+        if not os.path.isfile(out_rtc):
+            rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
+                dem_resampling_method=dem_resampling_method,
+                sigma0='gammaSigmaRatio' in export_extra,
+                scattering_area='scatteringArea' in export_extra)
+        ########################################################################
+        # gamma-sigma ratio computation
+        out_gsr = None
+        if 'gammaSigmaRatio' in export_extra:
+            out_gsr = tmp_base + '_gsr.dim'
+            out_gsr_wf = out_gsr.replace('.dim', '.xml')
+            workflows.append(out_gsr_wf)
+            if not os.path.isfile(out_gsr):
+                gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf)
+        ########################################################################
+        # sigma-gamma ratio computation
+        out_sgr = None
+        if 'sigmaGammaRatio' in export_extra:
+            out_sgr = tmp_base + '_sgr.dim'
+            out_sgr_wf = out_sgr.replace('.dim', '.xml')
+            workflows.append(out_sgr_wf)
+            if not os.path.isfile(out_sgr):
+                sgr(src=out_mli, dst=out_sgr, workflow=out_sgr_wf,
+                    src_gamma=out_rtc)
     ############################################################################
     # geocoding
-    with id.bbox() as geom:
+    with id.geometry() as geom:
         tiles = tile_from_aoi(vector=geom, kml=kml)
     
     for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
@@ -580,10 +680,14 @@ def process(scene, outdir, spacing, kml, dem,
             scene1 = identify(out_mli)
             pols = scene1.polarizations
             bands0 = ['NESZ_{}'.format(pol) for pol in pols]
-            bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
+            if measurement == 'gamma':
+                bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
+            else:
+                bands0.extend(['Sigma0_{}'.format(pol) for pol in pols])
+                bands1 = []
             if 'scatteringArea' in export_extra:
                 bands1.append('simulatedImage')
-            geo(out_mli, out_rtc, out_gsr, dst=out_geo, workflow=out_geo_wf,
+            geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
                 standard_grid_origin_x=align_x,
@@ -651,15 +755,20 @@ def find_datasets(scene, outdir, epsg):
          - hv-g-lin: gamma nought RTC backscatter HV polarization
          - vh-g-lin: gamma nought RTC backscatter VH polarization
          - vv-g-lin: gamma nought RTC backscatter VV polarization
+         - hh-s-lin: sigma nought ellipsoidal backscatter HH polarization
+         - hv-s-lin: sigma nought ellipsoidal backscatter HV polarization
+         - vh-s-lin: sigma nought ellipsoidal backscatter VH polarization
+         - vv-s-lin: sigma nought ellipsoidal backscatter VV polarization
          - dm: layover-shadow data mask
          - ei: ellipsoidal incident angle
          - gs: gamma-sigma ratio
          - lc: local contributing area (aka scattering area)
          - li: local incident angle
-         - np-hh: noise power HH polarization
-         - np-hv: noise power HV polarization
-         - np-vh: noise power VH polarization
-         - np-vv: noise power VV polarization
+         - sg: sigma-gamma ratio
+         - np-hh: NESZ HH polarization
+         - np-hv: NESZ HV polarization
+         - np-vh: NESZ VH polarization
+         - np-vv: NESZ VV polarization
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
@@ -670,17 +779,19 @@ def find_datasets(scene, outdir, epsg):
               'ei': r'incidenceAngleFromEllipsoid\.img$',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img$',
               'lc': r'simulatedImage_[VH]{2}\.img$',
-              'li': r'localIncidenceAngle\.img$'}
+              'li': r'localIncidenceAngle\.img$',
+              'sg': r'sigmaGammaRatio_[VH]{2}\.img$'}
     out = {}
     for key, pattern in lookup.items():
         match = finder(target=subdir, matchlist=[pattern], regex=True)
         if len(match) > 0:
             out[key] = match[0]
-    pattern = r'Gamma0_(?P<pol>[VH]{2})\.img$'
-    gamma = finder(target=subdir, matchlist=[pattern], regex=True)
-    for item in gamma:
-        pol = re.search(pattern, item).group('pol')
-        out[f'{pol.lower()}-g-lin'] = item
+    pattern = r'(?P<bsc>Gamma0|Sigma0)_(?P<pol>[VH]{2})\.img$'
+    backscatter = finder(target=subdir, matchlist=[pattern], regex=True)
+    for item in backscatter:
+        pol = re.search(pattern, item).group('pol').lower()
+        bsc = re.search(pattern, item).group('bsc')[0].lower()
+        out[f'{pol}-{bsc}-lin'] = item
     pattern = r'NESZ_(?P<pol>[VH]{2})\.img$'
     nesz = finder(target=subdir, matchlist=[pattern], regex=True)
     for item in nesz:
@@ -709,10 +820,13 @@ def get_metadata(scene, outdir):
     scenedir = os.path.join(outdir, basename)
     rlks = azlks = 1
     wf_mli = finder(scenedir, ['*mli.xml'])
-    if len(wf_mli) > 0:
-        wf = parse_recipe(wf_mli)
+    if len(wf_mli) == 1:
+        wf = parse_recipe(wf_mli[0])
         if 'Multilook' in wf.operators:
             rlks = int(wf['Multilook'].parameters['nRgLooks'])
             azlks = int(wf['Multilook'].parameters['nAzLooks'])
+    elif len(wf_mli) > 1:
+        msg = 'found multiple multi-looking workflows:\n{}'
+        raise RuntimeError(msg.format('\n'.join(wf_mli)))
     return {'azlks': azlks,
             'rlks': rlks}

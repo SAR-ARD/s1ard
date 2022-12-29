@@ -391,7 +391,8 @@ def get_header_size(tif):
 def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     """
     Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
-    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html
+    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html.
+    Currently only the Copernicus DEM is supported.
     
     Parameters
     ----------
@@ -406,8 +407,8 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     
     Returns
     -------
-    rmse_planar: float
-        The calculated rRMSE value rounded to two decimal places.
+    rmse_planar: float or None
+        The calculated rRMSE value rounded to two decimal places or None if a DEM other than Copernicus is used.
     """
     if 'copernicus' not in dem_type.lower():
         return None
@@ -489,9 +490,13 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
-    ref_tif = finder(target, ['[hv]{2}-g-lin.tif$'], regex=True)[0]
+    ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tif = finder(target, ['-ei.tif$'], regex=True)[0]
+    ei_tifs = finder(target, ['-ei.tif$'], regex=True)
+    if len(ei_tifs) > 0:
+        ei_tif = ei_tifs[0]
+    else:
+        ei_tif = None
     
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
@@ -507,8 +512,11 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
-                                            dem_type=dem_type, etad=config['etad'])
+    if ei_tif is not None:
+        geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
+                                                dem_type=dem_type, etad=config['etad'])
+    else:
+        geocorr_acc = None
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -545,7 +553,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
-    meta['prod']['backscatterMeasurement'] = 'gamma0'
+    meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
     meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
@@ -586,7 +594,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
-    meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
+    meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
                                   'Generated-by-Sentinel-1-IPF' if meta['prod']['NRApplied'] else None
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))

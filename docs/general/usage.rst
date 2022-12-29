@@ -22,11 +22,12 @@ This parameter determines if the entire processing chain should be executed or o
 
 The area of interest (AOI) for which S1-NRB products should be created.
 
-Only one of these parameters is required and the one that is not used can be set to ``None`` or left empty.
 ``aoi_tiles`` can be used to define the area of interest via MGRS tile IDs, which must be provided comma-separated (e.g.,
 ``aoi_tiles = 32TNS, 32TMT, 32TMS``). ``aoi_geometry`` defines the area of interest via a full path to a vector file
 supported by :class:`spatialist.vector.Vector`. This option will automatically search for overlapping MGRS tiles and use
 these for processing.
+Both parameters are optional and can be set to ``None`` or left empty. ``aoi_tiles`` overrides ``aoi_geometry``.
+If neither is defined, all tiles overlapping with the scene search result are processed.
 
 - **mindate** & **maxdate**
 
@@ -78,14 +79,40 @@ Options: ``Copernicus 10m EEA DEM | Copernicus 30m Global DEM II | Copernicus 30
 
 The Digital Elevation Model (DEM) that should be used for processing.
 
-Note that water body masks are not available for "Copernicus 30m Global DEM" and "GETASSE30", and will therefore not be
+Note that water body masks are not available for "GETASSE30", and will therefore not be
 included in the product data mask. "Copernicus 10m EEA DEM" and "Copernicus 30m Global DEM II" (both include water body masks)
 are retrieved from the `Copernicus Space Component Data Access system (CSCDA) <https://spacedata.copernicus.eu/web/cscda/data-access/registration>`_,
-which requires registration. The processor asks for authentification during runtime if one of these options is selected.
+which requires registration. The processor reads username and password from the environment variables `DEM_USER`
+and `DEM_PASS` if possible and otherwise interactively asks for authentication if one of these DEM options is selected.
 
 - **gdal_threads**
 
 Temporarily changes GDAL_NUM_THREADS during processing. Will be reset after processing has finished.
+
+- **measurement**
+
+Options: ``gamma | sigma``
+
+The backscatter measurement convention. Either creates gamma naught RTC (:math:`\gamma^0_T`) or ellipsoidal sigma naught (:math:`\sigma^0_E`).
+
+- **annotation**
+
+A comma-separated list to define the annotation layers to be created. Supported options:
+
+ + dm: data mask (four masks: not layover not shadow, layover, shadow, ocean water)
+ + ei: ellipsoidal incident angle (needed for computing geolocation accuracy)
+ + em: digital elevation model
+ + id: acquisition ID image (source scene ID per pixel)
+ + lc: RTC local contributing area
+ + li: local incident angle
+ + np: noise power (NESZ, per polarization)
+ + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)
+ + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (ignored if ``measurement`` is not sigma)
+
+Use one of the following to create no annotation layer:
+
+ + ``annotation =``
+ + ``annotation = None``
 
 - **etad** & **etad_dir**
 
@@ -98,9 +125,18 @@ Sections
 ^^^^^^^^
 Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
 section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
-related parameters. This section is by default named ``[PROCESSING]`` (see `example config file <https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini>`_).
+related parameters. This section is by default named ``[PROCESSING]``
+(see `example config file <https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini>`_).
 
-Users might create several sections in the same configuration file with parameter values that correspond to different
+A reserved section ``[METADATA]`` may contain user-specific metadata to be written to the product's metadata files.
+Currently supported fields:
+
+ + access_url
+ + licence
+ + doi
+ + processing_center
+
+Users might create several processing sections in the same configuration file with parameter values that correspond to different
 processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
 configuration parameters even if only a few are varied between the sections.
 

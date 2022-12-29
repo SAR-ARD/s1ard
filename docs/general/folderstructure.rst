@@ -1,7 +1,9 @@
 Folder Structure
 ================
 
-The following describes the structure created to store intermediate and final files during a processor run.
+The following demonstrates a possible structure created to store intermediate and final files during a processor run.
+The listed files describe the output of the user configuration parameter ``measurement`` set to ``gamma``
+and all output annotation layers enabled (``annotation = dm, ei, em, id, lc, li, np, gs``).
 The structure is based on the default configuration defined in the `config.ini` file and can be modified by a user.
 Folders are highlighted in bold.
 
@@ -54,6 +56,7 @@ Folders are highlighted in bold.
 
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-dm.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-ei.tif
+                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-em.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-gs.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-id.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-lc.tif
@@ -116,6 +119,7 @@ Folders are highlighted in bold.
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_geo_32632.xml
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.xml
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_pre.xml
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.xml
 
                             ...
@@ -141,6 +145,7 @@ Folders are highlighted in bold.
                             | S1A_IW_ETA__AXDV_20200103T170700_20200103T170727_030639_0382D5_256B.SAFE
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.data
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.data
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_pre.data
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.data
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.vrt
@@ -148,6 +153,8 @@ Folders are highlighted in bold.
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.xml
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.dim
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.xml
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_pre.dim
+                            | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_pre.xml
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.dim
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.xml
                             | ...

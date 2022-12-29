@@ -27,6 +27,7 @@ def main(config_file, section_name='PROCESSING', debug=False):
     debug: bool
         Set pyroSAR logging level to DEBUG? Default is False.
     """
+    update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, proc_section=section_name)
     logger = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
@@ -101,13 +102,13 @@ def main(config_file, section_name='PROCESSING', debug=False):
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
             print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
-            if os.path.isdir(out_dir_scene):
+            if os.path.isdir(out_dir_scene) and not update:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
                 anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
                 continue
             else:
-                os.makedirs(out_dir_scene)
+                os.makedirs(out_dir_scene, exist_ok=True)
                 os.makedirs(tmp_dir_scene, exist_ok=True)
             ############################################################################################################
             # Preparation of DEM for SAR processing
@@ -162,10 +163,30 @@ def main(config_file, section_name='PROCESSING', debug=False):
             ############################################################################################################
             # main processing routine
             start_time = time.time()
+            lookup = {'dm': 'layoverShadowMask',
+                      'ei': 'incidenceAngleFromEllipsoid',
+                      'gs': 'gammaSigmaRatio',
+                      'li': 'localIncidenceAngle',
+                      'lc': 'scatteringArea',
+                      'np': 'NESZ',
+                      'sg': 'sigmaGammaRatio'}
+            if config['annotation'] is None:
+                export_extra = None
+            else:
+                export_extra = []
+                for annotation in config['annotation']:
+                    if annotation == 'gs' and config['measurement'] != 'gamma':
+                        continue
+                    if annotation == 'sg' and config['measurement'] != 'sigma':
+                        continue
+                    if annotation in lookup.keys():
+                        export_extra.append(lookup[annotation])
             try:
                 snap.process(scene=scene.scene, outdir=config['rtc_dir'],
+                             measurement=config['measurement'],
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
+                             export_extra=export_extra,
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
                 anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
@@ -219,7 +240,8 @@ def main(config_file, section_name='PROCESSING', debug=False):
                     msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'])
+                                     multithread=gdal_prms['multithread'], annotation=config['annotation'],
+                                     update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)

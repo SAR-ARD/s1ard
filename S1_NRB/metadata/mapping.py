@@ -17,6 +17,10 @@ ITEM_MAP = {'vv-g-lin': {'z_error': 1e-4},
             'vh-g-lin': {'z_error': 1e-4},
             'hh-g-lin': {'z_error': 1e-4},
             'hv-g-lin': {'z_error': 1e-4},
+            'vv-s-lin': {'z_error': 1e-4},
+            'vh-s-lin': {'z_error': 1e-4},
+            'hh-s-lin': {'z_error': 1e-4},
+            'hv-s-lin': {'z_error': 1e-4},
             'ei': {'z_error': 1e-3},
             'em': {'z_error': 1e-3},
             'dm': {'z_error': 0.0},
@@ -27,7 +31,8 @@ ITEM_MAP = {'vv-g-lin': {'z_error': 1e-4},
             'np-vv': {'z_error': 2e-5},
             'np-vh': {'z_error': 2e-5},
             'np-hh': {'z_error': 2e-5},
-            'np-hv': {'z_error': 2e-5}}
+            'np-hv': {'z_error': 2e-5},
+            'sg': {'z_error': 1e-4}}
 
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
@@ -140,7 +145,11 @@ SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
               '-np-[vh]{2}.tif': {'type': 'Sigma-0',
                                   'unit': 'dB',
                                   'role': 'noise-power',
-                                  'title': 'Noise Power'}}
+                                  'title': 'Noise Power'},
+              '-sg.tif': {'type': 'Ratio',
+                          'unit': None,
+                          'role': 'sigma-gamma-ratio',
+                          'title': 'Sigma0 ellipsoidal to gamma0 RTC ratio'}}
 
 # https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf
 SLC_ACC_MAP = {'SM': {'ALE': {'rg': -3.02,

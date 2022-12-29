@@ -131,10 +131,15 @@ Ancillary Functions
     .. autosummary::
         :nosignatures:
 
+        check_acquisition_completeness
+        check_scene_consistency
+        check_spacing
         generate_unique_id
         get_max_ext
+        group_by_time
         log
         set_logging
+        vrt_add_overviews
 
 Metadata
 --------

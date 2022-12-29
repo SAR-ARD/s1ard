@@ -26,7 +26,7 @@ from S1_NRB.snap import find_datasets
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None,
-           overviews=None, kml=None):
+           overviews=None, kml=None, annotation=None, update=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -65,6 +65,21 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
     kml: str or None
         The KML file containing the MGRS tile geometries. Only needs to be defined if `dem_type!=None`.
+    annotation: list[str] or None
+        an optional list to select the annotation layers. Default `None`: create all layers if the
+        source products contain the required input layers. Options:
+        
+        - dm: data mask (four masks: not layover not shadow, layover, shadow, ocean water)
+        - ei: ellipsoidal incident angle
+        - em: digital elevation model
+        - id: acquisition ID image (source scene ID per pixel)
+        - lc: RTC local contributing area
+        - li: local incident angle
+        - np: noise power (NESZ, per polarization)
+        - gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC
+        - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
+    update: bool
+        modify existing products so that only missing files are re-created?
 
     Returns
     -------
@@ -94,6 +109,21 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
                            '\n{scenes}'.format(tile_id=tile, scenes=scenes))
     
+    if annotation is not None:
+        allowed = []
+        for key in datasets[0]:
+            c1 = re.search('[gs]-lin', key)
+            c2 = key in annotation
+            c3 = key.startswith('np') and 'np' in annotation
+            if c1 or c2 or c3:
+                allowed.append(key)
+    else:
+        allowed = list(datasets[0].keys())
+        annotation = []
+    for item in ['em', 'id']:
+        if item in annotation:
+            allowed.append(item)
+    
     # GDAL output bounds
     bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -113,11 +143,10 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
     skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
-    modify_existing = True  # modify existing products so that only missing files are re-created
     nrb_base = skeleton_dir.format(**meta)
     existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
     if len(existing) > 0:
-        if not modify_existing:
+        if not update:
             return 'Already processed - Skip!'
         else:
             nrb_dir = existing[0]
@@ -126,7 +155,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     os.makedirs(nrb_dir, exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
-    write_options_base = ['BLOCKSIZE={}'.format(blocksize), 'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
+    write_options_base = ['BLOCKSIZE={}'.format(blocksize),
+                          'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
     write_options = dict()
     for key in ITEM_MAP:
         write_options[key] = write_options_base.copy()
@@ -137,7 +167,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
                 write_options[key].append(entry)
     
-    # create raster files: linear gamma0 backscatter (-[vh|vv|hh|hv]-g-lin.tif),
+    # create raster files: linear gamma0/sigma0 backscatter (-[vh|vv|hh|hv]-[gs]-lin.tif),
     # ellipsoidal incident angle (-ei.tif), gamma-to-sigma ratio (-gs.tif),
     # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
@@ -147,9 +177,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             # the data mask raster (-dm.tif) will be created later
             continue
         
+        if key not in allowed:
+            continue
+        
         meta_lower['suffix'] = key
         outname_base = skeleton_files.format(**meta_lower)
-        if re.search('g-lin', key):
+        if re.search('[gs]-lin', key):
             subdir = 'measurement'
         else:
             subdir = 'annotation'
@@ -179,36 +212,38 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                 ras.close()
         datasets_nrb[key] = outname
     
-    # define a reference raster from the annotation datasets and list all gamma0 backscatter measurement rasters
-    measure_tifs = [v for k, v in datasets_nrb.items() if re.search('g-lin', k)]
+    # define a reference raster from the annotation datasets and list all gamma0/sigma0 backscatter measurement rasters
+    measure_tifs = [v for k, v in datasets_nrb.items() if re.search('[gs]-lin', k)]
     ref_key = list(datasets_nrb.keys())[0]
     ref_tif = datasets_nrb[ref_key]
     
     # create data mask raster (-dm.tif)
-    if wbm is not None:
-        if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
-            raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
-    
-    dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
-    if not os.path.isfile(dm_path):
-        create_data_mask(outname=dm_path, datasets=datasets, extent=extent, epsg=epsg,
-                         driver=driver, creation_opt=write_options['dm'],
-                         overviews=overviews, overview_resampling=ovr_resampling,
-                         wbm=wbm, dst_nodata=dst_nodata_byte)
-    datasets_nrb['dm'] = dm_path
+    if 'dm' in allowed:
+        if wbm is not None:
+            if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+                raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
+        
+        dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
+        if not os.path.isfile(dm_path):
+            create_data_mask(outname=dm_path, datasets=datasets, extent=extent, epsg=epsg,
+                             driver=driver, creation_opt=write_options['dm'],
+                             overviews=overviews, overview_resampling=ovr_resampling,
+                             wbm=wbm, dst_nodata=dst_nodata_byte)
+        datasets_nrb['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
-    id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
-    if not os.path.isfile(id_path):
-        create_acq_id_image(outname=id_path, ref_tif=ref_tif,
-                            datasets=datasets, src_ids=src_ids,
-                            extent=extent, epsg=epsg, driver=driver,
-                            creation_opt=write_options['id'],
-                            overviews=overviews, dst_nodata=dst_nodata_byte)
-    datasets_nrb['id'] = id_path
+    if 'id' in allowed:
+        id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
+        if not os.path.isfile(id_path):
+            create_acq_id_image(outname=id_path, ref_tif=ref_tif,
+                                datasets=datasets, src_ids=src_ids,
+                                extent=extent, epsg=epsg, driver=driver,
+                                creation_opt=write_options['id'],
+                                overviews=overviews, dst_nodata=dst_nodata_byte)
+        datasets_nrb['id'] = id_path
     
     # create DEM (-em.tif)
-    if dem_type is not None:
+    if dem_type is not None and 'em' in allowed:
         if kml is None:
             raise RuntimeError("If 'dem_type' is not None, `kml` needs to be defined.")
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
@@ -226,7 +261,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             log_pyro.setLevel(level)
             datasets_nrb['em'] = em_path
     
-    # create color composite VRT (-cc-g-lin.vrt)
+    # create color composite VRT (-cc-[gs]-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
         if not os.path.isfile(cc_path):
@@ -235,7 +270,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     vrt_options = {'VRTNodata': vrt_nodata}
     
-    # create log-scaled gamma nought VRTs (-[vh|vv|hh|hv]-g-log.vrt)
+    # create log-scaled gamma0/sigma0 nought VRTs (-[vh|vv|hh|hv]-[gs]-log.vrt)
     fun = 'dB'
     args = {'fact': 10}
     scale = None
@@ -248,7 +283,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                        overview_resampling=ovr_resampling)
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
-    if 'gs' in datasets_nrb.keys():
+    if 'gs' in allowed:
         gs_path = datasets_nrb['gs']
         for item in measure_tifs:
             sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
@@ -263,6 +298,27 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             if not os.path.isfile(sigma0_rtc_log):
                 print(sigma0_rtc_log)
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
+                           scale=scale, options=vrt_options, overviews=overviews,
+                           overview_resampling=ovr_resampling, args=args)
+    
+    # create gamma nought RTC VRTs (-[vh|vv|hh|hv]-g-[lin|log].vrt)
+    if 'sg' in allowed:
+        sg_path = datasets_nrb['sg']
+        for item in measure_tifs:
+            if not item.endswith('s-lin.tif'):
+                continue
+            gamma0_rtc_lin = item.replace('s-lin.tif', 'g-lin.vrt')
+            gamma0_rtc_log = item.replace('s-lin.tif', 'g-log.vrt')
+            
+            if not os.path.isfile(gamma0_rtc_lin):
+                print(gamma0_rtc_lin)
+                create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
+                           relpaths=True, options=vrt_options, overviews=overviews,
+                           overview_resampling=ovr_resampling)
+            
+            if not os.path.isfile(gamma0_rtc_log):
+                print(gamma0_rtc_log)
+                create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
     
@@ -324,12 +380,12 @@ def get_datasets(scenes, datadir, extent, epsg):
     
     i = 0
     while i < len(datasets):
-        gbs = [datasets[i][x] for x in datasets[i].keys() if re.search('g-lin', x)]
-        dm_ras = os.path.join(os.path.dirname(gbs[0]), 'datamask.tif')
+        measurements = [datasets[i][x] for x in datasets[i].keys() if re.search('[gs]-lin', x)]
+        dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         
         if not all([os.path.isfile(x) for x in [dm_ras, dm_vec]]):
-            with Raster(gbs[0]) as ras:
+            with Raster(measurements[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
                 with vectorize(target=mask, reference=ras) as vec:
@@ -393,7 +449,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
 
     Examples
     --------
-    linear backscatter as input:
+    linear gamma0 backscatter as input:
 
     >>> src = 's1a-iw-nrb-20220601t052704-043465-0530a1-32tpt-vh-g-lin.tif'
 
@@ -463,6 +519,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
         srcfiles = tree.xpath('//SourceFilename[@relativeToVRT="0"]')
         for srcfile in srcfiles:
             repl = os.path.relpath(srcfile.text, start=os.path.dirname(dst))
+            repl = repl.replace('\\', '/')
             srcfile.text = repl
             srcfile.attrib['relativeToVRT'] = '1'
     
@@ -665,7 +722,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     outname: str
         Full path to the output data mask file.
     datasets: list[dict]
-        List of processed output files that match the source SLC scenes and overlap with the current MGRS tile.
+        List of processed output files that match the source scenes and overlap with the current MGRS tile.
+        An error will be thrown if not all datasets contain a key `datamask`.
+        The function will return without an error if not all datasets contain a key `dm`.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -683,12 +742,16 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
     """
-    print(outname)
-    gamma0_keys = [x for x in datasets[0].keys() if re.search('g-lin', x)]
-    gamma0 = [scene[gamma0_keys[0]] for scene in datasets]
+    measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
+    measurement = [scene[measurement_keys[0]] for scene in datasets]
     datamask = [scene['datamask'] for scene in datasets]
-    ls = [scene['dm'] for scene in datasets]
-    
+    ls = []
+    for scene in datasets:
+        if 'dm' in scene:
+            ls.append(scene['dm'])
+        else:
+            return  # do not create a data mask if not all scenes have a layover-shadow mask
+    print(outname)
     dm_bands = {1: {'arr_val': 0,
                     'name': 'not layover, nor shadow'},
                 2: {'arr_val': 1,
@@ -702,10 +765,10 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     
     vrt_ls = '/vsimem/' + os.path.dirname(outname) + 'ls.vrt'
     vrt_valid = '/vsimem/' + os.path.dirname(outname) + 'valid.vrt'
-    vrt_gamma0 = '/vsimem/' + os.path.dirname(outname) + 'gamma0.vrt'
+    vrt_measurement = '/vsimem/' + os.path.dirname(outname) + 'measurement.vrt'
     gdalbuildvrt(src=ls, dst=vrt_ls, outputBounds=tile_bounds, void=False)
     gdalbuildvrt(src=datamask, dst=vrt_valid, outputBounds=tile_bounds, void=False)
-    gdalbuildvrt(src=gamma0, dst=vrt_gamma0, outputBounds=tile_bounds, void=False)
+    gdalbuildvrt(src=measurement, dst=vrt_measurement, outputBounds=tile_bounds, void=False)
     
     with Raster(vrt_ls) as ras_ls:
         with bbox(extent, crs=epsg) as tile_vec:
@@ -740,15 +803,15 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             
             # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
             with Raster(vrt_valid)[tile_vec] as ras_valid:
-                with Raster(vrt_gamma0)[tile_vec] as ras_gamma0:
+                with Raster(vrt_measurement)[tile_vec] as ras_measurement:
                     arr_valid = ras_valid.array()
-                    arr_gamma0 = ras_gamma0.array()
+                    arr_measurement = ras_measurement.array()
                     
                     out_arr = np.nan_to_num(out_arr)
-                    out_arr = np.where(((arr_valid == 1) & (np.isnan(arr_gamma0)) & (out_arr != 4)), 2,
+                    out_arr = np.where(((arr_valid == 1) & (np.isnan(arr_measurement)) & (out_arr != 4)), 2,
                                        out_arr)
                     out_arr[np.isnan(arr_valid)] = dst_nodata
-                    del arr_gamma0
+                    del arr_measurement
                     del arr_valid
         
         outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
