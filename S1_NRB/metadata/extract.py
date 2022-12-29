@@ -553,7 +553,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
-    meta['prod']['backscatterMeasurement'] = 'gamma0'
+    meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
     meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
     meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
@@ -594,7 +594,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
-    meta['prod']['NRApplied'] = True if len(np_tifs) > 0 else False
+    meta['prod']['NRApplied'] = True
     meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
                                   'Generated-by-Sentinel-1-IPF' if meta['prod']['NRApplied'] else None
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
