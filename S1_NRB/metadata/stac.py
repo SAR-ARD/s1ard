@@ -192,8 +192,9 @@ def product_json(meta, target, tifs, exist_ok=False):
         if 'measurement' in asset:
             pattern = '(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))'
             info = re.search(pattern, asset).groupdict()
+            key = info['key']
             
-            if re.search('cc-[gs]-lin', info['key']):
+            if re.search('cc-[gs]-lin', key):
                 pols = meta['common']['polarisationChannels']
                 co = pols.pop(0) if pols[0][0] == pols[0][1] else pols.pop(1)
                 cross = pols[0]
