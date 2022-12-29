@@ -492,7 +492,11 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     
     ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tif = finder(target, ['-ei.tif$'], regex=True)[0]
+    ei_tifs = finder(target, ['-ei.tif$'], regex=True)
+    if len(ei_tifs) > 0:
+        ei_tif = ei_tifs[0]
+    else:
+        ei_tif = None
     
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
@@ -508,8 +512,11 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
-                                            dem_type=dem_type, etad=config['etad'])
+    if ei_tif is not None:
+        geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
+                                                dem_type=dem_type, etad=config['etad'])
+    else:
+        geocorr_acc = None
     
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
