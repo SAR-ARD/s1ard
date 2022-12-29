@@ -62,7 +62,8 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
 
 
-def pre(src, dst, workflow, allow_res_osv=True, output_noise=True, output_beta0=True):
+def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
+        output_noise=True, output_beta0=True):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -77,6 +78,8 @@ def pre(src, dst, workflow, allow_res_osv=True, output_noise=True, output_beta0=
         the output SNAP XML workflow filename.
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
+    osv_continue_on_fail: bool
+        Continue processing if no OSV file can be downloaded or raise an error?
     output_noise: bool
         output the noise power images?
     output_beta0: bool
@@ -98,7 +101,8 @@ def pre(src, dst, workflow, allow_res_osv=True, output_noise=True, output_beta0=
     wf.insert_node(read)
     ############################################
     orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
-                          allow_RES_OSV=allow_res_osv)
+                          allow_RES_OSV=allow_res_osv,
+                          continueOnFail=osv_continue_on_fail)
     wf.insert_node(orb, before=read.id)
     last = orb
     ############################################
