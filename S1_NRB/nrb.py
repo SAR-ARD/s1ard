@@ -519,6 +519,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
         srcfiles = tree.xpath('//SourceFilename[@relativeToVRT="0"]')
         for srcfile in srcfiles:
             repl = os.path.relpath(srcfile.text, start=os.path.dirname(dst))
+            repl = repl.replace('\\', '/')
             srcfile.text = repl
             srcfile.attrib['relativeToVRT'] = '1'
     
