@@ -22,16 +22,17 @@ def get_config(config_file, proc_section='PROCESSING'):
     if not os.path.isfile(config_file):
         raise FileNotFoundError("Config file {} does not exist.".format(config_file))
     
-    parser = configparser.ConfigParser(allow_no_value=True, converters={'_datetime': _parse_datetime,
+    parser = configparser.ConfigParser(allow_no_value=True, converters={'_annotation': _parse_annotation,
+                                                                        '_datetime': _parse_datetime,
                                                                         '_tile_list': _parse_tile_list})
     parser.read(config_file)
     out_dict = {}
     
     # PROCESSING section
     allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir',
+                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                     'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
-                    'etad', 'etad_dir', 'product']
+                    'etad', 'etad_dir', 'product', 'annotation']
     try:
         proc_sec = parser[proc_section]
     except KeyError:
@@ -90,7 +91,21 @@ def get_config(config_file, proc_section='PROCESSING'):
         if k == 'product':
             allowed = ['GRD', 'SLC']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+        if k == 'measurement':
+            allowed = ['gamma', 'sigma']
+            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+        if k == 'annotation':
+            v = proc_sec.get_annotation(k)
         out_dict[k] = v
+    
+    # use previous defaults for measurement and annotation if they have not been defined
+    if 'measurement' not in out_dict.keys():
+        out_dict['measurement'] = 'gamma'
+    if 'annotation' not in out_dict.keys():
+        if out_dict['measurement'] == 'gamma':
+            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'gs']
+        else:
+            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'sg']
     
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
     
@@ -108,6 +123,21 @@ def get_config(config_file, proc_section='PROCESSING'):
         out_dict['meta'] = dict([(k, None) for k in meta_keys])
     
     return out_dict
+
+
+def _parse_annotation(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    if s in ['', 'None']:
+        return None
+    annotation_list = s.replace(' ', '').split(',')
+    allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'gs', 'sg']
+    for annotation in annotation_list:
+        if annotation not in allowed:
+            msg = "Parameter 'annotation': Error while parsing to list; " \
+                  "annotation '{}' is not supported. Allowed keys:\n{}"
+            raise ValueError(msg.format(annotation, allowed))
+    return annotation_list
 
 
 def _parse_datetime(s):
@@ -171,8 +201,6 @@ def snap_conf(config):
                         'SM': 10,
                         'EW': 20}[config['acq_mode']],
             'allow_res_osv': True,
-            'export_extra': ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
-                             'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio'],
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
             'slc_clean_edges': True,
