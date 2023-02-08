@@ -4,6 +4,31 @@ from datetime import datetime
 from osgeo import gdal
 
 
+def get_keys(section):
+    """
+    get all allowed configuration keys
+    
+    Parameters
+    ----------
+    section: {'processing', 'metadata'}
+        the configuration section to get the allowed keys for.
+
+    Returns
+    -------
+    list[str]
+        a list of keys
+    """
+    if section == 'processing':
+        return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
+                'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
+                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
+                'etad', 'etad_dir', 'product', 'annotation']
+    elif section == 'metadata':
+        return ['access_url', 'licence', 'doi', 'processing_center']
+    else:
+        raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
+
+
 def get_config(config_file, proc_section='PROCESSING'):
     """Returns the content of a `config.ini` file as a dictionary.
     
@@ -22,17 +47,15 @@ def get_config(config_file, proc_section='PROCESSING'):
     if not os.path.isfile(config_file):
         raise FileNotFoundError("Config file {} does not exist.".format(config_file))
     
-    parser = configparser.ConfigParser(allow_no_value=True, converters={'_annotation': _parse_annotation,
-                                                                        '_datetime': _parse_datetime,
-                                                                        '_tile_list': _parse_tile_list})
+    parser = configparser.ConfigParser(allow_no_value=True,
+                                       converters={'_annotation': _parse_annotation,
+                                                   '_datetime': _parse_datetime,
+                                                   '_tile_list': _parse_tile_list})
     parser.read(config_file)
     out_dict = {}
     
     # PROCESSING section
-    allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                    'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
-                    'etad', 'etad_dir', 'product', 'annotation']
+    allowed_keys = get_keys(section='processing')
     try:
         proc_sec = parser[proc_section]
     except KeyError:
@@ -110,7 +133,7 @@ def get_config(config_file, proc_section='PROCESSING'):
     assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
     
     # METADATA section
-    meta_keys = ['access_url', 'licence', 'doi', 'processing_center']
+    meta_keys = get_keys(section='metadata')
     try:
         meta_sec = parser['METADATA']
         out_dict['meta'] = {}
