@@ -197,7 +197,7 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10):
 
 
 def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
-        sigma0=True, scattering_area=True):
+        sigma0=True, scattering_area=True, dem_oversampling_multiple=2):
     """
     Radiometric Terrain Flattening.
     
@@ -217,6 +217,10 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         output sigma0 RTC backscatter?
     scattering_area: bool
         output scattering area image?
+    dem_oversampling_multiple: int
+        a factor to multiply the DEM oversampling factor computed by SNAP.
+        The SNAP default of 1 has been found to be insufficient with stripe
+        artifacts remaining in the image.
 
     Returns
     -------
@@ -244,6 +248,7 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
     with Raster(dem) as ras:
         tf.parameters['externalDEMNoDataValue'] = ras.nodata
     tf.parameters['demResamplingMethod'] = dem_resampling_method
+    tf.parameters['oversamplingMultiple'] = dem_oversampling_multiple
     last = tf
     ############################################
     write = parse_node('Write')
