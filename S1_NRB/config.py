@@ -29,7 +29,7 @@ def get_keys(section):
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
 
-def get_config(config_file, proc_section='PROCESSING'):
+def get_config(config_file, proc_section='PROCESSING', **kwargs):
     """Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
@@ -60,6 +60,10 @@ def get_config(config_file, proc_section='PROCESSING'):
         proc_sec = parser[proc_section]
     except KeyError:
         raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+    
+    # override config file parameters
+    for k, v in kwargs.items():
+        proc_sec[k] = v
     
     for k, v in proc_sec.items():
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)

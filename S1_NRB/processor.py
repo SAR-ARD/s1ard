@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 gdal.UseExceptions()
 
 
-def main(config_file, section_name='PROCESSING', debug=False):
+def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     """
     Main function that initiates and controls the processing workflow.
     
@@ -26,9 +26,11 @@ def main(config_file, section_name='PROCESSING', debug=False):
         should be parsed from. Default is 'PROCESSING'.
     debug: bool
         Set pyroSAR logging level to DEBUG? Default is False.
+    **kwargs
+        extra arguments to override parameters in the config file. E.g. `acq_mode`.
     """
     update = False  # update existing products? Internal development flag.
-    config = get_config(config_file=config_file, proc_section=section_name)
+    config = get_config(config_file=config_file, proc_section=section_name, **kwargs)
     logger = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
