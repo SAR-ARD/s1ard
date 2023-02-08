@@ -93,7 +93,6 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     ovr_resampling = 'AVERAGE'
     driver = 'COG'
     blocksize = 512
-    src_nodata = 0
     dst_nodata_float = -9999.0
     dst_nodata_byte = 255
     vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
@@ -203,7 +202,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             # modify temporary VRT to make sure overview levels and resampling are properly applied
             vrt_add_overviews(vrt=source, overviews=overviews, resampling=ovr_resampling)
             
-            options = {'format': driver, 'outputBounds': bounds, 'srcNodata': src_nodata,
+            options = {'format': driver, 'outputBounds': bounds,
                        'dstNodata': dst_nodata_float, 'multithread': multithread,
                        'creationOptions': write_options[key]}
             
