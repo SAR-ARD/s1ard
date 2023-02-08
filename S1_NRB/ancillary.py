@@ -302,6 +302,11 @@ def _log_process_config(logger, config):
     mindate             {config['mindate'].isoformat()}
     maxdate             {config['maxdate'].isoformat()}
     acq_mode            {config['acq_mode']}
+    product             {config['product']}
+    measurement         {config.get('measurement')}
+    annotation          {config.get('annotation')}
+    dem_type            {config.get('dem_type')}
+    etad                {config.get('etad')}
     
     work_dir            {config['work_dir']}
     scene_dir           {config['scene_dir']}
@@ -310,9 +315,9 @@ def _log_process_config(logger, config):
     nrb_dir             {config['nrb_dir']}
     wbm_dir             {config['wbm_dir']}
     log_dir             {config['log_dir']}
+    etad_dir            {config['etad_dir']}
     db_file             {config['db_file']}
     kml_file            {config['kml_file']}
-    dem_type            {config.get('dem_type')}
     gdal_threads        {config.get('gdal_threads')}
     
     ====================================================================================================================
