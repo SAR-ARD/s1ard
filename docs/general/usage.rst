@@ -145,28 +145,34 @@ Command Line Interface
 Once a configuration file has been created and all of its parameters have been properly defined, it can be used to start
 the processor using the command line interface (CLI) tool provided with the S1_NRB package.
 
-The following options are currently available:
+The following options are currently available.
+
+Print a help message for the CLI tool:
 
 ::
 
     s1_nrb --help
 
-Print a help message for the CLI tool.
+Print the processor version:
 
 ::
 
     s1_nrb --version
 
-Print the processor version.
+Start the processor using parameters defined in the default section of a ``config.ini`` file:
 
 ::
 
     s1_nrb -c /path/to/config.ini
 
-Start the processor using parameters defined in the default section of a ``config.ini`` file.
+Start the processor using parameters defined in section ``SECTION_NAME`` of a ``config.ini`` file:
 
 ::
 
     s1_nrb -c /path/to/config.ini -s SECTION_NAME
 
-Start the processor using parameters defined in section ``SECTION_NAME`` of a ``config.ini`` file.
+Start the processor using parameters defined in the default section of a ``config.ini`` file but override parameters ``acq_mode`` and ``annotation``:
+
+::
+
+    s1_nrb -c /path/to/config.ini --acq_mode IW --annotation dm,id
