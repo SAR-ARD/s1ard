@@ -2,6 +2,7 @@ import click
 
 
 @click.command(name='s1_nrb',
+               no_args_is_help=True,
                context_settings=dict(
                    ignore_unknown_options=True,
                    allow_extra_args=True, )

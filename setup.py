@@ -17,7 +17,7 @@ setup(
     packages=find_namespace_packages(where='.'),
     include_package_data=True,
     install_requires=['gdal>=3.5.0',
-                      'click',
+                      'click>=7.1.0',
                       'lxml',
                       'pystac',
                       'pyroSAR>=0.20.0',
