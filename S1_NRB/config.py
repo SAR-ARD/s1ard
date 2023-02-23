@@ -133,9 +133,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'gs']
         else:
             out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'sg']
-    
-    assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
-    
+        
     # METADATA section
     meta_keys = get_keys(section='metadata')
     try:
