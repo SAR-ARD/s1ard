@@ -28,18 +28,24 @@ def cli(ctx, config_file, section, debug, version):
     
     \b
     The following defaults are set:
+    (processing section)
     - annotation (measurement=gamma): dm,ei,id,lc,li,np,gs
     - annotation (measurement=sigma): dm,ei,id,lc,li,np,sg
-    - dem_type:     Copernicus 30m Global DEM
-    - etad:         False
-    - etad_dir:     None
-    - gdal_threads: 4
-    - log_dir:      LOG
-    - measurement:  gamma
-    - nrb_dir:      NRB
-    - rtc_dir:      RTC
-    - tmp_dir:      TMP
-    - wbm_dir:      WBM
+    - dem_type:          Copernicus 30m Global DEM
+    - etad:              False
+    - etad_dir:          None
+    - gdal_threads:      4
+    - log_dir:           LOG
+    - measurement:       gamma
+    - nrb_dir:           NRB
+    - rtc_dir:           RTC
+    - tmp_dir:           TMP
+    - wbm_dir:           WBM
+    (metadata section)
+    - access_url:        None
+    - doi:               None
+    - licence:           None
+    - processing_center: None
     """
     import S1_NRB
     if version:

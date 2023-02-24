@@ -163,16 +163,17 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     
     # METADATA section
     meta_keys = get_keys(section='metadata')
-    try:
-        meta_sec = parser['METADATA']
-        out_dict['meta'] = {}
-        for k, v in meta_sec.items():
-            v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
-            # No need to check values. Only requirement is that they're strings, which is configparser's default.
-            out_dict['meta'][k] = v
-    except KeyError:
-        # Use None for all relevant fields if the metadata section doesn't exist.
-        out_dict['meta'] = dict([(k, None) for k in meta_keys])
+    if 'METADATA' not in parser.keys():
+        parser.add_section('METADATA')
+    meta_sec = parser['METADATA']
+    out_dict['meta'] = {}
+    for k, v in meta_sec.items():
+        v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
+        # No need to check values. Only requirement is that they're strings, which is configparser's default.
+        out_dict['meta'][k] = v
+    for key in meta_keys:
+        if key not in out_dict['meta'].keys():
+            out_dict['meta'][key] = None
     
     return out_dict
 
