@@ -6,7 +6,7 @@ channels:
 dependencies:
   - python>=3.8
   - gdal>=3.5.0
-  - click
+  - click>=7.1.0
   - lxml
   - pip
   - pystac
@@ -20,3 +20,4 @@ dependencies:
   - nbsphinx
   - sphinx_rtd_theme
   - sphinx-toolbox
+  - ipython # for notebook code highlighting

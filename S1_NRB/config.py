@@ -4,7 +4,32 @@ from datetime import datetime
 from osgeo import gdal
 
 
-def get_config(config_file, proc_section='PROCESSING'):
+def get_keys(section):
+    """
+    get all allowed configuration keys
+    
+    Parameters
+    ----------
+    section: {'processing', 'metadata'}
+        the configuration section to get the allowed keys for.
+
+    Returns
+    -------
+    list[str]
+        a list of keys
+    """
+    if section == 'processing':
+        return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
+                'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
+                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
+                'etad', 'etad_dir', 'product', 'annotation']
+    elif section == 'metadata':
+        return ['access_url', 'licence', 'doi', 'processing_center']
+    else:
+        raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
+
+
+def get_config(config_file, proc_section='PROCESSING', **kwargs):
     """Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
@@ -19,24 +44,62 @@ def get_config(config_file, proc_section='PROCESSING'):
     out_dict: dict
         Dictionary of the parsed config parameters.
     """
-    if not os.path.isfile(config_file):
-        raise FileNotFoundError("Config file {} does not exist.".format(config_file))
-    
-    parser = configparser.ConfigParser(allow_no_value=True, converters={'_annotation': _parse_annotation,
-                                                                        '_datetime': _parse_datetime,
-                                                                        '_tile_list': _parse_tile_list})
-    parser.read(config_file)
+    parser = configparser.ConfigParser(allow_no_value=True,
+                                       converters={'_annotation': _parse_annotation,
+                                                   '_datetime': _parse_datetime,
+                                                   '_tile_list': _parse_tile_list})
+    if isinstance(config_file, str):
+        if not os.path.isfile(config_file):
+            raise FileNotFoundError("Config file {} does not exist.".format(config_file))
+        parser.read(config_file)
+    elif config_file is None:
+        parser.add_section(proc_section)
+        parser.add_section('METADATA')
+    else:
+        raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
     out_dict = {}
     
     # PROCESSING section
-    allowed_keys = ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
-                    'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                    'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
-                    'etad', 'etad_dir', 'product', 'annotation']
+    allowed_keys = get_keys(section='processing')
     try:
         proc_sec = parser[proc_section]
     except KeyError:
         raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+    
+    # override config file parameters
+    for k, v in kwargs.items():
+        proc_sec[k] = v
+    
+    # set some defaults
+    if 'etad' not in proc_sec.keys():
+        proc_sec['etad'] = 'False'
+        proc_sec['etad_dir'] = 'None'
+    for item in ['rtc_dir', 'tmp_dir', 'nrb_dir', 'wbm_dir', 'log_dir']:
+        if item not in proc_sec.keys():
+            proc_sec[item] = item[:3].upper()
+    if 'gdal_threads' not in proc_sec.keys():
+        proc_sec['gdal_threads'] = '4'
+    if 'dem_type' not in proc_sec.keys():
+        proc_sec['dem_type'] = 'Copernicus 30m Global DEM'
+    
+    # use previous defaults for measurement and annotation if they have not been defined
+    if 'measurement' not in proc_sec.keys():
+        proc_sec['measurement'] = 'gamma'
+    if 'annotation' not in proc_sec.keys():
+        if proc_sec['measurement'] == 'gamma':
+            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,gs'
+        else:
+            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,sg'
+    
+    # check completeness of configuration parameters
+    missing = []
+    exclude = ['aoi_tiles', 'aoi_geometry']
+    for key in get_keys(section='processing'):
+        if key not in proc_sec.keys() and key not in exclude:
+            missing.append(key)
+    if len(missing) > 0:
+        missing_str = '\n - ' + '\n - '.join(missing)
+        raise RuntimeError(f"missing the following parameters:{missing_str}")
     
     for k, v in proc_sec.items():
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
@@ -98,29 +161,19 @@ def get_config(config_file, proc_section='PROCESSING'):
             v = proc_sec.get_annotation(k)
         out_dict[k] = v
     
-    # use previous defaults for measurement and annotation if they have not been defined
-    if 'measurement' not in out_dict.keys():
-        out_dict['measurement'] = 'gamma'
-    if 'annotation' not in out_dict.keys():
-        if out_dict['measurement'] == 'gamma':
-            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'gs']
-        else:
-            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'sg']
-    
-    assert any([out_dict[k] is not None for k in ['aoi_tiles', 'aoi_geometry']])
-    
     # METADATA section
-    meta_keys = ['access_url', 'licence', 'doi', 'processing_center']
-    try:
-        meta_sec = parser['METADATA']
-        out_dict['meta'] = {}
-        for k, v in meta_sec.items():
-            v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
-            # No need to check values. Only requirement is that they're strings, which is configparser's default.
-            out_dict['meta'][k] = v
-    except KeyError:
-        # Use None for all relevant fields if the metadata section doesn't exist.
-        out_dict['meta'] = dict([(k, None) for k in meta_keys])
+    meta_keys = get_keys(section='metadata')
+    if 'METADATA' not in parser.keys():
+        parser.add_section('METADATA')
+    meta_sec = parser['METADATA']
+    out_dict['meta'] = {}
+    for k, v in meta_sec.items():
+        v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
+        # No need to check values. Only requirement is that they're strings, which is configparser's default.
+        out_dict['meta'][k] = v
+    for key in meta_keys:
+        if key not in out_dict['meta'].keys():
+            out_dict['meta'][key] = None
     
     return out_dict
 
