@@ -71,6 +71,37 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     for k, v in kwargs.items():
         proc_sec[k] = v
     
+    # set some defaults
+    if 'etad' not in proc_sec.keys():
+        proc_sec['etad'] = 'False'
+        proc_sec['etad_dir'] = 'None'
+    for item in ['rtc_dir', 'tmp_dir', 'nrb_dir', 'wbm_dir', 'log_dir']:
+        if item not in proc_sec.keys():
+            proc_sec[item] = item[:3].upper()
+    if 'gdal_threads' not in proc_sec.keys():
+        proc_sec['gdal_threads'] = '4'
+    if 'dem_type' not in proc_sec.keys():
+        proc_sec['dem_type'] = 'Copernicus 30m Global DEM'
+    
+    # use previous defaults for measurement and annotation if they have not been defined
+    if 'measurement' not in proc_sec.keys():
+        proc_sec['measurement'] = 'gamma'
+    if 'annotation' not in proc_sec.keys():
+        if proc_sec['measurement'] == 'gamma':
+            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,gs'
+        else:
+            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,sg'
+    
+    # check completeness of configuration parameters
+    missing = []
+    exclude = ['aoi_tiles', 'aoi_geometry']
+    for key in get_keys(section='processing'):
+        if key not in proc_sec.keys() and key not in exclude:
+            missing.append(key)
+    if len(missing) > 0:
+        missing_str = '\n - ' + '\n - '.join(missing)
+        raise RuntimeError(f"missing the following parameters:{missing_str}")
+    
     for k, v in proc_sec.items():
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
@@ -131,15 +162,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             v = proc_sec.get_annotation(k)
         out_dict[k] = v
     
-    # use previous defaults for measurement and annotation if they have not been defined
-    if 'measurement' not in out_dict.keys():
-        out_dict['measurement'] = 'gamma'
-    if 'annotation' not in out_dict.keys():
-        if out_dict['measurement'] == 'gamma':
-            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'gs']
-        else:
-            out_dict['annotation'] = ['dm', 'ei', 'id', 'lc', 'li', 'np', 'sg']
-        
     # METADATA section
     meta_keys = get_keys(section='metadata')
     try:

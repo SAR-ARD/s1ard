@@ -25,6 +25,21 @@ def cli(ctx, config_file, section, debug, version):
     file except the acquisition mode and the annotation layers:
     
     s1_nrb -c config.ini --acq_mode IW --annotation dm,id
+    
+    \b
+    The following defaults are set:
+    - annotation (measurement=gamma): dm,ei,id,lc,li,np,gs
+    - annotation (measurement=sigma): dm,ei,id,lc,li,np,sg
+    - dem_type:     Copernicus 30m Global DEM
+    - etad:         False
+    - etad_dir:     None
+    - gdal_threads: 4
+    - log_dir:      LOG
+    - measurement:  gamma
+    - nrb_dir:      NRB
+    - rtc_dir:      RTC
+    - tmp_dir:      TMP
+    - wbm_dir:      WBM
     """
     import S1_NRB
     if version:
