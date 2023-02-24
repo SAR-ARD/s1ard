@@ -44,18 +44,17 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     out_dict: dict
         Dictionary of the parsed config parameters.
     """
+    parser = configparser.ConfigParser(allow_no_value=True,
+                                       converters={'_annotation': _parse_annotation,
+                                                   '_datetime': _parse_datetime,
+                                                   '_tile_list': _parse_tile_list})
     if isinstance(config_file, str):
         if not os.path.isfile(config_file):
             raise FileNotFoundError("Config file {} does not exist.".format(config_file))
-        
-        parser = configparser.ConfigParser(allow_no_value=True,
-                                           converters={'_annotation': _parse_annotation,
-                                                       '_datetime': _parse_datetime,
-                                                       '_tile_list': _parse_tile_list})
         parser.read(config_file)
     elif config_file is None:
-        parser = {proc_section: {},
-                  'METADATA': {}}
+        parser.add_section(proc_section)
+        parser.add_section('METADATA')
     else:
         raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
     out_dict = {}
