@@ -1,6 +1,6 @@
 import os
 import configparser
-from datetime import datetime
+import dateutil.parser
 from osgeo import gdal
 
 
@@ -196,18 +196,7 @@ def _parse_annotation(s):
 def _parse_datetime(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    if 'T' in s:
-        try:
-            return datetime.strptime(s, '%Y-%m-%dT%H:%M:%S')
-        except ValueError as e:
-            raise Exception("Parameters 'mindate/maxdate': Could not parse '{}' with datetime format "
-                            "'%Y-%m-%dT%H:%M:%S'".format(s)) from e
-    else:
-        try:
-            return datetime.strptime(s, '%Y-%m-%d')
-        except ValueError as e:
-            raise Exception("Parameters 'mindate/maxdate': Could not parse '{}' with datetime format "
-                            "'%Y-%m-%d'".format(s)) from e
+    return dateutil.parser.parse(s)
 
 
 def _parse_tile_list(s):
