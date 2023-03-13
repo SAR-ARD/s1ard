@@ -31,7 +31,8 @@ If neither is defined, all tiles overlapping with the scene search result are pr
 
 - **mindate** & **maxdate**
 
-The time period to create S1-NRB products for. Allowed date formats are ``%Y-%m-%d`` and ``%Y-%m-%dT%H:%M:%S``.
+The time period to create S1-NRB products for.
+Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
 - **acq_mode**
 
