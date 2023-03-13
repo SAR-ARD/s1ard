@@ -24,7 +24,8 @@ setup(
                       'spatialist>=0.12.0',
                       'scipy',
                       's1etad>=0.5.3',
-                      's1etad_tools>=0.8.1'],
+                      's1etad_tools>=0.8.1',
+                      'pystac-client'],
     extras_require={
           'docs': ['sphinx', 'sphinxcontrib-bibtex', 'nbsphinx', 'sphinx_rtd_theme', 'sphinx-toolbox', 'ipython'],
     },

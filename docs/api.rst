@@ -141,6 +141,14 @@ Ancillary Functions
         set_logging
         vrt_add_overviews
 
+Scene Search
+------------
+
+.. automodule:: S1_NRB.archive
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Metadata
 --------
 
