@@ -14,7 +14,7 @@ considered when selecting their values:
 
 - **mode**
 
-Options: ``all | nrb | snap``
+Options: ``all | nrb | rtc``
 
 This parameter determines if the entire processing chain should be executed or only part of it.
 
@@ -34,6 +34,12 @@ If neither is defined, all tiles overlapping with the scene search result are pr
 The time period to create S1-NRB products for.
 Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
+- **sensor**
+
+Options: ``S1A | S1B``
+
+The Sentinel-1 sensor/platform.
+
 - **acq_mode**
 
 Options: ``IW | EW | SM``
@@ -46,11 +52,10 @@ Options: ``GRD | SLC``
 
 The product of the source scenes that should be processed.
 
-- **work_dir** & **scene_dir**
+- **work_dir**
 
-Both need to be provided as full paths to existing directories. ``work_dir`` is the main directory in which any
-subdirectories and files are stored that are generated during processing. ``scene_dir`` will be searched recursively for
-any Sentinel-1 scenes using the regex pattern ``'^S1[AB].*\.zip$'``.
+``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
+Needs to be provided as full path to an existing directory.
 
 - **rtc_dir**, **tmp_dir**, **nrb_dir**, **wbm_dir** & **log_dir**
 
@@ -59,17 +64,24 @@ default values provided in the example configuration file linked above are recom
 subdirectories relative to the directory specified with ``work_dir``. E.g., ``nrb_dir = NRB`` will create the subdirectory
 ``/<work_dir>/NRB``. Optionally, full paths to existing directories can be provided for all of these parameters.
 
-- **db_file**
+- search option I: **scene_dir** & **db_file**
 
-Any Sentinel-1 scenes found in ``scene_dir`` will be stored in a database file created by :class:`pyrosar.drivers.Archive`.
+Metadata of any Sentinel-1 scene found in ``scene_dir`` will be stored in an SQLite database file created by :class:`pyrosar.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
+``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1 scenes using the regex pattern ``'^S1[AB].*(SAFE|zip)$'``.
+
+- search option II: **stac_catalog** & **stac_collections**
+
+Alternative to searching scenes in a directory and storing their metadata in an SQLite database, scenes can be queried from a STAC catalog.
+For this, a STAC URL and one or many collections can be defined with ``stac_catalog`` and ``stac_collections`` respectively.
+The scenes are expected to be locally accessible in unpacked folders with the `.SAFE` extension.
 
 - **kml_file**
 
 The Sentinel-2 Military Grid Reference System (MGRS) tiling system establishes the basis of the processing chain and a
 local reference file containing the respective tile information for processing S1-NRB products is needed. The official
-KML file provided by ESA can be retrieved `here <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_.
+KML file defined for the Sentinel-2 mission provided by ESA can be retrieved `here <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_.
 With the ``kml_file`` parameter either a full path to this reference file can be provided or it is expected to be located
 in the directory provided with ``work_dir`` if only a filename is provided. E.g., the processor expects to find
 ``/<work_dir>/s2_grid.kml`` if ``kml_file = s2_grid.kml``.
