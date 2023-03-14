@@ -46,17 +46,11 @@ bibtex_bibfiles = ['references.bib']
 # autodoc_default_flags = ['members']
 autosummary_generate = True
 
-# explicitly link to documentation of the spatialist version installed alongside pyroSAR,
-# which is defined in setup.py and requirements.txt
-version_pyrosar = get_version('pyroSAR')
-version_spatialist = get_version('spatialist')
-
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'pyroSAR': ('https://pyrosar.readthedocs.io/en/v{}'
-                                   .format(version_pyrosar), None),
-                       'spatialist': ('https://spatialist.readthedocs.io/en/v{}'
-                                      .format(version_spatialist), None),
+                       'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),
+                       'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
                        'pystac': ('https://pystac.readthedocs.io/en/stable', None),
+                       'pystac-client': ('https://pystac-client.readthedocs.io/en/stable', None),
                        'dateutil': ('https://dateutil.readthedocs.io/en/stable', None)
                        }
 

@@ -22,7 +22,8 @@ def get_keys(section):
         return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
                 'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                 'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
-                'etad', 'etad_dir', 'product', 'annotation']
+                'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
+                'sensor']
     elif section == 'metadata':
         return ['access_url', 'licence', 'doi', 'processing_center']
     else:
@@ -47,6 +48,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_annotation': _parse_annotation,
                                                    '_datetime': _parse_datetime,
+                                                   '_stac_collections': _parse_list,
                                                    '_tile_list': _parse_tile_list})
     if isinstance(config_file, str):
         if not os.path.isfile(config_file):
@@ -116,6 +118,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
         if k.endswith('date'):
             v = proc_sec.get_datetime(k)
+        if k == 'sensor':
+            assert v in ['S1A', 'S1B']
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
@@ -123,6 +127,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         dir_ignore = ['work_dir']
         if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
+        if k == 'scene_dir' and v is None:
+            dir_ignore.append(k)
         if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
                 assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
@@ -134,9 +140,11 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
-        if k == 'db_file':
+        if k == 'db_file' and v is not None:
             if not any(x in v for x in ['/', '\\']):
                 v = os.path.join(proc_sec['work_dir'], v)
+        if k == 'stac_collections':
+            v = proc_sec.get_stac_collections(k)
         if k == 'gdal_threads':
             v = int(v)
         if k == 'dem_type':
@@ -161,6 +169,17 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             v = proc_sec.get_annotation(k)
         out_dict[k] = v
     
+    if out_dict['db_file'] is None and out_dict['stac_catalog'] is None:
+        raise RuntimeError("Either 'db_file' or 'stac_catalog' has to be defined.")
+    if out_dict['db_file'] is not None and out_dict['stac_catalog'] is not None:
+        raise RuntimeError("both 'db_file' and 'stac_catalog' have been defined. Please choose only one.")
+    if out_dict['stac_catalog'] is not None:
+        if out_dict['stac_collections'] is None:
+            raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
+    if out_dict['db_file'] is not None:
+        if out_dict['scene_dir'] is None:
+            raise RuntimeError("'scene_dir' must be defined if data is to be searched via an SQLite database.")
+    
     # METADATA section
     meta_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
@@ -181,9 +200,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
 def _parse_annotation(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    if s in ['', 'None']:
-        return None
-    annotation_list = s.replace(' ', '').split(',')
+    annotation_list = _parse_list(s)
     allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'gs', 'sg']
     for annotation in annotation_list:
         if annotation not in allowed:
@@ -202,15 +219,25 @@ def _parse_datetime(s):
 def _parse_tile_list(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    tile_list = s.replace(' ', '').split(',')
-    for tile in tile_list:
-        if len(tile) != 5:
-            raise ValueError("Parameter 'aoi_tiles': Error while parsing MGRS tile IDs to list; tile '{}' is not 5 "
-                             "digits long.".format(tile))
-        else:
-            continue
+    tile_list = _parse_list(s)
+    if tile_list is not None:
+        for tile in tile_list:
+            if len(tile) != 5:
+                raise ValueError("Parameter 'aoi_tiles': Error while parsing "
+                                 "MGRS tile IDs to list; tile '{}' is not 5 "
+                                 "digits long.".format(tile))
+            else:
+                continue
     return tile_list
 
+
+def _parse_list(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    if s in ['', 'None']:
+        return None
+    else:
+        return s.replace(' ', '').split(',')
 
 def _keyval_check(key, val, allowed_keys):
     """Helper function to check and clean up key,value pairs while parsing a config file."""

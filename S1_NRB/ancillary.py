@@ -55,7 +55,8 @@ def check_acquisition_completeness(scenes, archive):
         stop = datetime.strftime(stop, f)
         # Do another database selection to get the scene in question as well as its potential
         # predecessor and successor by adding an acquisition time buffer of two seconds.
-        group = archive.select(product=scene.product,
+        group = archive.select(sensor=scene.sensor,
+                               product=scene.product,
                                acquisition_mode=scene.acquisition_mode,
                                mindate=start,
                                maxdate=stop,
@@ -66,8 +67,6 @@ def check_acquisition_completeness(scenes, archive):
         if len(group) < groupsize:
             start_min = min([x.start for x in group])
             stop_max = max([x.stop for x in group])
-            print(start, start_min)
-            print(stop, stop_max)
             missing = []
             if start_min > start and has_predecessor:
                 missing.append('predecessor')

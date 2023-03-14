@@ -11,8 +11,10 @@ dependencies:
   - lxml
   - pip
   - pystac
+  - pystac-client
   - scipy
   - pyroSAR>=0.20.0
   - spatialist>=0.12.0
   - s1etad>=0.5.3
   - s1etad_tools>=0.8.1
+  - numpy

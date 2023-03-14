@@ -8,6 +8,7 @@ from S1_NRB import etad, dem, nrb, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
+from S1_NRB.archive import STACArchive
 from datetime import datetime, timedelta
 
 gdal.UseExceptions()
@@ -45,12 +46,10 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         rtc_flag = False
     
     # DEM download authentication
-    username, password = dem.authenticate(dem_type=config['dem_type'], username=None, password=None)
+    username, password = dem.authenticate(dem_type=config['dem_type'],
+                                          username=None, password=None)
     ####################################################################################################################
     # archive / scene selection
-    scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
-                    regex=True, recursive=True, foldermode=1)
-    
     if config['acq_mode'] == 'SM':
         acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     else:
@@ -68,29 +67,39 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         vec = [Vector(config['aoi_geometry'])]
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
     
-    with Archive(dbfile=config['db_file']) as archive:
+    if config['db_file'] is not None:
+        scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
+                        regex=True, recursive=True, foldermode=1)
+        archive = Archive(dbfile=config['db_file'])
         archive.insert(scenes)
-        for item in vec:
-            selection.extend(
-                archive.select(vectorobject=item,
-                               product=config['product'],
-                               acquisition_mode=acq_mode_search,
-                               mindate=config['mindate'],
-                               maxdate=config['maxdate']))
-        selection = list(set(selection))
-        del vec
-        
-        if len(selection) == 0:
-            message = "No scenes could be found for the following search query:\n" \
-                      " product:   '{product}'\n" \
-                      " acq. mode: '{acq_mode}'\n" \
-                      " mindate:   '{mindate}'\n" \
-                      " maxdate:   '{maxdate}'\n"
-            raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
-                                              mindate=config['mindate'], maxdate=config['maxdate'],
-                                              scene_dir=config['scene_dir']))
-        scenes = identify_many(selection)
-        anc.check_acquisition_completeness(scenes=scenes, archive=archive)
+    else:
+        archive = STACArchive(url=config['stac_catalog'],
+                              collections=config['stac_collections'])
+    
+    for item in vec:
+        selection.extend(
+            archive.select(sensor=config['sensor'],
+                           vectorobject=item,
+                           product=config['product'],
+                           acquisition_mode=acq_mode_search,
+                           mindate=config['mindate'],
+                           maxdate=config['maxdate']))
+    selection = list(set(selection))
+    del vec
+    
+    if len(selection) == 0:
+        message = "No scenes could be found for the following search query:\n" \
+                  " product:   '{product}'\n" \
+                  " acq. mode: '{acq_mode}'\n" \
+                  " mindate:   '{mindate}'\n" \
+                  " maxdate:   '{maxdate}'\n"
+        raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
+                                          mindate=config['mindate'], maxdate=config['maxdate'],
+                                          scene_dir=config['scene_dir']))
+    scenes = identify_many(selection)
+    anc.check_acquisition_completeness(scenes=scenes, archive=archive)
+    archive.close()
+    
     if aoi_tiles is None:
         vec = [x.bbox() for x in scenes]
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
@@ -157,10 +166,17 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 start = datetime.strftime(start, f)
                 stop = datetime.strptime(scene.stop, f) + td
                 stop = datetime.strftime(stop, f)
-                with Archive(config['db_file']) as db:
-                    neighbors = db.select(mindate=start, maxdate=stop, date_strict=False,
-                                          sensor=scene.sensor, product=scene.product,
-                                          acquisition_mode=scene.acquisition_mode)
+                
+                if config['db_file'] is not None:
+                    archive = Archive(dbfile=config['db_file'])
+                else:
+                    archive = STACArchive(url=config['stac_catalog'],
+                                          collections=config['stac_collections'])
+                
+                neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
+                                           sensor=scene.sensor, product=scene.product,
+                                           acquisition_mode=scene.acquisition_mode)
+                archive.close()
                 del neighbors[neighbors.index(scene.scene)]
             ############################################################################################################
             # main processing routine

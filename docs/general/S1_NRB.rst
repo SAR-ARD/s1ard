@@ -20,7 +20,7 @@ The function :func:`S1_NRB.tile_extraction.aoi_from_tile` can be used to extract
 Scene Management
 ----------------
 
-The S1 images are managed in a local SQLite database to select scenes for processing (see pyroSAR's section on `Database Handling`_).
+The S1 images are managed in a local SQLite database to select scenes for processing (see pyroSAR's section on `Database Handling`_) or are directly queried from a STAC catalog (see :class:`S1_NRB.archive.STACArchive`).
 
 After loading an MGRS tile as an :class:`spatialist.vector.Vector` object and selecting all relevant overlapping scenes
 from the database, processing can commence.
@@ -72,7 +72,7 @@ The function :func:`S1_NRB.snap.find_datasets` can be used to collect the indivi
 
 Depending on the user configuration parameters ``measurement`` and ``annotation``, some modifications to the workflow above are possible:
 
-- :func:`S1_NRB.snap.pre` may only calibrate to sigma naught if no RTC is necessary
+- :func:`S1_NRB.snap.pre` may only calibrate to sigma naught if no RTC is necessary (``measurement = sigma``)
 
 - execution of :func:`S1_NRB.snap.rtc` may be skipped
 
