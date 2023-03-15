@@ -5,6 +5,7 @@ import shutil
 from spatialist import bbox, Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
+from spatialist.auxil import utm_autodetect
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
@@ -706,21 +707,12 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                     src_gamma=out_rtc, gpt_args=gpt_args)
     ############################################################################
     # geocoding
-    with id.geometry() as geom:
-        tiles = tile_from_aoi(vector=geom, kml=kml)
     
-    for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
-        group = list(group)
-        geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
-        epsg = geometries[0].getProjection(type='epsg')
-        print(f'### processing EPSG:{epsg}')
-        ext = get_max_ext(geometries=geometries)
-        align_x = ext['xmin']
-        align_y = ext['ymax']
-        del geometries
-        with bbox(coordinates=ext, crs=epsg) as geom:
-            geom.reproject(projection=4326)
-            ext = geom.extent
+    # Process tu multiple UTM zones or just one?
+    # For testing purposes only.
+    utm_multi = True
+    
+    def run():
         out_geo = out_base + '_geo_{}.dim'.format(epsg)
         out_geo_wf = out_geo.replace('.dim', '.xml')
         if not os.path.isfile(out_geo):
@@ -747,7 +739,37 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                         slc_clean_edges_pixels=slc_clean_edges_pixels)
         for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
-            shutil.copyfile(src=wf, dst=wf_dst)
+            if wf != wf_dst:
+                shutil.copyfile(src=wf, dst=wf_dst)
+    
+    if utm_multi:
+        with id.geometry() as geom:
+            tiles = tile_from_aoi(vector=geom, kml=kml)
+        for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
+            group = list(group)
+            geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
+            epsg = geometries[0].getProjection(type='epsg')
+            print(f'### processing EPSG:{epsg}')
+            ext = get_max_ext(geometries=geometries)
+            align_x = ext['xmin']
+            align_y = ext['ymax']
+            del geometries
+            with bbox(coordinates=ext, crs=epsg) as geom:
+                geom.reproject(projection=4326)
+                ext = geom.extent
+            run()
+    else:
+        with id.bbox() as geom:
+            ext = geom.extent
+            epsg = utm_autodetect(geom, 'epsg')
+            print(f'### processing EPSG:{epsg}')
+            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
+                                  return_geometries=True)
+            ext_utm = tiles[0].extent
+            del tiles
+            align_x = ext_utm['xmin']
+            align_y = ext_utm['ymax']
+        run()
     if cleanup:
         shutil.rmtree(tmpdir_scene)
 
