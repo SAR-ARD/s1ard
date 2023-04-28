@@ -302,7 +302,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
             dem_autoload([geometry], demType=dem_type,
                          vrt=vrt, buffer=buffer, product='dem',
                          username=username, password=password)
-            dem_create(src=vrt, dst=outname, pbar=True,
+            dem_create(src=vrt, dst=outname, pbar=False,
                        geoid_convert=geoid_convert, geoid=geoid,
                        threads=threads, nodata=-32767)
 
