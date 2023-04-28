@@ -1,4 +1,5 @@
 import os
+import re
 import configparser
 import dateutil.parser
 from osgeo import gdal
@@ -23,7 +24,7 @@ def get_keys(section):
                 'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                 'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
-                'sensor']
+                'sensor', 'snap_gpt_args']
     elif section == 'metadata':
         return ['access_url', 'licence', 'doi', 'processing_center']
     else:
@@ -49,7 +50,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                                        converters={'_annotation': _parse_annotation,
                                                    '_datetime': _parse_datetime,
                                                    '_stac_collections': _parse_list,
-                                                   '_tile_list': _parse_tile_list})
+                                                   '_tile_list': _parse_tile_list,
+                                                   '_list': _parse_list})
     if isinstance(config_file, str):
         if not os.path.isfile(config_file):
             raise FileNotFoundError("Config file {} does not exist.".format(config_file))
@@ -83,6 +85,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['gdal_threads'] = '4'
     if 'dem_type' not in proc_sec.keys():
         proc_sec['dem_type'] = 'Copernicus 30m Global DEM'
+    if 'snap_gpt_args' not in proc_sec.keys():
+        proc_sec['snap_gpt_args'] = 'None'
     
     # use previous defaults for measurement and annotation if they have not been defined
     if 'measurement' not in proc_sec.keys():
@@ -167,6 +171,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
+        if k == 'snap_gpt_args':
+            v = proc_sec.get_list(k)
         out_dict[k] = v
     
     if out_dict['db_file'] is None and out_dict['stac_catalog'] is None:
@@ -237,7 +243,10 @@ def _parse_list(s):
     if s in ['', 'None']:
         return None
     else:
-        return s.replace(' ', '').split(',')
+        if re.search(',', s):
+            return s.replace(' ', '').split(',')
+        else:
+            return s.split()
 
 def _keyval_check(key, val, allowed_keys):
     """Helper function to check and clean up key,value pairs while parsing a config file."""

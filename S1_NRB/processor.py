@@ -205,6 +205,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
                              export_extra=export_extra,
+                             gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
                 anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
