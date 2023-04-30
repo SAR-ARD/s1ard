@@ -2,6 +2,7 @@ import os
 import re
 import itertools
 import shutil
+from math import ceil
 from spatialist import bbox, Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
@@ -149,7 +150,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         gpt_args=gpt_args)
 
 
-def grd_buffer(src, dst, workflow, neighbors, buffer=10, gpt_args=None):
+def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     """
     GRD extent buffering.
     GRDs, unlike SLCs, do not overlap in azimuth.
@@ -168,7 +169,7 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10, gpt_args=None):
     neighbors: list[str]
         the file names of neighboring scenes
     buffer: int
-        the number of pixels to buffer
+        the buffer size in meters
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -192,10 +193,16 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10, gpt_args=None):
     wf.insert_node(asm, before=read_ids)
     ############################################
     id_main = [x.scene for x in scenes].index(src)
+    id_top = 0 if scenes[0].orbit == 'D' else -1
+    buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
     xmin = 0
     width = scenes[id_main].samples
-    ymin = 0 if id_main == 0 else scenes[0].lines - buffer
-    height = scenes[id_main].lines + buffer * 2
+    if id_main == 0:
+        ymin = 0
+        height = scenes[id_main].lines + buffer_px
+    else:
+        ymin = scenes[id_top].lines - buffer_px
+        height = scenes[id_main].lines + buffer_px * 2
     sub = parse_node('Subset')
     sub.parameters['region'] = [xmin, ymin, width, height]
     sub.parameters['geoRegion'] = ''
@@ -659,7 +666,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         if not os.path.isfile(out_buffer):
             print('### buffering scene with neighboring acquisitions')
             grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
-                       neighbors=out_pre_neighbors, gpt_args=gpt_args)
+                       neighbors=out_pre_neighbors, gpt_args=gpt_args,
+                       buffer=10 * spacing)
         out_pre = out_buffer
     ############################################################################
     # multi-looking
