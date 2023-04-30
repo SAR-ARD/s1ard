@@ -666,6 +666,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
     if not os.path.isfile(out_mli):
+        print('### multi-looking')
         mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
             spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
     if not os.path.isfile(out_mli):
@@ -680,6 +681,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_rtc_wf = out_rtc.replace('.dim', '.xml')
         workflows.append(out_rtc_wf)
         if not os.path.isfile(out_rtc):
+            print('### radiometric terrain correction')
             rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
                 dem_resampling_method=dem_resampling_method,
                 sigma0='gammaSigmaRatio' in export_extra,
@@ -749,7 +751,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             group = list(group)
             geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
             epsg = geometries[0].getProjection(type='epsg')
-            print(f'### processing EPSG:{epsg}')
+            print(f'### geocoding to EPSG:{epsg}')
             ext = get_max_ext(geometries=geometries)
             align_x = ext['xmin']
             align_y = ext['ymax']
@@ -762,7 +764,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         with id.bbox() as geom:
             ext = geom.extent
             epsg = utm_autodetect(geom, 'epsg')
-            print(f'### processing EPSG:{epsg}')
+            print(f'### geocoding to EPSG:{epsg}')
             tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
                                   return_geometries=True)
             ext_utm = tiles[0].extent
