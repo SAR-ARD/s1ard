@@ -576,7 +576,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         (only applies to GRD) an optional list of neighboring scenes to add
         a buffer around the main scene using function :func:`grd_buffer`.
         If GRDs are processed compeletely independently, gaps are introduced
-        due to a missing overlap between GRDs.
+        due to a missing overlap.
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -771,7 +771,20 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             align_y = ext_utm['ymax']
         run()
     if cleanup:
-        shutil.rmtree(tmpdir_scene)
+        if id.product == 'GRD':
+            # delete everything except *_pre.* products which are reused for buffering
+            # this needs to be improved so that these products are also removed if they
+            # are no longer needed for any buffering.
+            items = finder(target=tmpdir_scene, matchlist=['*'],
+                           foldermode=1, recursive=False)
+            for item in items:
+                if not re.search(r'_pre\.', item):
+                    if os.path.isfile(item):
+                        os.remove(item)
+                    else:
+                        shutil.rmtree(item)
+        else:
+            shutil.rmtree(tmpdir_scene)
 
 
 def postprocess(src, slc_clean_edges=True, slc_clean_edges_pixels=4):
