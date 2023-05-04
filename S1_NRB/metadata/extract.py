@@ -428,6 +428,10 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
         stats = ras.allstats(approximate=False)
         ei_min = stats[0]['min']
     
+    if ei_min == 0:
+        raise RuntimeError(f'minimum ellipsoid incidence angle cannot be 0\n'
+                           f'(file: {ei_tif})')
+    
     # Remove generated '.aux.xml' file
     aux = finder(os.path.dirname(ei_tif), ['.tif.aux.xml$'], regex=True, recursive=False)
     for file in aux:
