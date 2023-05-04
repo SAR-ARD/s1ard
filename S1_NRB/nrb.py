@@ -105,8 +105,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
     if len(src_ids) == 0:
-        raise RuntimeError('None of the scenes overlap with the current tile {tile_id}: '
-                           '\n{scenes}'.format(tile_id=tile, scenes=scenes))
+        print('None of the processed scenes overlap with the current tile {tile_id}'.format(tile_id=tile))
+        return
     
     if annotation is not None:
         allowed = []
@@ -370,12 +370,15 @@ def get_datasets(scenes, datadir, extent, epsg):
     """
     ids = identify_many(scenes)
     datasets = []
-    for _id in ids:
+    remove = []
+    for i, _id in enumerate(ids):
         files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
             datasets.append(files)
-    if len(datasets) == 0:
-        raise RuntimeError("No datasets were found in the directory '{}'".format(datadir))
+        else:
+            remove.append(i)
+    for i in sorted(remove, reverse=True):
+        del ids[i]
     
     i = 0
     while i < len(datasets):
@@ -387,19 +390,21 @@ def get_datasets(scenes, datadir, extent, epsg):
             with Raster(measurements[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
+                # remove scene if file does not contain valid data
+                if len(mask[mask == 1]) == 0:
+                    del ids[i]
+                    del datasets[i]
+                    continue
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
                         if not os.path.isfile(dm_ras):
-                            print('creating raster mask', i)
                             rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
                         if not os.path.isfile(dm_vec):
-                            print('creating vector mask', i)
                             bounds.write(outfile=dm_vec)
         with Vector(dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
                 if inter is None:
-                    print('removing dataset', i)
                     del ids[i]
                     del datasets[i]
                 else:

@@ -96,7 +96,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
                                           mindate=config['mindate'], maxdate=config['maxdate'],
                                           scene_dir=config['scene_dir']))
-    scenes = identify_many(selection)
+    scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
     archive.close()
     
@@ -225,7 +225,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        
+        print('preparing NRB products')
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
             scenes_fnames = [x.scene for x in scenes]
