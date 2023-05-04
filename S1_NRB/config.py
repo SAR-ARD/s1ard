@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import timedelta
 import configparser
 import dateutil.parser
 from osgeo import gdal
@@ -116,8 +118,13 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'aoi_geometry':
             if v is not None:
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
-        if k.endswith('date'):
+        if k == 'mindate':
             v = proc_sec.get_datetime(k)
+        if k == 'maxdate':
+            date_short = re.search('^[0-9-]{10}$', v) is not None
+            v = proc_sec.get_datetime(k)
+            if date_short:
+                v += timedelta(days=1, microseconds=-1)
         if k == 'sensor':
             assert v in ['S1A', 'S1B']
         if k == 'acq_mode':
@@ -238,6 +245,7 @@ def _parse_list(s):
         return None
     else:
         return s.replace(' ', '').split(',')
+
 
 def _keyval_check(key, val, allowed_keys):
     """Helper function to check and clean up key,value pairs while parsing a config file."""
