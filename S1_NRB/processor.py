@@ -83,7 +83,8 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                            product=config['product'],
                            acquisition_mode=acq_mode_search,
                            mindate=config['mindate'],
-                           maxdate=config['maxdate']))
+                           maxdate=config['maxdate'],
+                           date_strict=config['date_strict']))
     selection = list(set(selection))
     del vec
     
