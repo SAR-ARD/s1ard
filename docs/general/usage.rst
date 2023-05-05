@@ -34,6 +34,13 @@ If neither is defined, all tiles overlapping with the scene search result are pr
 The time period to create S1-NRB products for.
 Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
+- **date_strict**
+Treat dates as strict limits or also allow flexible limits to incorporate scenes
+whose acquisition period overlaps with the defined limit?
+
+ + strict: start >= mindate & stop <= maxdate
+ + not strict: stop >= mindate & start <= maxdate
+
 - **sensor**
 
 Options: ``S1A | S1B``
@@ -184,7 +191,8 @@ Start the processor using parameters defined in section ``SECTION_NAME`` of a ``
 
     s1_nrb -c /path/to/config.ini -s SECTION_NAME
 
-Start the processor using parameters defined in the default section of a ``config.ini`` file but override parameters ``acq_mode`` and ``annotation``:
+Start the processor using parameters defined in the default section of a ``config.ini`` file but
+override some parameters, e.g. ``acq_mode`` and ``annotation``:
 
 ::
 

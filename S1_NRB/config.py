@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import timedelta
 import configparser
 import dateutil.parser
 from osgeo import gdal
@@ -23,7 +25,7 @@ def get_keys(section):
                 'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                 'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
-                'sensor']
+                'sensor', 'date_strict']
     elif section == 'metadata':
         return ['access_url', 'licence', 'doi', 'processing_center']
     else:
@@ -83,8 +85,10 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['gdal_threads'] = '4'
     if 'dem_type' not in proc_sec.keys():
         proc_sec['dem_type'] = 'Copernicus 30m Global DEM'
-    
-    # use previous defaults for measurement and annotation if they have not been defined
+    if 'date_strict' not in proc_sec.keys():
+        proc_sec['date_strict'] = 'True'
+        
+        # use previous defaults for measurement and annotation if they have not been defined
     if 'measurement' not in proc_sec.keys():
         proc_sec['measurement'] = 'gamma'
     if 'annotation' not in proc_sec.keys():
@@ -116,8 +120,13 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'aoi_geometry':
             if v is not None:
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
-        if k.endswith('date'):
+        if k == 'mindate':
             v = proc_sec.get_datetime(k)
+        if k == 'maxdate':
+            date_short = re.search('^[0-9-]{10}$', v) is not None
+            v = proc_sec.get_datetime(k)
+            if date_short:
+                v += timedelta(days=1, microseconds=-1)
         if k == 'sensor':
             assert v in ['S1A', 'S1B']
         if k == 'acq_mode':
@@ -151,14 +160,11 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
                        'Copernicus 30m Global DEM', 'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
-        if k == 'etad':
-            if v.lower() == 'true':
-                v = True
-            elif v.lower() == 'false':
-                v = False
-            else:
-                allowed = ['True', 'true', 'False', 'false']
-                raise ValueError("Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v))
+        if k in ['etad', 'date_strict']:
+            try:
+                v = proc_sec.getboolean(k)
+            except ValueError:
+                raise RuntimeError(f"cannot parse boolean parameter '{k}' with value '{v}'")
         if k == 'product':
             allowed = ['GRD', 'SLC']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
@@ -238,6 +244,7 @@ def _parse_list(s):
         return None
     else:
         return s.replace(' ', '').split(',')
+
 
 def _keyval_check(key, val, allowed_keys):
     """Helper function to check and clean up key,value pairs while parsing a config file."""
