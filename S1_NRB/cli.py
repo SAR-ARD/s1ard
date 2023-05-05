@@ -36,6 +36,7 @@ def cli(ctx, config_file, section, debug, version):
     - annotation (measurement=gamma): dm,ei,id,lc,li,np,gs
     - annotation (measurement=sigma): dm,ei,id,lc,li,np,sg
     - dem_type:          Copernicus 30m Global DEM
+    - date_strict:       True
     - etad:              False
     - etad_dir:          None
     - gdal_threads:      4
