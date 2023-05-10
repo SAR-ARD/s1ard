@@ -279,7 +279,7 @@ def calc_performance_estimates(files):
     """
     out = {}
     for f in files:
-        pol = re.search('[vh]{2}', f).group().upper()
+        pol = re.search('np-([vh]{2})', f).group(1).upper()
         with Raster(f) as ras:
             arr = ras.array()
             # The following need to be of type float, not numpy.float32 in order to be JSON serializable
