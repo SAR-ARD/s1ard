@@ -287,8 +287,8 @@ def snap_conf(config):
             'allow_res_osv': True,
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
-            'slc_clean_edges': True,
-            'slc_clean_edges_pixels': 4,
+            'clean_edges': True,
+            'clean_edges_pixels': 4,
             'cleanup': True
             }
 

@@ -527,7 +527,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
-            allow_res_osv=True, slc_clean_edges=True, slc_clean_edges_pixels=4,
+            allow_res_osv=True, clean_edges=True, clean_edges_pixels=4,
             neighbors=None, gpt_args=None, cleanup=True):
     """
     Main function for SAR processing with SNAP.
@@ -574,10 +574,10 @@ def process(scene, outdir, measurement, spacing, kml, dem,
          - scatteringArea
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
-    slc_clean_edges: bool
+    clean_edges: bool
         Erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
         Does not apply to layover-shadow mask.
-    slc_clean_edges_pixels: int
+    clean_edges_pixels: int
         The number of pixels to erode.
     neighbors: list[str] or None
         (only applies to GRD) an optional list of neighboring scenes to add
@@ -745,8 +745,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 dem_resampling_method=dem_resampling_method,
                 img_resampling_method=img_resampling_method,
                 gpt_args=gpt_args)
-            postprocess(out_geo, slc_clean_edges=slc_clean_edges,
-                        slc_clean_edges_pixels=slc_clean_edges_pixels)
+            postprocess(out_geo, clean_edges=clean_edges,
+                        clean_edges_pixels=clean_edges_pixels)
         for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
             if wf != wf_dst:
@@ -797,25 +797,25 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             shutil.rmtree(tmpdir_scene)
 
 
-def postprocess(src, slc_clean_edges=True, slc_clean_edges_pixels=4):
+def postprocess(src, clean_edges=True, clean_edges_pixels=4):
     """
-    Performs SLC edge cleaning and sets the nodata value in the output ENVI HDR files.
+    Performs edge cleaning and sets the nodata value in the output ENVI HDR files.
     
     Parameters
     ----------
     src: str
         the file name of the source scene. Format is BEAM-DIMAP.
-    slc_clean_edges: bool
-        perform SLC edge cleaning?
-    slc_clean_edges_pixels: int
+    clean_edges: bool
+        perform edge cleaning?
+    clean_edges_pixels: int
         the number of pixels to erode during edge cleaning.
 
     Returns
     -------
 
     """
-    if slc_clean_edges:
-        erode_edges(src=src, only_boundary=True, pixels=slc_clean_edges_pixels)
+    if clean_edges:
+        erode_edges(src=src, only_boundary=True, pixels=clean_edges_pixels)
     datadir = src.replace('.dim', '.data')
     hdrfiles = finder(target=datadir, matchlist=['*.hdr'])
     for hdrfile in hdrfiles:
