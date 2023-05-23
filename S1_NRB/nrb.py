@@ -39,7 +39,9 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     config: dict
         Dictionary of the parsed config parameters for the current process.
     scenes: list[str]
-        List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
+        List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
+        All scenes are expected to overlap with `extent` and an error will be thrown if the processing output
+        cannot be found for any of the scenes.
     datadir: str
         The directory containing the datasets processed from the source scenes using pyroSAR.
     outdir: str
@@ -54,7 +56,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         Path to a water body mask file with the dimensions of an MGRS tile.
     dem_type: str or None
         if defined, a DEM layer will be added to the product. The suffix `em` (elevation model) is used.
-        Default `None`: do not add a DEm layer.
+        Default `None`: do not add a DEM layer.
     multithread: bool
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
@@ -345,9 +347,17 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
 
 def get_datasets(scenes, datadir, extent, epsg):
     """
+    Collect processing output for a list of scenes.
     Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
-    and filters both lists depending on the actual overlap of each SLC/GRD footprint
-    with the current MGRS tile geometry.
+    and filters both lists depending on the actual overlap of each SLC/GRD valid data coverage
+    with the current MGRS tile geometry. If no output is found for any scene the function will raise an error.
+    To obtain the extent of valid data coverage, first a binary
+    mask raster file is created with the name `datamask.tif`, which is stored in the same folder as
+    the processing output as found by :func:`~S1_NRB.snap.find_datasets`. Then, the boundary of this
+    binary mask is computed and stored as `datamask.gpkg` (see function :func:`spatialist.vector.boundary`).
+    If the provided `extent` does not overlap with this boundary, the output is discarded. This scenario
+    might occur when the scene's geometry read from its metadata overlaps with the tile but the actual
+    extent of data does not.
 
     Parameters
     ----------
@@ -355,6 +365,7 @@ def get_datasets(scenes, datadir, extent, epsg):
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
         The directory containing the datasets processed from the source scenes using pyroSAR.
+        The function will raise an error if the processing output cannot be found for all scenes in `datadir`.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -367,18 +378,20 @@ def get_datasets(scenes, datadir, extent, epsg):
     datasets: list[dict]
         List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
         The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
+    
+    See Also
+    --------
+    :func:`S1_NRB.snap.find_datasets`
     """
     ids = identify_many(scenes)
     datasets = []
-    remove = []
     for i, _id in enumerate(ids):
         files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
             datasets.append(files)
         else:
-            remove.append(i)
-    for i in sorted(remove, reverse=True):
-        del ids[i]
+            base = os.path.basename(_id.scene)
+            raise RuntimeError(f'cannot find processing output for scene {base}')
     
     i = 0
     while i < len(datasets):

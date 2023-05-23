@@ -1,7 +1,7 @@
 import os
 import time
 from osgeo import gdal
-from spatialist import Vector, bbox
+from spatialist import Vector, bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
@@ -216,7 +216,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
-        # prepare DEM and WBM MGRS tiles
+        # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
         del vec
@@ -229,7 +229,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         print('preparing NRB products')
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
-            scenes_fnames = [x.scene for x in scenes]
             # check that the scenes can really be grouped together
             anc.check_scene_consistency(scenes=scenes)
             # get the geometries of all tiles that overlap with the current scene group
@@ -242,6 +241,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             t_total = len(tiles)
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
+                # select all scenes from the group whose footprint overlaps with the current tile
+                scenes_sub = [x for x in scenes if intersect(tile, x.geometry())]
+                scenes_sub_fnames = [x.scene for x in scenes_sub]
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
@@ -254,19 +256,19 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 epsg = tile.getProjection('epsg')
                 msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
                 print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
-                                 scenes=[os.path.basename(s.scene) for s in scenes],
+                                 scenes=[os.path.basename(s) for s in scenes_sub_fnames],
                                  s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
+                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
                                      multithread=gdal_prms['multithread'], annotation=config['annotation'],
                                      update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_sub_fnames, msg=e)
                     continue
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
