@@ -55,7 +55,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     else:
         acq_mode_search = config['acq_mode']
     
-    vec = [None]
+    vec = None
     aoi_tiles = None
     selection = []
     if config['aoi_tiles'] is not None:
@@ -76,20 +76,45 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         archive = STACArchive(url=config['stac_catalog'],
                               collections=config['stac_collections'])
     
+    # derive geometries and tiles from scene footprints
+    if vec is None:
+        selection_tmp = archive.select(sensor=config['sensor'],
+                                       vectorobject=None,
+                                       product=config['product'],
+                                       acquisition_mode=acq_mode_search,
+                                       mindate=config['mindate'],
+                                       maxdate=config['maxdate'],
+                                       date_strict=config['date_strict'])
+        scenes = identify_many(scenes=selection_tmp)
+        scenes_geom = [x.geometry() for x in scenes]
+        # select all tiles overlapping with the scenes for further processing
+        vec = tile_ex.tile_from_aoi(vector=scenes_geom, kml=config['kml_file'],
+                                    return_geometries=True)
+        aoi_tiles = [x.mgrs for x in vec]
+        del scenes_geom, scenes
+        # extend the time range to fully cover all tiles
+        # (one additional scene needed before and after each data take group)
+        mindate = config['mindate'] - timedelta(minutes=1)
+        maxdate = config['maxdate'] + timedelta(minutes=1)
+    else:
+        mindate = config['mindate']
+        maxdate = config['maxdate']
+    
     for item in vec:
         selection.extend(
             archive.select(sensor=config['sensor'],
                            vectorobject=item,
                            product=config['product'],
                            acquisition_mode=acq_mode_search,
-                           mindate=config['mindate'],
-                           maxdate=config['maxdate'],
+                           mindate=mindate,
+                           maxdate=maxdate,
                            date_strict=config['date_strict']))
     selection = list(set(selection))
     del vec
     
     if len(selection) == 0:
         message = "No scenes could be found for the following search query:\n" \
+                  " sensor:    '{sensor}'\n" \
                   " product:   '{product}'\n" \
                   " acq. mode: '{acq_mode}'\n" \
                   " mindate:   '{mindate}'\n" \
