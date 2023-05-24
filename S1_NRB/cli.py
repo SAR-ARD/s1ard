@@ -26,6 +26,10 @@ def cli(ctx, config_file, section, debug, version):
     
     s1_nrb -c config.ini --acq_mode IW --annotation dm,id
     
+    The snap_gpt_args argument can be provided by using a dedicated argument separator and quotes:
+    
+    s1_nrb -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
+    
     \b
     The following defaults are set:
     (processing section)
@@ -36,6 +40,7 @@ def cli(ctx, config_file, section, debug, version):
     - etad:              False
     - etad_dir:          None
     - gdal_threads:      4
+    - snap_gpt_args:     None
     - log_dir:           LOG
     - measurement:       gamma
     - nrb_dir:           NRB

@@ -318,6 +318,7 @@ def _log_process_config(logger, config):
     db_file             {config['db_file']}
     kml_file            {config['kml_file']}
     gdal_threads        {config.get('gdal_threads')}
+    snap_gpt_args       {config['snap_gpt_args']}
     
     ====================================================================================================================
     SOFTWARE

@@ -279,7 +279,7 @@ def calc_performance_estimates(files):
     """
     out = {}
     for f in files:
-        pol = re.search('[vh]{2}', f).group().upper()
+        pol = re.search('np-([vh]{2})', f).group(1).upper()
         with Raster(f) as ras:
             arr = ras.array()
             # The following need to be of type float, not numpy.float32 in order to be JSON serializable
@@ -427,6 +427,10 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     with Raster(ei_tif) as ras:
         stats = ras.allstats(approximate=False)
         ei_min = stats[0]['min']
+    
+    if ei_min == 0:
+        raise RuntimeError(f'minimum ellipsoid incidence angle cannot be 0\n'
+                           f'(file: {ei_tif})')
     
     # Remove generated '.aux.xml' file
     aux = finder(os.path.dirname(ei_tif), ['.tif.aux.xml$'], regex=True, recursive=False)

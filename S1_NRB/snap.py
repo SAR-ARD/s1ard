@@ -2,9 +2,11 @@ import os
 import re
 import itertools
 import shutil
+from math import ceil
 from spatialist import bbox, Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
+from spatialist.auxil import utm_autodetect
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
@@ -13,7 +15,7 @@ from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
 from S1_NRB.ancillary import get_max_ext
 
 
-def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
+def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
     """
     Multi-looking.
     
@@ -33,7 +35,11 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
         the number of range looks.
     azlks: int or None
         the number of azimuth looks.
-
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
     Returns
     -------
     
@@ -59,11 +65,12 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None):
         write.parameters['formatName'] = 'BEAM-DIMAP'
         ############################################
         wf.write(workflow)
-        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+            gpt_args=gpt_args)
 
 
 def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
-        output_noise=True, output_beta0=True):
+        output_noise=True, output_beta0=True, gpt_args=None):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -84,7 +91,11 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output the noise power images?
     output_beta0: bool
         output beta nought backscatter needed for RTC?
-
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
     Returns
     -------
 
@@ -135,10 +146,11 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
-def grd_buffer(src, dst, workflow, neighbors, buffer=10):
+def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     """
     GRD extent buffering.
     GRDs, unlike SLCs, do not overlap in azimuth.
@@ -157,8 +169,12 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10):
     neighbors: list[str]
         the file names of neighboring scenes
     buffer: int
-        the number of pixels to buffer
-
+        the buffer size in meters
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+     
     Returns
     -------
 
@@ -177,10 +193,16 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10):
     wf.insert_node(asm, before=read_ids)
     ############################################
     id_main = [x.scene for x in scenes].index(src)
+    id_top = 0 if scenes[0].orbit == 'D' else -1
+    buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
     xmin = 0
     width = scenes[id_main].samples
-    ymin = 0 if id_main == 0 else scenes[0].lines - buffer
-    height = scenes[id_main].lines + buffer * 2
+    if id_main == 0:
+        ymin = 0
+        height = scenes[id_main].lines + buffer_px
+    else:
+        ymin = scenes[id_top].lines - buffer_px
+        height = scenes[id_main].lines + buffer_px * 2
     sub = parse_node('Subset')
     sub.parameters['region'] = [xmin, ymin, width, height]
     sub.parameters['geoRegion'] = ''
@@ -193,11 +215,13 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=10):
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
 def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
-        sigma0=True, scattering_area=True, dem_oversampling_multiple=2):
+        sigma0=True, scattering_area=True, dem_oversampling_multiple=2,
+        gpt_args=None):
     """
     Radiometric Terrain Flattening.
     
@@ -221,7 +245,11 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
         a factor to multiply the DEM oversampling factor computed by SNAP.
         The SNAP default of 1 has been found to be insufficient with stripe
         artifacts remaining in the image.
-
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
     Returns
     -------
 
@@ -257,10 +285,11 @@ def rtc(src, dst, workflow, dem, dem_resampling_method='BILINEAR_INTERPOLATION',
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
-def gsr(src, dst, workflow, src_sigma=None):
+def gsr(src, dst, workflow, src_sigma=None, gpt_args=None):
     """
     Gamma-sigma ratio computation for either ellipsoidal or RTC sigma nought.
     
@@ -274,7 +303,11 @@ def gsr(src, dst, workflow, src_sigma=None):
         the output SNAP XML workflow filename.
     src_sigma: str or None
         the optional file name of a second source product from which to read the sigma band.
-
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
     Returns
     -------
 
@@ -317,10 +350,11 @@ def gsr(src, dst, workflow, src_sigma=None):
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
-def sgr(src, dst, workflow, src_gamma=None):
+def sgr(src, dst, workflow, src_gamma=None, gpt_args=None):
     """
     Sigma-gamma ratio computation.
 
@@ -334,7 +368,11 @@ def sgr(src, dst, workflow, src_gamma=None):
         the output SNAP XML workflow filename.
     src_gamma: str or None
         the optional file name of a second source product from which to read the gamma band.
-
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
     Returns
     -------
 
@@ -377,13 +415,14 @@ def sgr(src, dst, workflow, src_gamma=None):
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
 def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         export_extra=None, standard_grid_origin_x=0, standard_grid_origin_y=0,
         dem, dem_resampling_method='BILINEAR_INTERPOLATION',
-        img_resampling_method='BILINEAR_INTERPOLATION', **bands):
+        img_resampling_method='BILINEAR_INTERPOLATION', gpt_args=None, **bands):
     """
     Range-Doppler geocoding.
     
@@ -421,6 +460,10 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         the DEM resampling method
     img_resampling_method: str
         the SAR image resampling method
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
     bands
         band ids for the input scenes in `src` as lists with keys bands<index>,
         e.g., ``bands1=['NESZ_VV'], bands2=['Gamma0_VV'], ...``
@@ -476,15 +519,16 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     write.parameters['formatName'] = 'BEAM-DIMAP'
     ############################################
     wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst))
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
 def process(scene, outdir, measurement, spacing, kml, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
-            allow_res_osv=True, slc_clean_edges=True, slc_clean_edges_pixels=4,
-            neighbors=None, cleanup=True):
+            allow_res_osv=True, clean_edges=True, clean_edges_pixels=4,
+            neighbors=None, gpt_args=None, cleanup=True):
     """
     Main function for SAR processing with SNAP.
     
@@ -530,16 +574,20 @@ def process(scene, outdir, measurement, spacing, kml, dem,
          - scatteringArea
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
-    slc_clean_edges: bool
+    clean_edges: bool
         Erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
         Does not apply to layover-shadow mask.
-    slc_clean_edges_pixels: int
+    clean_edges_pixels: int
         The number of pixels to erode.
     neighbors: list[str] or None
         (only applies to GRD) an optional list of neighboring scenes to add
         a buffer around the main scene using function :func:`grd_buffer`.
         If GRDs are processed compeletely independently, gaps are introduced
-        due to a missing overlap between GRDs.
+        due to a missing overlap.
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
     cleanup: bool
         Delete intermediate files after successful process termination?
 
@@ -591,7 +639,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     if not os.path.isfile(out_pre):
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
             allow_res_osv=allow_res_osv, output_noise=output_noise,
-            output_beta0=apply_rtc)
+            output_beta0=apply_rtc, gpt_args=gpt_args)
     ############################################################################
     # GRD buffering
     if neighbors is not None:
@@ -608,7 +656,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 print('### preprocessing neighbor:', item)
                 pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
                     allow_res_osv=allow_res_osv, output_noise=output_noise,
-                    output_beta0=apply_rtc)
+                    output_beta0=apply_rtc, gpt_args=gpt_args)
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
@@ -618,15 +666,17 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         if not os.path.isfile(out_buffer):
             print('### buffering scene with neighboring acquisitions')
             grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
-                       neighbors=out_pre_neighbors)
+                       neighbors=out_pre_neighbors, gpt_args=gpt_args,
+                       buffer=10 * spacing)
         out_pre = out_buffer
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
     if not os.path.isfile(out_mli):
+        print('### multi-looking')
         mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
-            spacing=spacing, rlks=rlks, azlks=azlks)
+            spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
     if not os.path.isfile(out_mli):
         out_mli = out_pre
     else:
@@ -639,10 +689,12 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_rtc_wf = out_rtc.replace('.dim', '.xml')
         workflows.append(out_rtc_wf)
         if not os.path.isfile(out_rtc):
+            print('### radiometric terrain correction')
             rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
                 dem_resampling_method=dem_resampling_method,
                 sigma0='gammaSigmaRatio' in export_extra,
-                scattering_area='scatteringArea' in export_extra)
+                scattering_area='scatteringArea' in export_extra,
+                gpt_args=gpt_args)
         ########################################################################
         # gamma-sigma ratio computation
         out_gsr = None
@@ -651,7 +703,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_gsr_wf = out_gsr.replace('.dim', '.xml')
             workflows.append(out_gsr_wf)
             if not os.path.isfile(out_gsr):
-                gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf)
+                gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf,
+                    gpt_args=gpt_args)
         ########################################################################
         # sigma-gamma ratio computation
         out_sgr = None
@@ -661,24 +714,15 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             workflows.append(out_sgr_wf)
             if not os.path.isfile(out_sgr):
                 sgr(src=out_mli, dst=out_sgr, workflow=out_sgr_wf,
-                    src_gamma=out_rtc)
+                    src_gamma=out_rtc, gpt_args=gpt_args)
     ############################################################################
     # geocoding
-    with id.geometry() as geom:
-        tiles = tile_from_aoi(vector=geom, kml=kml)
     
-    for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
-        group = list(group)
-        geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
-        epsg = geometries[0].getProjection(type='epsg')
-        print(f'### processing EPSG:{epsg}')
-        ext = get_max_ext(geometries=geometries)
-        align_x = ext['xmin']
-        align_y = ext['ymax']
-        del geometries
-        with bbox(coordinates=ext, crs=epsg) as geom:
-            geom.reproject(projection=4326)
-            ext = geom.extent
+    # Process tu multiple UTM zones or just one?
+    # For testing purposes only.
+    utm_multi = True
+    
+    def run():
         out_geo = out_base + '_geo_{}.dim'.format(epsg)
         out_geo_wf = out_geo.replace('.dim', '.xml')
         if not os.path.isfile(out_geo):
@@ -699,35 +743,79 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 standard_grid_origin_y=align_y,
                 bands0=bands0, bands1=bands1, dem=dem,
                 dem_resampling_method=dem_resampling_method,
-                img_resampling_method=img_resampling_method)
-            postprocess(out_geo, slc_clean_edges=slc_clean_edges,
-                        slc_clean_edges_pixels=slc_clean_edges_pixels)
+                img_resampling_method=img_resampling_method,
+                gpt_args=gpt_args)
+            postprocess(out_geo, clean_edges=clean_edges,
+                        clean_edges_pixels=clean_edges_pixels)
         for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
-            shutil.copyfile(src=wf, dst=wf_dst)
+            if wf != wf_dst:
+                shutil.copyfile(src=wf, dst=wf_dst)
+    
+    if utm_multi:
+        with id.geometry() as geom:
+            tiles = tile_from_aoi(vector=geom, kml=kml)
+        for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
+            group = list(group)
+            geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
+            epsg = geometries[0].getProjection(type='epsg')
+            print(f'### geocoding to EPSG:{epsg}')
+            ext = get_max_ext(geometries=geometries)
+            align_x = ext['xmin']
+            align_y = ext['ymax']
+            del geometries
+            with bbox(coordinates=ext, crs=epsg) as geom:
+                geom.reproject(projection=4326)
+                ext = geom.extent
+            run()
+    else:
+        with id.bbox() as geom:
+            ext = geom.extent
+            epsg = utm_autodetect(geom, 'epsg')
+            print(f'### geocoding to EPSG:{epsg}')
+            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
+                                  return_geometries=True)
+            ext_utm = tiles[0].extent
+            del tiles
+            align_x = ext_utm['xmin']
+            align_y = ext_utm['ymax']
+        run()
     if cleanup:
-        shutil.rmtree(tmpdir_scene)
+        if id.product == 'GRD':
+            # delete everything except *_pre.* products which are reused for buffering
+            # this needs to be improved so that these products are also removed if they
+            # are no longer needed for any buffering.
+            items = finder(target=tmpdir_scene, matchlist=['*'],
+                           foldermode=1, recursive=False)
+            for item in items:
+                if not re.search(r'_pre\.', item):
+                    if os.path.isfile(item):
+                        os.remove(item)
+                    else:
+                        shutil.rmtree(item)
+        else:
+            shutil.rmtree(tmpdir_scene)
 
 
-def postprocess(src, slc_clean_edges=True, slc_clean_edges_pixels=4):
+def postprocess(src, clean_edges=True, clean_edges_pixels=4):
     """
-    Performs SLC edge cleaning and sets the nodata value in the output ENVI HDR files.
+    Performs edge cleaning and sets the nodata value in the output ENVI HDR files.
     
     Parameters
     ----------
     src: str
         the file name of the source scene. Format is BEAM-DIMAP.
-    slc_clean_edges: bool
-        perform SLC edge cleaning?
-    slc_clean_edges_pixels: int
+    clean_edges: bool
+        perform edge cleaning?
+    clean_edges_pixels: int
         the number of pixels to erode during edge cleaning.
 
     Returns
     -------
 
     """
-    if slc_clean_edges:
-        erode_edges(src=src, only_boundary=True, pixels=slc_clean_edges_pixels)
+    if clean_edges:
+        erode_edges(src=src, only_boundary=True, pixels=clean_edges_pixels)
     datadir = src.replace('.dim', '.data')
     hdrfiles = finder(target=datadir, matchlist=['*.hdr'])
     for hdrfile in hdrfiles:

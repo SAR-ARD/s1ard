@@ -1,7 +1,7 @@
 import os
 import time
 from osgeo import gdal
-from spatialist import Vector, bbox
+from spatialist import Vector, bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, nrb, snap
@@ -55,7 +55,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     else:
         acq_mode_search = config['acq_mode']
     
-    vec = [None]
+    vec = None
     aoi_tiles = None
     selection = []
     if config['aoi_tiles'] is not None:
@@ -76,20 +76,45 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         archive = STACArchive(url=config['stac_catalog'],
                               collections=config['stac_collections'])
     
+    # derive geometries and tiles from scene footprints
+    if vec is None:
+        selection_tmp = archive.select(sensor=config['sensor'],
+                                       vectorobject=None,
+                                       product=config['product'],
+                                       acquisition_mode=acq_mode_search,
+                                       mindate=config['mindate'],
+                                       maxdate=config['maxdate'],
+                                       date_strict=config['date_strict'])
+        scenes = identify_many(scenes=selection_tmp)
+        scenes_geom = [x.geometry() for x in scenes]
+        # select all tiles overlapping with the scenes for further processing
+        vec = tile_ex.tile_from_aoi(vector=scenes_geom, kml=config['kml_file'],
+                                    return_geometries=True)
+        aoi_tiles = [x.mgrs for x in vec]
+        del scenes_geom, scenes
+        # extend the time range to fully cover all tiles
+        # (one additional scene needed before and after each data take group)
+        mindate = config['mindate'] - timedelta(minutes=1)
+        maxdate = config['maxdate'] + timedelta(minutes=1)
+    else:
+        mindate = config['mindate']
+        maxdate = config['maxdate']
+    
     for item in vec:
         selection.extend(
             archive.select(sensor=config['sensor'],
                            vectorobject=item,
                            product=config['product'],
                            acquisition_mode=acq_mode_search,
-                           mindate=config['mindate'],
-                           maxdate=config['maxdate'],
+                           mindate=mindate,
+                           maxdate=maxdate,
                            date_strict=config['date_strict']))
     selection = list(set(selection))
     del vec
     
     if len(selection) == 0:
         message = "No scenes could be found for the following search query:\n" \
+                  " sensor:    '{sensor}'\n" \
                   " product:   '{product}'\n" \
                   " acq. mode: '{acq_mode}'\n" \
                   " mindate:   '{mindate}'\n" \
@@ -97,7 +122,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
                                           mindate=config['mindate'], maxdate=config['maxdate'],
                                           scene_dir=config['scene_dir']))
-    scenes = identify_many(selection)
+    scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
     archive.close()
     
@@ -206,6 +231,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
                              export_extra=export_extra,
+                             gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
                 anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
@@ -215,7 +241,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
-        # prepare DEM and WBM MGRS tiles
+        # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
         del vec
@@ -225,10 +251,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        
+        print('preparing NRB products')
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, scenes in enumerate(selection_grouped):
-            scenes_fnames = [x.scene for x in scenes]
             # check that the scenes can really be grouped together
             anc.check_scene_consistency(scenes=scenes)
             # get the geometries of all tiles that overlap with the current scene group
@@ -241,6 +266,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             t_total = len(tiles)
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
+                # select all scenes from the group whose footprint overlaps with the current tile
+                scenes_sub = [x for x in scenes if intersect(tile, x.geometry())]
+                scenes_sub_fnames = [x.scene for x in scenes_sub]
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
@@ -253,19 +281,19 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 epsg = tile.getProjection('epsg')
                 msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
                 print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
-                                 scenes=[os.path.basename(s.scene) for s in scenes],
+                                 scenes=[os.path.basename(s) for s in scenes_sub_fnames],
                                  s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_fnames, datadir=config['rtc_dir'],
+                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
                                      multithread=gdal_prms['multithread'], annotation=config['annotation'],
                                      update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_sub_fnames, msg=e)
                     continue
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
