@@ -1,6 +1,19 @@
 Changelog
 =========
 
+1.3.0 | 2023-05-24
+------------------
+
+* SNAP RTC: increase DEM oversampling by a factor of two (`#78 <https://github.com/SAR-ARD/S1_NRB/pull/78>`_)
+* nrb.format: do not hardcode src_nodata and read it from the data instead (`#79 <https://github.com/SAR-ARD/S1_NRB/pull/79>`_)
+* enable configuration via command line arguments (`#80 <https://github.com/SAR-ARD/S1_NRB/pull/80>`_)
+* improved date parsing (`#81 <https://github.com/SAR-ARD/S1_NRB/pull/81>`_)
+* scene search via STAC (`#82 <https://github.com/SAR-ARD/S1_NRB/pull/82>`_)
+* enhanced time filtering (`#84 <https://github.com/SAR-ARD/S1_NRB/pull/84>`_)
+* general processor improvements (`#85 <https://github.com/SAR-ARD/S1_NRB/pull/85>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.2.0...v1.3.0>`_
+
 1.2.0 | 2022-12-29
 ------------------
 
