@@ -253,11 +253,11 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_strict=True)
         print('preparing NRB products')
         selection_grouped = anc.group_by_time(scenes=scenes)
-        for s, scenes in enumerate(selection_grouped):
+        for s, group in enumerate(selection_grouped):
             # check that the scenes can really be grouped together
-            anc.check_scene_consistency(scenes=scenes)
+            anc.check_scene_consistency(scenes=group)
             # get the geometries of all tiles that overlap with the current scene group
-            vec = [x.geometry() for x in scenes]
+            vec = [x.geometry() for x in group]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           kml=config['kml_file'],
                                           return_geometries=True,
@@ -267,7 +267,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
                 # select all scenes from the group whose footprint overlaps with the current tile
-                scenes_sub = [x for x in scenes if intersect(tile, x.geometry())]
+                scenes_sub = [x for x in group if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
                 outdir = os.path.join(config['nrb_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
