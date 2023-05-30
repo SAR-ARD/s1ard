@@ -126,7 +126,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'mindate':
             v = proc_sec.get_datetime(k)
         if k == 'maxdate':
-            date_short = re.search('^[0-9-]{10}$', v) is not None
+            date_short = re.search('^[0-9-]{10}$', v.strip()) is not None
             v = proc_sec.get_datetime(k)
             if date_short:
                 v += timedelta(days=1, microseconds=-1)
