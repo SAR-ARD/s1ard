@@ -262,7 +262,7 @@ def group_by_time(scenes, time=3):
     for i in range(1, len(scenes)):
         start = datetime.strptime(scenes[i].start, '%Y%m%dT%H%M%S')
         stop_pred = datetime.strptime(scenes[i - 1].stop, '%Y%m%dT%H%M%S')
-        diff = (stop_pred - start).total_seconds()
+        diff = abs((stop_pred - start).total_seconds())
         if diff <= time:
             group.append(scenes[i])
         else:
