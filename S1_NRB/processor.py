@@ -113,15 +113,16 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     del vec
     
     if len(selection) == 0:
-        message = "No scenes could be found for the following search query:\n" \
-                  " sensor:    '{sensor}'\n" \
-                  " product:   '{product}'\n" \
-                  " acq. mode: '{acq_mode}'\n" \
-                  " mindate:   '{mindate}'\n" \
-                  " maxdate:   '{maxdate}'\n"
-        raise RuntimeError(message.format(acq_mode=config['acq_mode'], product=config['product'],
-                                          mindate=config['mindate'], maxdate=config['maxdate'],
-                                          scene_dir=config['scene_dir']))
+        msg = "No scenes could be found for the following search query:\n" \
+              " sensor:    '{sensor}'\n" \
+              " product:   '{product}'\n" \
+              " acq. mode: '{acq_mode}'\n" \
+              " mindate:   '{mindate}'\n" \
+              " maxdate:   '{maxdate}'\n"
+        print(msg.format(sensor=config['sensor'], acq_mode=config['acq_mode'],
+                         product=config['product'], mindate=config['mindate'],
+                         maxdate=config['maxdate'], scene_dir=config['scene_dir']))
+        return
     scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
     archive.close()
