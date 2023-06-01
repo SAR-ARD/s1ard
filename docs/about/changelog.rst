@@ -60,7 +60,7 @@ Changelog
 1.0.0 | 2022-06-23
 ------------------
 
-* Dockerfile to build S1_NRB image (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/31>`_)
+* Dockerfile to build S1_NRB image (`#31 <https://github.com/SAR-ARD/S1_NRB/pull/31>`_)
 * adjustments to nodata value (`#28 <https://github.com/SAR-ARD/S1_NRB/pull/28>`_)
 * renamed XML tag 'nrb' to 's1-nrb' (`#36 <https://github.com/SAR-ARD/S1_NRB/pull/36>`_)
 * Metadata & Config Improvements (`#30 <https://github.com/SAR-ARD/S1_NRB/pull/30>`_)
