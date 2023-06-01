@@ -1,3 +1,4 @@
+import pystac_client.exceptions
 import re
 from pathlib import Path
 from datetime import datetime
@@ -20,7 +21,18 @@ class STACArchive(object):
     """
     
     def __init__(self, url, collections):
-        self.catalog = Client.open(url, ignore_conformance=True)
+        self.max_tries = 3
+        t = 1
+        while True:
+            try:
+                self.catalog = Client.open(url, ignore_conformance=True)
+                break
+            except pystac_client.exceptions.APIError:
+                print(f'failed opening the catalog at try {t}/{self.max_tries}')
+                if t < self.max_tries:
+                    t += 1
+                else:
+                    raise
         if isinstance(collections, str):
             self.collections = [collections]
         elif isinstance(collections, list):
@@ -140,9 +152,19 @@ class STACArchive(object):
                 else:
                     arg = {'op': 'or', 'args': args}
             flt['args'].append(arg)
-        result = self.catalog.search(collections=self.collections,
-                                     filter=flt, max_items=None)
-        result = list(result.items())
+        t = 1
+        while True:
+            try:
+                result = self.catalog.search(collections=self.collections,
+                                             filter=flt, max_items=None)
+                result = list(result.items())
+                break
+            except pystac_client.exceptions.APIError:
+                print(f'failed searching the catalog at try {t}/{self.max_tries}')
+                if t < self.max_tries:
+                    t += 1
+                else:
+                    raise
         out = []
         for item in result:
             assets = item.assets
