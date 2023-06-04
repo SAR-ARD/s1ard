@@ -262,7 +262,7 @@ def group_by_time(scenes, time=3):
     for i in range(1, len(scenes)):
         start = datetime.strptime(scenes[i].start, '%Y%m%dT%H%M%S')
         stop_pred = datetime.strptime(scenes[i - 1].stop, '%Y%m%dT%H%M%S')
-        diff = (stop_pred - start).total_seconds()
+        diff = abs((stop_pred - start).total_seconds())
         if diff <= time:
             group.append(scenes[i])
         else:
@@ -300,6 +300,7 @@ def _log_process_config(logger, config):
     aoi_geometry        {config['aoi_geometry']}
     mindate             {config['mindate'].isoformat()}
     maxdate             {config['maxdate'].isoformat()}
+    sensor              {config['sensor']}
     acq_mode            {config['acq_mode']}
     product             {config['product']}
     measurement         {config.get('measurement')}

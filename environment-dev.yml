@@ -24,3 +24,4 @@ dependencies:
   - sphinx_rtd_theme
   - sphinx-toolbox
   - ipython # for notebook code highlighting
+  - filelock  # needed for sphinx_toolbox.collapse
