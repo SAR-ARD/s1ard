@@ -41,6 +41,10 @@ def check_acquisition_completeness(scenes, archive):
         groupsize = 3
         has_successor = True
         has_predecessor = True
+        if slice == 0:
+            raise RuntimeError(f'invalid value for sliceNumber: 0')
+        if n_slices == 0:
+            raise RuntimeError(f'invalid value for totalSlices: 0')
         if slice == 1:  # first slice in the data take
             groupsize -= 1
             has_predecessor = False
