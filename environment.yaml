@@ -18,3 +18,4 @@ dependencies:
   - s1etad>=0.5.3
   - s1etad_tools>=0.8.1
   - numpy
+  - asf_search
