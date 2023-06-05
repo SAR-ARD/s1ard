@@ -59,6 +59,10 @@ Options: ``GRD | SLC``
 
 The product of the source scenes that should be processed.
 
+- **datatake**
+
+The datatake ID in hexadecimal representation, e.g. 04EBF7.
+
 - **work_dir**
 
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
