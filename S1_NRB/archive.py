@@ -193,7 +193,7 @@ class STACArchive(object):
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
                 args = []
-                if isinstance(val, str):
+                if isinstance(val, (str, int)):
                     val = [val]
                 for v in val:
                     if key == 'sensor':
