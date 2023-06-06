@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from lxml import etree
 from pathlib import Path
 from datetime import datetime
@@ -24,18 +25,9 @@ class STACArchive(object):
     """
     
     def __init__(self, url, collections):
-        self.max_tries = 3
-        t = 1
-        while True:
-            try:
-                self.catalog = Client.open(url, ignore_conformance=True)
-                break
-            except pystac_client.exceptions.APIError:
-                print(f'failed opening the catalog at try {t}/{self.max_tries}')
-                if t < self.max_tries:
-                    t += 1
-                else:
-                    raise
+        self.url = url
+        self.max_tries = 300
+        self._open_catalog()
         if isinstance(collections, str):
             self.collections = [collections]
         elif isinstance(collections, list):
@@ -82,6 +74,21 @@ class STACArchive(object):
                 id_keep.append(i)
             i = j
         return [tmp[i] for i in id_keep]
+    
+    def _open_catalog(self):
+        i = 1
+        while True:
+            try:
+                self.catalog = Client.open(self.url, ignore_conformance=True)
+                # print('catalog opened successfully')
+                break
+            except pystac_client.exceptions.APIError:
+                # print(f'failed opening the catalog at try {i:03d}/{self.max_tries}')
+                if i < self.max_tries:
+                    i += 1
+                    time.sleep(1)
+                else:
+                    raise
     
     def close(self):
         del self.catalog
@@ -208,11 +215,13 @@ class STACArchive(object):
                 result = self.catalog.search(collections=self.collections,
                                              filter=flt, max_items=None)
                 result = list(result.items())
+                # print('catalog search successful')
                 break
             except pystac_client.exceptions.APIError:
-                print(f'failed searching the catalog at try {t}/{self.max_tries}')
+                # print(f'failed searching the catalog at try {t:03d}/{self.max_tries}')
                 if t < self.max_tries:
                     t += 1
+                    time.sleep(1)
                 else:
                     raise
         out = []

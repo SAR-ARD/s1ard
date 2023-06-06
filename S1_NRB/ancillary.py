@@ -324,20 +324,23 @@ def _log_process_config(logger, config):
     sensor              {config['sensor']}
     acq_mode            {config['acq_mode']}
     product             {config['product']}
+    datatake            {config['datatake']}
     measurement         {config.get('measurement')}
     annotation          {config.get('annotation')}
     dem_type            {config.get('dem_type')}
     etad                {config.get('etad')}
     
     work_dir            {config['work_dir']}
-    scene_dir           {config['scene_dir']}
     rtc_dir             {config['rtc_dir']}
     tmp_dir             {config['tmp_dir']}
     nrb_dir             {config['nrb_dir']}
     wbm_dir             {config['wbm_dir']}
     log_dir             {config['log_dir']}
     etad_dir            {config['etad_dir']}
+    scene_dir           {config['scene_dir']}
     db_file             {config['db_file']}
+    stac_catalog        {config['stac_catalog']}
+    stac_collections    {config['stac_collections']}
     kml_file            {config['kml_file']}
     gdal_threads        {config.get('gdal_threads')}
     snap_gpt_args       {config['snap_gpt_args']}
