@@ -54,7 +54,7 @@ class STACArchive(object):
     def _filter_duplicates(self, scenes):
         tmp = sorted(scenes)
         pattern = '([0-9A-Z_]{16})_([0-9T]{15})_([0-9T]{15})'
-        id_keep = []
+        keep = []
         i = 0
         while i < len(tmp):
             group = [tmp[i]]
@@ -69,11 +69,11 @@ class STACArchive(object):
                     break
             if len(group) > 1:
                 tproc = [self._get_proc_time(x) for x in group]
-                id_keep.append(i + tproc.index(max(tproc)))
+                keep.append(group[tproc.index(max(tproc))])
             else:
-                id_keep.append(i)
+                keep.append(group[0])
             i = j
-        return [tmp[i] for i in id_keep]
+        return keep
     
     def _open_catalog(self):
         i = 1
