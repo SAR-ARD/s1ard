@@ -87,10 +87,17 @@ class STACArchive(object):
         del self.catalog
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
-               mindate=None, maxdate=None, vectorobject=None,
-               date_strict=True, check_exist=True):
+               mindate=None, maxdate=None, frameNumber=None,
+               vectorobject=None, date_strict=True, check_exist=True):
         """
-        Select scenes from the catalog.
+        Select scenes from the catalog. Used STAC keys:
+        
+        - platform
+        - start_datetime
+        - end_datetime
+        - sar:instrument_mode
+        - sar:product_type
+        - s1:datatake (custom)
 
         Parameters
         ----------
@@ -104,6 +111,9 @@ class STACArchive(object):
             the minimum acquisition date
         maxdate: str or datetime.datetime or None
             the maximum acquisition date
+        frameNumber: int or list[int] or None
+            the data take ID in decimal representation.
+            Requires custom STAC key `s1:datatake`.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap
         date_strict: bool
@@ -133,7 +143,8 @@ class STACArchive(object):
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
                   'maxdate': 'end_datetime',
-                  'sensor': 'platform'}
+                  'sensor': 'platform',
+                  'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
         
@@ -180,6 +191,8 @@ class STACArchive(object):
                 for v in val:
                     if key == 'sensor':
                         value = lookup_platform[v]
+                    elif key == 'frameNumber':
+                        value = '{:06X}'.format(v)  # convert to hexadecimal
                     else:
                         value = v
                     a = {'op': '=', 'args': [{'property': lookup[key]}, value]}

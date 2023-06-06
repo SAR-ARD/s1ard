@@ -21,7 +21,7 @@ def get_keys(section):
         a list of keys
     """
     if section == 'processing':
-        return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode',
+        return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
                 'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                 'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
@@ -90,7 +90,9 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['date_strict'] = 'True'
     if 'snap_gpt_args' not in proc_sec.keys():
         proc_sec['snap_gpt_args'] = 'None'
-     
+    if 'datatake' not in proc_sec.keys():
+        proc_sec['datatake'] = 'None'
+    
     # use previous defaults for measurement and annotation if they have not been defined
     if 'measurement' not in proc_sec.keys():
         proc_sec['measurement'] = 'gamma'
@@ -177,6 +179,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
+            v = proc_sec.get_list(k)
+        if k == 'datatake':
             v = proc_sec.get_list(k)
         out_dict[k] = v
     

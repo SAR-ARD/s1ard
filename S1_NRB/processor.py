@@ -67,6 +67,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         vec = [Vector(config['aoi_geometry'])]
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
     
+    datatake = [int(x, 16) for x in config['datatake']]
     if config['db_file'] is not None:
         scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
                         regex=True, recursive=True, foldermode=1)
@@ -84,6 +85,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                        acquisition_mode=acq_mode_search,
                                        mindate=config['mindate'],
                                        maxdate=config['maxdate'],
+                                       frameNumber=datatake,
                                        date_strict=config['date_strict'])
         scenes = identify_many(scenes=selection_tmp)
         scenes_geom = [x.geometry() for x in scenes]
@@ -108,6 +110,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                            acquisition_mode=acq_mode_search,
                            mindate=mindate,
                            maxdate=maxdate,
+                           frameNumber=datatake,
                            date_strict=config['date_strict']))
     selection = list(set(selection))
     del vec
@@ -118,10 +121,12 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
               " product:   '{product}'\n" \
               " acq. mode: '{acq_mode}'\n" \
               " mindate:   '{mindate}'\n" \
-              " maxdate:   '{maxdate}'\n"
+              " maxdate:   '{maxdate}'\n" \
+              " datatake:  '{datatake}'\n"
         print(msg.format(sensor=config['sensor'], acq_mode=config['acq_mode'],
                          product=config['product'], mindate=config['mindate'],
-                         maxdate=config['maxdate'], scene_dir=config['scene_dir']))
+                         maxdate=config['maxdate'], scene_dir=config['scene_dir'],
+                         datatake=config['datatake']))
         return
     scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
