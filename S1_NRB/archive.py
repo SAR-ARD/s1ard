@@ -6,6 +6,7 @@ from datetime import datetime
 from pystac_client import Client
 import pystac_client.exceptions
 from spatialist import Vector
+import asf_search as asf
 
 
 class STACArchive(object):
@@ -226,3 +227,48 @@ class STACArchive(object):
             out.append(path)
         out = self._filter_duplicates(out)
         return out
+
+
+def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
+    """
+    Search scenes in the ASF data catalog using the
+    `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
+    This simplified function is solely intended for cross-checking an online catalog in
+    :func:`S1_NRB.ancillary.check_acquisition_completeness`.
+    
+    Parameters
+    ----------
+    sensor: str
+        S1A or S1B
+    product: str
+        GRD or SLC
+    acquisition_mode: str
+        IW, EW or SM
+    mindate: str
+        the minimum acquisition date
+    maxdate: str
+        the maximum acquisition date
+
+    Returns
+    -------
+    list[str]
+        the IDs of the found scenes
+    
+    """
+    if product == 'GRD':
+        processing_level = ['GRD_HD', 'GRD_MD', 'GRD_MS', 'GRD_HS', 'GRD_FD']
+    else:
+        processing_level = product
+    if acquisition_mode == 'SM':
+        beam_mode = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+    else:
+        beam_mode = acquisition_mode
+    start = datetime.strptime(mindate, '%Y%m%dT%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
+    end = datetime.strptime(maxdate, '%Y%m%dT%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
+    result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
+                        processingLevel=processing_level,
+                        beamMode=beam_mode,
+                        start=start,
+                        end=end).geojson()
+    scenes = sorted([x['properties']['sceneName'] for x in result['features']])
+    return scenes

@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import logging
 import binascii
@@ -9,6 +10,7 @@ import spatialist
 import pyroSAR
 from pyroSAR import examine, identify_many
 import S1_NRB
+from .archive import asf_select
 
 
 def check_acquisition_completeness(scenes, archive):
@@ -17,13 +19,15 @@ def check_acquisition_completeness(scenes, archive):
     Check that for each scene a predecessor and successor can be queried
     from the database unless the scene is at the start or end of the data take.
     This ensures that no scene that could be covering an area of interest is missed
-    during processing.
+    during processing. In case a scene is suspected to be missing, the ASF online
+    catalog is cross-checked.
+    An error will only be raised if the locally missing scene is present in the ASF catalog.
     
     Parameters
     ----------
     scenes: list[pyroSAR.drivers.ID]
         a list of scenes
-    archive: pyroSAR.drivers.Archive
+    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
         an open scene archive connection
 
     Returns
@@ -32,6 +36,10 @@ def check_acquisition_completeness(scenes, archive):
     Raises
     ------
     RuntimeError
+    
+    See Also
+    --------
+    S1_NRB.archive.asf_select
     """
     messages = []
     for scene in scenes:
@@ -41,6 +49,10 @@ def check_acquisition_completeness(scenes, archive):
         groupsize = 3
         has_successor = True
         has_predecessor = True
+        if slice == 0:
+            raise RuntimeError(f'invalid value for sliceNumber: 0')
+        if n_slices == 0:
+            raise RuntimeError(f'invalid value for totalSlices: 0')
         if slice == 1:  # first slice in the data take
             groupsize -= 1
             has_predecessor = False
@@ -65,15 +77,24 @@ def check_acquisition_completeness(scenes, archive):
         # if the number of selected scenes is lower than the expected group size,
         # check whether the predecessor, the successor or both are missing.
         if len(group) < groupsize:
+            ref = asf_select(sensor=scene.sensor,
+                             product=scene.product,
+                             acquisition_mode=scene.acquisition_mode,
+                             mindate=start,
+                             maxdate=stop)
+            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+            ref_start_min = min([x['start'] for x in match])
+            ref_stop_max = max([x['stop'] for x in match])
             start_min = min([x.start for x in group])
             stop_max = max([x.stop for x in group])
             missing = []
-            if start_min > start and has_predecessor:
+            if ref_start_min < start < start_min and has_predecessor:
                 missing.append('predecessor')
-            if stop_max < stop and has_successor:
+            if stop_max < stop < ref_stop_max and has_successor:
                 missing.append('successor')
-            base = os.path.basename(scene.scene)
-            messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
+            if len(missing) > 0:
+                base = os.path.basename(scene.scene)
+                messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
     if len(messages) != 0:
         text = '\n - '.join(messages)
         raise RuntimeError(f'missing the following scenes:\n - {text}')
