@@ -67,7 +67,11 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         vec = [Vector(config['aoi_geometry'])]
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
     
-    datatake = [int(x, 16) for x in config['datatake']]
+    if config['datatake'] is not None:
+        datatake = [int(x, 16) for x in config['datatake']]
+    else:
+        datatake = None
+    
     if config['db_file'] is not None:
         scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
                         regex=True, recursive=True, foldermode=1)
