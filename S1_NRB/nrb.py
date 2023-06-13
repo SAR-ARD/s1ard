@@ -399,7 +399,7 @@ def get_datasets(scenes, datadir, extent, epsg):
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         
-        if not all([os.path.isfile(x) for x in [dm_ras, dm_vec]]):
+        if not os.path.isfile(dm_ras):
             with Raster(measurements[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
@@ -415,6 +415,12 @@ def get_datasets(scenes, datadir, extent, epsg):
                             rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
                         if not os.path.isfile(dm_vec):
                             bounds.write(outfile=dm_vec)
+                del mask
+        if not os.path.isfile(dm_vec):
+            with Raster(dm_ras) as ras:
+                mask = ras.array().astype('bool')
+                with vectorize(target=mask, reference=ras) as vec:
+                    boundary(vec, expression="value=1", outname=dm_vec)
                 del mask
         with Vector(dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
