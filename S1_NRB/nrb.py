@@ -403,6 +403,7 @@ def get_datasets(scenes, datadir, extent, epsg):
             with Raster(measurements[0]) as ras:
                 arr = ras.array()
                 mask = ~np.isnan(arr)
+                del arr
                 # remove scene if file does not contain valid data
                 if len(mask[mask == 1]) == 0:
                     del ids[i]
@@ -414,6 +415,7 @@ def get_datasets(scenes, datadir, extent, epsg):
                             rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
                         if not os.path.isfile(dm_vec):
                             bounds.write(outfile=dm_vec)
+                del mask
         with Vector(dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
