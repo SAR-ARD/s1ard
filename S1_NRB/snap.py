@@ -613,11 +613,13 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         raise RuntimeError("'measurement' must either be 'gamma' or 'sigma'")
     if export_extra is None:
         export_extra = []
-    if tmpdir is None:
-        tmpdir = outdir
     basename = os.path.splitext(os.path.basename(scene))[0]
     outdir_scene = os.path.join(outdir, basename)
-    tmpdir_scene = os.path.join(tmpdir, basename)
+    if tmpdir is None:
+        tmpdir = outdir
+        tmpdir_scene = os.path.join(tmpdir, basename + '_tmp')
+    else:
+        tmpdir_scene = os.path.join(tmpdir, basename)
     os.makedirs(outdir_scene, exist_ok=True)
     os.makedirs(tmpdir_scene, exist_ok=True)
     
