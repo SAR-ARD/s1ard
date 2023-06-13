@@ -776,7 +776,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             epsg = utm_autodetect(geom, 'epsg')
             print(f'### geocoding to EPSG:{epsg}')
             tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
-                                  return_geometries=True)
+                                  return_geometries=True, strict=False)
             ext_utm = tiles[0].extent
             del tiles
             align_x = ext_utm['xmin']
