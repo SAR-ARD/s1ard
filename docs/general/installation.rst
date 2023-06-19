@@ -52,3 +52,4 @@ Docker
 ------
 
 Both SNAP and S1_NRB can also be installed into a docker container using the Dockerfile that is provided with the package.
+See https://github.com/SAR-ARD/S1_NRB/blob/main/docker/README.md for details.
