@@ -9,6 +9,8 @@ RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends --no-install-suggests \
     build-essential \
+    fontsconfig \
+    fonts-dejavu \
     git \
     libgfortran5 \
     wget \
