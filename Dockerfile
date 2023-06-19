@@ -19,7 +19,7 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove \
     && rm -rf /var/lib/apt/lists/*
 
-RUN bash /src/docker/esa-snap.sh
+RUN sh /src/docker/esa-snap.sh
 ENV PATH="/usr/local/snap/bin:${PATH}"
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
