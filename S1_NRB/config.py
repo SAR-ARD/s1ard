@@ -216,12 +216,13 @@ def _parse_annotation(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     annotation_list = _parse_list(s)
-    allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'gs', 'sg']
-    for annotation in annotation_list:
-        if annotation not in allowed:
-            msg = "Parameter 'annotation': Error while parsing to list; " \
-                  "annotation '{}' is not supported. Allowed keys:\n{}"
-            raise ValueError(msg.format(annotation, allowed))
+    if annotation_list is not None:
+        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'gs', 'sg']
+        for annotation in annotation_list:
+            if annotation not in allowed:
+                msg = "Parameter 'annotation': Error while parsing to list; " \
+                      "annotation '{}' is not supported. Allowed keys:\n{}"
+                raise ValueError(msg.format(annotation, allowed))
     return annotation_list
 
 
