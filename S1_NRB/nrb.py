@@ -119,7 +119,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             if c1 or c2 or c3:
                 allowed.append(key)
     else:
-        allowed = list(datasets[0].keys())
+        allowed = [key for key in datasets[0].keys() if re.search('[gs]-lin', key)]
         annotation = []
     for item in ['em', 'id']:
         if item in annotation:
