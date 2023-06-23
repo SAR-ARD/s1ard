@@ -141,6 +141,25 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
         del vec
     ####################################################################################################################
+    # annotation layer selection
+    annotation = config.get('annotation', None)
+    measurement = config['measurement']
+    export_extra = None
+    lookup = {'dm': 'layoverShadowMask',
+              'ei': 'incidenceAngleFromEllipsoid',
+              'lc': 'scatteringArea',
+              'li': 'localIncidenceAngle',
+              'np': 'NESZ',
+              'gs': 'gammaSigmaRatio',
+              'sg': 'sigmaGammaRatio'}
+    
+    if annotation is not None:
+        export_extra = []
+        for layer in annotation:
+            if layer in lookup:
+                export_extra.append(lookup[layer])
+    
+    ####################################################################################################################
     # main SAR processing
     if rtc_flag:
         for i, scene in enumerate(scenes):
@@ -217,27 +236,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             ############################################################################################################
             # main processing routine
             start_time = time.time()
-            lookup = {'dm': 'layoverShadowMask',
-                      'ei': 'incidenceAngleFromEllipsoid',
-                      'gs': 'gammaSigmaRatio',
-                      'li': 'localIncidenceAngle',
-                      'lc': 'scatteringArea',
-                      'np': 'NESZ',
-                      'sg': 'sigmaGammaRatio'}
-            if config['annotation'] is None:
-                export_extra = None
-            else:
-                export_extra = []
-                for annotation in config['annotation']:
-                    if annotation == 'gs' and config['measurement'] != 'gamma':
-                        continue
-                    if annotation == 'sg' and config['measurement'] != 'sigma':
-                        continue
-                    if annotation in lookup.keys():
-                        export_extra.append(lookup[annotation])
             try:
                 snap.process(scene=scene.scene, outdir=config['rtc_dir'],
-                             measurement=config['measurement'],
+                             measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
                              export_extra=export_extra,
@@ -297,7 +298,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                     msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=config['annotation'],
+                                     multithread=gdal_prms['multithread'], annotation=annotation,
                                      update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
