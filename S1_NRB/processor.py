@@ -154,6 +154,8 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
               'sg': 'sigmaGammaRatio'}
     
     if annotation is not None:
+        annotation = ['gs' if x == 'ratio' and measurement == 'gamma' else 'sg' if x == 'ratio'
+                      else x for x in annotation]
         export_extra = []
         for layer in annotation:
             if layer in lookup:
