@@ -218,11 +218,11 @@ def _parse_annotation(s):
     annotation_list = _parse_list(s)
     if annotation_list is not None:
         allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'ratio']
-        for annotation in annotation_list:
-            if annotation not in allowed:
+        for layer in annotation_list:
+            if layer not in allowed:
                 msg = "Parameter 'annotation': Error while parsing to list; " \
-                      "annotation '{}' is not supported. Allowed keys:\n{}"
-                raise ValueError(msg.format(annotation, allowed))
+                      "layer '{}' is not supported. Allowed keys:\n{}"
+                raise ValueError(msg.format(layer, allowed))
     return annotation_list
 
 
