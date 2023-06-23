@@ -3,6 +3,14 @@ import re
 import itertools
 import shutil
 from math import ceil
+import copy
+from lxml import etree
+import numpy as np
+from pyproj import Geod
+from osgeo import gdal, gdalconst
+from scipy.interpolate import griddata
+from datetime import datetime
+from dateutil.parser import parse as dateparse
 from spatialist import bbox, Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
@@ -572,6 +580,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
          - NESZ: noise equivalent sigma zero
          - projectedLocalIncidenceAngle
          - scatteringArea
+         - lookDirection: range look direction angle
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
     clean_edges: bool
@@ -639,6 +648,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
     if not os.path.isfile(out_pre):
+        print('### preprocessing')
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
             allow_res_osv=allow_res_osv, output_noise=output_noise,
             output_beta0=apply_rtc, gpt_args=gpt_args)
@@ -671,6 +681,11 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                        neighbors=out_pre_neighbors, gpt_args=gpt_args,
                        buffer=10 * spacing)
         out_pre = out_buffer
+    ############################################################################
+    # range look direction angle
+    if 'lookDirection' in export_extra:
+        print('### look direction computation')
+        look_direction(dim=out_pre)
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
@@ -738,6 +753,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 bands1 = []
             if 'scatteringArea' in export_extra:
                 bands1.append('simulatedImage')
+            if 'lookDirection' in export_extra:
+                bands0.append('lookDirection')
             geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
@@ -747,6 +764,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 dem_resampling_method=dem_resampling_method,
                 img_resampling_method=img_resampling_method,
                 gpt_args=gpt_args)
+            print('### edge cleaning')
             postprocess(out_geo, clean_edges=clean_edges,
                         clean_edges_pixels=clean_edges_pixels)
         for wf in workflows:
@@ -755,6 +773,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 shutil.copyfile(src=wf, dst=wf_dst)
     
     if utm_multi:
+        print('### determining UTM zone overlaps')
         with id.geometry() as geom:
             tiles = tile_from_aoi(vector=geom, kml=kml)
         for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
@@ -858,6 +877,7 @@ def find_datasets(scene, outdir, epsg):
          - ei: ellipsoidal incident angle
          - gs: gamma-sigma ratio
          - lc: local contributing area (aka scattering area)
+         - ld: range look direction angle
          - li: local incident angle
          - sg: sigma-gamma ratio
          - np-hh: NESZ HH polarization
@@ -874,6 +894,7 @@ def find_datasets(scene, outdir, epsg):
               'ei': r'incidenceAngleFromEllipsoid\.img$',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img$',
               'lc': r'simulatedImage_[VH]{2}\.img$',
+              'ld': r'lookDirection_[VH]{2}\.img$',
               'li': r'localIncidenceAngle\.img$',
               'sg': r'sigmaGammaRatio_[VH]{2}\.img$'}
     out = {}
@@ -925,3 +946,164 @@ def get_metadata(scene, outdir):
         raise RuntimeError(msg.format('\n'.join(wf_mli)))
     return {'azlks': azlks,
             'rlks': rlks}
+
+
+def look_direction(dim):
+    """
+    Compute the range look direction and add it as a new layer to an existing BEAM-DIMAP product.
+
+    Parameters
+    ----------
+    dim: str
+        a BEAM-DIMAP metadata file (extension .dim)
+
+    Returns
+    -------
+
+    """
+    def interpolate(infile, method='linear'):
+        with open(infile, 'rb') as f:
+            tree = etree.fromstring(f.read())
+        
+        coords = []
+        lat = []
+        lon = []
+        
+        if infile.endswith('xml'):
+            nlines = int(tree.find('.//numberOfLines').text)
+            npixels = int(tree.find('.//numberOfSamples').text)
+            points = tree.findall('.//geolocationGridPoint')
+            for point in points:
+                pixel = int(point.find('pixel').text)
+                latitude = float(point.find('latitude').text)
+                longitude = float(point.find('longitude').text)
+                aztime = dateparse(point.find('azimuthTime').text)
+                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
+                coords.append([pixel, aztime])
+                lat.append(latitude)
+                lon.append(longitude)
+        else:
+            pols = tree.xpath("//MDElem[@name='standAloneProductInformation']"
+                              "/MDATTR[@name='transmitterReceiverPolarisation']")
+            polarization = pols[0].text.lower()
+            re_ns = "http://exslt.org/regular-expressions"
+            ann_pol = tree.xpath(f"//MDElem[@name='annotation']"
+                                 f"//MDElem[re:test(@name, '-{polarization}-', 'i')]",
+                                 namespaces={'re': re_ns})[0]
+            nlines = int(tree.find('Raster_Dimensions/NROWS').text)
+            npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
+            points = ann_pol.xpath(".//MDElem[@name='geolocationGridPoint']")
+            for point in points:
+                pixel = int(point.find("./MDATTR[@name='pixel']").text)
+                latitude = float(point.find("./MDATTR[@name='latitude']").text)
+                longitude = float(point.find("./MDATTR[@name='longitude']").text)
+                aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
+                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
+                coords.append([pixel, aztime])
+                lat.append(latitude)
+                lon.append(longitude)
+        
+        abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
+        flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
+        flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
+        llt = abstract.xpath("./MDATTR[@name='last_line_time']")[0].text
+        llt = (dateparse(llt) - datetime(1900, 1, 1)).total_seconds()
+        values = []
+        coords_select = []
+        g = Geod(ellps='WGS84')
+        for i, v in enumerate(coords):
+            if i + 1 < len(coords) and coords[i][0] < coords[i + 1][0]:
+                az12, az21, dist = g.inv(lon[i], lat[i], lon[i + 1], lat[i + 1])
+                values.append(az12)
+            else:
+                az12, az21, dist = g.inv(lon[i], lat[i], lon[i - 1], lat[i - 1])
+                values.append(az21)
+            coords_select.append(v)
+        
+        coords = np.array(coords_select)
+        values = np.array(values)
+        
+        xi = np.linspace(0, npixels, npixels)
+        yi = np.linspace(flt, llt, nlines)
+        xi, yi = np.meshgrid(xi, yi)
+        xi = xi.flatten()
+        yi = yi.flatten()
+        
+        zi = griddata(coords, values, (xi, yi), method=method)
+        zi = zi.reshape((nlines, npixels))
+        return zi
+    
+    def write(array, out, reference, format='ENVI'):
+        src_dataset = gdal.Open(reference)
+        cols = src_dataset.RasterXSize
+        rows = src_dataset.RasterYSize
+        driver = gdal.GetDriverByName(format)
+        
+        dst_dataset = driver.Create(out, cols, rows, 1, gdalconst.GDT_Float32)
+        
+        dst_dataset.SetMetadata(src_dataset.GetMetadata())
+        dst_dataset.SetGeoTransform(src_dataset.GetGeoTransform())
+        dst_dataset.SetProjection(src_dataset.GetProjection())
+        if format == 'GTiff':
+            dst_dataset.SetGCPs(src_dataset.GetGCPs(), src_dataset.GetGCPSpatialRef())
+        else:
+            array = array.astype('float32').byteswap().newbyteorder()
+        dst_band = dst_dataset.GetRasterBand(1)
+        dst_band.WriteArray(array)
+        dst_band.FlushCache()
+        dst_band = None
+        src_dataset = None
+        dst_dataset = None
+        driver = None
+        if format == 'ENVI':
+            hdrfile = os.path.splitext(out)[0] + '.hdr'
+            with HDRobject(hdrfile) as hdr:
+                hdr.byte_order = 1
+                hdr.description = 'Sentinel-1 EW Level-1 GRD Product - Unit: deg'
+                hdr.band_names = 'lookDirection'
+                hdr.write()
+            auxfile = out + '.aux.xml'
+            os.remove(auxfile)
+    
+    def metadata(dim):
+        with open(dim, 'rb') as f:
+            root = etree.fromstring(f.read())
+        
+        element_bands = root.find('Raster_Dimensions/NBANDS')
+        bands = int(element_bands.text)
+        element_bands.text = str(bands + 1)
+        npixels = root.find('Raster_Dimensions/NCOLS').text
+        nlines = root.find('Raster_Dimensions/NROWS').text
+        
+        data_access = root.find('Data_Access')
+        image_interp = root.find('Image_Interpretation')
+        data_files = data_access.findall('./Data_File')
+        last = data_files[-1]
+        new = copy.deepcopy(last)
+        fpath = new.find('DATA_FILE_PATH').attrib['href']
+        fpath = fpath.replace(os.path.basename(fpath), 'lookDirection.hdr')
+        new.find('DATA_FILE_PATH').attrib['href'] = fpath
+        new.find('BAND_INDEX').text = str(bands)
+        data_access.insert(data_access.index(last) + 1, new)
+        
+        info = etree.SubElement(image_interp, 'Spectral_Band_Info')
+        etree.SubElement(info, 'BAND_INDEX').text = str(bands)
+        etree.SubElement(info, 'BAND_DESCRIPTION').text = 'range look direction'
+        etree.SubElement(info, 'BAND_NAME').text = 'lookDirection'
+        etree.SubElement(info, 'BAND_RASTER_WIDTH').text = npixels
+        etree.SubElement(info, 'BAND_RASTER_HEIGHT').text = nlines
+        etree.SubElement(info, 'DATA_TYPE').text = 'float32'
+        etree.SubElement(info, 'PHYSICAL_UNIT').text = 'deg'
+        etree.SubElement(info, 'LOG10_SCALED').text = 'false'
+        etree.SubElement(info, 'NO_DATA_VALUE_USED').text = 'true'
+        etree.SubElement(info, 'NO_DATA_VALUE').text = '0.0'
+        
+        etree.indent(root, space='    ')
+        tree = etree.ElementTree(root)
+        tree.write(dim, pretty_print=True, xml_declaration=True, encoding='utf-8')
+    
+    data = dim.replace('.dim', '.data')
+    ref = finder(target=data, matchlist=['*.img'])[0]
+    arr = interpolate(infile=dim)
+    write(array=arr, out=os.path.join(data, 'lookDirection.img'), reference=ref)
+    metadata(dim=dim)

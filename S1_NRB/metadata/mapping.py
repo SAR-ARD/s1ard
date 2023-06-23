@@ -26,6 +26,7 @@ ITEM_MAP = {'vv-g-lin': {'z_error': 1e-4},
             'dm': {'z_error': 0.0},
             'li': {'z_error': 1e-2},
             'lc': {'z_error': 0.1},
+            'ld': {'z_error': 1e-3},
             'gs': {'z_error': 1e-4},
             'id': {'z_error': 0.0},
             'np-vv': {'z_error': 2e-5},
@@ -98,7 +99,7 @@ DEM_MAP = {
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
 }
 
-# XML namespaces are identifiers and it is not their goal to be directly usable for schema retrieval:
+# XML namespaces are identifiers, and it is not their goal to be directly usable for schema retrieval:
 # https://stackoverflow.com/a/30761004
 NS_MAP = {'s1-nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
                      'product': 'http://earth.esa.int/sentinel-1/nrb/product/1.0'},
@@ -130,6 +131,10 @@ SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': 'square_meters',
                           'role': 'contributing-area',
                           'title': 'Local Contributing Area'},
+              '-ld.tif': {'type': 'Angle',
+                          'unit': 'deg',
+                          'role': 'range-look-direction-angle',
+                          'title': 'Range Look Direction Angle'},
               '-li.tif': {'type': 'Angle',
                           'unit': 'deg',
                           'role': 'local-incidence-angle',

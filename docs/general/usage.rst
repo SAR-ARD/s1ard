@@ -128,6 +128,7 @@ A comma-separated list to define the annotation layers to be created. Supported 
  + em: digital elevation model
  + id: acquisition ID image (source scene ID per pixel)
  + lc: RTC local contributing area
+ + ld: range look direction angle
  + li: local incident angle
  + np: noise power (NESZ, per polarization)
  + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)

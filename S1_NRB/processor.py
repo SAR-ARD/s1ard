@@ -220,6 +220,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             lookup = {'dm': 'layoverShadowMask',
                       'ei': 'incidenceAngleFromEllipsoid',
                       'gs': 'gammaSigmaRatio',
+                      'ld': 'lookDirection',
                       'li': 'localIncidenceAngle',
                       'lc': 'scatteringArea',
                       'np': 'NESZ',
