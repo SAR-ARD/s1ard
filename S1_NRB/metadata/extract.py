@@ -1,5 +1,7 @@
 import os
 import re
+import shutil
+import zipfile
 import math
 import json
 from lxml import etree
@@ -747,3 +749,38 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
         meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
     
     return meta
+
+
+def copy_src_meta(target, src_ids):
+    """
+    Copies the original metadata of the source scenes to the NRB product scene.
+    
+    Parameters
+    ----------
+    target: str
+        A path pointing to the NRB product scene being created.
+    src_ids: list[pyroSAR.drivers.ID]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
+    
+    Returns
+    -------
+    None
+    """
+    source_dir = os.path.join(target, 'source')
+    for src_id in src_ids:
+        pid = re.match(src_id.pattern, os.path.basename(src_id.file)).group('productIdentifier')
+        
+        if src_id.scene.endswith('.zip'):
+            base = os.path.basename(src_id.file)
+            with zipfile.ZipFile(src_id.scene, "r") as zip_ref:
+                zip_ref.extract(member=os.path.join(base, 'manifest.safe'), path=source_dir)
+                annotation_files = [f for f in zip_ref.namelist() if os.path.join(base, 'annotation') in f]
+                zip_ref.extractall(members=annotation_files, path=source_dir)
+            os.rename(os.path.join(source_dir, base), os.path.join(source_dir, pid))
+        else:
+            source_dir = os.path.join(source_dir, pid)
+            os.makedirs(source_dir, exist_ok=True)
+            shutil.copy(src=os.path.join(src_id.scene, 'manifest.safe'),
+                        dst=os.path.join(source_dir, 'manifest.safe'))
+            shutil.copytree(src=os.path.join(src_id.scene, 'annotation'),
+                            dst=os.path.join(source_dir, 'annotation'))

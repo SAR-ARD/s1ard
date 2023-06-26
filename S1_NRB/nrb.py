@@ -20,7 +20,7 @@ from S1_NRB import dem
 from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import ITEM_MAP
 from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
-from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
+from S1_NRB.metadata.extract import copy_src_meta, etree_from_sid, find_in_annotation
 from S1_NRB.snap import find_datasets
 
 
@@ -342,6 +342,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                              proc_time=proc_time, start=start, stop=stop, compression=compress)
     xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
     stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    copy_src_meta(target=nrb_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
