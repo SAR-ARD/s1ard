@@ -508,6 +508,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     dem_access = DEM_MAP[dem_type]['access']
     dem_ref = DEM_MAP[dem_type]['ref']
     dem_subtype = DEM_MAP[dem_type]['type']
+    dem_gsd = DEM_MAP[dem_type]['gsd']
     egm_ref = DEM_MAP[dem_type]['egm']
     dem_name = dem_type.replace(' II', '')
     
@@ -564,6 +565,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['compression_zerrors'] = z_err_dict
     meta['prod']['demEGMReference'] = egm_ref
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
+    meta['prod']['demGSD'] = dem_gsd
     meta['prod']['demName'] = dem_name
     meta['prod']['demReference'] = dem_ref
     meta['prod']['demResamplingMethod'] = 'bilinear'
