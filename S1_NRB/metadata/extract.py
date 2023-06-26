@@ -482,7 +482,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta = {'prod': {},
             'source': {},
             'common': {}}
-    src_sid = dict()
+    src_sid = {}
     src_xml = {}
     for i, sid in enumerate(src_ids):
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
@@ -498,14 +498,6 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
                               src_ids=src_ids, rtc_dir=rtc_dir)
-    
-    dem_type = config['dem_type']
-    dem_access = DEM_MAP[dem_type]['access']
-    dem_ref = DEM_MAP[dem_type]['ref']
-    dem_subtype = DEM_MAP[dem_type]['type']
-    dem_gsd = DEM_MAP[dem_type]['gsd']
-    egm_ref = DEM_MAP[dem_type]['egm']
-    dem_name = dem_type.replace(' II', '')
     
     tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
@@ -552,14 +544,14 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['compression_type'] = compression
     meta['prod']['compression_zerrors'] = z_err_dict
-    meta['prod']['demEGMReference'] = egm_ref
+    meta['prod']['demEGMReference'] = DEM_MAP[config['dem_type']]['egm']
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
-    meta['prod']['demGSD'] = dem_gsd
-    meta['prod']['demName'] = dem_name
-    meta['prod']['demReference'] = dem_ref
+    meta['prod']['demGSD'] = DEM_MAP[config['dem_type']]['gsd']
+    meta['prod']['demName'] = config['dem_type'].replace(' II', '')
+    meta['prod']['demReference'] = DEM_MAP[config['dem_type']]['ref']
     meta['prod']['demResamplingMethod'] = 'bilinear'
-    meta['prod']['demType'] = dem_subtype
-    meta['prod']['demAccess'] = dem_access
+    meta['prod']['demType'] = DEM_MAP[config['dem_type']]['type']
+    meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['fileBitsPerSample'] = '32'
@@ -574,8 +566,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['geoCorrAccuracy_rRMSE'] = \
         calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad']) \
         if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower() else None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
-                                               ''.format(S1_NRB.__version__)
+    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html'
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
@@ -609,8 +600,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
-    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' if meta['prod']['backscatterMeasurement'] == 'gamma0' \
-                                                                                  or len(ratio_tif) > 0 else None
+    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' \
+        if meta['prod']['backscatterMeasurement'] == 'gamma0' or len(ratio_tif) > 0 else None
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
     meta['prod']['timeStart'] = start
