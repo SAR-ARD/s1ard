@@ -378,8 +378,9 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     if meta['prod']['NRApplied']:
         nrAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:NRAlgorithm', nsmap),
                                        attrib={_nsc('xlink:href', nsmap): meta['prod']['NRAlgorithm']})
-    rtcAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:RTCAlgorithm', nsmap),
-                                    attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
+    if meta['prod']['RTCAlgorithm'] is not None:
+        rtcAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:RTCAlgorithm', nsmap),
+                                        attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
     geoCorrAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:geoCorrAlgorithm', nsmap),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['geoCorrAlgorithm']})
     geoCorrResamplingMethod = etree.SubElement(processingInformation, _nsc('s1-nrb:geoCorrResamplingAlgorithm', nsmap))

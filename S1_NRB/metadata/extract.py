@@ -495,6 +495,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
     ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
+    ratio_tif = finder(target, ['[hv]{2}-[gs]-lin.vrt$'], regex=True)
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
     product_id = os.path.basename(target)
@@ -613,7 +614,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
-    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
+    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' if meta['prod']['backscatterMeasurement'] == 'gamma0' \
+                                                                                  or len(ratio_tif) > 0 else None
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
     meta['prod']['timeStart'] = start
