@@ -196,6 +196,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # otherwise there will be a gap between final geocoded images.
             neighbors = None
             if scene.product == 'GRD':
+                print('###### [    RTC] collecting GRD neighbors')
                 f = '%Y%m%dT%H%M%S'
                 td = timedelta(seconds=2)
                 start = datetime.strptime(scene.start, f) - td
@@ -247,7 +248,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
             except Exception as e:
                 anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
-                continue
+                raise
     ####################################################################################################################
     # NRB - final product generation
     if nrb_flag:
@@ -304,6 +305,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
                     anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_sub_fnames, msg=e)
-                    continue
+                    raise
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
