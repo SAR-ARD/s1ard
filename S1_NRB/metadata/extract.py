@@ -390,7 +390,7 @@ def get_header_size(tif):
     return headers_size
 
 
-def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
+def calc_geolocation_accuracy(swath_identifier, ei_tif, etad):
     """
     Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
     (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html.
@@ -402,8 +402,6 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
         Swath identifier dependent on acquisition mode.
     ei_tif: str
         Path to the annotation GeoTIFF layer 'Ellipsoidal Incident Angle' of the current product.
-    dem_type: str
-        The DEM type used for processing.
     etad: bool
         Was the ETAD correction applied?
     
@@ -412,9 +410,6 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     rmse_planar: float or None
         The calculated rRMSE value rounded to two decimal places or None if a DEM other than Copernicus is used.
     """
-    if 'copernicus' not in dem_type.lower():
-        return None
-    
     if etad:
         # https://sentinel.esa.int/nl/web/sentinel/missions/sentinel-1/data-products/etad-dataset
         slc_acc = {'ALE': {'rg': 0,
@@ -515,12 +510,6 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    if len(ei_tif) == 1:
-        geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0],
-                                                dem_type=dem_type, etad=config['etad'])
-    else:
-        geocorr_acc = None
-    
     # Common metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
     meta['common']['constellation'] = 'sentinel-1'
@@ -582,7 +571,9 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
-    meta['prod']['geoCorrAccuracy_rRMSE'] = geocorr_acc
+    meta['prod']['geoCorrAccuracy_rRMSE'] = \
+        calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad']) \
+        if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower() else None
     meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
                                                ''.format(S1_NRB.__version__)
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
