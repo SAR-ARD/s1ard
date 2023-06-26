@@ -496,12 +496,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     
     ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tifs = finder(target, ['-ei.tif$'], regex=True)
-    if len(ei_tifs) > 0:
-        ei_tif = ei_tifs[0]
-    else:
-        ei_tif = None
-    
+    ei_tif = finder(target, ['-ei.tif$'], regex=True)
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
                               src_ids=src_ids, rtc_dir=rtc_dir)
@@ -516,8 +511,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
     z_err_dict = dict(tups)
     
-    if ei_tif is not None:
-        geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif,
+    if len(ei_tif) == 1:
+        geocorr_acc = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0],
                                                 dem_type=dem_type, etad=config['etad'])
     else:
         geocorr_acc = None
