@@ -92,7 +92,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['snap_gpt_args'] = 'None'
     if 'datatake' not in proc_sec.keys():
         proc_sec['datatake'] = 'None'
-    
     # use previous defaults for measurement and annotation if they have not been defined
     if 'measurement' not in proc_sec.keys():
         proc_sec['measurement'] = 'gamma'
@@ -166,10 +165,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                        'Copernicus 30m Global DEM', 'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         if k in ['etad', 'date_strict']:
-            try:
-                v = proc_sec.getboolean(k)
-            except ValueError:
-                raise RuntimeError(f"cannot parse boolean parameter '{k}' with value '{v}'")
+            v = proc_sec.getboolean(k)
         if k == 'product':
             allowed = ['GRD', 'SLC']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
@@ -263,10 +259,7 @@ def _parse_list(s):
     if s in ['', 'None']:
         return None
     else:
-        if re.search(',', s):
-            return s.replace(' ', '').split(',')
-        else:
-            return s.split()
+        return [x.strip() for x in s.split(',')]
 
 
 def _keyval_check(key, val, allowed_keys):
