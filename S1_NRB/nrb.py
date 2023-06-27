@@ -407,8 +407,7 @@ def get_datasets(scenes, datadir, extent, epsg):
                 del arr
                 # remove scene if file does not contain valid data
                 if len(mask[mask == 1]) == 0:
-                    del ids[i]
-                    del datasets[i]
+                    del ids[i], datasets[i]
                     continue
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
@@ -420,6 +419,10 @@ def get_datasets(scenes, datadir, extent, epsg):
         if not os.path.isfile(dm_vec):
             with Raster(dm_ras) as ras:
                 mask = ras.array().astype('bool')
+                # remove scene if file does not contain valid data
+                if len(mask[mask == 1]) == 0:
+                    del ids[i], datasets[i]
+                    continue
                 with vectorize(target=mask, reference=ras) as vec:
                     boundary(vec, expression="value=1", outname=dm_vec)
                 del mask
