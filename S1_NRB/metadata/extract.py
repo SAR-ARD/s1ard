@@ -769,8 +769,8 @@ def copy_src_meta(target, src_ids):
     -------
     None
     """
-    source_dir = os.path.join(target, 'source')
     for src_id in src_ids:
+        source_dir = os.path.join(target, 'source')
         pid = re.match(src_id.pattern, os.path.basename(src_id.file)).group('productIdentifier')
         
         if src_id.scene.endswith('.zip'):
@@ -781,9 +781,9 @@ def copy_src_meta(target, src_ids):
                 zip_ref.extractall(members=annotation_files, path=source_dir)
             os.rename(os.path.join(source_dir, base), os.path.join(source_dir, pid))
         else:
-            source_dir = os.path.join(source_dir, pid)
-            os.makedirs(source_dir, exist_ok=True)
+            pid_dir = os.path.join(source_dir, pid)
+            os.makedirs(pid_dir, exist_ok=True)
             shutil.copy(src=os.path.join(src_id.scene, 'manifest.safe'),
-                        dst=os.path.join(source_dir, 'manifest.safe'))
+                        dst=os.path.join(pid_dir, 'manifest.safe'))
             shutil.copytree(src=os.path.join(src_id.scene, 'annotation'),
-                            dst=os.path.join(source_dir, 'annotation'))
+                            dst=os.path.join(pid_dir, 'annotation'))
