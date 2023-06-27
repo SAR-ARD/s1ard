@@ -27,7 +27,7 @@ def get_keys(section):
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args']
     elif section == 'metadata':
-        return ['access_url', 'licence', 'doi', 'processing_center']
+        return ['format', 'copy_original', 'access_url', 'licence', 'doi', 'processing_center']
     else:
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
@@ -196,16 +196,26 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             raise RuntimeError("'scene_dir' must be defined if data is to be searched via an SQLite database.")
     
     # METADATA section
-    meta_keys = get_keys(section='metadata')
+    allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
     out_dict['meta'] = {}
+    
+    # set defaults
+    if 'format' not in meta_sec.keys():
+        meta_sec['format'] = 'OGC, STAC'
+    if 'copy_original' not in meta_sec.keys():
+        meta_sec['copy_original'] = 'True'
+    
     for k, v in meta_sec.items():
-        v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
-        # No need to check values. Only requirement is that they're strings, which is configparser's default.
+        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        if k == 'format':
+            v = meta_sec.get_list(k)
+        if k == 'copy_original':
+            v = meta_sec.getboolean(k)
         out_dict['meta'][k] = v
-    for key in meta_keys:
+    for key in allowed_keys:
         if key not in out_dict['meta'].keys():
             out_dict['meta'][key] = None
     
