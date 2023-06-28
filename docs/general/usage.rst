@@ -130,8 +130,10 @@ A comma-separated list to define the annotation layers to be created. Supported 
  + lc: RTC local contributing area
  + li: local incident angle
  + np: noise power (NESZ, per polarization)
- + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)
- + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (ignored if ``measurement`` is not sigma)
+ + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
+
+   + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
+   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
 
 Use one of the following to create no annotation layer:
 
