@@ -147,7 +147,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     ############################################
     wf.write(workflow)
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
-        gpt_args=gpt_args)
+        gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
 
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
