@@ -340,9 +340,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress)
-    xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
-    stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
-    copy_src_meta(target=nrb_dir, src_ids=src_ids)
+    if 'OGC' in config['meta']['format']:
+        xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    if 'STAC' in config['meta']['format']:
+        stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    if config['meta']['copy_original']:
+        copy_src_meta(target=nrb_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
