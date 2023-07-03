@@ -321,6 +321,7 @@ def _log_process_config(logger, config):
     aoi_geometry        {config['aoi_geometry']}
     mindate             {config['mindate'].isoformat()}
     maxdate             {config['maxdate'].isoformat()}
+    date_strict         {config['date_strict']}
     sensor              {config['sensor']}
     acq_mode            {config['acq_mode']}
     product             {config['product']}
