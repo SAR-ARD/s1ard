@@ -49,22 +49,37 @@ def check_acquisition_completeness(scenes, archive):
         groupsize = 3
         has_successor = True
         has_predecessor = True
-        if slice == 0:
-            raise RuntimeError(f'invalid value for sliceNumber: 0')
-        if n_slices == 0:
-            raise RuntimeError(f'invalid value for totalSlices: 0')
-        if slice == 1:  # first slice in the data take
-            groupsize -= 1
-            has_predecessor = False
-        if slice == n_slices:  # last slice in the data take
-            groupsize -= 1
-            has_successor = False
+        
         f = '%Y%m%dT%H%M%S'
         td = timedelta(seconds=2)
         start = datetime.strptime(scene.start, f) - td
         start = datetime.strftime(start, f)
         stop = datetime.strptime(scene.stop, f) + td
         stop = datetime.strftime(stop, f)
+        ref = None
+        if slice == 0 or n_slices == 0:
+            # NRT slicing mode
+            ref = asf_select(sensor=scene.sensor,
+                             product=scene.product,
+                             acquisition_mode=scene.acquisition_mode,
+                             mindate=start,
+                             maxdate=stop)
+            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+            ref_start_min = min([x['start'] for x in match])
+            ref_stop_max = max([x['stop'] for x in match])
+            if ref_start_min == scene.start:
+                groupsize -= 1
+                has_predecessor = False
+            if ref_stop_max == scene.stop:
+                groupsize -= 1
+                has_successor = False
+        else:
+            if slice == 1:  # first slice in the data take
+                groupsize -= 1
+                has_predecessor = False
+            if slice == n_slices:  # last slice in the data take
+                groupsize -= 1
+                has_successor = False
         # Do another database selection to get the scene in question as well as its potential
         # predecessor and successor by adding an acquisition time buffer of two seconds.
         group = archive.select(sensor=scene.sensor,
@@ -75,13 +90,15 @@ def check_acquisition_completeness(scenes, archive):
                                date_strict=False)
         group = identify_many(group)
         # if the number of selected scenes is lower than the expected group size,
-        # check whether the predecessor, the successor or both are missing.
+        # check whether the predecessor, the successor or both are missing by
+        # cross-checking with the ASF database.
         if len(group) < groupsize:
-            ref = asf_select(sensor=scene.sensor,
-                             product=scene.product,
-                             acquisition_mode=scene.acquisition_mode,
-                             mindate=start,
-                             maxdate=stop)
+            if ref is None:
+                ref = asf_select(sensor=scene.sensor,
+                                 product=scene.product,
+                                 acquisition_mode=scene.acquisition_mode,
+                                 mindate=start,
+                                 maxdate=stop)
             match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
             ref_start_min = min([x['start'] for x in match])
             ref_stop_max = max([x['stop'] for x in match])
