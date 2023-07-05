@@ -72,7 +72,8 @@ def product_json(meta, target, tifs, exist_ok=False):
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                   product_type=meta['prod']['productName-short'],
                   looks_range=int(meta['prod']['rangeNumberOfLooks']),
-                  looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']))
+                  looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']),
+                  looks_equivalent_number=meta['prod']['equivalentNumberLooks'])
     
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],

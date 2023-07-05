@@ -404,6 +404,8 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
     azimuthNumberOfLooks.text = str(meta['prod']['azimuthNumberOfLooks'])
     rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:rangeNumberOfLooks', nsmap))
     rangeNumberOfLooks.text = str(meta['prod']['rangeNumberOfLooks'])
+    equivalentNumberLooks = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:equivalentNumberOfLooks', nsmap))
+    equivalentNumberLooks.text = str(meta['prod']['equivalentNumberLooks'])
     refDoc = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:refDoc', nsmap),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],

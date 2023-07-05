@@ -265,6 +265,67 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
+def calc_enl(tif, block_size=25, return_enl_arr=False):
+    """
+    Calculate the equivalent number of looks (ENL) for a cross-polarized measurement GeoTIFF file of the product scene.
+
+    Parameters
+    ----------
+    tif: str
+        The path to a cross-polarized measurement GeoTIFF file of the product scene.
+    block_size: int
+        The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
+        pixel blocks.
+    return_enl_arr: bool
+        If True, the calculated ENL array is returned. Default is False.
+
+    Returns
+    -------
+    out: float or numpy.ndarray
+        The median ENL value or array of ENL values if `return_enl_arr` is True.
+
+    References
+    ----------
+    .. [1]  S. N. Anfinsen, A. P. Doulgeris and T. Eltoft,
+            "Estimation of the Equivalent Number of Looks in Polarimetric Synthetic Aperture Radar Imagery,"
+            in IEEE Transactions on Geoscience and Remote Sensing, vol. 47, no. 11, pp. 3795-3809, Nov. 2009,
+            doi: 10.1109/TGRS.2009.2019269.
+    """
+    with Raster(tif) as ras:
+        arr = ras.array()
+    
+    arr = np.where(np.isinf(arr), np.nan, arr)
+    
+    num_blocks_rows = arr.shape[0] // block_size
+    num_blocks_cols = arr.shape[1] // block_size
+    if num_blocks_rows == 0 or num_blocks_cols == 0:
+        raise ValueError("Block size is too large for the input data dimensions.")
+    
+    blocks = arr[:num_blocks_rows * block_size,
+             :num_blocks_cols * block_size].reshape(
+        num_blocks_rows, block_size, num_blocks_cols, block_size
+    )
+    
+    _sum = np.nansum(blocks, axis=(1, 3))
+    _sqr_sum = np.nansum(blocks ** 2, axis=(1, 3))
+    _count = np.sum(np.isfinite(blocks), axis=(1, 3))
+    m = np.divide(_sum, _count, out=np.full_like(_sum, fill_value=np.nan), where=_count != 0)
+    m2 = np.divide(_sqr_sum, _count, out=np.full_like(_sqr_sum, fill_value=np.nan), where=_count != 0)
+    mm = m * m
+    enl = np.divide(mm, (m2 - mm), out=np.full_like(mm, fill_value=np.nan), where=(m2 != mm))
+    
+    out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
+    out_arr[:num_blocks_rows, :num_blocks_cols] = enl
+    
+    # calculate nanmedian and truncate to 2 decimal places
+    out_arr = np.round(np.nanmedian(out_arr), 2)
+    
+    if return_enl_arr:
+        return out_arr
+    else:
+        return np.nanmedian(out_arr)
+
+
 def calc_performance_estimates(files):
     """
     Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images if available.
@@ -496,7 +557,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
-    ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
+    ref_tif = finder(target, ['(vh|hv)-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
     ei_tifs = finder(target, ['-ei.tif$'], regex=True)
     if len(ei_tifs) > 0:
@@ -575,6 +636,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['demAccess'] = dem_access
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
+    meta['prod']['equivalentNumberLooks'] = np.round(calc_enl(tif=ref_tif), 2)
     meta['prod']['fileBitsPerSample'] = '32'
     meta['prod']['fileByteOrder'] = 'little-endian'
     meta['prod']['fileDataType'] = 'float'
