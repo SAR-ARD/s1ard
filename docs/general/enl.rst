@@ -54,6 +54,7 @@ green outline traces the north-western corner of MGRS tile 33TUF (see also figur
     :align: center
     :alt: Selected areas for ENL comparison between GRDH and NRB
 
+
 The resulting scatter plot shows slightly higher ENL values for the GRDH product:
 
 .. figure:: ../_assets/enl_grd_comparison_scatter.png
