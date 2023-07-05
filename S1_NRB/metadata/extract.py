@@ -282,7 +282,7 @@ def calc_enl(tif, block_size=25, return_arr=False):
     
     Returns
     -------
-    out: float or numpy.ndarray
+    float or numpy.ndarray
         The median ENL value or array of ENL values if `return_enl_arr` is True.
     
     References
