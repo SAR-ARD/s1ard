@@ -3,6 +3,8 @@ import re
 import itertools
 import shutil
 from math import ceil
+from lxml import etree
+from dateutil.parser import parse as dateparse
 from spatialist import bbox, Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
@@ -147,7 +149,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     ############################################
     wf.write(workflow)
     gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
-        gpt_args=gpt_args)
+        gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
 
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
@@ -161,7 +163,7 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     Parameters
     ----------
     src: str
-        the file name of the source scene
+        the file name of the source scene in BEAM-DIMAP format.
     dst: str
         the file name of the target scene. Format is BEAM-DIMAP.
     workflow: str
@@ -181,6 +183,10 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     """
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
+    ############################################
+    # modify the slice number if it is 0
+    for scene in scenes:
+        nrt_slice_num(dim=scene.scene)
     ############################################
     read_ids = []
     for scene in scenes:
@@ -925,3 +931,43 @@ def get_metadata(scene, outdir):
         raise RuntimeError(msg.format('\n'.join(wf_mli)))
     return {'azlks': azlks,
             'rlks': rlks}
+
+
+def nrt_slice_num(dim):
+    """
+    Compute a slice number for a scene acquired NRT Slicing mode.
+    In this mode both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
+    `sliceNumber` is however needed in function :func:`~S1_NRB.snap.grd_buffer` for
+    the SNAP operator `SliceAssembly`.
+    The time from `segmentStartTime` to `last_line_time` is divided by
+    the acquisition duration (`last_line_time` - `first_line_time`).
+    `totalSlices` is set to 100, which is expected to exceed the maximum possible value.
+    
+    Parameters
+    ----------
+    dim: str
+        the scene in BEAM-DIMAP format
+
+    Returns
+    -------
+
+    """
+    with open(dim, 'rb') as f:
+        root = etree.fromstring(f.read())
+    abstract = root.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
+    slice_num = abstract.xpath("./MDATTR[@name='slice_num']")[0]
+    if slice_num.text == '0':
+        flt = dateparse(abstract.xpath("./MDATTR[@name='first_line_time']")[0].text)
+        llt = dateparse(abstract.xpath("./MDATTR[@name='last_line_time']")[0].text)
+        sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        aqd = llt - flt
+        slice_num_new = str(int(round((llt - sst) / aqd)))
+        slice_num.text = slice_num_new
+        for item in root.xpath("//MDATTR[@name='sliceNumber']"):
+            item.text = slice_num_new
+        for item in root.xpath("//MDATTR[@name='totalSlices']"):
+            item.text = '100'
+        etree.indent(root, space='    ')
+        tree = etree.ElementTree(root)
+        tree.write(dim, pretty_print=True, xml_declaration=True,
+                   encoding='utf-8')

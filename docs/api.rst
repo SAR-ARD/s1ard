@@ -49,6 +49,7 @@ SNAP
         mli
         pre
         rtc
+        sgr
 
     .. rubric:: ancillary functions
 
@@ -58,6 +59,7 @@ SNAP
         find_datasets
         get_metadata
         postprocess
+        nrt_slice_num
 
 NRB
 ^^^
