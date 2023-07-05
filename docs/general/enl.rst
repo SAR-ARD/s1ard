@@ -29,7 +29,7 @@ as described above for entire images using the function :func:`S1_NRB.metadata.e
 
 Example calculated from sigma0 VH backscatter of a S1-NRB product, which has been derived from a Sentinel-1 SLC (IW) scene:
 
-.. image:: ../_static/enl_example_tile.png
+.. figure:: ../_assets/enl_example_tile.png
     :width: 85 %
     :align: center
     :alt: ENL calculation for an example scene
@@ -47,16 +47,16 @@ and a S1-NRB product derived from the equivalent SLC product:
 `S1A_IW_SLC__1SDV_20220721T051221_20220721T051249_044194_05465E_BACD`
 
 ENL was calculated for a selection of homogeneous forest areas, as can be seen in the following figure. The
-green outline traces the north-western corner of MGRS tile 33TUF (see also figure above). The resulting scatter plot
-shows slightly higher ENL values for the GRDH product.
+green outline traces the north-western corner of MGRS tile 33TUF (see also figure above).
 
-.. image:: ../_static/enl_grd_comparison_aois.png
+.. figure:: ../_assets/enl_grd_comparison_aois.png
     :width: 75 %
     :align: center
     :alt: Selected areas for ENL comparison between GRDH and NRB
 
+The resulting scatter plot shows slightly higher ENL values for the GRDH product:
 
-.. image:: ../_static/enl_grd_comparison_scatter.png
+.. figure:: ../_assets/enl_grd_comparison_scatter.png
     :width: 75 %
     :align: center
     :alt: ENL comparison between GRDH and NRB
