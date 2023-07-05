@@ -1,6 +1,27 @@
 Changelog
 =========
 
+1.4.0 | 2023-07-04
+------------------
+
+* various bug fixes (`#94 <https://github.com/SAR-ARD/S1_NRB/pull/94>`_)
+* datatake gap handling (`#95 <https://github.com/SAR-ARD/S1_NRB/pull/95>`_)
+* new configuration parameter 'datatake' (`#96 <https://github.com/SAR-ARD/S1_NRB/pull/96>`_)
+* increased STAC access robustness (`#97 <https://github.com/SAR-ARD/S1_NRB/pull/97>`_)
+* STACArchive bug fixes (`#98 <https://github.com/SAR-ARD/S1_NRB/pull/98>`_)
+* Optional `datatake` parameter (`#99 <https://github.com/SAR-ARD/S1_NRB/pull/99>`_)
+* bug fixes (`#100 <https://github.com/SAR-ARD/S1_NRB/pull/100>`_)
+* Bug fix to allow `annotation = None` (`#102 <https://github.com/SAR-ARD/S1_NRB/pull/102>`_)
+* Save original source metadata  (`#104 <https://github.com/SAR-ARD/S1_NRB/pull/104>`_)
+* do not continue on error (`#105 <https://github.com/SAR-ARD/S1_NRB/pull/105>`_)
+* Always use ESA border noise removal (`#106 <https://github.com/SAR-ARD/S1_NRB/pull/106>`_)
+* [nrb] remove dataset if mask is nodata-only (`#108 <https://github.com/SAR-ARD/S1_NRB/pull/108>`_)
+* Bug fix: Save original source metadata (`#109 <https://github.com/SAR-ARD/S1_NRB/pull/109>`_)
+* New metadata config parameters (`#110 <https://github.com/SAR-ARD/S1_NRB/pull/110>`_)
+* support for scenes acquired in NRT Slicing mode (`#112 <https://github.com/SAR-ARD/S1_NRB/pull/112>`_)
+
+`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.3.0...v1.4.0>`_
+
 1.3.0 | 2023-05-24
 ------------------
 

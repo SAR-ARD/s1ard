@@ -340,9 +340,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress)
-    xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
-    stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
-    copy_src_meta(target=nrb_dir, src_ids=src_ids)
+    if 'OGC' in config['meta']['format']:
+        xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    if 'STAC' in config['meta']['format']:
+        stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    if config['meta']['copy_original']:
+        copy_src_meta(target=nrb_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
@@ -407,8 +410,7 @@ def get_datasets(scenes, datadir, extent, epsg):
                 del arr
                 # remove scene if file does not contain valid data
                 if len(mask[mask == 1]) == 0:
-                    del ids[i]
-                    del datasets[i]
+                    del ids[i], datasets[i]
                     continue
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
@@ -420,6 +422,10 @@ def get_datasets(scenes, datadir, extent, epsg):
         if not os.path.isfile(dm_vec):
             with Raster(dm_ras) as ras:
                 mask = ras.array().astype('bool')
+                # remove scene if file does not contain valid data
+                if len(mask[mask == 1]) == 0:
+                    del ids[i], datasets[i]
+                    continue
                 with vectorize(target=mask, reference=ras) as vec:
                     boundary(vec, expression="value=1", outname=dm_vec)
                 del mask
