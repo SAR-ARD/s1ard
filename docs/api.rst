@@ -165,8 +165,10 @@ Extraction
     .. autosummary::
         :nosignatures:
 
+        calc_enl
         calc_geolocation_accuracy
         calc_performance_estimates
+        copy_src_meta
         etree_from_sid
         extract_pslr_islr
         find_in_annotation
