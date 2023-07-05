@@ -306,19 +306,12 @@ def calc_enl(tif, block_size=25, return_enl_arr=False):
         num_blocks_rows, block_size, num_blocks_cols, block_size
     )
     
-    _sum = np.nansum(blocks, axis=(1, 3))
-    _sqr_sum = np.nansum(blocks ** 2, axis=(1, 3))
-    _count = np.sum(np.isfinite(blocks), axis=(1, 3))
-    m = np.divide(_sum, _count, out=np.full_like(_sum, fill_value=np.nan), where=_count != 0)
-    m2 = np.divide(_sqr_sum, _count, out=np.full_like(_sqr_sum, fill_value=np.nan), where=_count != 0)
-    mm = m * m
-    enl = np.divide(mm, (m2 - mm), out=np.full_like(mm, fill_value=np.nan), where=(m2 != mm))
+    _mean = np.nanmean(blocks, axis=(1, 3))
+    _std = np.nanstd(blocks, axis=(1, 3))
+    enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
     
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
     out_arr[:num_blocks_rows, :num_blocks_cols] = enl
-    
-    # calculate nanmedian and truncate to 2 decimal places
-    out_arr = np.round(np.nanmedian(out_arr), 2)
     
     if return_enl_arr:
         return out_arr
