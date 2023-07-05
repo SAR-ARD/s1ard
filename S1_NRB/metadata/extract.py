@@ -265,25 +265,26 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
-def calc_enl(tif, block_size=25, return_enl_arr=False):
+def calc_enl(tif, block_size=25, return_arr=False):
     """
-    Calculate the equivalent number of looks (ENL) for a cross-polarized measurement GeoTIFF file of the product scene.
-
+    Calculate the equivalent number of looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file of the
+    product scene.
+    
     Parameters
     ----------
     tif: str
-        The path to a cross-polarized measurement GeoTIFF file of the product scene.
-    block_size: int
+        The path to a linear-scaled backscatter measurement GeoTIFF file of the product scene.
+    block_size: int, optional
         The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
         pixel blocks.
-    return_enl_arr: bool
+    return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
-
+    
     Returns
     -------
     out: float or numpy.ndarray
         The median ENL value or array of ENL values if `return_enl_arr` is True.
-
+    
     References
     ----------
     .. [1]  S. N. Anfinsen, A. P. Doulgeris and T. Eltoft,
@@ -313,7 +314,7 @@ def calc_enl(tif, block_size=25, return_enl_arr=False):
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
     out_arr[:num_blocks_rows, :num_blocks_cols] = enl
     
-    if return_enl_arr:
+    if return_arr:
         return out_arr
     else:
         return np.nanmedian(out_arr)
