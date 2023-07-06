@@ -35,17 +35,19 @@ def product_json(meta, target, tifs, exist_ok=False):
     if os.path.isfile(outname) and exist_ok:
         return
     print(outname)
-    
     start = meta['prod']['timeStart']
     stop = meta['prod']['timeStop']
     date = start + (stop - start) / 2
+    mgrs = meta['prod']['mgrsID']
     
+    # Initialise STAC item
     item = pystac.Item(id=scene_id,
                        geometry=meta['prod']['geom_stac_geometry_4326'],
                        bbox=meta['prod']['geom_stac_bbox_4326'],
                        datetime=date,
                        properties={})
     
+    # Add common metadata
     item.common_metadata.license = meta['prod']['licence']
     item.common_metadata.start_datetime = start
     item.common_metadata.end_datetime = stop
@@ -55,6 +57,7 @@ def product_json(meta, target, tifs, exist_ok=False):
     item.common_metadata.platform = meta['common']['platformFullname']
     item.common_metadata.gsd = float(meta['prod']['pxSpacingColumn'])
     
+    # Initialise STAC extensions for properties
     SarExtension.add_to(item)
     SatExtension.add_to(item)
     ProjectionExtension.add_to(item)
@@ -67,21 +70,27 @@ def product_json(meta, target, tifs, exist_ok=False):
     item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/mgrs/v1.0.0/schema.json')
     
+    # Add properties
+    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
+                  relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
+                  absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                   product_type=meta['prod']['productName-short'],
                   looks_range=int(meta['prod']['rangeNumberOfLooks']),
                   looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']))
-    
-    sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                  relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                  absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
-    
+    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
+                   wkt2=meta['prod']['crsWKT'],
+                   bbox=meta['prod']['geom_stac_bbox_native'],
+                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
+                   transform=meta['prod']['transform'])
+    item.properties['mgrs:utm_zone'] = int(mgrs[:2])
+    item.properties['mgrs:latitude_band'] = mgrs[2:3]
+    item.properties['mgrs:grid_square'] = mgrs[3:]
     item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
     item.properties['processing:level'] = meta['common']['processingLevel']
-    
     item.properties['card4l:specification'] = meta['prod']['productName-short']
     item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
     item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
@@ -104,17 +113,7 @@ def product_json(meta, target, tifs, exist_ok=False):
         item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias, 'stddev': stddev}
     item.properties['card4l:geometric_accuracy_radial_rmse'] = meta['prod']['geoCorrAccuracy_rRMSE']
     
-    proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
-                   wkt2=meta['prod']['crsWKT'],
-                   bbox=meta['prod']['geom_stac_bbox_native'],
-                   shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
-                   transform=meta['prod']['transform'])
-    
-    mgrs = meta['prod']['mgrsID']
-    item.properties['mgrs:utm_zone'] = int(mgrs[:2])
-    item.properties['mgrs:latitude_band'] = mgrs[2:3]
-    item.properties['mgrs:grid_square'] = mgrs[3:]
-    
+    # Add links
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -171,6 +170,7 @@ def product_json(meta, target, tifs, exist_ok=False):
                                    target=meta['prod']['griddingConventionURL'],
                                    title='Reference describing the gridding convention used.'))
     
+    # Add assets
     xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
     item.add_asset(key='card4l',
                    asset=pystac.Asset(href=xml_relpath,
@@ -309,6 +309,7 @@ def product_json(meta, target, tifs, exist_ok=False):
     for category in ['measurement', 'annotation']:
         for key in sorted(assets[category].keys()):
             item.add_asset(key=key, asset=assets[category][key])
+    
     item.save_object(dest_href=outname)
 
 
@@ -334,17 +335,18 @@ def source_json(meta, target, exist_ok=False):
         if os.path.isfile(outname) and exist_ok:
             continue
         print(outname)
-        
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
         date = start + (stop - start) / 2
         
+        # Initialise STAC item
         item = pystac.Item(id=scene,
                            geometry=meta['source'][uid]['geom_stac_geometry_4326'],
                            bbox=meta['source'][uid]['geom_stac_bbox_4326'],
                            datetime=date,
                            properties={})
         
+        # Add common metadata
         item.common_metadata.start_datetime = start
         item.common_metadata.end_datetime = stop
         item.common_metadata.created = datetime.strptime(meta['source'][uid]['processingDate'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -352,6 +354,7 @@ def source_json(meta, target, exist_ok=False):
         item.common_metadata.constellation = meta['common']['constellation']
         item.common_metadata.platform = meta['common']['platformFullname']
         
+        # Initialise STAC extensions for properties
         SarExtension.add_to(item)
         SatExtension.add_to(item)
         ViewExtension.add_to(item)
@@ -361,7 +364,11 @@ def source_json(meta, target, exist_ok=False):
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
         item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
         
-        enl = meta['source'][uid]['perfEquivalentNumberOfLooks']
+        # Add properties
+        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
+                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
+                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
@@ -373,22 +380,14 @@ def source_json(meta, target, exist_ok=False):
                       pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
                       looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
                       looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
-                      looks_equivalent_number=float(enl),
+                      looks_equivalent_number=float(meta['source'][uid]['perfEquivalentNumberOfLooks']),
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
-        
-        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
-                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
-        
         view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
                        azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
-        
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
                                                       meta['source'][uid]['processorVersion']}
         item.properties['processing:level'] = meta['common']['processingLevel']
-        
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
         item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
@@ -416,6 +415,7 @@ def source_json(meta, target, exist_ok=False):
         item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
         item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
         
+        # Add links
         item.add_link(link=pystac.Link(rel='card4l-document',
                                        target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
@@ -450,6 +450,7 @@ def source_json(meta, target, exist_ok=False):
                                        title='Reference describing the method used to derive the estimate for the mean'
                                              ' Faraday rotation angle.'))
         
+        # Add assets
         xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
         item.add_asset(key='card4l',
                        asset=pystac.Asset(href=xml_relpath,
