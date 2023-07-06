@@ -9,6 +9,7 @@ from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, Obs
 from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
+from pystac.extensions.mgrs import MgrsExtension
 from spatialist import Raster
 from spatialist.ancillary import finder
 from S1_NRB.metadata.mapping import SAMPLE_MAP
@@ -58,17 +59,14 @@ def product_json(meta, target, tifs, exist_ok=False):
     item.common_metadata.gsd = float(meta['prod']['pxSpacingColumn'])
     
     # Initialise STAC extensions for properties
-    SarExtension.add_to(item)
-    SatExtension.add_to(item)
-    ProjectionExtension.add_to(item)
-    sar_ext = SarExtension.ext(item)
-    sat_ext = SatExtension.ext(item)
-    proj_ext = ProjectionExtension.ext(item)
+    sar_ext = SarExtension.ext(item, add_if_missing=True)
+    sat_ext = SatExtension.ext(item, add_if_missing=True)
+    proj_ext = ProjectionExtension.ext(item, add_if_missing=True)
+    mgrs_ext = MgrsExtension.ext(item, add_if_missing=True)
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
     item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/mgrs/v1.0.0/schema.json')
     
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
@@ -85,9 +83,9 @@ def product_json(meta, target, tifs, exist_ok=False):
                    bbox=meta['prod']['geom_stac_bbox_native'],
                    shape=[int(meta['prod']['numPixelsPerLine']), int(meta['prod']['numLines'])],
                    transform=meta['prod']['transform'])
-    item.properties['mgrs:utm_zone'] = int(mgrs[:2])
-    item.properties['mgrs:latitude_band'] = mgrs[2:3]
-    item.properties['mgrs:grid_square'] = mgrs[3:]
+    mgrs_ext.apply(latitude_band=mgrs[2:3],
+                   grid_square=mgrs[3:],
+                   utm_zone=int(mgrs[:2]))
     item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
     item.properties['processing:level'] = meta['common']['processingLevel']
@@ -355,12 +353,9 @@ def source_json(meta, target, exist_ok=False):
         item.common_metadata.platform = meta['common']['platformFullname']
         
         # Initialise STAC extensions for properties
-        SarExtension.add_to(item)
-        SatExtension.add_to(item)
-        ViewExtension.add_to(item)
-        sar_ext = SarExtension.ext(item)
-        sat_ext = SatExtension.ext(item)
-        view_ext = ViewExtension.ext(item)
+        sar_ext = SarExtension.ext(item, add_if_missing=True)
+        sat_ext = SatExtension.ext(item, add_if_missing=True)
+        view_ext = ViewExtension.ext(item, add_if_missing=True)
         item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
         item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
         
