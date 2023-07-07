@@ -348,7 +348,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
             creationTime = etree.SubElement(productInformation, _nsc('s1-nrb:creationTime', nsmap))
             creationTime.text = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
             polarization = etree.SubElement(productInformation, _nsc('s1-nrb:polarization', nsmap))
-            polarization.text = re.search('[vh]{2}', asset).group().upper()
+            polarization.text = re.search('-[vh]{2}', relpath).group().removeprefix('-').upper()
             numBorderPixels = etree.SubElement(productInformation, _nsc('s1-nrb:numBorderPixels', nsmap))
             numBorderPixels.text = str(meta['prod']['numBorderPixels'])
     

@@ -178,7 +178,6 @@ def product_json(meta, target, assets, exist_ok=False):
     
     assets_dict = {'measurement': {},
                    'annotation': {}}
-    measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
     for asset in assets:
         relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         
@@ -213,8 +212,8 @@ def product_json(meta, target, assets, exist_ok=False):
         
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
-            if re.search('-np-[vh]{2}.tif', key) is not None:
-                asset_key = 'noise-power-{}'.format(re.search('[vh]{2}', key).group())
+            if key == '-np-[vh]{2}.tif':
+                asset_key = 'noise-power-{}'.format(re.search('-[vh]{2}', relpath).group().removeprefix('-'))
             else:
                 asset_key = SAMPLE_MAP[key]['role']
             
