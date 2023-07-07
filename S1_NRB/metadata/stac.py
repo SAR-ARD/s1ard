@@ -185,11 +185,13 @@ def product_json(meta, target, assets, exist_ok=False):
         size = os.path.getsize(asset)
         header_size = None
         media_type = pystac.MediaType.XML  # VRT
+        byte_order = None
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
             header_size = get_header_size(tif=asset)
             media_type = pystac.MediaType.COG
+            byte_order = pystac.extensions.file.ByteOrder.LITTLE_ENDIAN
         
         if 'measurement' in asset:
             pattern = '(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))'
@@ -220,9 +222,7 @@ def product_json(meta, target, assets, exist_ok=False):
                 extra_fields = {'created': created,
                                 'raster:bands': [{'unit': 'natural',
                                                   'nodata': nodata,
-                                                  'data_type': '{}{}'.format(meta['prod']['fileDataType'],
-                                                                             meta['prod']['fileBitsPerSample']),
-                                                  'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
+                                                  'data_type': 'float32'}],
                                 'card4l:border_pixels': meta['prod']['numBorderPixels']}
             else:
                 extra_fields = None
@@ -233,9 +233,7 @@ def product_json(meta, target, assets, exist_ok=False):
                                       roles=['backscatter', 'data'],
                                       extra_fields=extra_fields)
             file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=meta['prod']['fileByteOrder'],
-                           size=size,
-                           header_size=header_size)
+            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             assets_dict['measurement'][key] = stac_asset
         
         elif 'annotation' in asset:
@@ -255,8 +253,7 @@ def product_json(meta, target, assets, exist_ok=False):
             if key in ['-dm.tif', '-id.tif']:
                 ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
                                   'nodata': nodata,
-                                  'data_type': 'uint8',
-                                  'bits_per_sample': 8}
+                                  'data_type': 'uint8'}
                 raster_bands = []
                 if key == '-dm.tif':
                     with Raster(asset) as dm_ras:
@@ -285,9 +282,7 @@ def product_json(meta, target, assets, exist_ok=False):
             else:
                 extra_fields = {'raster:bands': [{'unit': SAMPLE_MAP[key]['unit'],
                                                   'nodata': nodata,
-                                                  'data_type': '{}{}'.format(meta['prod']['fileDataType'],
-                                                                             meta['prod']['fileBitsPerSample']),
-                                                  'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}]}
+                                                  'data_type': 'float32'}]}
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
@@ -297,9 +292,7 @@ def product_json(meta, target, assets, exist_ok=False):
                                       roles=[SAMPLE_MAP[key]['role'], 'metadata'],
                                       extra_fields=extra_fields)
             file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=meta['prod']['fileByteOrder'],
-                           size=size,
-                           header_size=header_size)
+            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             assets_dict['annotation'][asset_key] = stac_asset
     
     for category in ['measurement', 'annotation']:

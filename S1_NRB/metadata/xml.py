@@ -252,12 +252,16 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
         no_data = None
         header_size = None
         data_format = 'VRT'
+        byte_order = None
+        data_type = None
         z_error = None
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 no_data = str(ras.nodata)
             header_size = str(get_header_size(tif=asset))
-            data_format = meta['prod']['fileFormat']
+            data_format = 'COG'
+            byte_order = 'little-endian'
+            data_type = 'FLOAT 32'
             prefix = '[0-9a-z]{5}-'
             match = re.search(prefix + f"({'|'.join(meta['prod']['compression_zerrors'].keys())})", os.path.basename(asset))
             if match is not None:
@@ -277,14 +281,16 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
         if header_size is not None:
             headerSize = etree.SubElement(productInformation, _nsc('s1-nrb:headerSize', nsmap), attrib={'uom': 'bytes'})
             headerSize.text = header_size
-        byteOrder = etree.SubElement(productInformation, _nsc('s1-nrb:byteOrder', nsmap))
-        byteOrder.text = meta['prod']['fileByteOrder']
+        if byte_order is not None:
+            byteOrder = etree.SubElement(productInformation, _nsc('s1-nrb:byteOrder', nsmap))
+            byteOrder.text = byte_order
         dataFormat = etree.SubElement(productInformation, _nsc('s1-nrb:dataFormat', nsmap))
         dataFormat.text = data_format
-        dataType = etree.SubElement(productInformation, _nsc('s1-nrb:dataType', nsmap))
-        dataType.text = meta['prod']['fileDataType'].upper()
-        bitsPerSample = etree.SubElement(productInformation, _nsc('s1-nrb:bitsPerSample', nsmap))
-        bitsPerSample.text = meta['prod']['fileBitsPerSample']
+        if data_type is not None:
+            dataType = etree.SubElement(productInformation, _nsc('s1-nrb:dataType', nsmap))
+            dataType.text = data_type.split()[0]
+            bitsPerSample = etree.SubElement(productInformation, _nsc('s1-nrb:bitsPerSample', nsmap))
+            bitsPerSample.text = data_type.split()[1]
         if no_data is not None:
             noDataVal = etree.SubElement(productInformation, _nsc('s1-nrb:noDataValue', nsmap))
             noDataVal.text = no_data

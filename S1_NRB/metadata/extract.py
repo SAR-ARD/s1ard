@@ -554,10 +554,6 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
-    meta['prod']['fileBitsPerSample'] = '32'
-    meta['prod']['fileByteOrder'] = 'little-endian'
-    meta['prod']['fileDataType'] = 'float'
-    meta['prod']['fileFormat'] = 'COG'
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
