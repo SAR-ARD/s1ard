@@ -196,28 +196,7 @@ def product_json(meta, target, assets, exist_ok=False):
             byte_order = ByteOrder.LITTLE_ENDIAN
         
         if 'measurement' in asset:
-            info = re.search('(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))', asset).groupdict()
-            key = info['key']
-            
-            if re.search('cc-[gs]-lin', key):
-                pols = meta['common']['polarisationChannels']
-                co = pols.pop(0) if pols[0][0] == pols[0][1] else pols.pop(1)
-                cross = pols[0]
-                title = 'RGB color composite (' \
-                        '{co}-{nought}-lin, ' \
-                        '{cross}-{nought}-lin, ' \
-                        '{co}-{nought}-lin/{cross}-{nought}-lin)'
-                title = title.format(co=co.lower(),
-                                     cross=cross.lower(),
-                                     nought=info['nought'])
-            else:
-                skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
-                subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
-                title = skeleton.format(pol=info['pol'].upper(),
-                                        nought=measurement_title_dict[info['nought']],
-                                        subtype=subtype,
-                                        scale=measurement_title_dict[info['scaling']])
-            
+            key, title = _asset_get_key_title(meta=meta, asset=asset)
             stac_asset = pystac.Asset(href=relpath,
                                       title=title,
                                       media_type=media_type,
@@ -233,13 +212,9 @@ def product_json(meta, target, assets, exist_ok=False):
             assets_dict['measurement'][key] = stac_asset
         
         elif 'annotation' in asset:
-            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
-            
-            np_pat = '-np-[vh]{2}.tif'
-            if re.search(np_pat, key) is not None:
-                pol = re.search('[vh]{2}', key).group()
-                key = np_pat
-                asset_key = 'noise-power-{}'.format(pol)
+            key, title = _asset_get_key_title(meta=meta, asset=asset)
+            if re.search('-np-[vh]{2}.tif', key) is not None:
+                asset_key = 'noise-power-{}'.format(re.search('[vh]{2}', key).group())
             else:
                 asset_key = SAMPLE_MAP[key]['role']
             
@@ -283,7 +258,7 @@ def product_json(meta, target, assets, exist_ok=False):
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
             stac_asset = pystac.Asset(href=relpath,
-                                      title=SAMPLE_MAP[key]['title'],
+                                      title=title,
                                       media_type=media_type,
                                       roles=[SAMPLE_MAP[key]['role'], 'metadata'],
                                       extra_fields=extra_fields)
@@ -462,6 +437,58 @@ def parse(meta, target, assets, exist_ok=False):
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
     product_json(meta=meta, target=target, assets=assets, exist_ok=exist_ok)
+
+
+def _asset_get_key_title(meta, asset):
+    """
+    Helper function to handle creation of identifying key and title of a given asset.
+    
+    Parameters
+    ----------
+    meta: dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+    asset: str
+        Path to a GeoTIFF or VRT asset.
+    
+    Returns
+    -------
+    key: str
+        Key identifying the asset.
+    title: str
+        Generated title of the asset.
+    """
+    key = None
+    title = None
+    if 'measurement' in asset:
+        title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
+        info = re.search('(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))', asset).groupdict()
+        key = info['key']
+        
+        if re.search('cc-[gs]-lin', key):
+            pols = meta['common']['polarisationChannels']
+            co = pols.pop(0) if pols[0][0] == pols[0][1] else pols.pop(1)
+            cross = pols[0]
+            title = 'RGB color composite (' \
+                    '{co}-{nought}-lin, ' \
+                    '{cross}-{nought}-lin, ' \
+                    '{co}-{nought}-lin/{cross}-{nought}-lin)'
+            title = title.format(co=co.lower(),
+                                 cross=cross.lower(),
+                                 nought=info['nought'])
+        else:
+            skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
+            subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
+            title = skeleton.format(pol=info['pol'].upper(),
+                                    nought=title_dict[info['nought']],
+                                    subtype=subtype,
+                                    scale=title_dict[info['scaling']])
+    elif 'annotation' in asset:
+        key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
+        np_pat = '-np-[vh]{2}.tif'
+        if re.search(np_pat, key) is not None:
+            key = np_pat
+        title = SAMPLE_MAP[key]['title']
+    return key, title
 
 
 def make_catalog(directory, recursive=True, silent=False):
