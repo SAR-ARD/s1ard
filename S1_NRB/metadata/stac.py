@@ -10,7 +10,8 @@ from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
 from pystac.extensions.mgrs import MgrsExtension
-from pystac.extensions.file import FileExtension
+from pystac.extensions.file import FileExtension, ByteOrder
+from pystac.extensions.raster import RasterExtension, RasterBand, DataType
 from spatialist import Raster
 from spatialist.ancillary import finder
 from S1_NRB.metadata.mapping import SAMPLE_MAP
@@ -66,8 +67,7 @@ def product_json(meta, target, assets, exist_ok=False):
     mgrs_ext = MgrsExtension.ext(item, add_if_missing=True)
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
-
+    
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
@@ -183,19 +183,20 @@ def product_json(meta, target, assets, exist_ok=False):
         relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         
         size = os.path.getsize(asset)
+        created = None
         header_size = None
         media_type = pystac.MediaType.XML  # VRT
         byte_order = None
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
+            created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
             header_size = get_header_size(tif=asset)
             media_type = pystac.MediaType.COG
-            byte_order = pystac.extensions.file.ByteOrder.LITTLE_ENDIAN
+            byte_order = ByteOrder.LITTLE_ENDIAN
         
         if 'measurement' in asset:
-            pattern = '(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))'
-            info = re.search(pattern, asset).groupdict()
+            info = re.search('(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))', asset).groupdict()
             key = info['key']
             
             if re.search('cc-[gs]-lin', key):
@@ -217,23 +218,18 @@ def product_json(meta, target, assets, exist_ok=False):
                                         subtype=subtype,
                                         scale=measurement_title_dict[info['scaling']])
             
-            if asset.endswith('.tif'):
-                created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
-                extra_fields = {'created': created,
-                                'raster:bands': [{'unit': 'natural',
-                                                  'nodata': nodata,
-                                                  'data_type': 'float32'}],
-                                'card4l:border_pixels': meta['prod']['numBorderPixels']}
-            else:
-                extra_fields = None
-            
             stac_asset = pystac.Asset(href=relpath,
                                       title=title,
                                       media_type=media_type,
                                       roles=['backscatter', 'data'],
-                                      extra_fields=extra_fields)
+                                      extra_fields=None)
             file_ext = FileExtension.ext(stac_asset)
             file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
+            if asset.endswith('.tif'):
+                stac_asset.extra_fields = {'created': created,
+                                           'card4l:border_pixels': meta['prod']['numBorderPixels']}
+                raster_ext = RasterExtension.ext(stac_asset)
+                raster_ext.apply(bands=[RasterBand.create(nodata=nodata, data_type=DataType.FLOAT32, unit='natural')])
             assets_dict['measurement'][key] = stac_asset
         
         elif 'annotation' in asset:
@@ -300,6 +296,7 @@ def product_json(meta, target, assets, exist_ok=False):
             item.add_asset(key=key, asset=assets_dict[category][key])
     
     FileExtension.add_to(item)
+    RasterExtension.add_to(item)
     item.save_object(dest_href=outname)
 
 
