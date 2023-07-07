@@ -180,13 +180,16 @@ def product_json(meta, target, assets, exist_ok=False):
                    'annotation': {}}
     measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
     for asset in assets:
+        relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
+        
+        size = os.path.getsize(asset)
         header_size = None
+        media_type = pystac.MediaType.XML  # VRT
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
             header_size = get_header_size(tif=asset)
-        relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
-        size = os.path.getsize(asset)
+            media_type = pystac.MediaType.COG
         
         if 'measurement' in asset:
             pattern = '(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))'
@@ -226,7 +229,7 @@ def product_json(meta, target, assets, exist_ok=False):
             
             stac_asset = pystac.Asset(href=relpath,
                                       title=title,
-                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                      media_type=media_type,
                                       roles=['backscatter', 'data'],
                                       extra_fields=extra_fields)
             file_ext = FileExtension.ext(stac_asset)
@@ -290,7 +293,7 @@ def product_json(meta, target, assets, exist_ok=False):
             
             stac_asset = pystac.Asset(href=relpath,
                                       title=SAMPLE_MAP[key]['title'],
-                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                      media_type=media_type,
                                       roles=[SAMPLE_MAP[key]['role'], 'metadata'],
                                       extra_fields=extra_fields)
             file_ext = FileExtension.ext(stac_asset)
