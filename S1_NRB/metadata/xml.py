@@ -199,7 +199,7 @@ def _om_feature_of_interest(root, nsmap, scene_id, extent, center):
     pos.text = center
 
 
-def product_xml(meta, target, tifs, nsmap, exist_ok=False):
+def product_xml(meta, target, assets, nsmap, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
     
@@ -209,8 +209,8 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
-    tifs: list[str]
-        List of paths to all GeoTIFF files of the currently processed NRB product.
+    assets: list[str]
+        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool
@@ -246,14 +246,24 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
                                         attrib={_nsc('xlink:href', nsmap): scene_id})
     requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage', nsmap))
     
-    for tif in tifs:
-        relpath = './' + os.path.relpath(tif, target).replace('\\', '/')
-        z_errors = meta['prod']['compression_zerrors']
-        pattern = '|'.join(z_errors.keys())
-        match = re.search(pattern, os.path.basename(tif))
+    for asset in assets:
+        relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         
-        with Raster(tif) as ras:
-            nodata = ras.nodata
+        no_data = None
+        header_size = None
+        data_format = 'VRT'
+        z_error = None
+        if asset.endswith('.tif'):
+            with Raster(asset) as ras:
+                no_data = str(ras.nodata)
+            header_size = str(get_header_size(tif=asset))
+            data_format = meta['prod']['fileFormat']
+            prefix = '[0-9a-z]{5}-'
+            match = re.search(prefix + f"({'|'.join(meta['prod']['compression_zerrors'].keys())})", os.path.basename(asset))
+            if match is not None:
+                k = match.group()
+                k = k.removeprefix(re.search(prefix, k).group())
+                z_error = str(meta['prod']['compression_zerrors'][k])
         
         product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
         productInformation = etree.SubElement(product, _nsc('s1-nrb:ProductInformation', nsmap))
@@ -263,28 +273,29 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
         requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage', nsmap))
         
         size = etree.SubElement(productInformation, _nsc('eop:size', nsmap), attrib={'uom': 'bytes'})
-        size.text = str(os.path.getsize(tif))
-        headerSize = etree.SubElement(productInformation, _nsc('s1-nrb:headerSize', nsmap), attrib={'uom': 'bytes'})
-        headerSize.text = str(get_header_size(tif))
+        size.text = str(os.path.getsize(asset))
+        if header_size is not None:
+            headerSize = etree.SubElement(productInformation, _nsc('s1-nrb:headerSize', nsmap), attrib={'uom': 'bytes'})
+            headerSize.text = header_size
         byteOrder = etree.SubElement(productInformation, _nsc('s1-nrb:byteOrder', nsmap))
         byteOrder.text = meta['prod']['fileByteOrder']
         dataFormat = etree.SubElement(productInformation, _nsc('s1-nrb:dataFormat', nsmap))
-        dataFormat.text = meta['prod']['fileFormat']
+        dataFormat.text = data_format
         dataType = etree.SubElement(productInformation, _nsc('s1-nrb:dataType', nsmap))
         dataType.text = meta['prod']['fileDataType'].upper()
         bitsPerSample = etree.SubElement(productInformation, _nsc('s1-nrb:bitsPerSample', nsmap))
         bitsPerSample.text = meta['prod']['fileBitsPerSample']
-        noDataVal = etree.SubElement(productInformation, _nsc('s1-nrb:noDataValue', nsmap))
-        noDataVal.text = str(nodata)
-        compressionType = etree.SubElement(productInformation, _nsc('s1-nrb:compressionType', nsmap))
-        compressionType.text = meta['prod']['compression_type']
-        if match is not None:
-            k = match.group()
+        if no_data is not None:
+            noDataVal = etree.SubElement(productInformation, _nsc('s1-nrb:noDataValue', nsmap))
+            noDataVal.text = no_data
+        if z_error is not None:
+            compressionType = etree.SubElement(productInformation, _nsc('s1-nrb:compressionType', nsmap))
+            compressionType.text = meta['prod']['compression_type']
             compressionzError = etree.SubElement(productInformation, _nsc('s1-nrb:compressionZError', nsmap))
-            compressionzError.text = str(z_errors[k])
+            compressionzError.text = z_error
         
-        if 'annotation' in tif:
-            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', tif).group()
+        if 'annotation' in asset:
+            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
             np_pat = '-np-[vh]{2}.tif'
             if re.search(np_pat, key) is not None:
                 key = np_pat
@@ -294,7 +305,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
                 bitsPerSample.text = '8'
                 
                 if key == '-dm.tif':
-                    with Raster(tif) as dm_ras:
+                    with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
                     if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
@@ -305,7 +316,7 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
                                                                 'name': sample_val})
                             bitValue.text = '1'
                     else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(tif))
+                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE',
@@ -327,11 +338,11 @@ def product_xml(meta, target, tifs, nsmap, exist_ok=False):
                                                      attrib={'uom': 'm'})
                 ellipsoidalHeight.text = meta['prod']['ellipsoidalHeight']
         
-        if 'measurement' in tif:
+        if 'measurement' in asset and not asset.endswith('.vrt'):
             creationTime = etree.SubElement(productInformation, _nsc('s1-nrb:creationTime', nsmap))
-            creationTime.text = datetime.fromtimestamp(os.path.getctime(tif)).isoformat()
+            creationTime.text = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
             polarization = etree.SubElement(productInformation, _nsc('s1-nrb:polarization', nsmap))
-            polarization.text = re.search('[vh]{2}', tif).group().upper()
+            polarization.text = re.search('[vh]{2}', asset).group().upper()
             numBorderPixels = etree.SubElement(productInformation, _nsc('s1-nrb:numBorderPixels', nsmap))
             numBorderPixels.text = str(meta['prod']['numBorderPixels'])
     
@@ -645,7 +656,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def parse(meta, target, tifs, exist_ok=False):
+def parse(meta, target, assets, exist_ok=False):
     """
     Wrapper for :func:`~S1_NRB.metadata.xml.source_xml` and :func:`~S1_NRB.metadata.xml.product_xml`.
     
@@ -655,8 +666,8 @@ def parse(meta, target, tifs, exist_ok=False):
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
-    tifs: list[str]
-        List of paths to all GeoTIFF files of the currently processed NRB product.
+    assets: list[str]
+        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -666,4 +677,4 @@ def parse(meta, target, tifs, exist_ok=False):
     NS_MAP_src['s1-nrb'] = NS_MAP['s1-nrb']['source']
     
     source_xml(meta=meta, target=target, nsmap=NS_MAP_src, exist_ok=exist_ok)
-    product_xml(meta=meta, target=target, tifs=tifs, nsmap=NS_MAP_prod, exist_ok=exist_ok)
+    product_xml(meta=meta, target=target, assets=assets, nsmap=NS_MAP_prod, exist_ok=exist_ok)

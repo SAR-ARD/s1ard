@@ -16,7 +16,7 @@ from S1_NRB.metadata.mapping import SAMPLE_MAP
 from S1_NRB.metadata.extract import get_header_size
 
 
-def product_json(meta, target, tifs, exist_ok=False):
+def product_json(meta, target, assets, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
     
@@ -26,8 +26,8 @@ def product_json(meta, target, tifs, exist_ok=False):
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
-    tifs: list[str]
-        List of paths to all GeoTIFF files of the currently processed NRB product.
+    assets: list[str]
+        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -176,15 +176,15 @@ def product_json(meta, target, tifs, exist_ok=False):
                                       media_type=pystac.MediaType.XML,
                                       roles=['metadata', 'card4l']))
     
-    vrts = finder(target, ['.vrt$'], regex=True, recursive=True)
-    assets_fnames = tifs + vrts
-    assets = {'measurement': {},
-              'annotation': {}}
+    assets_dict = {'measurement': {},
+                   'annotation': {}}
     measurement_title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
-    for asset in assets_fnames:
+    for asset in assets:
+        header_size = None
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
+            header_size = get_header_size(tif=asset)
         relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         size = os.path.getsize(asset)
         
@@ -212,7 +212,6 @@ def product_json(meta, target, tifs, exist_ok=False):
                                         subtype=subtype,
                                         scale=measurement_title_dict[info['scaling']])
             
-            header_size = get_header_size(tif=asset)
             if asset.endswith('.tif'):
                 created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
                 extra_fields = {'created': created,
@@ -229,15 +228,14 @@ def product_json(meta, target, tifs, exist_ok=False):
                 extra_fields = {'file:byte_order': meta['prod']['fileByteOrder'],
                                 'file:size': size}
             
-            assets['measurement'][key] = pystac.Asset(href=relpath,
-                                                      title=title,
-                                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                                      roles=['backscatter', 'data'],
-                                                      extra_fields=extra_fields)
+            assets_dict['measurement'][key] = pystac.Asset(href=relpath,
+                                                           title=title,
+                                                           media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                                           roles=['backscatter', 'data'],
+                                                           extra_fields=extra_fields)
         
         elif 'annotation' in asset:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
-            header_size = get_header_size(tif=asset)
             
             np_pat = '-np-[vh]{2}.tif'
             if re.search(np_pat, key) is not None:
@@ -299,14 +297,14 @@ def product_json(meta, target, tifs, exist_ok=False):
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
-            assets['annotation'][asset_key] = pystac.Asset(href=relpath,
-                                                           title=SAMPLE_MAP[key]['title'],
-                                                           media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                                           roles=[SAMPLE_MAP[key]['role'], 'metadata'],
-                                                           extra_fields=extra_fields)
+            assets_dict['annotation'][asset_key] = pystac.Asset(href=relpath,
+                                                                title=SAMPLE_MAP[key]['title'],
+                                                                media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                                                roles=[SAMPLE_MAP[key]['role'], 'metadata'],
+                                                                extra_fields=extra_fields)
     for category in ['measurement', 'annotation']:
-        for key in sorted(assets[category].keys()):
-            item.add_asset(key=key, asset=assets[category][key])
+        for key in sorted(assets_dict[category].keys()):
+            item.add_asset(key=key, asset=assets_dict[category][key])
     
     item.save_object(dest_href=outname)
 
@@ -456,7 +454,7 @@ def source_json(meta, target, exist_ok=False):
         item.save_object(dest_href=outname)
 
 
-def parse(meta, target, tifs, exist_ok=False):
+def parse(meta, target, assets, exist_ok=False):
     """
     Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
     
@@ -466,13 +464,13 @@ def parse(meta, target, tifs, exist_ok=False):
         Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
-    tifs: list[str]
-        List of paths to all GeoTIFF files of the currently processed NRB product.
+    assets: list[str]
+        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
     exist_ok: bool
         Do not create files if they already exist?
     """
     source_json(meta=meta, target=target, exist_ok=exist_ok)
-    product_json(meta=meta, target=target, tifs=tifs, exist_ok=exist_ok)
+    product_json(meta=meta, target=target, assets=assets, exist_ok=exist_ok)
 
 
 def make_catalog(directory, recursive=True, silent=False):

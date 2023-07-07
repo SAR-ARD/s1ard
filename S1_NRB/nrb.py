@@ -260,7 +260,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                         create_options=write_options['em'],
                         pbar=False)
             log_pyro.setLevel(level)
-            datasets_nrb['em'] = em_path
+        datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-[gs]-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -340,10 +340,11 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress)
+    nrb_assets = list(datasets_nrb.values()) + finder(nrb_dir, ['.vrt$'], regex=True, recursive=True)
     if 'OGC' in config['meta']['format']:
-        xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+        xml.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
-        stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+        stac.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
     if config['meta']['copy_original']:
         copy_src_meta(target=nrb_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
