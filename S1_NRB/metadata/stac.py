@@ -10,6 +10,7 @@ from pystac.extensions.sat import SatExtension, OrbitState
 from pystac.extensions.projection import ProjectionExtension
 from pystac.extensions.view import ViewExtension
 from pystac.extensions.mgrs import MgrsExtension
+from pystac.extensions.file import FileExtension
 from spatialist import Raster
 from spatialist.ancillary import finder
 from S1_NRB.metadata.mapping import SAMPLE_MAP
@@ -66,8 +67,7 @@ def product_json(meta, target, assets, exist_ok=False):
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
     item.stac_extensions.append('https://stac-extensions.github.io/raster/v1.1.0/schema.json')
-    item.stac_extensions.append('https://stac-extensions.github.io/file/v2.1.0/schema.json')
-    
+
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
@@ -220,19 +220,20 @@ def product_json(meta, target, assets, exist_ok=False):
                                                   'data_type': '{}{}'.format(meta['prod']['fileDataType'],
                                                                              meta['prod']['fileBitsPerSample']),
                                                   'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}],
-                                'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:size': size,
-                                'file:header_size': header_size,
                                 'card4l:border_pixels': meta['prod']['numBorderPixels']}
             else:
-                extra_fields = {'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:size': size}
+                extra_fields = None
             
-            assets_dict['measurement'][key] = pystac.Asset(href=relpath,
-                                                           title=title,
-                                                           media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                                           roles=['backscatter', 'data'],
-                                                           extra_fields=extra_fields)
+            stac_asset = pystac.Asset(href=relpath,
+                                      title=title,
+                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                      roles=['backscatter', 'data'],
+                                      extra_fields=extra_fields)
+            file_ext = FileExtension.ext(stac_asset)
+            file_ext.apply(byte_order=meta['prod']['fileByteOrder'],
+                           size=size,
+                           header_size=header_size)
+            assets_dict['measurement'][key] = stac_asset
         
         elif 'annotation' in asset:
             key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
@@ -277,35 +278,32 @@ def product_json(meta, target, assets, exist_ok=False):
                     band_dict.update(vals)
                     raster_bands = [band_dict]
                 
-                extra_fields = {'raster:bands': raster_bands,
-                                'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:size': size,
-                                'file:header_size': header_size}
-            
+                extra_fields = {'raster:bands': raster_bands}
             else:
-                raster_bands = {'unit': SAMPLE_MAP[key]['unit'],
-                                'nodata': nodata,
-                                'data_type': '{}{}'.format(meta['prod']['fileDataType'],
-                                                           meta['prod']['fileBitsPerSample']),
-                                'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}
-                
-                extra_fields = {'raster:bands': [raster_bands],
-                                'file:byte_order': meta['prod']['fileByteOrder'],
-                                'file:size': size,
-                                'file:header_size': header_size}
-                
+                extra_fields = {'raster:bands': [{'unit': SAMPLE_MAP[key]['unit'],
+                                                  'nodata': nodata,
+                                                  'data_type': '{}{}'.format(meta['prod']['fileDataType'],
+                                                                             meta['prod']['fileBitsPerSample']),
+                                                  'bits_per_sample': int(meta['prod']['fileBitsPerSample'])}]}
                 if key == '-ei.tif':
                     extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
             
-            assets_dict['annotation'][asset_key] = pystac.Asset(href=relpath,
-                                                                title=SAMPLE_MAP[key]['title'],
-                                                                media_type=pystac.MediaType[meta['prod']['fileFormat']],
-                                                                roles=[SAMPLE_MAP[key]['role'], 'metadata'],
-                                                                extra_fields=extra_fields)
+            stac_asset = pystac.Asset(href=relpath,
+                                      title=SAMPLE_MAP[key]['title'],
+                                      media_type=pystac.MediaType[meta['prod']['fileFormat']],
+                                      roles=[SAMPLE_MAP[key]['role'], 'metadata'],
+                                      extra_fields=extra_fields)
+            file_ext = FileExtension.ext(stac_asset)
+            file_ext.apply(byte_order=meta['prod']['fileByteOrder'],
+                           size=size,
+                           header_size=header_size)
+            assets_dict['annotation'][asset_key] = stac_asset
+    
     for category in ['measurement', 'annotation']:
         for key in sorted(assets_dict[category].keys()):
             item.add_asset(key=key, asset=assets_dict[category][key])
     
+    FileExtension.add_to(item)
     item.save_object(dest_href=outname)
 
 
