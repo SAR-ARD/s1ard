@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 from statistics import mean, median
-from copy import deepcopy
 from datetime import datetime
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
@@ -12,6 +11,7 @@ from pystac.extensions.view import ViewExtension
 from pystac.extensions.mgrs import MgrsExtension
 from pystac.extensions.file import FileExtension, ByteOrder
 from pystac.extensions.raster import RasterExtension, RasterBand, DataType
+from pystac.extensions.classification import ClassificationExtension, Classification
 from spatialist import Raster
 from spatialist.ancillary import finder
 from S1_NRB.metadata.mapping import SAMPLE_MAP
@@ -206,10 +206,8 @@ def product_json(meta, target, assets, exist_ok=False):
             if asset.endswith('.tif'):
                 stac_asset.extra_fields = {'created': created,
                                            'card4l:border_pixels': meta['prod']['numBorderPixels']}
-                raster_ext = RasterExtension.ext(stac_asset)
-                raster_ext.apply(bands=[RasterBand.create(nodata=nodata, data_type=DataType.FLOAT32, unit='natural')])
+                _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata)
             assets_dict['measurement'][key] = stac_asset
-        
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
             if key == '-np-[vh]{2}.tif':
@@ -220,55 +218,24 @@ def product_json(meta, target, assets, exist_ok=False):
             if SAMPLE_MAP[key]['unit'] is None:
                 SAMPLE_MAP[key]['unit'] = 'unitless'
             
-            if key in ['-dm.tif', '-id.tif']:
-                ras_bands_base = {'unit': SAMPLE_MAP[key]['unit'],
-                                  'nodata': nodata,
-                                  'data_type': 'uint8'}
-                raster_bands = []
-                if key == '-dm.tif':
-                    with Raster(asset) as dm_ras:
-                        band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
-                                      range(1, dm_ras.bands + 1)]
-                    if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
-                        samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
-                        for sample_item in samples.items():
-                            vals = {'values': [{'value': 1, 'summary': sample_item[1]}]}
-                            band_dict = deepcopy(ras_bands_base)
-                            band_dict.update(vals)
-                            raster_bands.append(band_dict)
-                    else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
-                else:  # key == '-id.tif'
-                    src_list = list(meta['source'].keys())
-                    src_target = [
-                        os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
-                        for src in src_list]
-                    vals = {'values': [{'value': [i + 1], 'summary': s} for i, s in enumerate(src_target)]}
-                    band_dict = deepcopy(ras_bands_base)
-                    band_dict.update(vals)
-                    raster_bands = [band_dict]
-                
-                extra_fields = {'raster:bands': raster_bands}
-            else:
-                extra_fields = {'raster:bands': [{'unit': SAMPLE_MAP[key]['unit'],
-                                                  'nodata': nodata,
-                                                  'data_type': 'float32'}]}
-                if key == '-ei.tif':
-                    extra_fields['card4l:ellipsoidal_height'] = meta['prod']['ellipsoidalHeight']
-            
             stac_asset = pystac.Asset(href=relpath,
                                       title=title,
                                       media_type=media_type,
                                       roles=[SAMPLE_MAP[key]['role'], 'metadata'],
-                                      extra_fields=extra_fields)
+                                      extra_fields=None)
             file_ext = FileExtension.ext(stac_asset)
             file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
+            if key == '-ei.tif':
+                stac_asset.extra_fields = {'card4l:ellipsoidal_height': meta['prod']['ellipsoidalHeight']}
+            _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata, key=key, meta=meta, asset=asset)
             assets_dict['annotation'][asset_key] = stac_asset
     
     for category in ['measurement', 'annotation']:
         for key in sorted(assets_dict[category].keys()):
             item.add_asset(key=key, asset=assets_dict[category][key])
     
+    if any(x in item.get_assets().keys() for x in ['acquisition-id', 'data-mask']):
+        ClassificationExtension.add_to(item)
     FileExtension.add_to(item)
     RasterExtension.add_to(item)
     item.save_object(dest_href=outname)
@@ -488,6 +455,66 @@ def _asset_get_key_title(meta, asset):
             key = np_pat
         title = SAMPLE_MAP[key]['title']
     return key, title
+
+
+def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None):
+    """
+    Helper function to handle the STAC RasterExtension for a given pystac.Asset
+    
+    Parameters
+    ----------
+    stac_asset: pystac.Asset
+        The pystac.Asset to set the RasterExtension for.
+    nodata: float
+        The asset's nodata value.
+    key: str
+        Key identifying the asset. Only necessary for annotation assets.
+    meta: dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+        Only necessary for annotation assets.
+    asset: str
+        Path to a GeoTIFF or VRT asset. Only necessary for annotation assets.
+    
+    Returns
+    -------
+    None
+    """
+    raster_ext = RasterExtension.ext(stac_asset)
+    if 'measurement' in stac_asset.href:
+        raster_ext.bands = [RasterBand.create(nodata=nodata,
+                                              data_type=DataType.FLOAT32,
+                                              unit='natural')]
+    elif 'annotation' in stac_asset.href:
+        if key is None or meta is None or asset is None:
+            raise ValueError(f'`key`, `meta` and `asset` parameters need to be defined to handle RasterExtension for {stac_asset.href}')
+        if key == '-id.tif':
+            src_list = [
+                os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
+                for src in list(meta['source'].keys())]
+            band = RasterBand.create(nodata=nodata,
+                                       data_type=DataType.UINT8,
+                                       unit=SAMPLE_MAP[key]['unit'])
+            class_ext = ClassificationExtension.ext(band)
+            class_ext.classes = [Classification.create(value=i+1, description=j) for i, j in enumerate(src_list)]
+            raster_ext.bands = [band]
+        elif key == '-dm.tif':
+            with Raster(asset) as dm_ras:
+                band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
+                              range(1, dm_ras.bands + 1)]
+            samples = {k: v for k, v in SAMPLE_MAP[key]['values'].items() if v in band_descr}
+            bands = []
+            for sample in samples.values():
+                band = RasterBand.create(nodata=nodata,
+                                         data_type=DataType.UINT8,
+                                         unit=SAMPLE_MAP[key]['unit'])
+                class_ext = ClassificationExtension.ext(band, add_if_missing=True)
+                class_ext.classes = [Classification.create(value=1, description=sample)]
+                bands.append(band)
+            raster_ext.bands=bands
+        else:
+            raster_ext.bands=[RasterBand.create(nodata=nodata,
+                                                data_type=DataType.FLOAT32,
+                                                unit=SAMPLE_MAP[key]['unit'])]
 
 
 def make_catalog(directory, recursive=True, silent=False):
