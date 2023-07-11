@@ -454,7 +454,7 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, dem_type, etad):
     return round(rmse_planar, 2)
 
 
-def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression, orb=False):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
@@ -560,8 +560,12 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
-    meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
-    meta['prod']['card4l-version'] = '5.5'
+    if orb:
+        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/ORB/v1.0/CARD4L_Product_Family_Specification_Ocean_Radar_Backscatter-v1.0.pdf'
+        meta['prod']['card4l-version'] = '1.0'
+    else:
+        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
+        meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['compression_type'] = compression
@@ -612,8 +616,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
-    meta['prod']['productName'] = 'Normalised Radar Backscatter'
-    meta['prod']['productName-short'] = 'NRB'
+    meta['prod']['productName'] = 'Ocean Radar Backscatter' if orb else 'Normalised Radar Backscatter'
+    meta['prod']['productName-short'] = 'ORB' if orb else 'NRB'
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None

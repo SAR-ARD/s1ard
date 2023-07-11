@@ -38,12 +38,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     anc.check_spacing(geocode_prms['spacing'])
     
-    rtc_flag = True
-    nrb_flag = True
-    if config['mode'] == 'rtc':
-        nrb_flag = False
-    elif config['mode'] == 'nrb':
-        rtc_flag = False
+    rtc_flag = config['mode'] in ['rtc', 'all']
+    nrb_flag = config['mode'] in ['nrb', 'all']
+    orb_flag = config['mode'] == 'orb'
     
     # DEM download authentication
     username, password = dem.authenticate(dem_type=config['dem_type'],
@@ -251,7 +248,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 raise
     ####################################################################################################################
     # NRB - final product generation
-    if nrb_flag:
+    if nrb_flag or orb_flag:
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
@@ -299,7 +296,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
                                      multithread=gdal_prms['multithread'], annotation=config['annotation'],
-                                     update=update)
+                                     update=update, orb=orb_flag)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
                     anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)

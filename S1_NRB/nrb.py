@@ -26,7 +26,7 @@ from S1_NRB.snap import find_datasets
 
 def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None,
-           overviews=None, kml=None, annotation=None, update=False):
+           overviews=None, kml=None, annotation=None, update=False, orb=False):
     """
     Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -339,7 +339,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
-                             proc_time=proc_time, start=start, stop=stop, compression=compress)
+                             proc_time=proc_time, start=start, stop=stop, compression=compress, orb=orb)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
     if 'STAC' in config['meta']['format']:
