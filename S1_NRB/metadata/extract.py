@@ -14,7 +14,7 @@ from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, OSV_MAP, DEM_MAP, SLC_ACC_MAP
 from S1_NRB import snap
 
 gdal.UseExceptions()
@@ -716,9 +716,9 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
-        for orb in list(ORB_MAP.keys()):
-            if orb in meta['source'][uid]['orbitStateVector']:
-                meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
+        for osv in list(OSV_MAP.keys()):
+            if osv in meta['source'][uid]['orbitStateVector']:
+                meta['source'][uid]['orbitDataSource'] = OSV_MAP[osv]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         if len(np_tifs) > 0:
             meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)

@@ -66,7 +66,7 @@ RES_MAP = {'IW': {'azimuthResolution': {'IW1': 22.5,
                                       'S6': 3.6}}
            }
 
-ORB_MAP = {'PREORB': 'predicted',
+OSV_MAP = {'PREORB': 'predicted',
            'RESORB': 'restituted',
            'POEORB': 'precise'}
 
