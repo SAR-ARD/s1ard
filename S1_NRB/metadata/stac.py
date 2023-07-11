@@ -261,15 +261,12 @@ def product_json(meta, target, tifs, exist_ok=False):
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
-                    if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
-                        samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
-                        for sample_item in samples.items():
-                            vals = {'values': [{'value': 1, 'summary': sample_item[1]}]}
-                            band_dict = deepcopy(ras_bands_base)
-                            band_dict.update(vals)
-                            raster_bands.append(band_dict)
-                    else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
+                    samples = [x for x in band_descr if x in SAMPLE_MAP[key]['allowed']]
+                    for sample_item in samples:
+                        vals = {'values': [{'value': 1, 'summary': sample_item}]}
+                        band_dict = deepcopy(ras_bands_base)
+                        band_dict.update(vals)
+                        raster_bands.append(band_dict)
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [
