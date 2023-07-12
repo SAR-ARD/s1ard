@@ -14,7 +14,7 @@ from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, ITEM_MAP, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB.metadata.mapping import NRB_PATTERN, LERC_ERR_THRES, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
 from S1_NRB import snap
 
 gdal.UseExceptions()
@@ -499,7 +499,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
                               src_ids=src_ids, rtc_dir=rtc_dir)
     
-    tups = [(key, ITEM_MAP[key]['z_error']) for key in ITEM_MAP.keys()]
+    tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
     z_err_dict = dict(tups)
     
     # Common metadata (sorted alphabetically)

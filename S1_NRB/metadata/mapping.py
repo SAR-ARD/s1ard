@@ -13,26 +13,26 @@ NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
 
 # 'z_error': Maximum error threshold on values for LERC* compression.
 # Will be ignored if a compression algorithm is used that isn't related to LERC.
-ITEM_MAP = {'vv-g-lin': {'z_error': 1e-4},
-            'vh-g-lin': {'z_error': 1e-4},
-            'hh-g-lin': {'z_error': 1e-4},
-            'hv-g-lin': {'z_error': 1e-4},
-            'vv-s-lin': {'z_error': 1e-4},
-            'vh-s-lin': {'z_error': 1e-4},
-            'hh-s-lin': {'z_error': 1e-4},
-            'hv-s-lin': {'z_error': 1e-4},
-            'ei': {'z_error': 1e-3},
-            'em': {'z_error': 1e-3},
-            'dm': {'z_error': 0.0},
-            'li': {'z_error': 1e-2},
-            'lc': {'z_error': 0.1},
-            'gs': {'z_error': 1e-4},
-            'id': {'z_error': 0.0},
-            'np-vv': {'z_error': 2e-5},
-            'np-vh': {'z_error': 2e-5},
-            'np-hh': {'z_error': 2e-5},
-            'np-hv': {'z_error': 2e-5},
-            'sg': {'z_error': 1e-4}}
+LERC_ERR_THRES = {'vv-g-lin': 1e-4,
+                  'vh-g-lin': 1e-4,
+                  'hh-g-lin': 1e-4,
+                  'hv-g-lin': 1e-4,
+                  'vv-s-lin': 1e-4,
+                  'vh-s-lin': 1e-4,
+                  'hh-s-lin': 1e-4,
+                  'hv-s-lin': 1e-4,
+                  'ei': 1e-3,
+                  'em': 1e-3,
+                  'dm': 0.0,
+                  'li': 1e-2,
+                  'lc': 0.1,
+                  'gs': 1e-4,
+                  'id': 0.0,
+                  'np-vv': 2e-5,
+                  'np-vh': 2e-5,
+                  'np-hh': 2e-5,
+                  'np-hv': 2e-5,
+                  'sg': 1e-4}
 
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
