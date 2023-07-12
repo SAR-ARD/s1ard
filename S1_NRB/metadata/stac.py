@@ -492,8 +492,8 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
                 os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
                 for src in list(meta['source'].keys())]
             band = RasterBand.create(nodata=nodata,
-                                       data_type=DataType.UINT8,
-                                       unit=SAMPLE_MAP[key]['unit'])
+                                     data_type=DataType.UINT8,
+                                     unit=SAMPLE_MAP[key]['unit'])
             class_ext = ClassificationExtension.ext(band)
             class_ext.classes = [Classification.create(value=i+1, description=j) for i, j in enumerate(src_list)]
             raster_ext.bands = [band]
@@ -515,6 +515,8 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             raster_ext.bands=[RasterBand.create(nodata=nodata,
                                                 data_type=DataType.FLOAT32,
                                                 unit=SAMPLE_MAP[key]['unit'])]
+    if key == '-em.tif':
+        raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
 
 def make_catalog(directory, recursive=True, silent=False):
