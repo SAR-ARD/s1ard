@@ -5,7 +5,7 @@ from lxml import etree
 from datetime import datetime
 from spatialist import Raster
 from statistics import mean
-from S1_NRB.metadata.mapping import SAMPLE_MAP, NS_MAP
+from S1_NRB.metadata.mapping import ASSET_MAP, NS_MAP
 from S1_NRB.metadata.extract import get_header_size
 
 
@@ -314,8 +314,8 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
-                    if 1 < len(band_descr) < len(SAMPLE_MAP[key]['values']):
-                        samples = {key: val for key, val in SAMPLE_MAP[key]['values'].items() if val in band_descr}
+                    if 1 < len(band_descr) < len(ASSET_MAP[key]['values']):
+                        samples = {key: val for key, val in ASSET_MAP[key]['values'].items() if val in band_descr}
                         for i, sample_val in enumerate(samples.values()):
                             bitValue = etree.SubElement(productInformation, _nsc('s1-nrb:bitValue', nsmap),
                                                         attrib={'band': str(i + 1),
@@ -333,11 +333,11 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
                                                     attrib={'band': '1', 'name': s})
                         bitValue.text = str(i + 1)
             
-            if SAMPLE_MAP[key]['unit'] is None:
-                SAMPLE_MAP[key]['unit'] = 'unitless'
+            if ASSET_MAP[key]['unit'] is None:
+                ASSET_MAP[key]['unit'] = 'unitless'
             sampleType = etree.SubElement(productInformation, _nsc('s1-nrb:sampleType', nsmap),
-                                          attrib={'uom': SAMPLE_MAP[key]['unit']})
-            sampleType.text = SAMPLE_MAP[key]['type']
+                                          attrib={'uom': ASSET_MAP[key]['unit']})
+            sampleType.text = ASSET_MAP[key]['type']
             
             if key == '-ei.tif':
                 ellipsoidalHeight = etree.SubElement(productInformation, _nsc('s1-nrb:ellipsoidalHeight', nsmap),

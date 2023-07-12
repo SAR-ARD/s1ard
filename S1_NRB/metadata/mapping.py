@@ -114,7 +114,7 @@ NS_MAP = {'s1-nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
           'ows': 'http://www.opengis.net/ows/2.0',
           'xlink': 'http://www.w3.org/1999/xlink'}
 
-SAMPLE_MAP = {'-dm.tif': {'type': 'Mask',
+ASSET_MAP = {'-dm.tif': {'type': 'Mask',
                           'unit': None,
                           'role': 'data-mask',
                           'title': 'Data Mask Image',

@@ -14,7 +14,7 @@ from pystac.extensions.raster import RasterExtension, RasterBand, DataType
 from pystac.extensions.classification import ClassificationExtension, Classification
 from spatialist import Raster
 from spatialist.ancillary import finder
-from S1_NRB.metadata.mapping import SAMPLE_MAP
+from S1_NRB.metadata.mapping import ASSET_MAP
 from S1_NRB.metadata.extract import get_header_size
 
 
@@ -213,15 +213,15 @@ def product_json(meta, target, assets, exist_ok=False):
             if key == '-np-[vh]{2}.tif':
                 asset_key = 'noise-power-{}'.format(re.search('-[vh]{2}', relpath).group().removeprefix('-'))
             else:
-                asset_key = SAMPLE_MAP[key]['role']
+                asset_key = ASSET_MAP[key]['role']
             
-            if SAMPLE_MAP[key]['unit'] is None:
-                SAMPLE_MAP[key]['unit'] = 'unitless'
+            if ASSET_MAP[key]['unit'] is None:
+                ASSET_MAP[key]['unit'] = 'unitless'
             
             stac_asset = pystac.Asset(href=relpath,
                                       title=title,
                                       media_type=media_type,
-                                      roles=[SAMPLE_MAP[key]['role'], 'metadata'],
+                                      roles=[ASSET_MAP[key]['role'], 'metadata'],
                                       extra_fields=None)
             file_ext = FileExtension.ext(stac_asset)
             file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
@@ -453,7 +453,7 @@ def _asset_get_key_title(meta, asset):
         np_pat = '-np-[vh]{2}.tif'
         if re.search(np_pat, key) is not None:
             key = np_pat
-        title = SAMPLE_MAP[key]['title']
+        title = ASSET_MAP[key]['title']
     return key, title
 
 
@@ -493,7 +493,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
                 for src in list(meta['source'].keys())]
             band = RasterBand.create(nodata=nodata,
                                      data_type=DataType.UINT8,
-                                     unit=SAMPLE_MAP[key]['unit'])
+                                     unit=ASSET_MAP[key]['unit'])
             class_ext = ClassificationExtension.ext(band)
             class_ext.classes = [Classification.create(value=i+1, description=j) for i, j in enumerate(src_list)]
             raster_ext.bands = [band]
@@ -501,12 +501,12 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             with Raster(asset) as dm_ras:
                 band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                               range(1, dm_ras.bands + 1)]
-            samples = {k: v for k, v in SAMPLE_MAP[key]['values'].items() if v in band_descr}
+            samples = {k: v for k, v in ASSET_MAP[key]['values'].items() if v in band_descr}
             bands = []
             for sample in samples.values():
                 band = RasterBand.create(nodata=nodata,
                                          data_type=DataType.UINT8,
-                                         unit=SAMPLE_MAP[key]['unit'])
+                                         unit=ASSET_MAP[key]['unit'])
                 class_ext = ClassificationExtension.ext(band, add_if_missing=True)
                 class_ext.classes = [Classification.create(value=1, description=sample)]
                 bands.append(band)
@@ -514,7 +514,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
         else:
             raster_ext.bands=[RasterBand.create(nodata=nodata,
                                                 data_type=DataType.FLOAT32,
-                                                unit=SAMPLE_MAP[key]['unit'])]
+                                                unit=ASSET_MAP[key]['unit'])]
     if key == '-em.tif':
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
