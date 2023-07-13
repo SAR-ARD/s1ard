@@ -45,7 +45,7 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
     out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
-    with vec_from_srccoords(coord_list=coord_list) as srcvec:
+    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
         with Raster(tif) as ras:
             vec = ras.bbox()
             srs = vec.srs
@@ -64,7 +64,7 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
-    src_xml = etree_from_sid(sid=src_ids[0])
+    src_xml = get_src_meta(sid=src_ids[0])
     az_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//azimuthProcessing/numberOfLooks',
                                       out_type='int')
@@ -77,7 +77,7 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
     return out
 
 
-def vec_from_srccoords(coord_list):
+def _vec_from_srccoords(coord_list):
     """
     Creates a single :class:`~spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
     
@@ -126,7 +126,7 @@ def vec_from_srccoords(coord_list):
     return wkt2vector(wkt, srs=4326)
 
 
-def etree_from_sid(sid):
+def get_src_meta(sid):
     """
     Retrieve the manifest and annotation XML data of a scene as a dictionary using an :class:`pyroSAR.drivers.ID`
     object.
@@ -238,9 +238,9 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
             if len(out[s]) == 1:
                 out[s] = out[s][0]
     
-    def convert(obj, type):
+    def _convert(obj, type):
         if isinstance(obj, list):
-            return [convert(x, type) for x in obj]
+            return [_convert(x, type) for x in obj]
         elif isinstance(obj, str):
             if type == 'float':
                 return float(obj)
@@ -249,7 +249,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
     
     if out_type != 'str':
         for k, v in list(out.items()):
-            out[k] = convert(v, out_type)
+            out[k] = _convert(v, out_type)
     
     err_msg = 'Search result for pattern "{}" expected to be the same in all annotation files.'
     if single:
@@ -258,7 +258,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
             if out[k] != val:
                 raise RuntimeError(err_msg.format(pattern))
         if out_type != 'str':
-            return convert(val, out_type)
+            return _convert(val, out_type)
         else:
             return val
     else:
@@ -295,7 +295,7 @@ def calc_performance_estimates(files):
     return out
 
 
-def extract_pslr_islr(annotation_dict):
+def calc_pslr_islr(annotation_dict):
     """
     Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated Side Lobe Ratio (ISLR) from the annotation
     metadata of a scene and calculates the mean value for all swaths.
@@ -487,7 +487,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     for i, sid in enumerate(src_ids):
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
         src_sid[uid] = sid
-        src_xml[uid] = etree_from_sid(sid=sid)
+        src_xml[uid] = get_src_meta(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
