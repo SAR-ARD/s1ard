@@ -18,6 +18,170 @@ from S1_NRB.metadata.mapping import ASSET_MAP
 from S1_NRB.metadata.extract import get_header_size
 
 
+def parse(meta, target, assets, exist_ok=False):
+    """
+    Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
+    
+    Parameters
+    ----------
+    meta: dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
+    target: str
+        A path pointing to the root directory of a product scene.
+    assets: list[str]
+        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+    exist_ok: bool
+        Do not create files if they already exist?
+    """
+    source_json(meta=meta, target=target, exist_ok=exist_ok)
+    product_json(meta=meta, target=target, assets=assets, exist_ok=exist_ok)
+
+
+def source_json(meta, target, exist_ok=False):
+    """
+    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
+    
+    Parameters
+    ----------
+    meta: dict
+        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+    target: str
+        A path pointing to the root directory of a product scene.
+    exist_ok: bool
+        Do not create files if they already exist?
+    """
+    metadir = os.path.join(target, 'source')
+    os.makedirs(metadir, exist_ok=True)
+    
+    for uid in list(meta['source'].keys()):
+        scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
+        outname = os.path.join(metadir, '{}.json'.format(scene))
+        if os.path.isfile(outname) and exist_ok:
+            continue
+        print(outname)
+        start = meta['source'][uid]['timeStart']
+        stop = meta['source'][uid]['timeStop']
+        date = start + (stop - start) / 2
+        
+        # Initialise STAC item
+        item = pystac.Item(id=scene,
+                           geometry=meta['source'][uid]['geom_stac_geometry_4326'],
+                           bbox=meta['source'][uid]['geom_stac_bbox_4326'],
+                           datetime=date,
+                           properties={})
+        
+        # Add common metadata
+        item.common_metadata.start_datetime = start
+        item.common_metadata.end_datetime = stop
+        item.common_metadata.created = datetime.strptime(meta['source'][uid]['processingDate'], '%Y-%m-%dT%H:%M:%S.%f')
+        item.common_metadata.instruments = [meta['common']['instrumentShortName'].lower()]
+        item.common_metadata.constellation = meta['common']['constellation']
+        item.common_metadata.platform = meta['common']['platformFullname']
+        
+        # Initialise STAC extensions for properties
+        sar_ext = SarExtension.ext(item, add_if_missing=True)
+        sat_ext = SatExtension.ext(item, add_if_missing=True)
+        view_ext = ViewExtension.ext(item, add_if_missing=True)
+        item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
+        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
+        
+        # Add properties
+        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
+                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
+                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
+        sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
+                      frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
+                      polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
+                      product_type=meta['source'][uid]['productType'],
+                      center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
+                      resolution_range=mean(meta['source'][uid]['rangeResolution'].values()),
+                      resolution_azimuth=mean(meta['source'][uid]['azimuthResolution'].values()),
+                      pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
+                      pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
+                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
+                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
+                      looks_equivalent_number=float(meta['source'][uid]['perfEquivalentNumberOfLooks']),
+                      observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
+        view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
+                       azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
+        item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
+        item.properties['processing:software'] = {meta['source'][uid]['processorName']:
+                                                      meta['source'][uid]['processorVersion']}
+        item.properties['processing:level'] = meta['common']['processingLevel']
+        item.properties['card4l:specification'] = meta['prod']['productName-short']
+        item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
+        item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
+        item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
+        item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
+        range_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
+        azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
+        item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
+                                                                  'range_look_bandwidth': range_look_bandwidth,
+                                                                  'azimuth_look_bandwidth': azimuth_look_bandwidth}
+        for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
+                              ['rangeResolution', 'azimuthResolution']):
+            res = {}
+            for k, v in meta['source'][uid][key].items():
+                res[k] = float(v)
+            item.properties[field] = res
+        item.properties['card4l:source_geometry'] = meta['source'][uid]['dataGeometry']
+        item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
+        item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
+        item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
+        item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid][
+            'perfNoiseEquivalentIntensityType']
+        item.properties['card4l:peak_sidelobe_ratio'] = meta['source'][uid]['perfPeakSideLobeRatio']
+        item.properties['card4l:integrated_sidelobe_ratio'] = meta['source'][uid]['perfIntegratedSideLobeRatio']
+        item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
+        item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
+        
+        # Add links
+        item.add_link(link=pystac.Link(rel='card4l-document',
+                                       target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
+                                       media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
+                                                  '.document',
+                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
+                                             ''.format(meta['prod']['card4l-version'])))
+        item.add_link(link=pystac.Link(rel='card4l-document',
+                                       target=meta['prod']['card4l-link'],
+                                       media_type='application/pdf',
+                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
+                                             ''.format(meta['prod']['card4l-version'])))
+        item.add_link(link=pystac.Link(rel='about',
+                                       target=meta['source'][uid]['doi'],
+                                       title='Product definition reference.'))
+        item.add_link(link=pystac.Link(rel='access',
+                                       target=meta['source'][uid]['access'],
+                                       title='Product data access.'))
+        item.add_link(link=pystac.Link(rel='satellite',
+                                       target=meta['common']['platformReference'],
+                                       title='CEOS Missions, Instruments and Measurements Database record'))
+        item.add_link(link=pystac.Link(rel='state-vectors',
+                                       target=meta['source'][uid]['orbitStateVector'],
+                                       title='Orbit data file containing state vectors.'))
+        item.add_link(link=pystac.Link(rel='sensor-calibration',
+                                       target=meta['source'][uid]['sensorCalibration'],
+                                       title='Reference describing sensor calibration parameters.'))
+        item.add_link(link=pystac.Link(rel='pol-cal-matrices',
+                                       target=meta['source'][uid]['polCalMatrices'],
+                                       title='Reference to the complex-valued polarimetric distortion matrices.'))
+        item.add_link(link=pystac.Link(rel='referenced-faraday-rotation',
+                                       target=meta['source'][uid]['faradayRotationReference'],
+                                       title='Reference describing the method used to derive the estimate for the mean'
+                                             ' Faraday rotation angle.'))
+        
+        # Add assets
+        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
+        item.add_asset(key='card4l',
+                       asset=pystac.Asset(href=xml_relpath,
+                                          title='Metadata in XML format.',
+                                          media_type=pystac.MediaType.XML,
+                                          roles=['metadata', 'card4l']))
+        
+        item.save_object(dest_href=outname)
+
+
 def product_json(meta, target, assets, exist_ok=False):
     """
     Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
@@ -241,170 +405,6 @@ def product_json(meta, target, assets, exist_ok=False):
     item.save_object(dest_href=outname)
 
 
-def source_json(meta, target, exist_ok=False):
-    """
-    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
-    
-    Parameters
-    ----------
-    meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
-    target: str
-        A path pointing to the root directory of a product scene.
-    exist_ok: bool
-        Do not create files if they already exist?
-    """
-    metadir = os.path.join(target, 'source')
-    os.makedirs(metadir, exist_ok=True)
-    
-    for uid in list(meta['source'].keys()):
-        scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
-        outname = os.path.join(metadir, '{}.json'.format(scene))
-        if os.path.isfile(outname) and exist_ok:
-            continue
-        print(outname)
-        start = meta['source'][uid]['timeStart']
-        stop = meta['source'][uid]['timeStop']
-        date = start + (stop - start) / 2
-        
-        # Initialise STAC item
-        item = pystac.Item(id=scene,
-                           geometry=meta['source'][uid]['geom_stac_geometry_4326'],
-                           bbox=meta['source'][uid]['geom_stac_bbox_4326'],
-                           datetime=date,
-                           properties={})
-        
-        # Add common metadata
-        item.common_metadata.start_datetime = start
-        item.common_metadata.end_datetime = stop
-        item.common_metadata.created = datetime.strptime(meta['source'][uid]['processingDate'], '%Y-%m-%dT%H:%M:%S.%f')
-        item.common_metadata.instruments = [meta['common']['instrumentShortName'].lower()]
-        item.common_metadata.constellation = meta['common']['constellation']
-        item.common_metadata.platform = meta['common']['platformFullname']
-        
-        # Initialise STAC extensions for properties
-        sar_ext = SarExtension.ext(item, add_if_missing=True)
-        sat_ext = SatExtension.ext(item, add_if_missing=True)
-        view_ext = ViewExtension.ext(item, add_if_missing=True)
-        item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
-        
-        # Add properties
-        sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
-                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
-        sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
-                      frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
-                      polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
-                      product_type=meta['source'][uid]['productType'],
-                      center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
-                      resolution_range=mean(meta['source'][uid]['rangeResolution'].values()),
-                      resolution_azimuth=mean(meta['source'][uid]['azimuthResolution'].values()),
-                      pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
-                      pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
-                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
-                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
-                      looks_equivalent_number=float(meta['source'][uid]['perfEquivalentNumberOfLooks']),
-                      observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
-        view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
-                       azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
-        item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
-        item.properties['processing:software'] = {meta['source'][uid]['processorName']:
-                                                      meta['source'][uid]['processorVersion']}
-        item.properties['processing:level'] = meta['common']['processingLevel']
-        item.properties['card4l:specification'] = meta['prod']['productName-short']
-        item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
-        item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
-        item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
-        item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
-        range_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
-        azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
-        item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
-                                                                  'range_look_bandwidth': range_look_bandwidth,
-                                                                  'azimuth_look_bandwidth': azimuth_look_bandwidth}
-        for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
-                              ['rangeResolution', 'azimuthResolution']):
-            res = {}
-            for k, v in meta['source'][uid][key].items():
-                res[k] = float(v)
-            item.properties[field] = res
-        item.properties['card4l:source_geometry'] = meta['source'][uid]['dataGeometry']
-        item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
-        item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
-        item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
-        item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid][
-            'perfNoiseEquivalentIntensityType']
-        item.properties['card4l:peak_sidelobe_ratio'] = meta['source'][uid]['perfPeakSideLobeRatio']
-        item.properties['card4l:integrated_sidelobe_ratio'] = meta['source'][uid]['perfIntegratedSideLobeRatio']
-        item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
-        item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
-        
-        # Add links
-        item.add_link(link=pystac.Link(rel='card4l-document',
-                                       target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
-                                       media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
-                                                  '.document',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
-        item.add_link(link=pystac.Link(rel='card4l-document',
-                                       target=meta['prod']['card4l-link'],
-                                       media_type='application/pdf',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
-        item.add_link(link=pystac.Link(rel='about',
-                                       target=meta['source'][uid]['doi'],
-                                       title='Product definition reference.'))
-        item.add_link(link=pystac.Link(rel='access',
-                                       target=meta['source'][uid]['access'],
-                                       title='Product data access.'))
-        item.add_link(link=pystac.Link(rel='satellite',
-                                       target=meta['common']['platformReference'],
-                                       title='CEOS Missions, Instruments and Measurements Database record'))
-        item.add_link(link=pystac.Link(rel='state-vectors',
-                                       target=meta['source'][uid]['orbitStateVector'],
-                                       title='Orbit data file containing state vectors.'))
-        item.add_link(link=pystac.Link(rel='sensor-calibration',
-                                       target=meta['source'][uid]['sensorCalibration'],
-                                       title='Reference describing sensor calibration parameters.'))
-        item.add_link(link=pystac.Link(rel='pol-cal-matrices',
-                                       target=meta['source'][uid]['polCalMatrices'],
-                                       title='Reference to the complex-valued polarimetric distortion matrices.'))
-        item.add_link(link=pystac.Link(rel='referenced-faraday-rotation',
-                                       target=meta['source'][uid]['faradayRotationReference'],
-                                       title='Reference describing the method used to derive the estimate for the mean'
-                                             ' Faraday rotation angle.'))
-        
-        # Add assets
-        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
-        item.add_asset(key='card4l',
-                       asset=pystac.Asset(href=xml_relpath,
-                                          title='Metadata in XML format.',
-                                          media_type=pystac.MediaType.XML,
-                                          roles=['metadata', 'card4l']))
-        
-        item.save_object(dest_href=outname)
-
-
-def parse(meta, target, assets, exist_ok=False):
-    """
-    Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
-    
-    Parameters
-    ----------
-    meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
-    target: str
-        A path pointing to the root directory of a product scene.
-    assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
-    exist_ok: bool
-        Do not create files if they already exist?
-    """
-    source_json(meta=meta, target=target, exist_ok=exist_ok)
-    product_json(meta=meta, target=target, assets=assets, exist_ok=exist_ok)
-
-
 def _asset_get_key_title(meta, asset):
     """
     Helper function to handle creation of identifying key and title of a given asset.
@@ -486,7 +486,8 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
                                               unit='natural')]
     elif 'annotation' in stac_asset.href:
         if key is None or meta is None or asset is None:
-            raise ValueError(f'`key`, `meta` and `asset` parameters need to be defined to handle RasterExtension for {stac_asset.href}')
+            raise ValueError(f'`key`, `meta` and `asset` parameters need to be defined to handle RasterExtension '
+                             f'for {stac_asset.href}')
         if key == '-id.tif':
             src_list = [
                 os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
@@ -495,7 +496,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
                                      data_type=DataType.UINT8,
                                      unit=ASSET_MAP[key]['unit'])
             class_ext = ClassificationExtension.ext(band)
-            class_ext.classes = [Classification.create(value=i+1, description=j) for i, j in enumerate(src_list)]
+            class_ext.classes = [Classification.create(value=i + 1, description=j) for i, j in enumerate(src_list)]
             raster_ext.bands = [band]
         elif key == '-dm.tif':
             with Raster(asset) as dm_ras:
@@ -510,11 +511,11 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
                 class_ext = ClassificationExtension.ext(band, add_if_missing=True)
                 class_ext.classes = [Classification.create(value=1, description=sample)]
                 bands.append(band)
-            raster_ext.bands=bands
+            raster_ext.bands = bands
         else:
-            raster_ext.bands=[RasterBand.create(nodata=nodata,
-                                                data_type=DataType.FLOAT32,
-                                                unit=ASSET_MAP[key]['unit'])]
+            raster_ext.bands = [RasterBand.create(nodata=nodata,
+                                                  data_type=DataType.FLOAT32,
+                                                  unit=ASSET_MAP[key]['unit'])]
     if key == '-em.tif':
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
