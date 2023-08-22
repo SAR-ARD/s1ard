@@ -107,7 +107,7 @@ def source_json(meta, target, exist_ok=False):
                        azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
-                                                      meta['source'][uid]['processorVersion']}
+                                                  meta['source'][uid]['processorVersion']}
         item.properties['processing:level'] = meta['common']['processingLevel']
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
@@ -250,7 +250,8 @@ def product_json(meta, target, assets, exist_ok=False):
     mgrs_ext.apply(latitude_band=mgrs[2:3],
                    grid_square=mgrs[3:],
                    utm_zone=int(mgrs[:2]))
-    item.properties['processing:facility'] = meta['prod']['processingCenter']
+    if meta['prod']['processingCenter'] is not None:
+        item.properties['processing:facility'] = meta['prod']['processingCenter']
     item.properties['processing:software'] = {meta['prod']['processorName']: meta['prod']['processorVersion']}
     item.properties['processing:level'] = meta['common']['processingLevel']
     item.properties['card4l:specification'] = meta['prod']['productName-short']
@@ -293,12 +294,14 @@ def product_json(meta, target, assets, exist_ok=False):
                                        target=src_target,
                                        media_type='application/json',
                                        title='Source metadata formatted in STAC compliant JSON format.'))
-    item.add_link(link=pystac.Link(rel='about',
-                                   target=meta['prod']['doi'],
-                                   title='Product definition reference.'))
-    item.add_link(link=pystac.Link(rel='access',
-                                   target=meta['prod']['access'],
-                                   title='Product data access.'))
+    if meta['prod']['doi'] is not None:
+        item.add_link(link=pystac.Link(rel='about',
+                                       target=meta['prod']['doi'],
+                                       title='Product definition reference.'))
+    if meta['prod']['access'] is not None:
+        item.add_link(link=pystac.Link(rel='access',
+                                       target=meta['prod']['access'],
+                                       title='Product data access.'))
     item.add_link(link=pystac.Link(rel='related',
                                    target=meta['prod']['ancillaryData_KML'],
                                    title='Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '

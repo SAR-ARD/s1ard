@@ -363,8 +363,9 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     
     identifier = etree.SubElement(earthObservationMetaData, _nsc('eop:identifier', nsmap))
     identifier.text = scene_id
-    doi = etree.SubElement(earthObservationMetaData, _nsc('eop:doi', nsmap))
-    doi.text = meta['prod']['doi']
+    if meta['prod']['doi'] is not None:
+        doi = etree.SubElement(earthObservationMetaData, _nsc('eop:doi', nsmap))
+        doi.text = meta['prod']['doi']
     acquisitionType = etree.SubElement(earthObservationMetaData, _nsc('eop:acquisitionType', nsmap))
     acquisitionType.text = meta['prod']['acquisitionType']
     status = etree.SubElement(earthObservationMetaData, _nsc('eop:status', nsmap))
@@ -372,9 +373,10 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     
     processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing', nsmap))
     processingInformation = etree.SubElement(processing, _nsc('s1-nrb:ProcessingInformation', nsmap))
-    processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter', nsmap),
-                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
-    processingCenter.text = meta['prod']['processingCenter']
+    if meta['prod']['processingCenter'] is not None:
+        processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter', nsmap),
+                                            attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
+        processingCenter.text = meta['prod']['processingCenter']
     processingDate = etree.SubElement(processingInformation, _nsc('eop:processingDate', nsmap))
     processingDate.text = timeCreated
     processorName = etree.SubElement(processingInformation, _nsc('eop:processorName', nsmap))
