@@ -20,7 +20,7 @@ from S1_NRB import dem
 from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import LERC_ERR_THRES
 from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
-from S1_NRB.metadata.extract import copy_src_meta, etree_from_sid, find_in_annotation
+from S1_NRB.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
 from S1_NRB.snap import find_datasets
 
 
@@ -685,7 +685,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     slc_dict = {}
     for i, sid in enumerate(src_ids):
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
-        slc_dict[uid] = etree_from_sid(sid)
+        slc_dict[uid] = get_src_meta(sid)
         slc_dict[uid]['sid'] = sid
     
     uids = list(slc_dict.keys())
