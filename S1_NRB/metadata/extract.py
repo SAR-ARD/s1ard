@@ -195,7 +195,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
                                                pattern='.//azimuthProcessing/lookBandwidth',
                                                out_type='float')
         az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//azimuthProcessing/numberOfLooks')
+                                          pattern='.//azimuthProcessing/numberOfLooks',
+                                          out_type='int')
         az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                            pattern='.//azimuthPixelSpacing',
                                            out_type='float')
@@ -210,7 +211,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
                                                pattern='.//rangeProcessing/lookBandwidth',
                                                out_type='float')
         rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//rangeProcessing/numberOfLooks')
+                                          pattern='.//rangeProcessing/numberOfLooks',
+                                          out_type='int')
         rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
                                            pattern='.//rangePixelSpacing',
                                            out_type='float')
@@ -239,9 +241,9 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
             res_rg = RES_MAP[op_mode]['rangeResolution']
         meta['source'][uid]['azimuthResolution'] = res_az
         if src_sid[uid].meta['product'] == 'GRD':
-            meta['source'][uid]['dataGeometry'] = 'ground range'
+            meta['source'][uid]['dataGeometry'] = 'ground-range'
         else:
-            meta['source'][uid]['dataGeometry'] = 'slant range'
+            meta['source'][uid]['dataGeometry'] = 'slant-range'
         meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
         meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/' \
                                      'Sentinel-1-Product-Specification'

@@ -132,12 +132,12 @@ def source_xml(meta, target, nsmap, exist_ok=False):
             azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData,
                                                     _nsc('s1-nrb:azimuthNumberOfLooks', nsmap),
                                                     attrib={'beam': swath})
-            azimuthNumberOfLooks.text = meta['source'][uid]['azimuthNumberOfLooks'][swath]
+            azimuthNumberOfLooks.text = str(meta['source'][uid]['azimuthNumberOfLooks'][swath])
         for swath in meta['source'][uid]['swaths']:
             rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
                                                   _nsc('s1-nrb:rangeNumberOfLooks', nsmap),
                                                   attrib={'beam': swath})
-            rangeNumberOfLooks.text = meta['source'][uid]['rangeNumberOfLooks'][swath]
+            rangeNumberOfLooks.text = str(meta['source'][uid]['rangeNumberOfLooks'][swath])
         dataGeometry = etree.SubElement(earthObservationMetaData,
                                         _nsc('s1-nrb:dataGeometry', nsmap))
         dataGeometry.text = meta['source'][uid]['dataGeometry']
