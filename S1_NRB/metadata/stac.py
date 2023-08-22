@@ -375,7 +375,9 @@ def product_json(meta, target, assets, exist_ok=False):
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
             if key == '-np-[vh]{2}.tif':
-                asset_key = 'noise-power-{}'.format(re.search('-[vh]{2}', relpath).group().removeprefix('-'))
+                pol = re.search('-[vh]{2}', relpath).group().removeprefix('-')
+                asset_key = 'noise-power-{}'.format(pol)
+                title = "{} {}".format(title, pol.upper())
             else:
                 asset_key = ASSET_MAP[key]['role']
             
