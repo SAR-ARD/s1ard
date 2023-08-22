@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 from statistics import mean, median
-from datetime import datetime
+from datetime import datetime, timezone
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
 from pystac.extensions.sat import SatExtension, OrbitState
@@ -353,7 +353,7 @@ def product_json(meta, target, assets, exist_ok=False):
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
-            created = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
+            created = datetime.fromtimestamp(os.path.getctime(asset), tz=timezone.utc).isoformat()
             header_size = get_header_size(tif=asset)
             media_type = pystac.MediaType.COG
             byte_order = ByteOrder.LITTLE_ENDIAN
