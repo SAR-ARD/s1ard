@@ -2,7 +2,7 @@ import os
 import re
 from copy import deepcopy
 from lxml import etree
-from datetime import datetime
+from datetime import datetime, timezone
 from spatialist import Raster
 from statistics import mean
 from S1_NRB.metadata.mapping import ASSET_MAP, NS_MAP
@@ -351,7 +351,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
         
         if 'measurement' in asset and not asset.endswith('.vrt'):
             creationTime = etree.SubElement(productInformation, _nsc('s1-nrb:creationTime', nsmap))
-            creationTime.text = datetime.fromtimestamp(os.path.getctime(asset)).isoformat()
+            creationTime.text = datetime.fromtimestamp(os.path.getctime(asset), tz=timezone.utc).isoformat()
             polarization = etree.SubElement(productInformation, _nsc('s1-nrb:polarization', nsmap))
             polarization.text = re.search('-[vh]{2}', relpath).group().removeprefix('-').upper()
             numBorderPixels = etree.SubElement(productInformation, _nsc('s1-nrb:numBorderPixels', nsmap))
