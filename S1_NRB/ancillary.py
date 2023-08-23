@@ -250,7 +250,7 @@ def set_logging(config, debug=False):
     sh = logging.StreamHandler(sys.stdout)
     log_pyro.addHandler(sh)
     
-    # NRB logging in logfile
+    # S1_NRB logging in logfile
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)

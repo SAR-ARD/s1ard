@@ -702,7 +702,7 @@ def get_header_size(tif):
     Parameters
     ----------
     tif: str
-        A path to a GeoTIFF file of the currently processed NRB product.
+        A path to a GeoTIFF file of the currently processed ARD product.
 
     Returns
     -------
@@ -739,12 +739,13 @@ def get_header_size(tif):
 
 def copy_src_meta(target, src_ids):
     """
-    Copies the original metadata of the source scenes to the NRB product scene.
+    Copies the original metadata of the source scenes to the ARD product
+    directory.
     
     Parameters
     ----------
     target: str
-        A path pointing to the NRB product scene being created.
+        A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     

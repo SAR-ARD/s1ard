@@ -20,7 +20,7 @@ def parse(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -35,7 +35,7 @@ def parse(meta, target, assets, exist_ok=False):
 
 def source_xml(meta, target, nsmap, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
+    Function to generate source-level metadata for an ARD product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -205,7 +205,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
 
 def product_xml(meta, target, assets, nsmap, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
+    Function to generate product-level metadata for an ARD product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -214,7 +214,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
     exist_ok: bool

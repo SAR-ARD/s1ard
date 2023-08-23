@@ -29,7 +29,7 @@ def parse(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -39,7 +39,7 @@ def parse(meta, target, assets, exist_ok=False):
 
 def source_json(meta, target, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
+    Function to generate source-level metadata for an ARD product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -184,7 +184,7 @@ def source_json(meta, target, exist_ok=False):
 
 def product_json(meta, target, assets, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
+    Function to generate product-level metadata for an ARD product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -193,7 +193,7 @@ def product_json(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
