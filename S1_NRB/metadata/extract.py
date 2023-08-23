@@ -133,7 +133,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['geoCorrAccuracy_rRMSE'] = \
         calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad']) \
             if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower() else None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html'
+    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
+                                               ''.format(S1_NRB.__version__)
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
