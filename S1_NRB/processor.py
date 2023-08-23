@@ -163,7 +163,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     if rtc_flag:
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
-            out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
+            out_dir_scene = os.path.join(config['sar_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
             print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
@@ -237,7 +237,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # main processing routine
             start_time = time.time()
             try:
-                snap.process(scene=scene.scene, outdir=config['rtc_dir'],
+                snap.process(scene=scene.scene, outdir=config['sar_dir'],
                              measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
@@ -295,7 +295,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                  scenes=[os.path.basename(s) for s in scenes_sub_fnames],
                                  s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
+                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['sar_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
                                      multithread=gdal_prms['multithread'], annotation=annotation,

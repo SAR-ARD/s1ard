@@ -338,7 +338,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # create metadata files in XML and (STAC) JSON formats
     start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
-    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
+    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress, orb=orb)
     nrb_assets = list(datasets_nrb.values()) + finder(nrb_dir, ['.vrt$'], regex=True, recursive=True)
     if 'OGC' in config['meta']['format']:

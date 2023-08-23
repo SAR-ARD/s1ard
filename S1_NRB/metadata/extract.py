@@ -20,7 +20,7 @@ from S1_NRB import snap
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression, orb=False):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, orb=False):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
@@ -34,8 +34,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
         A path pointing to the NRB product scene being created.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    rtc_dir: str
-        The RTC processing output directory.
+    sar_dir: str
+        The SAR processing output directory.
     proc_time: datetime.datetime
         The processing time object used to generate the unique product identifier.
     start: datetime.datetime
@@ -68,7 +68,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
-                              src_ids=src_ids, rtc_dir=rtc_dir)
+                              src_ids=src_ids, sar_dir=sar_dir)
     
     tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
     z_err_dict = dict(tups)
@@ -309,7 +309,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     return meta
 
 
-def get_prod_meta(product_id, tif, src_ids, rtc_dir):
+def get_prod_meta(product_id, tif, src_ids, sar_dir):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -323,8 +323,8 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
         The path to a measurement GeoTIFF file of the product scene.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
-    rtc_dir: str
-        A path pointing to the processed datasets of the product.
+    sar_dir: str
+        A path pointing to the processed SAR datasets of the product.
     
     Returns
     -------
@@ -360,7 +360,7 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
     rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//rangeProcessing/numberOfLooks',
                                       out_type='int')
-    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=rtc_dir)
+    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
     out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
     out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
     return out

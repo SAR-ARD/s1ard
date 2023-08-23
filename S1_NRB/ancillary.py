@@ -349,7 +349,7 @@ def _log_process_config(logger, config):
     etad                {config.get('etad')}
     
     work_dir            {config['work_dir']}
-    rtc_dir             {config['rtc_dir']}
+    sar_dir             {config['sar_dir']}
     tmp_dir             {config['tmp_dir']}
     ard_dir             {config['ard_dir']}
     wbm_dir             {config['wbm_dir']}

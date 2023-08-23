@@ -44,7 +44,7 @@ def cli(ctx, config_file, section, debug, version):
     - log_dir:           LOG
     - measurement:       gamma
     - ard_dir:           ARD
-    - rtc_dir:           RTC
+    - sar_dir:           SAR
     - tmp_dir:           TMP
     - wbm_dir:           WBM
     (metadata section)
