@@ -139,8 +139,10 @@ A comma-separated list to define the annotation layers to be created. Supported 
  + lc: RTC local contributing area
  + li: local incident angle
  + np: noise power (NESZ, per polarization)
- + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)
- + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (ignored if ``measurement`` is not sigma)
+ + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
+
+   + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
+   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
 
 Use one of the following to create no annotation layer:
 
@@ -212,3 +214,10 @@ override some parameters, e.g. ``acq_mode`` and ``annotation``:
 ::
 
     s1_nrb -c /path/to/config.ini --acq_mode IW --annotation dm,id
+
+The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
+In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
+
+::
+
+    s1_nrb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
