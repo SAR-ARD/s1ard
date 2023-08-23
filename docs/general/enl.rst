@@ -34,6 +34,7 @@ the resulting array is shown in Figure 1.
     :width: 85 %
     :align: center
     :alt: Figure 1: Visualized ENL array for a S1-NRB product.
+
     Figure 1: Visualized ENL array for a S1-NRB product processed from a Sentinel-1A SLC scene in IW mode for MGRS tile 33TUF
     (coastline between Rome and Naples, Italy).
 
@@ -57,6 +58,7 @@ consistently higher ENL values for the GRDH product (Avg. ENL: 4.81) in comparis
     :width: 75 %
     :align: center
     :alt: Figure 2: Selection of homogeneous forest areas for ENL comparison between GRDH and NRB.
+
     Figure 2: Selection of homogeneous forest areas for ENL comparison between GRDH and NRB. Green outline: North-western
     corner of MGRS tile 33TUF; Background image: VH backscatter of the GRDH product.
 
@@ -64,6 +66,7 @@ consistently higher ENL values for the GRDH product (Avg. ENL: 4.81) in comparis
     :width: 75 %
     :align: center
     :alt: Figure 3: Scatter plot comparing ENL values between GRDH and NRB, calculated for selected areas (see Fig. 2).
+
     Figure 3: Scatter plot comparing ENL values between GRDH and NRB, calculated for selected areas (see Fig. 2).
 
 References
