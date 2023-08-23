@@ -280,7 +280,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 # select all scenes from the group whose footprint overlaps with the current tile
                 scenes_sub = [x for x in group if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
-                outdir = os.path.join(config['nrb_dir'], tile.mgrs)
+                outdir = os.path.join(config['ard_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
                                          '{}_WBM.tif'.format(tile.mgrs))

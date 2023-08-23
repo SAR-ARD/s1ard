@@ -43,7 +43,7 @@ def cli(ctx, config_file, section, debug, version):
     - snap_gpt_args:     None
     - log_dir:           LOG
     - measurement:       gamma
-    - nrb_dir:           NRB
+    - ard_dir:           ARD
     - rtc_dir:           RTC
     - tmp_dir:           TMP
     - wbm_dir:           WBM

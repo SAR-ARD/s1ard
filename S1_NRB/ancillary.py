@@ -351,7 +351,7 @@ def _log_process_config(logger, config):
     work_dir            {config['work_dir']}
     rtc_dir             {config['rtc_dir']}
     tmp_dir             {config['tmp_dir']}
-    nrb_dir             {config['nrb_dir']}
+    ard_dir             {config['ard_dir']}
     wbm_dir             {config['wbm_dir']}
     log_dir             {config['log_dir']}
     etad_dir            {config['etad_dir']}
