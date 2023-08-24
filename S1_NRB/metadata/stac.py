@@ -141,13 +141,13 @@ def source_json(meta, target, exist_ok=False):
                                        target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
                                                   '.document',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
+                                       title='CARD4L Product Family Specification: {} (v{})'
+                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='card4l-document',
                                        target=meta['prod']['card4l-link'],
                                        media_type='application/pdf',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
+                                       title='CARD4L Product Family Specification: {} (v{})'
+                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='about',
                                        target=meta['source'][uid]['doi'],
                                        title='Product definition reference.'))
@@ -280,13 +280,13 @@ def product_json(meta, target, assets, exist_ok=False):
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                         ''.format(meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification: {} (v{})'
+                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'],
                                    media_type='application/pdf',
-                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                         ''.format(meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification: {} (v{})'
+                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
     for src in list(meta['source'].keys()):
         x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
         src_target = os.path.join('./source', '{}.json'.format(x)).replace('\\', '/')
