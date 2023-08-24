@@ -28,7 +28,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None,
            overviews=None, kml=None, annotation=None, update=False, orb=False):
     """
-    Finalizes the generation of Sentinel-1 ARD (NRB or ORB) products after SAR processing has finished.
+    Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
     This includes the following:
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
     - Creating additional annotation datasets in Virtual Raster Tile (VRT) format

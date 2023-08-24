@@ -115,7 +115,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
-            allowed = ['nrb', 'rtc', 'all', 'orb']
+            allowed = ['sar', 'ard', 'all', 'orb']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
             v = v.lower()
         if k == 'aoi_tiles':

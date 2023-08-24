@@ -38,8 +38,8 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     anc.check_spacing(geocode_prms['spacing'])
     
-    rtc_flag = config['mode'] in ['rtc', 'all']
-    nrb_flag = config['mode'] in ['nrb', 'all']
+    sar_flag = config['mode'] in ['sar', 'all']
+    ard_flag = config['mode'] in ['ard', 'all']
     orb_flag = config['mode'] == 'orb'
     
     # DEM download authentication
@@ -160,13 +160,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     ####################################################################################################################
     # main SAR processing
-    if rtc_flag:
+    if sar_flag:
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
             out_dir_scene = os.path.join(config['sar_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            print(f'###### [    SAR] Scene {i + 1}/{len(scenes)}: {scene.scene}')
             if os.path.isdir(out_dir_scene) and not update:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
@@ -214,7 +214,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # otherwise there will be a gap between final geocoded images.
             neighbors = None
             if scene.product == 'GRD':
-                print('###### [    RTC] collecting GRD neighbors')
+                print('###### [    SAR] collecting GRD neighbors')
                 f = '%Y%m%dT%H%M%S'
                 td = timedelta(seconds=2)
                 start = datetime.strptime(scene.start, f) - td
@@ -245,14 +245,14 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                              gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+                anc.log(handler=logger, mode='info', proc_step='SAR', scenes=scene.scene, msg=t)
             except Exception as e:
-                anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                anc.log(handler=logger, mode='exception', proc_step='SAR', scenes=scene.scene, msg=e)
                 raise
     ####################################################################################################################
     # ARD - final product generation
-    if nrb_flag or orb_flag:
-        proc_step = 'NRB' if nrb_flag else 'ORB'
+    if ard_flag or orb_flag:
+        proc_step = 'NRB' if ard_flag else 'ORB'
         
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]

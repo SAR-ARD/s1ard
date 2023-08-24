@@ -31,7 +31,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     config: dict
         Dictionary of the parsed config parameters for the current process.
     target: str
-        A path pointing to the NRB product scene being created.
+        A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     sar_dir: str
