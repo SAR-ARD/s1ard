@@ -4,7 +4,7 @@ Installation
 SNAP
 ----
 
-S1_NRB requires ESA’s Sentinels Application Platform (SNAP) software to produce S1-NRB products.
+S1_NRB requires ESA’s Sentinels Application Platform (SNAP) software for SAR data processing.
 Version 1.0.0 has been developed based on SNAP 8.
 SNAP 9 is supported since version 1.0.2.
 Downloaders for different operating systems can be obtained from the `official webpage <https://step.esa.int/main/download/snap-download/>`_.
