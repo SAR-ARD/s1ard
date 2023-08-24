@@ -132,6 +132,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
+            'ard_spec': 'ORB' if orb else 'NRB',
             'polarization': {"['HH']": 'SH',
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
@@ -142,8 +143,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             'tile': tile,
             'id': product_id}
     meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
-    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
-    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
+    skeleton_dir = '{mission}_{mode}_{ard_spec}__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
+    skeleton_files = '{mission}-{mode}-{ard_spec}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
     ard_base = skeleton_dir.format(**meta)
     existing = finder(outdir, [ard_base.replace(product_id, '*')], foldermode=2)

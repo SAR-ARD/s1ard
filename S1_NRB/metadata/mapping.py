@@ -1,6 +1,6 @@
-NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
+ARD_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<mode>IW|EW|S[1-6])_' \
-              r'(?P<product>NRB)_' \
+              r'(?P<product>NRB|ORB)_' \
               r'(?P<resolution>_)' \
               r'(?P<processingLevel>1)' \
               r'(?P<category>S)' \

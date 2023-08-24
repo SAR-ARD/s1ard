@@ -14,7 +14,7 @@ from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, LERC_ERR_THRES, RES_MAP, OSV_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB.metadata.mapping import ARD_PATTERN, LERC_ERR_THRES, RES_MAP, OSV_MAP, DEM_MAP, SLC_ACC_MAP
 from S1_NRB import snap
 
 gdal.UseExceptions()
@@ -331,7 +331,7 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     dict
         A dictionary containing metadata for the product scene.
     """
-    out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
+    out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
     with _vec_from_srccoords(coord_list=coord_list) as srcvec:
