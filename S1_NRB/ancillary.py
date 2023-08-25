@@ -19,8 +19,8 @@ def check_acquisition_completeness(scenes, archive):
     Check that for each scene a predecessor and successor can be queried
     from the database unless the scene is at the start or end of the data take.
     This ensures that no scene that could be covering an area of interest is missed
-    during processing. In case a scene is suspected to be missing, the ASF online
-    catalog is cross-checked.
+    during processing. In case a scene is suspected to be missing, the Alaska Satellite Facility (ASF)
+    online catalog is cross-checked.
     An error will only be raised if the locally missing scene is present in the ASF catalog.
     
     Parameters

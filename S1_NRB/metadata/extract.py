@@ -23,8 +23,8 @@ gdal.UseExceptions()
 def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
-    JSON metadata files, respectively.
+    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
+    STAC JSON metadata files, respectively.
     
     Parameters
     ----------
