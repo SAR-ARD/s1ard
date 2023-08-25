@@ -1,4 +1,7 @@
-.. list-table:: Abbreviations
+Abbreviations
+=============
+
+.. list-table::
    :widths: 30 70
    :header-rows: 1
 
