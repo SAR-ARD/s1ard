@@ -904,7 +904,7 @@ def find_datasets(scene, outdir, epsg):
 
 def get_metadata(scene, outdir):
     """
-    Get processing metadata needed for NRB metadata.
+    Get processing metadata needed for ARD product metadata.
     
     Parameters
     ----------

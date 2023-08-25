@@ -81,13 +81,13 @@ Depending on the user configuration parameters ``measurement`` and ``annotation`
 NRB Formatting
 --------------
 
-During RTC processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
+During SAR processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
 If one tile overlaps with multiple scenes, these scenes are first virtually mosaiced using VRT files.
 The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB naming scheme.
 All steps are performed by :func:`S1_NRB.nrb.format`.
 The actual file format conversion is done with :func:`spatialist.auxil.gdalwarp`, which is a simple wrapper around the gdalwarp utility of GDAL.
 The following is an incomplete code example highlighting the general procedure of converting the individual images.
-The ``outfile`` name is generated from information of the source images, the MGRS tile ID and the name of the respective file of the RTC processing step.
+The ``outfile`` name is generated from information of the source images, the MGRS tile ID and the name of the respective file of the SAR processing step.
 
 .. code-block:: python
 
