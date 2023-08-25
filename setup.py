@@ -20,7 +20,7 @@ setup(
                       'gdal>=3.5.0',
                       'click>=7.1.0',
                       'lxml',
-                      'pystac',
+                      'pystac>=1.8.0',
                       'pyroSAR>=0.21.0',
                       'spatialist>=0.12.0',
                       'scipy',
