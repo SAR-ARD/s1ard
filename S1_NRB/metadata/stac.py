@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import shutil
 from statistics import mean, median
 from datetime import datetime, timezone
@@ -525,22 +526,24 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
 
-def make_catalog(directory, recursive=True, silent=False):
+def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
     """
-    For a given directory of Sentinel-1 NRB products, this function will create a high-level STAC
+    For a given directory of Sentinel-1 ARD products, this function will create a high-level STAC
     :class:`~pystac.catalog.Catalog` object serving as the STAC endpoint and lower-level STAC
     :class:`~pystac.collection.Collection` objects for each subdirectory corresponding to a unique MGRS tile ID.
     
-    WARNING: The directory content will be reorganized into subdirectories based on unique MGRS tile IDs if this is not
-    yet the case.
+    WARNING: The directory content will be reorganized into subdirectories based on the ARD type and unique MGRS tile
+    IDs if this is not yet the case.
     
     Parameters
     ----------
     directory: str
-        Path to a directory that contains Sentinel-1 NRB products.
-    recursive: bool
-        Search for NRB products in `directory` recursively? Default is True.
-    silent: bool
+        Path to a directory that contains ARD products.
+    ard_type: str, optional
+        Type of ARD products. Options are 'NRB' (default) and 'ORB'.
+    recursive: bool, optional
+        Search `directory` recursively? Default is True.
+    silent: bool, optional
         Should the output during directory reorganization be suppressed? Default is False.
     
     Returns
@@ -556,9 +559,10 @@ def make_catalog(directory, recursive=True, silent=False):
     https://github.com/gjoseph92/stackstac/issues/20
     """
     overwrite = False
-    pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
-              r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
+    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{ard_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_'\
+              fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
     products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+    directory = os.path.join(directory, ard_type)
     
     # Check if Catalog already exists
     catalog_path = os.path.join(directory, 'catalog.json')
@@ -580,24 +584,26 @@ def make_catalog(directory, recursive=True, silent=False):
     
     unique_tiles = list(
         set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
-    products = _reorganize_by_tile(directory=directory, products=products, recursive=recursive, silent=silent)
+    products = _reorganize_by_tile(directory=directory, ard_type=ard_type, products=products, recursive=recursive,
+                                   silent=silent)
     
-    nrb_catalog = pystac.Catalog(id='nrb_catalog',
-                                 description='A STAC Catalog of Sentinel-1 NRB products.',
-                                 title='Sentinel-1 NRB STAC Catalog',
-                                 catalog_type=pystac.CatalogType.SELF_CONTAINED)
+    catalog = pystac.Catalog(id=f'{ard_type.lower()}_catalog',
+                             description=f'STAC Catalog of Sentinel-1 {ard_type} products.',
+                             title=f'STAC Catalog of Sentinel-1 {ard_type} products.',
+                             catalog_type=pystac.CatalogType.SELF_CONTAINED)
     
     for tile in unique_tiles:
         tile_collection = pystac.Collection(id=tile,
-                                            description=f'A STAC Collection for Sentinel-1 NRB products corresponding '
-                                                        f'to MGRS tile {tile}.',
-                                            title='Sentinel-1 NRB STAC Collection',
+                                            description=f'STAC Collection of Sentinel-1 {ard_type} products for '
+                                                        f'MGRS tile {tile}.',
+                                            title=f'STAC Collection of Sentinel-1 {ard_type} products for '
+                                                  f'MGRS tile {tile}.',
                                             extent=pystac.Extent(sp_extent, tmp_extent),
                                             keywords=['sar', 'backscatter', 'esa', 'copernicus', 'sentinel'],
                                             providers=[pystac.Provider(name='ESA',
                                                                        roles=[pystac.ProviderRole.LICENSOR,
                                                                               pystac.ProviderRole.PRODUCER])])
-        nrb_catalog.add_child(tile_collection)
+        catalog.add_child(tile_collection)
         
         items = []
         for prod in products:
@@ -613,45 +619,47 @@ def make_catalog(directory, recursive=True, silent=False):
         tile_collection.extent = extent
     
     # Save Catalog and Collections on disk
-    nrb_catalog.normalize_and_save(root_href=directory)
+    catalog.normalize_and_save(root_href=directory)
     
     # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
-    nrb_catalog.make_all_asset_hrefs_absolute()
+    catalog.make_all_asset_hrefs_absolute()
     
     if overwrite:
         print(f"\n#### Existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
     else:
         print(f"\n#### New STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
-    return nrb_catalog
+    return catalog
 
 
-def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
+def _reorganize_by_tile(directory, ard_type, products=None, recursive=True, silent=False):
     """
-    Reorganizes a directory containing Sentinel-1 NRB products based on unique MGRS tile IDs.
-    If a product is already located in a subdirectory named after the MGRS tile it was created for, it will not be moved.
-
+    Reorganizes a directory containing Sentinel-1 ARD products based on the ARD type and unique MGRS tile IDs.
+    
     Parameters
     ----------
     directory: str
-        Path to a directory that contains Sentinel-1 NRB products.
-    products: list[str] or None
-        List of NRB product paths. Will be created from `directory` if not provided.
-    recursive: bool
-        Search for NRB products in `directory` recursively? Default is True.
-    silent: bool
-        If False (default), a message for each NRB product is printed if it has been moved to a new location or not.
-
+        Path to a directory that contains ARD products.
+    ard_type: str
+        Type of ARD products. Options are 'NRB' and 'ORB'.
+    products: list[str] or None, optional
+        List of ARD product paths. Will be created from `directory` if not provided.
+    recursive: bool, optional
+        Search `directory` recursively? Default is True.
+    silent: bool, optional
+        If False (default), a message for each ARD product is printed if it has been moved to a new location or not.
+    
     Returns
     -------
     products_new: list[str]
-        An updated list of NRB product paths.
+        An updated list of ARD product paths.
     """
     if products is None:
-        pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
-                  r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
-        products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+        parent_dir = os.path.dirname(directory)
+        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{ard_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
+                  fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
+        products = finder(target=parent_dir, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     
-    inp = input('WARNING:\n{}\nand the NRB products it contains will be reorganized into subdirectories '
+    inp = input('WARNING:\n{}\nand the ARD products it contains will be reorganized into subdirectories '
                 'based on unique MGRS tile IDs if this directory structure does not yet exist. '
                 '\nDo you wish to continue? [yes|no] '.format(directory))
     if inp == 'yes':
@@ -676,12 +684,12 @@ def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
                 if os.path.dirname(old_dir) != tile_dir:
                     shutil.move(old_dir, new_dir)
                     if not silent:
-                        print(f"{os.path.basename(old_dir)} moved to {tile_dir}")
+                        print(f"-> {os.path.basename(old_dir)} moved to {tile_dir}")
                 else:
                     if not silent:
-                        print(f"{os.path.basename(old_dir)} already in {tile_dir} - skip")
+                        print(f"xx {os.path.basename(old_dir)} already in {tile_dir} (skip!)")
                     continue
         return products_new
     else:
         print('abort!')
-        exit()
+        sys.exit(0)
