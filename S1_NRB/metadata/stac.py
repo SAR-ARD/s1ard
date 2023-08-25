@@ -509,14 +509,14 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             with Raster(asset) as dm_ras:
                 band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                               range(1, dm_ras.bands + 1)]
-            band_descriptions = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
+            samples = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
             bands = []
-            for bd in band_descriptions:
+            for sample in samples:
                 band = RasterBand.create(nodata=nodata,
                                          data_type=DataType.UINT8,
                                          unit=ASSET_MAP[key]['unit'])
                 class_ext = ClassificationExtension.ext(band, add_if_missing=True)
-                class_ext.classes = [Classification.create(value=1, description=bd)]
+                class_ext.classes = [Classification.create(value=1, description=sample)]
                 bands.append(band)
             raster_ext.bands = bands
         else:
