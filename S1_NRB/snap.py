@@ -735,7 +735,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     ############################################################################
     # geocoding
     
-    # Process tu multiple UTM zones or just one?
+    # Process to multiple UTM zones or just one?
     # For testing purposes only.
     utm_multi = True
     
