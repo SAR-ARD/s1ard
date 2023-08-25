@@ -455,6 +455,9 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('_:rangeNumberOfLooks', nsmap,
                                                                          ard_ns=ard_ns))
     rangeNumberOfLooks.text = str(meta['prod']['rangeNumberOfLooks'])
+    equivalentNumberLooks = etree.SubElement(earthObservationMetaData, _nsc('_:equivalentNumberOfLooks', nsmap,
+                                                                            ard_ns=ard_ns))
+    equivalentNumberLooks.text = str(meta['prod']['equivalentNumberLooks'])
     refDoc = etree.SubElement(earthObservationMetaData, _nsc('_:refDoc', nsmap, ard_ns=ard_ns),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],

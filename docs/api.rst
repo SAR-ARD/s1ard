@@ -165,9 +165,11 @@ Extraction
     .. autosummary::
         :nosignatures:
 
+        calc_enl
         calc_geolocation_accuracy
         calc_performance_estimates
         calc_pslr_islr
+        copy_src_meta
         find_in_annotation
         geometry_from_vec
         get_header_size
