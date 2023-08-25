@@ -125,6 +125,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
+    meta['prod']['equivalentNumberLooks'] = np.round(calc_enl(tif=ref_tif), 2)
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
@@ -548,6 +549,61 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
             return val
     else:
         return out
+
+
+def calc_enl(tif, block_size=25, return_arr=False):
+    """
+    Calculate the equivalent number of looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file of the
+    product scene.
+    
+    Parameters
+    ----------
+    tif: str
+        The path to a linear-scaled backscatter measurement GeoTIFF file of the product scene.
+    block_size: int, optional
+        The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
+        pixel blocks.
+    return_arr: bool, optional
+        If True, the calculated ENL array is returned. Default is False.
+    
+    Returns
+    -------
+    float or numpy.ndarray
+        The median ENL value or array of ENL values if `return_enl_arr` is True.
+    
+    References
+    ----------
+    .. [1]  S. N. Anfinsen, A. P. Doulgeris and T. Eltoft,
+            "Estimation of the Equivalent Number of Looks in Polarimetric Synthetic Aperture Radar Imagery,"
+            in IEEE Transactions on Geoscience and Remote Sensing, vol. 47, no. 11, pp. 3795-3809, Nov. 2009,
+            doi: 10.1109/TGRS.2009.2019269.
+    """
+    with Raster(tif) as ras:
+        arr = ras.array()
+    
+    arr = np.where(np.isinf(arr), np.nan, arr)
+    
+    num_blocks_rows = arr.shape[0] // block_size
+    num_blocks_cols = arr.shape[1] // block_size
+    if num_blocks_rows == 0 or num_blocks_cols == 0:
+        raise ValueError("Block size is too large for the input data dimensions.")
+    
+    blocks = arr[:num_blocks_rows * block_size,
+             :num_blocks_cols * block_size].reshape(
+        num_blocks_rows, block_size, num_blocks_cols, block_size
+    )
+    
+    _mean = np.nanmean(blocks, axis=(1, 3))
+    _std = np.nanstd(blocks, axis=(1, 3))
+    enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
+    
+    out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
+    out_arr[:num_blocks_rows, :num_blocks_cols] = enl
+    
+    if return_arr:
+        return out_arr
+    else:
+        return np.nanmedian(out_arr)
 
 
 def calc_geolocation_accuracy(swath_identifier, ei_tif, etad):
