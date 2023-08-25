@@ -27,7 +27,7 @@ def get_keys(section):
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args']
     elif section == 'metadata':
-        return ['access_url', 'licence', 'doi', 'processing_center']
+        return ['format', 'copy_original', 'access_url', 'licence', 'doi', 'processing_center']
     else:
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
@@ -92,7 +92,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['snap_gpt_args'] = 'None'
     if 'datatake' not in proc_sec.keys():
         proc_sec['datatake'] = 'None'
-    
     # use previous defaults for measurement and annotation if they have not been defined
     if 'measurement' not in proc_sec.keys():
         proc_sec['measurement'] = 'gamma'
@@ -166,10 +165,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                        'Copernicus 30m Global DEM', 'GETASSE30']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
         if k in ['etad', 'date_strict']:
-            try:
-                v = proc_sec.getboolean(k)
-            except ValueError:
-                raise RuntimeError(f"cannot parse boolean parameter '{k}' with value '{v}'")
+            v = proc_sec.getboolean(k)
         if k == 'product':
             allowed = ['GRD', 'SLC']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
@@ -196,16 +192,26 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             raise RuntimeError("'scene_dir' must be defined if data is to be searched via an SQLite database.")
     
     # METADATA section
-    meta_keys = get_keys(section='metadata')
+    allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
     out_dict['meta'] = {}
+    
+    # set defaults
+    if 'format' not in meta_sec.keys():
+        meta_sec['format'] = 'OGC, STAC'
+    if 'copy_original' not in meta_sec.keys():
+        meta_sec['copy_original'] = 'True'
+    
     for k, v in meta_sec.items():
-        v = _keyval_check(key=k, val=v, allowed_keys=meta_keys)
-        # No need to check values. Only requirement is that they're strings, which is configparser's default.
+        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        if k == 'format':
+            v = meta_sec.get_list(k)
+        if k == 'copy_original':
+            v = meta_sec.getboolean(k)
         out_dict['meta'][k] = v
-    for key in meta_keys:
+    for key in allowed_keys:
         if key not in out_dict['meta'].keys():
             out_dict['meta'][key] = None
     
@@ -216,12 +222,13 @@ def _parse_annotation(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     annotation_list = _parse_list(s)
-    allowed = ['dm', 'ei', 'em', 'id', 'lc', 'ld', 'li', 'np', 'gs', 'sg']
-    for annotation in annotation_list:
-        if annotation not in allowed:
-            msg = "Parameter 'annotation': Error while parsing to list; " \
-                  "annotation '{}' is not supported. Allowed keys:\n{}"
-            raise ValueError(msg.format(annotation, allowed))
+    if annotation_list is not None:
+        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'ld', 'li', 'np', 'ratio']
+        for layer in annotation_list:
+            if layer not in allowed:
+                msg = "Parameter 'annotation': Error while parsing to list; " \
+                      "layer '{}' is not supported. Allowed keys:\n{}"
+                raise ValueError(msg.format(layer, allowed))
     return annotation_list
 
 
@@ -252,10 +259,7 @@ def _parse_list(s):
     if s in ['', 'None']:
         return None
     else:
-        if re.search(',', s):
-            return s.replace(' ', '').split(',')
-        else:
-            return s.split()
+        return [x.strip() for x in s.split(',')]
 
 
 def _keyval_check(key, val, allowed_keys):

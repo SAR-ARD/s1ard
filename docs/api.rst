@@ -49,6 +49,7 @@ SNAP
         mli
         pre
         rtc
+        sgr
 
     .. rubric:: ancillary functions
 
@@ -58,6 +59,7 @@ SNAP
         find_datasets
         get_metadata
         postprocess
+        nrt_slice_num
 
 NRB
 ^^^
@@ -163,16 +165,17 @@ Extraction
     .. autosummary::
         :nosignatures:
 
+        calc_enl
         calc_geolocation_accuracy
         calc_performance_estimates
-        etree_from_sid
-        extract_pslr_islr
+        calc_pslr_islr
+        copy_src_meta
         find_in_annotation
         geometry_from_vec
         get_header_size
         get_prod_meta
+        get_src_meta
         meta_dict
-        vec_from_srccoords
 
 XML
 ^^^

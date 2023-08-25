@@ -18,9 +18,9 @@ from pyroSAR import identify, identify_many
 import S1_NRB
 from S1_NRB import dem
 from S1_NRB.metadata import extract, xml, stac
-from S1_NRB.metadata.mapping import ITEM_MAP
+from S1_NRB.metadata.mapping import LERC_ERR_THRES
 from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
-from S1_NRB.metadata.extract import etree_from_sid, find_in_annotation
+from S1_NRB.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
 from S1_NRB.snap import find_datasets
 
 
@@ -119,7 +119,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             if c1 or c2 or c3:
                 allowed.append(key)
     else:
-        allowed = list(datasets[0].keys())
+        allowed = [key for key in datasets[0].keys() if re.search('[gs]-lin', key)]
         annotation = []
     for item in ['em', 'id']:
         if item in annotation:
@@ -159,13 +159,13 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
                           'OVERVIEW_RESAMPLING={}'.format(ovr_resampling)]
     write_options = dict()
-    for key in ITEM_MAP:
+    for key in LERC_ERR_THRES:
         write_options[key] = write_options_base.copy()
         if compress is not None:
             entry = 'COMPRESS={}'.format(compress)
             write_options[key].append(entry)
             if compress.startswith('LERC'):
-                entry = 'MAX_Z_ERROR={:f}'.format(ITEM_MAP[key]['z_error'])
+                entry = 'MAX_Z_ERROR={:f}'.format(LERC_ERR_THRES[key])
                 write_options[key].append(entry)
     
     # create raster files: linear gamma0/sigma0 backscatter (-[vh|vv|hh|hv]-[gs]-lin.tif),
@@ -174,7 +174,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_nrb = dict()
     for key in list(datasets[0].keys()):
-        if key == 'dm' or key not in ITEM_MAP.keys():
+        if key == 'dm' or key not in LERC_ERR_THRES.keys():
             # the data mask raster (-dm.tif) will be created later
             continue
         
@@ -260,7 +260,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                         create_options=write_options['em'],
                         pbar=False)
             log_pyro.setLevel(level)
-            datasets_nrb['em'] = em_path
+        datasets_nrb['em'] = em_path
     
     # create color composite VRT (-cc-[gs]-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -340,8 +340,13 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress)
-    xml.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
-    stac.parse(meta=meta, target=nrb_dir, tifs=list(datasets_nrb.values()), exist_ok=True)
+    nrb_assets = list(datasets_nrb.values()) + finder(nrb_dir, ['.vrt$'], regex=True, recursive=True)
+    if 'OGC' in config['meta']['format']:
+        xml.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
+    if 'STAC' in config['meta']['format']:
+        stac.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
+    if config['meta']['copy_original']:
+        copy_src_meta(target=nrb_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
@@ -406,8 +411,7 @@ def get_datasets(scenes, datadir, extent, epsg):
                 del arr
                 # remove scene if file does not contain valid data
                 if len(mask[mask == 1]) == 0:
-                    del ids[i]
-                    del datasets[i]
+                    del ids[i], datasets[i]
                     continue
                 with vectorize(target=mask, reference=ras) as vec:
                     with boundary(vec, expression="value=1") as bounds:
@@ -419,6 +423,10 @@ def get_datasets(scenes, datadir, extent, epsg):
         if not os.path.isfile(dm_vec):
             with Raster(dm_ras) as ras:
                 mask = ras.array().astype('bool')
+                # remove scene if file does not contain valid data
+                if len(mask[mask == 1]) == 0:
+                    del ids[i], datasets[i]
+                    continue
                 with vectorize(target=mask, reference=ras) as vec:
                     boundary(vec, expression="value=1", outname=dm_vec)
                 del mask
@@ -677,7 +685,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     slc_dict = {}
     for i, sid in enumerate(src_ids):
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
-        slc_dict[uid] = etree_from_sid(sid)
+        slc_dict[uid] = get_src_meta(sid)
         slc_dict[uid]['sid'] = sid
     
     uids = list(slc_dict.keys())

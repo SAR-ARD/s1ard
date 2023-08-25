@@ -9,9 +9,18 @@ opened with any text editor. An example ``config.ini`` file for the S1_NRB packa
 
 https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini
 
+Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
+section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
+related parameters. This section is by default named ``[PROCESSING]``.
+Users might create several processing sections in the same configuration file with parameter values that correspond to different
+processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
+configuration parameters even if only a few are varied between the sections.
+
 The following provides an overview of the parameters the ``config.ini`` should contain and anything that should be
 considered when selecting their values:
 
+Processing Section
+^^^^^^^^^^^^^^^^^^
 - **mode**
 
 Options: ``all | nrb | rtc``
@@ -131,8 +140,10 @@ A comma-separated list to define the annotation layers to be created. Supported 
  + ld: range look direction angle
  + li: local incident angle
  + np: noise power (NESZ, per polarization)
- + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)
- + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (ignored if ``measurement`` is not sigma)
+ + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
+
+   + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
+   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
 
 Use one of the following to create no annotation layer:
 
@@ -146,24 +157,26 @@ should be performed or not. If ``etad=True``, ``etad_dir`` is searched for ETAD 
 and a new SLC is created in ``tmp_dir``, which is then used for all other processing steps. If ``etad=False``, ``etad_dir``
 will be ignored.
 
-Sections
-^^^^^^^^
-Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
-section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
-related parameters. This section is by default named ``[PROCESSING]``
-(see `example config file <https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini>`_).
+Metadata Section
+^^^^^^^^^^^^^^^^
+- **format**
 
-A reserved section ``[METADATA]`` may contain user-specific metadata to be written to the product's metadata files.
-Currently supported fields:
+A comma-separated list to define the metadata file formats to be created. Supported options:
 
- + access_url
- + licence
- + doi
- + processing_center
+ + OGC: XML file according to `OGC EO <https://docs.ogc.org/is/10-157r4/10-157r4.html>`_ standard
+ + STAC: JSON file according to the `SpatioTemporal Asset Catalog <https://github.com/radiantearth/stac-spec/>`_ family of specifications
 
-Users might create several processing sections in the same configuration file with parameter values that correspond to different
-processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
-configuration parameters even if only a few are varied between the sections.
+- **copy_original**
+
+Copy the original metadata of the source scene(s)? This will copy the manifest.safe file and annotation folder into the
+S1-NRB product subdirectory: ``/source/<ProductIdentifier>``.
+
+- **access_url**, **licence**, **doi** & **processing_center**
+
+The metadata files created for each S1-NRB product contain some fields that should not be hidden away and hardcoded with
+arbitrary values. Instead, they can be accessed here in order to more easily generate a complete set of metadata. These
+fields are mostly relevant if you want to produce S1-NRB products systematically and make them available for others.
+If you don't see a need for them you can just leave the fields empty, use the default 'None' or delete this entire section.
 
 Command Line Interface
 ----------------------
@@ -202,3 +215,10 @@ override some parameters, e.g. ``acq_mode`` and ``annotation``:
 ::
 
     s1_nrb -c /path/to/config.ini --acq_mode IW --annotation dm,id
+
+The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
+In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
+
+::
+
+    s1_nrb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
