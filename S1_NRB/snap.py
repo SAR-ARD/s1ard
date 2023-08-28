@@ -1010,72 +1010,65 @@ def look_direction(dim):
         with open(infile, 'rb') as f:
             tree = etree.fromstring(f.read())
         
-        coords = []
-        lat = []
-        lon = []
+        lats = []
+        lons = []
+        lines = []
+        pixels = []
+        times = []
         
-        if infile.endswith('xml'):
-            nlines = int(tree.find('.//numberOfLines').text)
-            npixels = int(tree.find('.//numberOfSamples').text)
-            points = tree.findall('.//geolocationGridPoint')
-            for point in points:
-                pixel = int(point.find('pixel').text)
-                latitude = float(point.find('latitude').text)
-                longitude = float(point.find('longitude').text)
-                aztime = dateparse(point.find('azimuthTime').text)
-                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
-                coords.append([pixel, aztime])
-                lat.append(latitude)
-                lon.append(longitude)
-        else:
-            pols = tree.xpath("//MDElem[@name='standAloneProductInformation']"
-                              "/MDATTR[@name='transmitterReceiverPolarisation']")
-            polarization = pols[0].text.lower()
-            re_ns = "http://exslt.org/regular-expressions"
-            ann_pol = tree.xpath(f"//MDElem[@name='annotation']"
-                                 f"//MDElem[re:test(@name, '-{polarization}-', 'i')]",
-                                 namespaces={'re': re_ns})[0]
-            nlines = int(tree.find('Raster_Dimensions/NROWS').text)
-            npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
-            points = ann_pol.xpath(".//MDElem[@name='geolocationGridPoint']")
-            for point in points:
-                pixel = int(point.find("./MDATTR[@name='pixel']").text)
-                latitude = float(point.find("./MDATTR[@name='latitude']").text)
-                longitude = float(point.find("./MDATTR[@name='longitude']").text)
-                aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
-                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
-                coords.append([pixel, aztime])
-                lat.append(latitude)
-                lon.append(longitude)
+        pols = tree.xpath("//MDElem[@name='standAloneProductInformation']"
+                          "/MDATTR[@name='transmitterReceiverPolarisation']")
+        polarization = pols[0].text.lower()
+        re_ns = "http://exslt.org/regular-expressions"
+        ann_pol = tree.xpath(f"//MDElem[@name='annotation']"
+                             f"//MDElem[re:test(@name, '-{polarization}-', 'i')]",
+                             namespaces={'re': re_ns})[0]
+        nlines = int(tree.find('Raster_Dimensions/NROWS').text)
+        npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
+        points = ann_pol.xpath(".//MDElem[@name='geolocationGridPoint']")
+        for point in points:
+            pixel = int(point.find("./MDATTR[@name='pixel']").text)
+            line = int(point.find("./MDATTR[@name='line']").text)
+            lat = float(point.find("./MDATTR[@name='latitude']").text)
+            lon = float(point.find("./MDATTR[@name='longitude']").text)
+            aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
+            aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
+            pixels.append(pixel)
+            lines.append(line)
+            times.append(aztime)
+            lats.append(lat)
+            lons.append(lon)
+        coords = list(zip(pixels, times))
         
         abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
         flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
         flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
         llt = abstract.xpath("./MDATTR[@name='last_line_time']")[0].text
         llt = (dateparse(llt) - datetime(1900, 1, 1)).total_seconds()
+        
         values = []
         coords_select = []
         g = Geod(ellps='WGS84')
         for i, v in enumerate(coords):
             if i + 1 < len(coords) and coords[i][0] < coords[i + 1][0]:
-                az12, az21, dist = g.inv(lon[i], lat[i], lon[i + 1], lat[i + 1])
+                az12, az21, dist = g.inv(lons[i], lats[i], lons[i + 1], lats[i + 1])
                 values.append(az12)
             else:
-                az12, az21, dist = g.inv(lon[i], lat[i], lon[i - 1], lat[i - 1])
+                az12, az21, dist = g.inv(lons[i], lats[i], lons[i - 1], lats[i - 1])
                 values.append(az21)
             coords_select.append(v)
         
         coords = np.array(coords_select)
         values = np.array(values)
         
-        xi = np.linspace(0, npixels, npixels)
+        flt = max([v for i, v in enumerate(times) if lines[i] == 0])
+        llt = min([v for i, v in enumerate(times) if lines[i] == max(lines)])
+        
+        xi = np.linspace(0, npixels - 1, npixels)
         yi = np.linspace(flt, llt, nlines)
         xi, yi = np.meshgrid(xi, yi)
-        xi = xi.flatten()
-        yi = yi.flatten()
-        
         zi = griddata(coords, values, (xi, yi), method=method)
-        zi = zi.reshape((nlines, npixels))
+        
         return zi
     
     def write(array, out, reference, format='ENVI'):
@@ -1148,7 +1141,9 @@ def look_direction(dim):
         tree.write(dim, pretty_print=True, xml_declaration=True, encoding='utf-8')
     
     data = dim.replace('.dim', '.data')
-    ref = finder(target=data, matchlist=['*.img'])[0]
-    arr = interpolate(infile=dim)
-    write(array=arr, out=os.path.join(data, 'lookDirection.img'), reference=ref)
-    metadata(dim=dim)
+    out = os.path.join(data, 'lookDirection.img')
+    if not os.path.isfile(out):
+        ref = finder(target=data, matchlist=['*.img'])[0]
+        arr = interpolate(infile=dim)
+        write(array=arr, out=out, reference=ref)
+        metadata(dim=dim)
