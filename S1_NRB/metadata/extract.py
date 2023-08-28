@@ -810,9 +810,9 @@ def copy_src_meta(target, src_ids):
         
         if src_id.scene.endswith('.zip'):
             base = os.path.basename(src_id.file)
-            with zipfile.ZipFile(src_id.scene, "r") as zip_ref:
-                zip_ref.extract(member=os.path.join(base, 'manifest.safe'), path=source_dir)
-                annotation_files = [f for f in zip_ref.namelist() if os.path.join(base, 'annotation') in f]
+            with zipfile.ZipFile(src_id.scene, 'r') as zip_ref:
+                zip_ref.extract(member=base + '/manifest.safe', path=source_dir)
+                annotation_files = [f for f in zip_ref.namelist() if base + '/annotation' in f]
                 zip_ref.extractall(members=annotation_files, path=source_dir)
             os.rename(os.path.join(source_dir, base), os.path.join(source_dir, pid))
         else:
