@@ -28,7 +28,7 @@ Abbreviations
    * - EGM
      - Earth Gravitational Model
    * - EPSG
-     - European Petroleum Survey Group
+     - European Petroleum Survey Group Geodesy
    * - ESA
      - European Space Agency
    * - ETAD
@@ -76,7 +76,7 @@ Abbreviations
    * - UTM
      - Universal Transverse Mercator
    * - VRT
-     - Virtual Raster Format
+     - Virtual Raster Tile
    * - WBM
      - Water Body Mask
    * - WGS84
