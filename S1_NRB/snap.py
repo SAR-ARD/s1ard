@@ -994,7 +994,29 @@ def nrt_slice_num(dim):
 
 def look_direction(dim):
     """
-    Compute the range look direction and add it as a new layer to an existing BEAM-DIMAP product.
+    Compute the per-pixel range look direction angle.
+    This adds a new layer to an existing BEAM-DIMAP product.
+    
+    Steps performed:
+    
+    - read geolocation grid points
+    - limit grid point list to those relevant to the image
+    - for each point, compute the range direction angle to the next point in range direction.
+    - interpolate the grid to the full image dimensions
+    
+    Notes
+    -----
+    - The interpolation depends on the location of the grid points relative to the image.
+      Hence, by subsetting the image by an amount of pixels/lines different to the grid point
+      sampling rate, the first and last points will no longer be in the first and last line respectively.
+    - The list might get very large when merging the scene with neighboring acquisitions using
+      SliceAssembly and this longer list significantly changes the interpolation result.
+      The difference in interpolation can be mitigated by reducing the list of points to
+      those inside the image and those just outside of it.
+    - The entries for first line and last line time mark the time in the middle of the
+      line acquisition time. In consequence, the two lines are only interpolated half-way.
+      This can further be optimized by setting both values to those closest to the image, i.e.
+      the maximum time of the first line and the minimum of the last line.
 
     Parameters
     ----------
@@ -1070,9 +1092,6 @@ def look_direction(dim):
         
         coords = np.array(coords_select)
         values = np.array(values)
-        
-        flt = max([v for i, v in enumerate(times) if lines[i] == 0])
-        llt = min([v for i, v in enumerate(times) if lines[i] == max(lines)])
         
         xi = np.linspace(0, npixels - 1, npixels)
         yi = np.linspace(flt, llt, nlines)

@@ -50,6 +50,7 @@ SNAP
         pre
         rtc
         sgr
+        look_direction
 
     .. rubric:: ancillary functions
 
