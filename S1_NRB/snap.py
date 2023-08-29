@@ -1045,18 +1045,28 @@ def look_direction(dim):
         flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
         llt = abstract.xpath("./MDATTR[@name='last_line_time']")[0].text
         llt = (dateparse(llt) - datetime(1900, 1, 1)).total_seconds()
+        lti = float(abstract.xpath("./MDATTR[@name='line_time_interval']")[0].text)
+        
+        # limit the coords to those relevant to the image
+        # (SliceAssembly extends the list but a subsequent Subset does not shorten it)
+        az_before = [x[1] for x in coords if x[1] < flt - lti]
+        tmp_min = max(az_before) if len(az_before) > 0 else flt - lti
+        az_after = [x[1] for x in coords if x[1] > llt + lti]
+        tmp_max = min(az_after) if len(az_after) > 0 else llt + lti
+        coords_sub = [x for x in coords if tmp_min <= x[1] <= tmp_max]
         
         values = []
         coords_select = []
         g = Geod(ellps='WGS84')
         for i, v in enumerate(coords):
-            if i + 1 < len(coords) and coords[i][0] < coords[i + 1][0]:
-                az12, az21, dist = g.inv(lons[i], lats[i], lons[i + 1], lats[i + 1])
-                values.append(az12)
-            else:
-                az12, az21, dist = g.inv(lons[i], lats[i], lons[i - 1], lats[i - 1])
-                values.append(az21)
-            coords_select.append(v)
+            if v in coords_sub:
+                if i + 1 < len(coords) and coords[i][0] < coords[i + 1][0]:
+                    az12, az21, dist = g.inv(lons[i], lats[i], lons[i + 1], lats[i + 1])
+                    values.append(az12)
+                else:
+                    az12, az21, dist = g.inv(lons[i], lats[i], lons[i - 1], lats[i - 1])
+                    values.append(az21)
+                coords_select.append(v)
         
         coords = np.array(coords_select)
         values = np.array(values)
