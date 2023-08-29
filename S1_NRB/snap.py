@@ -1107,38 +1107,44 @@ def look_direction(dim):
         with open(dim, 'rb') as f:
             root = etree.fromstring(f.read())
         
-        element_bands = root.find('Raster_Dimensions/NBANDS')
-        bands = int(element_bands.text)
-        element_bands.text = str(bands + 1)
-        npixels = root.find('Raster_Dimensions/NCOLS').text
-        nlines = root.find('Raster_Dimensions/NROWS').text
-        
-        data_access = root.find('Data_Access')
         image_interp = root.find('Image_Interpretation')
-        data_files = data_access.findall('./Data_File')
-        last = data_files[-1]
-        new = copy.deepcopy(last)
-        fpath = new.find('DATA_FILE_PATH').attrib['href']
-        fpath = fpath.replace(os.path.basename(fpath), 'lookDirection.hdr')
-        new.find('DATA_FILE_PATH').attrib['href'] = fpath
-        new.find('BAND_INDEX').text = str(bands)
-        data_access.insert(data_access.index(last) + 1, new)
+        ld_search = image_interp.xpath('Spectral_Band_Info[BAND_NAME="lookDirection"]')
         
-        info = etree.SubElement(image_interp, 'Spectral_Band_Info')
-        etree.SubElement(info, 'BAND_INDEX').text = str(bands)
-        etree.SubElement(info, 'BAND_DESCRIPTION').text = 'range look direction'
-        etree.SubElement(info, 'BAND_NAME').text = 'lookDirection'
-        etree.SubElement(info, 'BAND_RASTER_WIDTH').text = npixels
-        etree.SubElement(info, 'BAND_RASTER_HEIGHT').text = nlines
-        etree.SubElement(info, 'DATA_TYPE').text = 'float32'
-        etree.SubElement(info, 'PHYSICAL_UNIT').text = 'deg'
-        etree.SubElement(info, 'LOG10_SCALED').text = 'false'
-        etree.SubElement(info, 'NO_DATA_VALUE_USED').text = 'true'
-        etree.SubElement(info, 'NO_DATA_VALUE').text = '0.0'
-        
-        etree.indent(root, space='    ')
-        tree = etree.ElementTree(root)
-        tree.write(dim, pretty_print=True, xml_declaration=True, encoding='utf-8')
+        if len(ld_search) == 0:
+            # number of bands
+            element_bands = root.find('Raster_Dimensions/NBANDS')
+            bands = int(element_bands.text)
+            element_bands.text = str(bands + 1)
+            
+            # data access
+            data_access = root.find('Data_Access')
+            data_files = data_access.findall('./Data_File')
+            last = data_files[-1]
+            new = copy.deepcopy(last)
+            fpath = new.find('DATA_FILE_PATH').attrib['href']
+            fpath = fpath.replace(os.path.basename(fpath), 'lookDirection.hdr')
+            new.find('DATA_FILE_PATH').attrib['href'] = fpath
+            new.find('BAND_INDEX').text = str(bands)
+            data_access.insert(data_access.index(last) + 1, new)
+            
+            # band info
+            info = etree.SubElement(image_interp, 'Spectral_Band_Info')
+            npixels = root.find('Raster_Dimensions/NCOLS').text
+            nlines = root.find('Raster_Dimensions/NROWS').text
+            etree.SubElement(info, 'BAND_INDEX').text = str(bands)
+            etree.SubElement(info, 'BAND_DESCRIPTION').text = 'range look direction'
+            etree.SubElement(info, 'BAND_NAME').text = 'lookDirection'
+            etree.SubElement(info, 'BAND_RASTER_WIDTH').text = npixels
+            etree.SubElement(info, 'BAND_RASTER_HEIGHT').text = nlines
+            etree.SubElement(info, 'DATA_TYPE').text = 'float32'
+            etree.SubElement(info, 'PHYSICAL_UNIT').text = 'deg'
+            etree.SubElement(info, 'LOG10_SCALED').text = 'false'
+            etree.SubElement(info, 'NO_DATA_VALUE_USED').text = 'true'
+            etree.SubElement(info, 'NO_DATA_VALUE').text = '0.0'
+            
+            etree.indent(root, space='    ')
+            tree = etree.ElementTree(root)
+            tree.write(dim, pretty_print=True, xml_declaration=True, encoding='utf-8')
     
     data = dim.replace('.dim', '.data')
     out = os.path.join(data, 'lookDirection.img')
