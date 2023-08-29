@@ -23,8 +23,8 @@ gdal.UseExceptions()
 def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate XML and STAC
-    JSON metadata files, respectively.
+    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
+    STAC JSON metadata files, respectively.
     
     Parameters
     ----------
@@ -810,9 +810,9 @@ def copy_src_meta(target, src_ids):
         
         if src_id.scene.endswith('.zip'):
             base = os.path.basename(src_id.file)
-            with zipfile.ZipFile(src_id.scene, "r") as zip_ref:
-                zip_ref.extract(member=os.path.join(base, 'manifest.safe'), path=source_dir)
-                annotation_files = [f for f in zip_ref.namelist() if os.path.join(base, 'annotation') in f]
+            with zipfile.ZipFile(src_id.scene, 'r') as zip_ref:
+                zip_ref.extract(member=base + '/manifest.safe', path=source_dir)
+                annotation_files = [f for f in zip_ref.namelist() if base + '/annotation' in f]
                 zip_ref.extractall(members=annotation_files, path=source_dir)
             os.rename(os.path.join(source_dir, base), os.path.join(source_dir, pid))
         else:
