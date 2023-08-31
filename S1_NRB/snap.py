@@ -182,7 +182,7 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
         a list of additional arguments to be passed to the gpt call
         
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
-     
+    
     Returns
     -------
 
@@ -205,7 +205,6 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     wf.insert_node(asm, before=read_ids)
     ############################################
     id_main = [x.scene for x in scenes].index(src)
-    id_top = 0 if scenes[0].orbit == 'D' else -1
     buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
     xmin = 0
     width = scenes[id_main].samples
@@ -213,8 +212,9 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
         ymin = 0
         height = scenes[id_main].lines + buffer_px
     else:
-        ymin = scenes[id_top].lines - buffer_px
-        height = scenes[id_main].lines + buffer_px * 2
+        ymin = scenes[0].lines - buffer_px
+        factor = 1 if id_main == len(scenes) - 1 else 2
+        height = scenes[id_main].lines + buffer_px * factor
     sub = parse_node('Subset')
     sub.parameters['region'] = [xmin, ymin, width, height]
     sub.parameters['geoRegion'] = ''
