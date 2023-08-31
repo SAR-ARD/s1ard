@@ -551,7 +551,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
-def calc_enl(tif, block_size=25, return_arr=False):
+def calc_enl(tif, block_size=30, return_arr=False):
     """
     Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
     calculation is performed block-wise for the entire image and by default the median ENL value is returned.
@@ -561,8 +561,8 @@ def calc_enl(tif, block_size=25, return_arr=False):
     tif: str
         The path to a linear-scaled backscatter measurement GeoTIFF file.
     block_size: int, optional
-        The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
-        pixel blocks.
+        The block size to use for the calculation. Remainder pixels are discarded, if the array dimensions are not
+        evenly divisible by the block size. Default is 30, which calculates ENL for 30x30 pixel blocks.
     return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
     
