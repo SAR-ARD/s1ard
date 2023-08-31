@@ -593,8 +593,12 @@ def calc_enl(tif, block_size=25, return_arr=False):
         num_blocks_rows, block_size, num_blocks_cols, block_size
     )
     
-    _mean = np.nanmean(blocks, axis=(1, 3))
-    _std = np.nanstd(blocks, axis=(1, 3))
+    with np.testing.suppress_warnings() as sup:
+        sup.filter(RuntimeWarning, "Mean of empty slice")
+        _mean = np.nanmean(blocks, axis=(1, 3))
+    with np.testing.suppress_warnings() as sup:
+        sup.filter(RuntimeWarning, "Degrees of freedom <= 0 for slice")
+        _std = np.nanstd(blocks, axis=(1, 3))
     enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
     
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
