@@ -1013,10 +1013,6 @@ def look_direction(dim):
       SliceAssembly and this longer list significantly changes the interpolation result.
       The difference in interpolation can be mitigated by reducing the list of points to
       those inside the image and those just outside of it.
-    - The entries for first line and last line time mark the time in the middle of the
-      line acquisition time. In consequence, the two lines are only interpolated half-way.
-      This can further be optimized by setting both values to those closest to the image, i.e.
-      the maximum time of the first line and the minimum of the last line.
 
     Parameters
     ----------
@@ -1047,6 +1043,8 @@ def look_direction(dim):
                              namespaces={'re': re_ns})[0]
         nlines = int(tree.find('Raster_Dimensions/NROWS').text)
         npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
+        abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
+        
         points = ann_pol.xpath(".//MDElem[@name='geolocationGridPoint']")
         for point in points:
             pixel = int(point.find("./MDATTR[@name='pixel']").text)
@@ -1062,7 +1060,6 @@ def look_direction(dim):
             lons.append(lon)
         coords = list(zip(pixels, times))
         
-        abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
         flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
         flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
         llt = abstract.xpath("./MDATTR[@name='last_line_time']")[0].text
@@ -1071,10 +1068,11 @@ def look_direction(dim):
         
         # limit the coords to those relevant to the image
         # (SliceAssembly extends the list but a subsequent Subset does not shorten it)
-        az_before = [x[1] for x in coords if x[1] < flt - lti]
-        tmp_min = max(az_before) if len(az_before) > 0 else flt - lti
-        az_after = [x[1] for x in coords if x[1] > llt + lti]
-        tmp_max = min(az_after) if len(az_after) > 0 else llt + lti
+        az_before = [x[1] for x in coords if x[1] < flt]
+        tmp_min = (max(az_before) if len(az_before) > 0 else flt) - lti
+        az_after = [x[1] for x in coords if x[1] > llt]
+        tmp_max = (min(az_after) if len(az_after) > 0 else llt) + lti
+        
         coords_sub = [x for x in coords if tmp_min <= x[1] <= tmp_max]
         
         values = []
@@ -1096,8 +1094,7 @@ def look_direction(dim):
         xi = np.linspace(0, npixels - 1, npixels)
         yi = np.linspace(flt, llt, nlines)
         xi, yi = np.meshgrid(xi, yi)
-        zi = griddata(coords, values, (xi, yi), method=method)
-        
+        zi = griddata(coords, values, (xi, yi), method=method, fill_value=0)
         return zi
     
     def write(array, out, reference, format='ENVI'):
