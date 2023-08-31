@@ -553,13 +553,13 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
 
 def calc_enl(tif, block_size=25, return_arr=False):
     """
-    Calculate the equivalent number of looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file of the
-    product scene.
+    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
+    calculation is performed block-wise for the entire image and by default the median ENL value is returned.
     
     Parameters
     ----------
     tif: str
-        The path to a linear-scaled backscatter measurement GeoTIFF file of the product scene.
+        The path to a linear-scaled backscatter measurement GeoTIFF file.
     block_size: int, optional
         The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
         pixel blocks.
@@ -580,18 +580,14 @@ def calc_enl(tif, block_size=25, return_arr=False):
     """
     with Raster(tif) as ras:
         arr = ras.array()
-    
-    arr = np.where(np.isinf(arr), np.nan, arr)
+    arr[np.isinf(arr)] = np.nan
     
     num_blocks_rows = arr.shape[0] // block_size
     num_blocks_cols = arr.shape[1] // block_size
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
-    
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(
-        num_blocks_rows, block_size, num_blocks_cols, block_size
-    )
+                 :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
