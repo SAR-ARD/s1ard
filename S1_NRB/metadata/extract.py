@@ -555,18 +555,18 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
-def calc_enl(tif, block_size=25, return_arr=False):
+def calc_enl(tif, block_size=30, return_arr=False):
     """
-    Calculate the equivalent number of looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file of the
-    product scene.
+    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
+    calculation is performed block-wise for the entire image and by default the median ENL value is returned.
     
     Parameters
     ----------
     tif: str
-        The path to a linear-scaled backscatter measurement GeoTIFF file of the product scene.
+        The path to a linear-scaled backscatter measurement GeoTIFF file.
     block_size: int, optional
-        The block size to use for the calculation. Default is 25, which means that ENL will be calculated for 25x25
-        pixel blocks.
+        The block size to use for the calculation. Remainder pixels are discarded, if the array dimensions are not
+        evenly divisible by the block size. Default is 30, which calculates ENL for 30x30 pixel blocks.
     return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
     
@@ -584,21 +584,21 @@ def calc_enl(tif, block_size=25, return_arr=False):
     """
     with Raster(tif) as ras:
         arr = ras.array()
-    
-    arr = np.where(np.isinf(arr), np.nan, arr)
+    arr[np.isinf(arr)] = np.nan
     
     num_blocks_rows = arr.shape[0] // block_size
     num_blocks_cols = arr.shape[1] // block_size
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
-    
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(
-        num_blocks_rows, block_size, num_blocks_cols, block_size
-    )
+                 :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
     
-    _mean = np.nanmean(blocks, axis=(1, 3))
-    _std = np.nanstd(blocks, axis=(1, 3))
+    with np.testing.suppress_warnings() as sup:
+        sup.filter(RuntimeWarning, "Mean of empty slice")
+        _mean = np.nanmean(blocks, axis=(1, 3))
+    with np.testing.suppress_warnings() as sup:
+        sup.filter(RuntimeWarning, "Degrees of freedom <= 0 for slice")
+        _std = np.nanstd(blocks, axis=(1, 3))
     enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
     
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
