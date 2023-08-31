@@ -21,7 +21,7 @@ version = '.'.join(version_full.split('.')[:2])
 # release is automatically added to the latex document title and header
 release = version
 
-autodoc_mock_imports = ['osgeo']
+autodoc_mock_imports = ['osgeo', 'pyproj']
 
 # If your documentation needs a minimal Sphinx version, state it here.
 needs_sphinx = '1.6'
