@@ -834,7 +834,7 @@ def postprocess(src, clean_edges=True, clean_edges_pixels=4):
 
 def find_datasets(scene, outdir, epsg):
     """
-    Find processed datasets for a scene in a certain CRS.
+    Find processed datasets for a scene in a certain Coordinate Reference System (CRS).
     
     Parameters
     ----------

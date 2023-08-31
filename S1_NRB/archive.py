@@ -240,7 +240,7 @@ class STACArchive(object):
 
 def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
     """
-    Search scenes in the ASF data catalog using the
+    Search scenes in the Alaska Satellite Facility (ASF) data catalog using the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
     This simplified function is solely intended for cross-checking an online catalog in
     :func:`S1_NRB.ancillary.check_acquisition_completeness`.
