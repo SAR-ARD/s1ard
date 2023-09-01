@@ -751,7 +751,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                      overviews, overview_resampling, dst_nodata, wbm=None, orb=False):
     """
     Creation of the Data Mask image.
-
+    
     Parameters
     ----------
     outname: str
@@ -774,7 +774,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Resampling method for overview levels.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-    wbm: str or None
+    wbm: str or None, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
@@ -790,6 +790,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
                 {'arr_val': 1, 'name': 'layover'},
                 {'arr_val': 2, 'name': 'shadow'},
+                # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
                 {'arr_val': 4, 'name': 'ocean water'}] if not orb else \
         [{'arr_val': [0, 1, 2], 'name': 'land'},
          {'arr_val': 4, 'name': 'ocean water'}]
@@ -862,12 +863,10 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             
             arr = np.full((rows, cols), 0)
             arr[out_arr == dst_nodata] = dst_nodata
-            if arr_val == 0:
+            if arr_val in [0, 4]:
                 arr[out_arr == arr_val] = 1
             elif arr_val in [1, 2]:
                 arr[(out_arr == arr_val) | (out_arr == 3)] = 1
-            elif arr_val == 4:
-                arr[out_arr == arr_val] = 1
             elif arr_val == [0, 1, 2]:
                 arr[out_arr != 4] = 1
             
