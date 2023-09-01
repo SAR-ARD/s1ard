@@ -24,21 +24,23 @@ from S1_NRB.metadata.extract import copy_src_meta, get_src_meta, find_in_annotat
 from S1_NRB.snap import find_datasets
 
 
-def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           dem_type=None, multithread=True, compress=None,
-           overviews=None, kml=None, annotation=None, update=False, orb=False):
+def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None, dem_type=None, multithread=True,
+           compress=None, overviews=None, kml=None, annotation=None, update=False):
     """
     Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
     This includes the following:
+    
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
     - Creating additional annotation datasets in Virtual Raster Tile (VRT) format
     - Applying the ARD product directory structure & naming convention
     - Generating metadata in XML and JSON formats for the ARD product as well as source SLC datasets
-
+    
     Parameters
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
+    product_type: str
+        The type of ARD product to be generated. Options: 'NRB' or 'ORB'.
     scenes: list[str]
         List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
         All scenes are expected to overlap with `extent` and an error will be thrown if the processing output
@@ -83,7 +85,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
     update: bool
         modify existing products so that only missing files are re-created?
-
+    
     Returns
     -------
     str
@@ -132,7 +134,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
-            'ard_spec': 'ORB' if orb else 'NRB',
+            'ard_spec': product_type,
             'polarization': {"['HH']": 'SH',
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
@@ -231,7 +233,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             wbm=wbm, dst_nodata=dst_nodata_byte, orb=orb)
+                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type)
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
@@ -341,7 +343,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     start = datetime.strptime(ard_start, '%Y%m%dT%H%M%S')
     stop = datetime.strptime(ard_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
-                             proc_time=proc_time, start=start, stop=stop, compression=compress, orb=orb)
+                             proc_time=proc_time, start=start, stop=stop, compression=compress,
+                             product_type=product_type)
     ard_assets = list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
@@ -748,7 +751,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, wbm=None, orb=False):
+                     overviews, overview_resampling, dst_nodata, product_type, wbm=None):
     """
     Creation of the Data Mask image.
     
@@ -774,8 +777,11 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Resampling method for overview levels.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-    wbm: str or None, optional
-        Path to a water body mask file with the dimensions of an MGRS tile.
+    product_type: str
+        The type of ARD product that is being created. Either 'NRB' or 'ORB'.
+    wbm: str or None
+        Path to a water body mask file with the dimensions of an MGRS tile. Optional if `product_type='NRB', mandatory
+        if `product_type='ORB'`.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
     measurement = [scene[measurement_keys[0]] for scene in datasets]
@@ -787,13 +793,19 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         else:
             return  # do not create a data mask if not all scenes have a layover-shadow mask
     print(outname)
-    dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
-                {'arr_val': 1, 'name': 'layover'},
-                {'arr_val': 2, 'name': 'shadow'},
-                # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
-                {'arr_val': 4, 'name': 'ocean water'}] if not orb else \
-        [{'arr_val': [0, 1, 2], 'name': 'land'},
-         {'arr_val': 4, 'name': 'ocean water'}]
+    if product_type == 'NRB':
+        dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
+                    {'arr_val': 1, 'name': 'layover'},
+                    {'arr_val': 2, 'name': 'shadow'},
+                    # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
+                    {'arr_val': 4, 'name': 'ocean water'}]
+    elif product_type == 'ORB':
+        if wbm is None:
+            raise RuntimeError('Water body mask is required for ORB products')
+        dm_bands = [{'arr_val': [0, 1, 2], 'name': 'land'},
+                    {'arr_val': 4, 'name': 'ocean water'}]
+    else:
+        raise RuntimeError(f'Unknown product type: {product_type}')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -830,7 +842,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                         arr_wbm = ras_wbm.array()
                     out_arr = np.where((arr_wbm == 1), 4, arr_dm)
                     del arr_wbm
-            elif wbm is None and not orb:
+            else:
                 out_arr = arr_dm
                 del dm_bands[3]
             del arr_dm
