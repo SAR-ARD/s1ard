@@ -26,6 +26,7 @@ LERC_ERR_THRES = {'vv-g-lin': 1e-4,
                   'dm': 0.0,
                   'li': 1e-2,
                   'lc': 0.1,
+                  'ld': 1e-3,
                   'gs': 1e-4,
                   'id': 0.0,
                   'np-vv': 2e-5,
@@ -103,7 +104,7 @@ DEM_MAP = {
          'egm': 'https://bgi.obs-mip.fr/data-products/grids-and-models/egm2008-global-model/'}
 }
 
-# XML namespaces are identifiers and it is not their goal to be directly usable for schema retrieval:
+# XML namespaces are identifiers, and it is not their goal to be directly usable for schema retrieval:
 # https://stackoverflow.com/a/30761004
 NS_MAP = {'placeholder': 'http://earth.esa.int/sentinel-1/spec/role/1.0',
           'sar': 'http://www.opengis.net/sar/2.1',
@@ -135,6 +136,10 @@ ASSET_MAP = {'-dm.tif': {'type': 'Mask',
                          'unit': 'square_meters',
                          'role': 'contributing-area',
                          'title': 'Local Contributing Area'},
+             '-ld.tif': {'type': 'Angle',
+                         'unit': 'deg',
+                         'role': 'range-look-direction-angle',
+                         'title': 'Range Look Direction Angle'},
              '-li.tif': {'type': 'Angle',
                          'unit': 'deg',
                          'role': 'local-incidence-angle',

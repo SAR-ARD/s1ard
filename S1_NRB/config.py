@@ -223,7 +223,7 @@ def _parse_annotation(s):
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     annotation_list = _parse_list(s)
     if annotation_list is not None:
-        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'ratio']
+        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'ld', 'li', 'np', 'ratio']
         for layer in annotation_list:
             if layer not in allowed:
                 msg = "Parameter 'annotation': Error while parsing to list; " \

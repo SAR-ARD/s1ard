@@ -28,7 +28,8 @@ setup(
                       's1etad_tools>=0.8.1',
                       'pystac-client',
                       'numpy',
-                      'asf_search'],
+                      'asf_search',
+                      'pyproj'],
     extras_require={
           'docs': ['sphinx', 'sphinxcontrib-bibtex', 'nbsphinx', 'sphinx_rtd_theme', 'sphinx-toolbox', 'ipython'],
     },
