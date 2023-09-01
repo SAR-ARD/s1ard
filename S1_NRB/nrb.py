@@ -231,7 +231,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             wbm=wbm, dst_nodata=dst_nodata_byte)
+                             wbm=wbm, dst_nodata=dst_nodata_byte, orb=orb)
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
@@ -748,10 +748,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, wbm=None):
+                     overviews, overview_resampling, dst_nodata, wbm=None, orb=False):
     """
     Creation of the Data Mask image.
-
+    
     Parameters
     ----------
     outname: str
@@ -774,7 +774,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Resampling method for overview levels.
     dst_nodata: int or str
         Nodata value to write to the output raster.
-    wbm: str or None
+    wbm: str or None, optional
         Path to a water body mask file with the dimensions of an MGRS tile.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
@@ -787,14 +787,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         else:
             return  # do not create a data mask if not all scenes have a layover-shadow mask
     print(outname)
-    dm_bands = {1: {'arr_val': 0,
-                    'name': 'not layover, nor shadow'},
-                2: {'arr_val': 1,
-                    'name': 'layover'},
-                3: {'arr_val': 2,
-                    'name': 'shadow'},
-                4: {'arr_val': 4,
-                    'name': 'ocean water'}}
+    dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
+                {'arr_val': 1, 'name': 'layover'},
+                {'arr_val': 2, 'name': 'shadow'},
+                # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
+                {'arr_val': 4, 'name': 'ocean water'}] if not orb else \
+        [{'arr_val': [0, 1, 2], 'name': 'land'},
+         {'arr_val': 4, 'name': 'ocean water'}]
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -831,9 +830,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                         arr_wbm = ras_wbm.array()
                     out_arr = np.where((arr_wbm == 1), 4, arr_dm)
                     del arr_wbm
-            else:
+            elif wbm is None and not orb:
                 out_arr = arr_dm
-                dm_bands.pop(4)
+                del dm_bands[3]
             del arr_dm
             
             # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
@@ -851,25 +850,25 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         
         outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
         gdriver = gdal.GetDriverByName('GTiff')
-        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
+        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands), gdal.GDT_Byte,
                                 options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
         gdriver = None
         ds_tmp.SetGeoTransform(geotrans)
         ds_tmp.SetProjection(proj)
         
-        for k, v in dm_bands.items():
-            band = ds_tmp.GetRasterBand(k)
-            arr_val = v['arr_val']
-            b_name = v['name']
+        for i, _dict in enumerate(dm_bands):
+            band = ds_tmp.GetRasterBand(i+1)
+            arr_val = _dict['arr_val']
+            b_name = _dict['name']
             
             arr = np.full((rows, cols), 0)
             arr[out_arr == dst_nodata] = dst_nodata
-            if arr_val == 0:
-                arr[out_arr == 0] = 1
+            if arr_val in [0, 4]:
+                arr[out_arr == arr_val] = 1
             elif arr_val in [1, 2]:
                 arr[(out_arr == arr_val) | (out_arr == 3)] = 1
-            elif arr_val == 4:
-                arr[out_arr == 4] = 1
+            elif arr_val == [0, 1, 2]:
+                arr[out_arr != 4] = 1
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)

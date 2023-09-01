@@ -509,9 +509,9 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             with Raster(asset) as dm_ras:
                 band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                               range(1, dm_ras.bands + 1)]
-            samples = {k: v for k, v in ASSET_MAP[key]['values'].items() if v in band_descr}
+            samples = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
             bands = []
-            for sample in samples.values():
+            for sample in samples:
                 band = RasterBand.create(nodata=nodata,
                                          data_type=DataType.UINT8,
                                          unit=ASSET_MAP[key]['unit'])
