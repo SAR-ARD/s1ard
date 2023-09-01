@@ -527,7 +527,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
 
-def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
+def make_catalog(directory, product_type, recursive=True, silent=False):
     """
     For a given directory of Sentinel-1 ARD products, this function will create a high-level STAC
     :class:`~pystac.catalog.Catalog` object serving as the STAC endpoint and lower-level STAC
@@ -540,8 +540,8 @@ def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
     ----------
     directory: str
         Path to a directory that contains ARD products.
-    ard_type: str, optional
-        Type of ARD products. Options are 'NRB' (default) and 'ORB'.
+    product_type: str
+        Type of ARD products. Options: 'NRB' or 'ORB'.
     recursive: bool, optional
         Search `directory` recursively? Default is True.
     silent: bool, optional
@@ -560,10 +560,11 @@ def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
     https://github.com/gjoseph92/stackstac/issues/20
     """
     overwrite = False
-    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{ard_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_'\
+    product_type = product_type.upper()
+    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_'\
               fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
     products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
-    directory = os.path.join(directory, ard_type)
+    directory = os.path.join(directory, product_type)
     
     # Check if Catalog already exists
     catalog_path = os.path.join(directory, 'catalog.json')
@@ -585,19 +586,19 @@ def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
     
     unique_tiles = list(
         set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
-    products = _reorganize_by_tile(directory=directory, ard_type=ard_type, products=products, recursive=recursive,
+    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products, recursive=recursive,
                                    silent=silent)
     
-    catalog = pystac.Catalog(id=f'{ard_type.lower()}_catalog',
-                             description=f'STAC Catalog of Sentinel-1 {ard_type} products.',
-                             title=f'STAC Catalog of Sentinel-1 {ard_type} products.',
+    catalog = pystac.Catalog(id=f'{product_type.lower()}_catalog',
+                             description=f'STAC Catalog of Sentinel-1 {product_type} products.',
+                             title=f'STAC Catalog of Sentinel-1 {product_type} products.',
                              catalog_type=pystac.CatalogType.SELF_CONTAINED)
     
     for tile in unique_tiles:
         tile_collection = pystac.Collection(id=tile,
-                                            description=f'STAC Collection of Sentinel-1 {ard_type} products for '
+                                            description=f'STAC Collection of Sentinel-1 {product_type} products for '
                                                         f'MGRS tile {tile}.',
-                                            title=f'STAC Collection of Sentinel-1 {ard_type} products for '
+                                            title=f'STAC Collection of Sentinel-1 {product_type} products for '
                                                   f'MGRS tile {tile}.',
                                             extent=pystac.Extent(sp_extent, tmp_extent),
                                             keywords=['sar', 'backscatter', 'esa', 'copernicus', 'sentinel'],
@@ -632,7 +633,7 @@ def make_catalog(directory, ard_type='NRB', recursive=True, silent=False):
     return catalog
 
 
-def _reorganize_by_tile(directory, ard_type, products=None, recursive=True, silent=False):
+def _reorganize_by_tile(directory, product_type, products=None, recursive=True, silent=False):
     """
     Reorganizes a directory containing Sentinel-1 ARD products based on the ARD type and unique MGRS tile IDs.
     
@@ -640,8 +641,8 @@ def _reorganize_by_tile(directory, ard_type, products=None, recursive=True, sile
     ----------
     directory: str
         Path to a directory that contains ARD products.
-    ard_type: str
-        Type of ARD products. Options are 'NRB' and 'ORB'.
+    product_type: str
+        Type of ARD products. Options: 'NRB' or 'ORB'.
     products: list[str] or None, optional
         List of ARD product paths. Will be created from `directory` if not provided.
     recursive: bool, optional
@@ -656,7 +657,7 @@ def _reorganize_by_tile(directory, ard_type, products=None, recursive=True, sile
     """
     if products is None:
         parent_dir = os.path.dirname(directory)
-        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{ard_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
+        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
                   fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
         products = finder(target=parent_dir, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     
