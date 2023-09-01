@@ -369,12 +369,12 @@ def product_json(meta, target, assets, exist_ok=False):
                                       media_type=media_type,
                                       roles=['backscatter', 'data'],
                                       extra_fields=None)
-            file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             if asset.endswith('.tif'):
                 stac_asset.extra_fields = {'created': created,
                                            'card4l:border_pixels': meta['prod']['numBorderPixels']}
                 _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata)
+            file_ext = FileExtension.ext(stac_asset)
+            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             assets_dict['measurement'][key] = stac_asset
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
@@ -393,10 +393,10 @@ def product_json(meta, target, assets, exist_ok=False):
                                       media_type=media_type,
                                       roles=[ASSET_MAP[key]['role'], 'metadata'],
                                       extra_fields=None)
-            file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             if key == '-ei.tif':
                 stac_asset.extra_fields = {'card4l:ellipsoidal_height': meta['prod']['ellipsoidalHeight']}
+            file_ext = FileExtension.ext(stac_asset)
+            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
             _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata, key=key, meta=meta, asset=asset)
             assets_dict['annotation'][asset_key] = stac_asset
     
