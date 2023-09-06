@@ -510,6 +510,7 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
     >>> dst = src.replace('-lin.tif', '-log3.vrt')
     >>> create_vrt(src=src, dst=dst, fun='dB', args={'fact': 10})
     """
+    options = {} if options is None else options
     gdalbuildvrt(src=src, dst=dst, **options)
     tree = etree.parse(dst)
     root = tree.getroot()
