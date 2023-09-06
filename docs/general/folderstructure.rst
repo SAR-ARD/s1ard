@@ -3,7 +3,7 @@ Folder Structure
 
 The following demonstrates a possible structure created to store intermediate and final files during a processor run.
 The listed files describe the output of the user configuration parameter ``measurement`` set to ``gamma``
-and all output annotation layers enabled (``annotation = dm, ei, em, id, lc, ld, li, np, ratio``), thus creating S1-NRB products.
+and the following output annotation layers enabled (``annotation = dm, ei, em, id, lc, li, np, ratio``), thus creating S1-NRB products.
 The structure is based on the default configuration defined in the `config.ini` file and can be modified by a user.
 Folders are highlighted in bold.
 
@@ -60,7 +60,6 @@ Folders are highlighted in bold.
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-gs.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-id.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-lc.tif
-                                            | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-ld.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-li.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-np-vh.tif
                                             | s1a-iw-nrb-20200103t170705-030639-0382d5-32tps-np-vv.tif
