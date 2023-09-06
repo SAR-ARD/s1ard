@@ -335,15 +335,12 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
-                    if 1 < len(band_descr) < len(ASSET_MAP[key]['values']):
-                        samples = {key: val for key, val in ASSET_MAP[key]['values'].items() if val in band_descr}
-                        for i, sample_val in enumerate(samples.values()):
-                            bitValue = etree.SubElement(productInformation, _nsc('_:bitValue', nsmap, ard_ns=ard_ns),
-                                                        attrib={'band': str(i + 1),
-                                                                'name': sample_val})
-                            bitValue.text = '1'
-                    else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
+                    samples = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
+                    for i, sample in enumerate(samples):
+                        bitValue = etree.SubElement(productInformation, _nsc('_:bitValue', nsmap, ard_ns=ard_ns),
+                                                    attrib={'band': str(i + 1),
+                                                            'name': sample})
+                        bitValue.text = '1'
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE',

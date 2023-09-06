@@ -253,7 +253,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # ARD - final product generation
     if ard_flag or orb_flag:
-        proc_step = 'NRB' if ard_flag else 'ORB'
+        product_type = 'NRB' if ard_flag else 'ORB'
         
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
@@ -265,7 +265,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        print('preparing {} products'.format(proc_step))
+        print('preparing {} products'.format(product_type))
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, group in enumerate(selection_grouped):
             # check that the scenes can really be grouped together
@@ -293,21 +293,20 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                msg = '###### [    {proc_step}] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
+                msg = '###### [    {product_type}] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
                 print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
                                  scenes=[os.path.basename(s) for s in scenes_sub_fnames],
-                                 proc_step=proc_step, s=s + 1, s_total=s_total))
+                                 product_type=product_type, s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['sar_dir'],
-                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
+                    msg = nrb.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
+                                     datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=annotation,
-                                     update=update, orb=orb_flag)
+                                     multithread=gdal_prms['multithread'], annotation=annotation, update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step=proc_step, scenes=scenes_sub_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step=product_type, scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step=proc_step, scenes=scenes_sub_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step=product_type, scenes=scenes_sub_fnames, msg=e)
                     raise
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
