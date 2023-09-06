@@ -24,26 +24,29 @@ from S1_NRB.metadata.extract import copy_src_meta, get_src_meta, find_in_annotat
 from S1_NRB.snap import find_datasets
 
 
-def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           dem_type=None, multithread=True, compress=None,
-           overviews=None, kml=None, annotation=None, update=False):
+def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None, dem_type=None, multithread=True,
+           compress=None, overviews=None, kml=None, annotation=None, update=False):
     """
-    Finalizes the generation of Sentinel-1 NRB products after RTC processing has finished. This includes the following:
+    Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
+    This includes the following:
+    
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
     - Creating additional annotation datasets in Virtual Raster Tile (VRT) format
-    - Applying the NRB product directory structure & naming convention
-    - Generating metadata in XML and JSON formats for the NRB product as well as source SLC datasets
-
+    - Applying the ARD product directory structure & naming convention
+    - Generating metadata in XML and JSON formats for the ARD product as well as source SLC datasets
+    
     Parameters
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
+    product_type: str
+        The type of ARD product to be generated. Options: 'NRB' or 'ORB'.
     scenes: list[str]
         List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
         All scenes are expected to overlap with `extent` and an error will be thrown if the processing output
         cannot be found for any of the scenes.
     datadir: str
-        The directory containing the datasets processed from the source scenes using pyroSAR.
+        The directory containing the SAR datasets processed from the source scenes using pyroSAR.
     outdir: str
         The directory to write the final files to.
     tile: str
@@ -51,7 +54,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
+        The CRS used for the ARD product; provided as an EPSG code.
     wbm: str or None
         Path to a water body mask file with the dimensions of an MGRS tile.
     dem_type: str or None
@@ -82,7 +85,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
     update: bool
         modify existing products so that only missing files are re-created?
-
+    
     Returns
     -------
     str
@@ -105,21 +108,21 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     t = proc_time.isoformat().encode()
     product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
     if len(src_ids) == 0:
         print('None of the processed scenes overlap with the current tile {tile_id}'.format(tile_id=tile))
         return
     
     if annotation is not None:
         allowed = []
-        for key in datasets[0]:
+        for key in datasets_sar[0]:
             c1 = re.search('[gs]-lin', key)
             c2 = key in annotation
             c3 = key.startswith('np') and 'np' in annotation
             if c1 or c2 or c3:
                 allowed.append(key)
     else:
-        allowed = [key for key in datasets[0].keys() if re.search('[gs]-lin', key)]
+        allowed = [key for key in datasets_sar[0].keys() if re.search('[gs]-lin', key)]
         annotation = []
     for item in ['em', 'id']:
         if item in annotation:
@@ -128,32 +131,33 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # GDAL output bounds
     bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
-    nrb_start, nrb_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
+    ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
+            'ard_spec': product_type,
             'polarization': {"['HH']": 'SH',
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
                              "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
-            'start': nrb_start,
+            'start': ard_start,
             'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
             'id': product_id}
     meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
-    skeleton_dir = '{mission}_{mode}_NRB__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
-    skeleton_files = '{mission}-{mode}-nrb-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
+    skeleton_dir = '{mission}_{mode}_{ard_spec}__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
+    skeleton_files = '{mission}-{mode}-{ard_spec}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
     
-    nrb_base = skeleton_dir.format(**meta)
-    existing = finder(outdir, [nrb_base.replace(product_id, '*')], foldermode=2)
+    ard_base = skeleton_dir.format(**meta)
+    existing = finder(outdir, [ard_base.replace(product_id, '*')], foldermode=2)
     if len(existing) > 0:
         if not update:
             return 'Already processed - Skip!'
         else:
-            nrb_dir = existing[0]
+            ard_dir = existing[0]
     else:
-        nrb_dir = os.path.join(outdir, nrb_base)
-    os.makedirs(nrb_dir, exist_ok=True)
+        ard_dir = os.path.join(outdir, ard_base)
+    os.makedirs(ard_dir, exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -172,8 +176,8 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     # ellipsoidal incident angle (-ei.tif), gamma-to-sigma ratio (-gs.tif),
     # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
-    datasets_nrb = dict()
-    for key in list(datasets[0].keys()):
+    datasets_ard = dict()
+    for key in list(datasets_sar[0].keys()):
         if key == 'dm' or key not in LERC_ERR_THRES.keys():
             # the data mask raster (-dm.tif) will be created later
             continue
@@ -187,12 +191,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             subdir = 'measurement'
         else:
             subdir = 'annotation'
-        outname = os.path.join(nrb_dir, subdir, outname_base)
+        outname = os.path.join(ard_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
             os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
-            images = [ds[key] for ds in datasets]
+            images = [ds[key] for ds in datasets_sar]
             ras = None
             if len(images) > 1:
                 ras = Raster(images, list_separate=False)
@@ -211,12 +215,12 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             gdalwarp(src=source, dst=outname, **options)
             if ras is not None:
                 ras.close()
-        datasets_nrb[key] = outname
+        datasets_ard[key] = outname
     
     # define a reference raster from the annotation datasets and list all gamma0/sigma0 backscatter measurement rasters
-    measure_tifs = [v for k, v in datasets_nrb.items() if re.search('[gs]-lin', k)]
-    ref_key = list(datasets_nrb.keys())[0]
-    ref_tif = datasets_nrb[ref_key]
+    measure_tifs = [v for k, v in datasets_ard.items() if re.search('[gs]-lin', k)]
+    ref_key = list(datasets_ard.keys())[0]
+    ref_tif = datasets_ard[ref_key]
     
     # create data mask raster (-dm.tif)
     if 'dm' in allowed:
@@ -226,22 +230,22 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
         
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
-            create_data_mask(outname=dm_path, datasets=datasets, extent=extent, epsg=epsg,
+            create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             wbm=wbm, dst_nodata=dst_nodata_byte)
-        datasets_nrb['dm'] = dm_path
+                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type)
+        datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
     if 'id' in allowed:
         id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
         if not os.path.isfile(id_path):
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
-                                datasets=datasets, src_ids=src_ids,
+                                datasets=datasets_sar, src_ids=src_ids,
                                 extent=extent, epsg=epsg, driver=driver,
                                 creation_opt=write_options['id'],
                                 overviews=overviews, dst_nodata=dst_nodata_byte)
-        datasets_nrb['id'] = id_path
+        datasets_ard['id'] = id_path
     
     # create DEM (-em.tif)
     if dem_type is not None and 'em' in allowed:
@@ -260,7 +264,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
                         create_options=write_options['em'],
                         pbar=False)
             log_pyro.setLevel(level)
-        datasets_nrb['em'] = em_path
+        datasets_ard['em'] = em_path
     
     # create color composite VRT (-cc-[gs]-lin.vrt)
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -285,7 +289,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     if 'gs' in allowed:
-        gs_path = datasets_nrb['gs']
+        gs_path = datasets_ard['gs']
         for item in measure_tifs:
             sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
             sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
@@ -304,7 +308,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     # create gamma nought RTC VRTs (-[vh|vv|hh|hv]-g-[lin|log].vrt)
     if 'sg' in allowed:
-        sg_path = datasets_nrb['sg']
+        sg_path = datasets_ard['sg']
         for item in measure_tifs:
             if not item.endswith('s-lin.tif'):
                 continue
@@ -325,7 +329,7 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
-    support_dir = os.path.join(nrb_dir, 'support')
+    support_dir = os.path.join(ard_dir, 'support')
     schemas = os.listdir(schema_dir)
     os.makedirs(support_dir, exist_ok=True)
     for schema in schemas:
@@ -336,17 +340,18 @@ def format(config, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
             shutil.copy(schema_in, schema_out)
     
     # create metadata files in XML and (STAC) JSON formats
-    start = datetime.strptime(nrb_start, '%Y%m%dT%H%M%S')
-    stop = datetime.strptime(nrb_stop, '%Y%m%dT%H%M%S')
-    meta = extract.meta_dict(config=config, target=nrb_dir, src_ids=src_ids, rtc_dir=datadir,
-                             proc_time=proc_time, start=start, stop=stop, compression=compress)
-    nrb_assets = list(datasets_nrb.values()) + finder(nrb_dir, ['.vrt$'], regex=True, recursive=True)
+    start = datetime.strptime(ard_start, '%Y%m%dT%H%M%S')
+    stop = datetime.strptime(ard_stop, '%Y%m%dT%H%M%S')
+    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
+                             proc_time=proc_time, start=start, stop=stop, compression=compress,
+                             product_type=product_type)
+    ard_assets = list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True)
     if 'OGC' in config['meta']['format']:
-        xml.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
+        xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
-        stac.parse(meta=meta, target=nrb_dir, assets=nrb_assets, exist_ok=True)
+        stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if config['meta']['copy_original']:
-        copy_src_meta(target=nrb_dir, src_ids=src_ids)
+        copy_src_meta(target=ard_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
@@ -369,7 +374,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     scenes: list[str]
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
     datadir: str
-        The directory containing the datasets processed from the source scenes using pyroSAR.
+        The directory containing the SAR datasets processed from the source scenes using pyroSAR.
         The function will raise an error if the processing output cannot be found for all scenes in `datadir`.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
@@ -381,7 +386,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     ids: list[:class:`pyroSAR.drivers.ID`]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
     datasets: list[dict]
-        List of RTC processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
+        List of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
         The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
     
     See Also
@@ -653,7 +658,7 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
 
 def calc_product_start_stop(src_ids, extent, epsg):
     """
-    Calculates the start and stop times of the NRB product.
+    Calculates the start and stop times of the ARD product.
     The geolocation grid points including their azimuth time information are extracted first from the metadata of each
     source SLC. These grid points are then used to interpolate the azimuth time for the lower right and upper left
     (ascending) or upper right and lower left (descending) corners of the MGRS tile extent.
@@ -671,8 +676,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
     -------
     tuple[str]
     
-    - Start time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
-    - Stop time of the NRB product formatted as `%Y%m%dT%H%M%S` in UTC.
+    - Start time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
+    - Stop time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -747,10 +752,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, wbm=None):
+                     overviews, overview_resampling, dst_nodata, product_type, wbm=None):
     """
     Creation of the Data Mask image.
-
+    
     Parameters
     ----------
     outname: str
@@ -773,8 +778,11 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Resampling method for overview levels.
     dst_nodata: int or str
         Nodata value to write to the output raster.
+    product_type: str
+        The type of ARD product that is being created. Either 'NRB' or 'ORB'.
     wbm: str or None
-        Path to a water body mask file with the dimensions of an MGRS tile.
+        Path to a water body mask file with the dimensions of an MGRS tile. Optional if `product_type='NRB', mandatory
+        if `product_type='ORB'`.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
     measurement = [scene[measurement_keys[0]] for scene in datasets]
@@ -786,14 +794,19 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         else:
             return  # do not create a data mask if not all scenes have a layover-shadow mask
     print(outname)
-    dm_bands = {1: {'arr_val': 0,
-                    'name': 'not layover, nor shadow'},
-                2: {'arr_val': 1,
-                    'name': 'layover'},
-                3: {'arr_val': 2,
-                    'name': 'shadow'},
-                4: {'arr_val': 4,
-                    'name': 'ocean water'}}
+    if product_type == 'NRB':
+        dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
+                    {'arr_val': 1, 'name': 'layover'},
+                    {'arr_val': 2, 'name': 'shadow'},
+                    # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
+                    {'arr_val': 4, 'name': 'ocean water'}]
+    elif product_type == 'ORB':
+        if wbm is None:
+            raise RuntimeError('Water body mask is required for ORB products')
+        dm_bands = [{'arr_val': [0, 1, 2], 'name': 'land'},
+                    {'arr_val': 4, 'name': 'ocean water'}]
+    else:
+        raise RuntimeError(f'Unknown product type: {product_type}')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
@@ -832,7 +845,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     del arr_wbm
             else:
                 out_arr = arr_dm
-                dm_bands.pop(4)
+                del dm_bands[3]
             del arr_dm
             
             # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
@@ -850,25 +863,25 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         
         outname_tmp = '/vsimem/' + os.path.basename(outname) + '.vrt'
         gdriver = gdal.GetDriverByName('GTiff')
-        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands.keys()), gdal.GDT_Byte,
+        ds_tmp = gdriver.Create(outname_tmp, rows, cols, len(dm_bands), gdal.GDT_Byte,
                                 options=['ALPHA=UNSPECIFIED', 'PHOTOMETRIC=MINISWHITE'])
         gdriver = None
         ds_tmp.SetGeoTransform(geotrans)
         ds_tmp.SetProjection(proj)
         
-        for k, v in dm_bands.items():
-            band = ds_tmp.GetRasterBand(k)
-            arr_val = v['arr_val']
-            b_name = v['name']
+        for i, _dict in enumerate(dm_bands):
+            band = ds_tmp.GetRasterBand(i+1)
+            arr_val = _dict['arr_val']
+            b_name = _dict['name']
             
             arr = np.full((rows, cols), 0)
             arr[out_arr == dst_nodata] = dst_nodata
-            if arr_val == 0:
-                arr[out_arr == 0] = 1
+            if arr_val in [0, 4]:
+                arr[out_arr == arr_val] = 1
             elif arr_val in [1, 2]:
                 arr[(out_arr == arr_val) | (out_arr == 3)] = 1
-            elif arr_val == 4:
-                arr[out_arr == 4] = 1
+            elif arr_val == [0, 1, 2]:
+                arr[out_arr != 4] = 1
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
@@ -896,7 +909,7 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     outname: str
         Full path to the output data mask file.
     ref_tif: str
-        Full path to any GeoTIFF file of the NRB product.
+        Full path to any GeoTIFF file of the ARD product.
     datasets: list[dict]
         List of processed output files that match the source SLC scenes and overlap with the current MGRS tile.
     src_ids: list[pyroSAR.drivers.ID]
@@ -904,7 +917,7 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The CRS used for the NRB product; provided as an EPSG code.
+        The CRS used for the ARD product; provided as an EPSG code.
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]

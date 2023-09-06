@@ -22,8 +22,8 @@ def get_keys(section):
     """
     if section == 'processing':
         return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
-                'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
+                'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
+                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'ard_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args']
     elif section == 'metadata':
@@ -79,7 +79,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'etad' not in proc_sec.keys():
         proc_sec['etad'] = 'False'
         proc_sec['etad_dir'] = 'None'
-    for item in ['rtc_dir', 'tmp_dir', 'nrb_dir', 'wbm_dir', 'log_dir']:
+    for item in ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'log_dir']:
         if item not in proc_sec.keys():
             proc_sec[item] = item[:3].upper()
     if 'gdal_threads' not in proc_sec.keys():
@@ -115,7 +115,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
-            allowed = ['nrb', 'rtc', 'all']
+            allowed = ['sar', 'ard', 'all', 'orb']
             assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
             v = v.lower()
         if k == 'aoi_tiles':

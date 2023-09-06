@@ -3,7 +3,7 @@ Folder Structure
 
 The following demonstrates a possible structure created to store intermediate and final files during a processor run.
 The listed files describe the output of the user configuration parameter ``measurement`` set to ``gamma``
-and all output annotation layers enabled (``annotation = dm, ei, em, id, lc, li, np, gs``).
+and the following output annotation layers enabled (``annotation = dm, ei, em, id, lc, li, np, ratio``), thus creating S1-NRB products.
 The structure is based on the default configuration defined in the `config.ini` file and can be modified by a user.
 Folders are highlighted in bold.
 
@@ -30,7 +30,7 @@ Folders are highlighted in bold.
                     | 20220708T1118_process.log
                     | ...
 
-            .. collapse:: <b>nrb_dir</b>
+            .. collapse:: <b>ard_dir</b>
 
                 .. pull-quote::
 
@@ -101,13 +101,13 @@ Folders are highlighted in bold.
                     | ...
                     | catalog.json
 
-            .. collapse:: <b>rtc_dir</b>
+            .. collapse:: <b>sar_dir</b>
 
                 .. pull-quote::
 
                     .. note::
 
-                        The RTC processing output and SNAP workflows per source scene.
+                        The SAR processing output and SNAP workflows per source scene.
                         Geocoded products carry an EPSG code suffix.
 
                     .. collapse:: <b>S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12</b>
@@ -132,7 +132,7 @@ Folders are highlighted in bold.
 
                     .. note::
 
-                        Intermediate non-geocoded RTC processor files per scene.
+                        Intermediate non-geocoded SAR processor files per scene.
 
                         - scene-specific DEM mosaic and intermediate (SNAP) processor files
                         - unpacked ETAD files (\*_ETA_\*)

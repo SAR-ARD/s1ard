@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import shutil
 from statistics import mean, median
 from datetime import datetime, timezone
@@ -29,7 +30,7 @@ def parse(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -39,7 +40,7 @@ def parse(meta, target, assets, exist_ok=False):
 
 def source_json(meta, target, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB product in STAC compliant JSON format.
+    Function to generate source-level metadata for an ARD product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -141,13 +142,13 @@ def source_json(meta, target, exist_ok=False):
                                        target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
                                                   '.document',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
+                                       title='CARD4L Product Family Specification: {} (v{})'
+                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='card4l-document',
                                        target=meta['prod']['card4l-link'],
                                        media_type='application/pdf',
-                                       title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                             ''.format(meta['prod']['card4l-version'])))
+                                       title='CARD4L Product Family Specification: {} (v{})'
+                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
         item.add_link(link=pystac.Link(rel='about',
                                        target=meta['source'][uid]['doi'],
                                        title='Product definition reference.'))
@@ -184,7 +185,7 @@ def source_json(meta, target, exist_ok=False):
 
 def product_json(meta, target, assets, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB product in STAC compliant JSON format.
+    Function to generate product-level metadata for an ARD product in STAC compliant JSON format.
     
     Parameters
     ----------
@@ -193,7 +194,7 @@ def product_json(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -281,13 +282,13 @@ def product_json(meta, target, assets, exist_ok=False):
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
                                    media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                         ''.format(meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification: {} (v{})'
+                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
     item.add_link(link=pystac.Link(rel='card4l-document',
                                    target=meta['prod']['card4l-link'],
                                    media_type='application/pdf',
-                                   title='CARD4L Product Family Specification: Normalised Radar Backscatter (v{})'
-                                         ''.format(meta['prod']['card4l-version'])))
+                                   title='CARD4L Product Family Specification: {} (v{})'
+                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
     for src in list(meta['source'].keys()):
         x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
         src_target = os.path.join('./source', '{}.json'.format(x)).replace('\\', '/')
@@ -508,9 +509,9 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             with Raster(asset) as dm_ras:
                 band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                               range(1, dm_ras.bands + 1)]
-            samples = {k: v for k, v in ASSET_MAP[key]['values'].items() if v in band_descr}
+            samples = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
             bands = []
-            for sample in samples.values():
+            for sample in samples:
                 band = RasterBand.create(nodata=nodata,
                                          data_type=DataType.UINT8,
                                          unit=ASSET_MAP[key]['unit'])
@@ -526,22 +527,24 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
 
-def make_catalog(directory, recursive=True, silent=False):
+def make_catalog(directory, product_type, recursive=True, silent=False):
     """
-    For a given directory of Sentinel-1 NRB products, this function will create a high-level STAC
+    For a given directory of Sentinel-1 ARD products, this function will create a high-level STAC
     :class:`~pystac.catalog.Catalog` object serving as the STAC endpoint and lower-level STAC
     :class:`~pystac.collection.Collection` objects for each subdirectory corresponding to a unique MGRS tile ID.
     
-    WARNING: The directory content will be reorganized into subdirectories based on unique MGRS tile IDs if this is not
-    yet the case.
+    WARNING: The directory content will be reorganized into subdirectories based on the ARD type and unique MGRS tile
+    IDs if this is not yet the case.
     
     Parameters
     ----------
     directory: str
-        Path to a directory that contains Sentinel-1 NRB products.
-    recursive: bool
-        Search for NRB products in `directory` recursively? Default is True.
-    silent: bool
+        Path to a directory that contains ARD products.
+    product_type: str
+        Type of ARD products. Options: 'NRB' or 'ORB'.
+    recursive: bool, optional
+        Search `directory` recursively? Default is True.
+    silent: bool, optional
         Should the output during directory reorganization be suppressed? Default is False.
     
     Returns
@@ -557,9 +560,11 @@ def make_catalog(directory, recursive=True, silent=False):
     https://github.com/gjoseph92/stackstac/issues/20
     """
     overwrite = False
-    pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
-              r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
+    product_type = product_type.upper()
+    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_'\
+              fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
     products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+    directory = os.path.join(directory, product_type)
     
     # Check if Catalog already exists
     catalog_path = os.path.join(directory, 'catalog.json')
@@ -581,24 +586,26 @@ def make_catalog(directory, recursive=True, silent=False):
     
     unique_tiles = list(
         set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
-    products = _reorganize_by_tile(directory=directory, products=products, recursive=recursive, silent=silent)
+    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products, recursive=recursive,
+                                   silent=silent)
     
-    nrb_catalog = pystac.Catalog(id='nrb_catalog',
-                                 description='A STAC Catalog of Sentinel-1 NRB products.',
-                                 title='Sentinel-1 NRB STAC Catalog',
-                                 catalog_type=pystac.CatalogType.SELF_CONTAINED)
+    catalog = pystac.Catalog(id=f'{product_type.lower()}_catalog',
+                             description=f'STAC Catalog of Sentinel-1 {product_type} products.',
+                             title=f'STAC Catalog of Sentinel-1 {product_type} products.',
+                             catalog_type=pystac.CatalogType.SELF_CONTAINED)
     
     for tile in unique_tiles:
         tile_collection = pystac.Collection(id=tile,
-                                            description=f'A STAC Collection for Sentinel-1 NRB products corresponding '
-                                                        f'to MGRS tile {tile}.',
-                                            title='Sentinel-1 NRB STAC Collection',
+                                            description=f'STAC Collection of Sentinel-1 {product_type} products for '
+                                                        f'MGRS tile {tile}.',
+                                            title=f'STAC Collection of Sentinel-1 {product_type} products for '
+                                                  f'MGRS tile {tile}.',
                                             extent=pystac.Extent(sp_extent, tmp_extent),
                                             keywords=['sar', 'backscatter', 'esa', 'copernicus', 'sentinel'],
                                             providers=[pystac.Provider(name='ESA',
                                                                        roles=[pystac.ProviderRole.LICENSOR,
                                                                               pystac.ProviderRole.PRODUCER])])
-        nrb_catalog.add_child(tile_collection)
+        catalog.add_child(tile_collection)
         
         items = []
         for prod in products:
@@ -614,45 +621,47 @@ def make_catalog(directory, recursive=True, silent=False):
         tile_collection.extent = extent
     
     # Save Catalog and Collections on disk
-    nrb_catalog.normalize_and_save(root_href=directory)
+    catalog.normalize_and_save(root_href=directory)
     
     # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
-    nrb_catalog.make_all_asset_hrefs_absolute()
+    catalog.make_all_asset_hrefs_absolute()
     
     if overwrite:
         print(f"\n#### Existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
     else:
         print(f"\n#### New STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
-    return nrb_catalog
+    return catalog
 
 
-def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
+def _reorganize_by_tile(directory, product_type, products=None, recursive=True, silent=False):
     """
-    Reorganizes a directory containing Sentinel-1 NRB products based on unique MGRS tile IDs.
-    If a product is already located in a subdirectory named after the MGRS tile it was created for, it will not be moved.
-
+    Reorganizes a directory containing Sentinel-1 ARD products based on the ARD type and unique MGRS tile IDs.
+    
     Parameters
     ----------
     directory: str
-        Path to a directory that contains Sentinel-1 NRB products.
-    products: list[str] or None
-        List of NRB product paths. Will be created from `directory` if not provided.
-    recursive: bool
-        Search for NRB products in `directory` recursively? Default is True.
-    silent: bool
-        If False (default), a message for each NRB product is printed if it has been moved to a new location or not.
-
+        Path to a directory that contains ARD products.
+    product_type: str
+        Type of ARD products. Options: 'NRB' or 'ORB'.
+    products: list[str] or None, optional
+        List of ARD product paths. Will be created from `directory` if not provided.
+    recursive: bool, optional
+        Search `directory` recursively? Default is True.
+    silent: bool, optional
+        If False (default), a message for each ARD product is printed if it has been moved to a new location or not.
+    
     Returns
     -------
     products_new: list[str]
-        An updated list of NRB product paths.
+        An updated list of ARD product paths.
     """
     if products is None:
-        pattern = r'^S1[AB]_(IW|EW|S[1-6])_NRB__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{8}T[0-9]{6}_[0-9]{6}_' \
-                  r'[0-9A-F]{6}_[0-9A-Z]{5}_[0-9A-Z]{4}$'
-        products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
+        parent_dir = os.path.dirname(directory)
+        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
+                  fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
+        products = finder(target=parent_dir, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     
-    inp = input('WARNING:\n{}\nand the NRB products it contains will be reorganized into subdirectories '
+    inp = input('WARNING:\n{}\nand the ARD products it contains will be reorganized into subdirectories '
                 'based on unique MGRS tile IDs if this directory structure does not yet exist. '
                 '\nDo you wish to continue? [yes|no] '.format(directory))
     if inp == 'yes':
@@ -677,12 +686,12 @@ def _reorganize_by_tile(directory, products=None, recursive=True, silent=False):
                 if os.path.dirname(old_dir) != tile_dir:
                     shutil.move(old_dir, new_dir)
                     if not silent:
-                        print(f"{os.path.basename(old_dir)} moved to {tile_dir}")
+                        print(f"-> {os.path.basename(old_dir)} moved to {tile_dir}")
                 else:
                     if not silent:
-                        print(f"{os.path.basename(old_dir)} already in {tile_dir} - skip")
+                        print(f"xx {os.path.basename(old_dir)} already in {tile_dir} (skip!)")
                     continue
         return products_new
     else:
         print('abort!')
-        exit()
+        sys.exit(0)

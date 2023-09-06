@@ -20,22 +20,26 @@ def parse(meta, target, assets, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
-    NS_MAP_prod = deepcopy(NS_MAP)
-    NS_MAP_src = deepcopy(NS_MAP)
-    NS_MAP_prod['s1-nrb'] = NS_MAP['s1-nrb']['product']
-    NS_MAP_src['s1-nrb'] = NS_MAP['s1-nrb']['source']
+    key = "s1-{}".format(meta['prod']['productName-short'].lower())
+    nsmap = deepcopy(NS_MAP)
+    nsmap[key] = nsmap.pop('placeholder')
+    src_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'source')
+    prod_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'product')
     
-    source_xml(meta=meta, target=target, nsmap=NS_MAP_src, exist_ok=exist_ok)
-    product_xml(meta=meta, target=target, assets=assets, nsmap=NS_MAP_prod, exist_ok=exist_ok)
+    nsmap.update({key: src_url})
+    source_xml(meta=meta, target=target, nsmap=nsmap, ard_ns=key, exist_ok=exist_ok)
+    nsmap.update({key: prod_url})
+    product_xml(meta=meta, target=target, assets=assets, nsmap=nsmap, ard_ns=key,
+                exist_ok=exist_ok)
 
 
-def source_xml(meta, target, nsmap, exist_ok=False):
+def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
     """
-    Function to generate source-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
+    Function to generate source-level metadata for an ARD product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -45,6 +49,8 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         A path pointing to the root directory of a product scene.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    ard_ns: str
+        Abbreviation of the ARD namespace. E.g., `s1-nrb` for the NRB ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -60,10 +66,10 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
         
-        root = etree.Element(_nsc('s1-nrb:EarthObservation', nsmap), nsmap=nsmap,
+        root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
         _om_time(root=root, nsmap=nsmap, scene_id=scene, time_start=timeStart, time_stop=timeStop)
-        _om_procedure(root=root, nsmap=nsmap, scene_id=scene, meta=meta, uid=uid, prod=False)
+        _om_procedure(root=root, nsmap=nsmap, ard_ns=ard_ns, scene_id=scene, meta=meta, uid=uid, prod=False)
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
         _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
@@ -75,7 +81,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         earthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult', nsmap),
                                                   attrib={_nsc('gml:id', nsmap): scene + '_9'})
         product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
-        productInformation = etree.SubElement(product, _nsc('s1-nrb:ProductInformation', nsmap))
+        productInformation = etree.SubElement(product, _nsc('_:ProductInformation', nsmap, ard_ns=ard_ns))
         fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
         serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference', nsmap),
                                             attrib={_nsc('xlink:href', nsmap): scene})
@@ -83,7 +89,8 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         
         ################################################################################################################
         metaDataProperty = etree.SubElement(root, _nsc('eop:metaDataProperty', nsmap))
-        earthObservationMetaData = etree.SubElement(metaDataProperty, _nsc('s1-nrb:EarthObservationMetaData', nsmap))
+        earthObservationMetaData = etree.SubElement(metaDataProperty, _nsc('_:EarthObservationMetaData', nsmap,
+                                                                           ard_ns=ard_ns))
         
         identifier = etree.SubElement(earthObservationMetaData, _nsc('eop:identifier', nsmap))
         identifier.text = scene
@@ -95,7 +102,7 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         status.text = meta['source'][uid]['status']
         
         processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing', nsmap))
-        processingInformation = etree.SubElement(processing, _nsc('s1-nrb:ProcessingInformation', nsmap))
+        processingInformation = etree.SubElement(processing, _nsc('_:ProcessingInformation', nsmap, ard_ns=ard_ns))
         processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter', nsmap),
                                             attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
         processingCenter.text = meta['source'][uid]['processingCenter']
@@ -107,94 +114,100 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         processorVersion.text = meta['source'][uid]['processorVersion']
         processingMode = etree.SubElement(processingInformation, _nsc('eop:processingMode', nsmap))
         processingMode.text = meta['source'][uid]['processingMode']
-        processingLevel = etree.SubElement(processingInformation, _nsc('s1-nrb:processingLevel', nsmap))
+        processingLevel = etree.SubElement(processingInformation, _nsc('_:processingLevel', nsmap, ard_ns=ard_ns))
         processingLevel.text = meta['common']['processingLevel']
-        orbitDataSource = etree.SubElement(processingInformation, _nsc('s1-nrb:orbitDataSource', nsmap))
+        orbitDataSource = etree.SubElement(processingInformation, _nsc('_:orbitDataSource', nsmap, ard_ns=ard_ns))
         orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
-        orbitStateVector = etree.SubElement(processingInformation, _nsc('s1-nrb:orbitStateVector', nsmap),
+        orbitStateVector = etree.SubElement(processingInformation, _nsc('_:orbitStateVector', nsmap, ard_ns=ard_ns),
                                             attrib={'access': meta['source'][uid]['orbitDataAccess']})
         orbitStateVector.text = meta['source'][uid]['orbitStateVector']
         for swath in meta['source'][uid]['swaths']:
-            azimuthLookBandwidth = etree.SubElement(processingInformation, _nsc('s1-nrb:azimuthLookBandwidth', nsmap),
+            azimuthLookBandwidth = etree.SubElement(processingInformation, _nsc('_:azimuthLookBandwidth', nsmap,
+                                                                                ard_ns=ard_ns),
                                                     attrib={'uom': 'Hz', 'beam': swath})
             azimuthLookBandwidth.text = str(meta['source'][uid]['azimuthLookBandwidth'][swath])
         for swath in meta['source'][uid]['swaths']:
-            rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('s1-nrb:rangeLookBandwidth', nsmap),
+            rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('_:rangeLookBandwidth', nsmap,
+                                                                              ard_ns=ard_ns),
                                                   attrib={'uom': 'Hz', 'beam': swath})
             rangeLookBandwidth.text = str(meta['source'][uid]['rangeLookBandwidth'][swath])
-        lutApplied = etree.SubElement(processingInformation, _nsc('s1-nrb:lutApplied', nsmap))
+        lutApplied = etree.SubElement(processingInformation, _nsc('_:lutApplied', nsmap, ard_ns=ard_ns))
         lutApplied.text = meta['source'][uid]['lutApplied']
         
-        productType = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:productType', nsmap),
+        productType = etree.SubElement(earthObservationMetaData, _nsc('_:productType', nsmap, ard_ns=ard_ns),
                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
         productType.text = meta['source'][uid]['productType']
         for swath in meta['source'][uid]['swaths']:
             azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('s1-nrb:azimuthNumberOfLooks', nsmap),
+                                                    _nsc('_:azimuthNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                     attrib={'beam': swath})
             azimuthNumberOfLooks.text = str(meta['source'][uid]['azimuthNumberOfLooks'][swath])
         for swath in meta['source'][uid]['swaths']:
             rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
-                                                  _nsc('s1-nrb:rangeNumberOfLooks', nsmap),
+                                                  _nsc('_:rangeNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                   attrib={'beam': swath})
             rangeNumberOfLooks.text = str(meta['source'][uid]['rangeNumberOfLooks'][swath])
         dataGeometry = etree.SubElement(earthObservationMetaData,
-                                        _nsc('s1-nrb:dataGeometry', nsmap))
+                                        _nsc('_:dataGeometry', nsmap, ard_ns=ard_ns))
         dataGeometry.text = meta['source'][uid]['dataGeometry']
         for swath in meta['source'][uid]['swaths']:
             azimuthResolution = etree.SubElement(earthObservationMetaData,
-                                                 _nsc('s1-nrb:azimuthResolution', nsmap),
+                                                 _nsc('_:azimuthResolution', nsmap, ard_ns=ard_ns),
                                                  attrib={'uom': 'm', 'beam': swath})
             azimuthResolution.text = str(meta['source'][uid]['azimuthResolution'][swath])
         for swath in meta['source'][uid]['swaths']:
             rangeResolution = etree.SubElement(earthObservationMetaData,
-                                               _nsc('s1-nrb:rangeResolution', nsmap),
+                                               _nsc('_:rangeResolution', nsmap, ard_ns=ard_ns),
                                                attrib={'uom': 'm', 'beam': swath})
             rangeResolution.text = str(meta['source'][uid]['rangeResolution'][swath])
-        azimuthPixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:azimuthPixelSpacing', nsmap),
+        azimuthPixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:azimuthPixelSpacing', nsmap,
+                                                                              ard_ns=ard_ns),
                                                attrib={'uom': 'm'})
         azimuthPixelSpacing.text = str(mean(meta['source'][uid]['azimuthPixelSpacing'].values()))
-        rangePixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:rangePixelSpacing', nsmap),
+        rangePixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:rangePixelSpacing', nsmap,
+                                                                            ard_ns=ard_ns),
                                              attrib={'uom': 'm'})
         rangePixelSpacing.text = str(mean(meta['source'][uid]['rangePixelSpacing'].values()))
         
-        performance = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:performance', nsmap))
-        performanceIndicators = etree.SubElement(performance, _nsc('s1-nrb:PerformanceIndicators', nsmap))
+        performance = etree.SubElement(earthObservationMetaData, _nsc('_:performance', nsmap, ard_ns=ard_ns))
+        performanceIndicators = etree.SubElement(performance, _nsc('_:PerformanceIndicators', nsmap, ard_ns=ard_ns))
         noiseEquivalentIntensityType = etree.SubElement(performanceIndicators,
-                                                        _nsc('s1-nrb:noiseEquivalentIntensityType', nsmap),
+                                                        _nsc('_:noiseEquivalentIntensityType', nsmap, ard_ns=ard_ns),
                                                         attrib={'uom': 'dB'})
         noiseEquivalentIntensityType.text = str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])
         for pol in meta['common']['polarisationChannels']:
-            estimatesMin = etree.SubElement(performanceIndicators, _nsc('s1-nrb:estimates', nsmap),
+            estimatesMin = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
                                             attrib={'pol': pol, 'type': 'minimum'})
             estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['minimum'])
-            estimatesMax = etree.SubElement(performanceIndicators, _nsc('s1-nrb:estimates', nsmap),
+            estimatesMax = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
                                             attrib={'pol': pol, 'type': 'maximum'})
             estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['maximum'])
-            estimatesMean = etree.SubElement(performanceIndicators, _nsc('s1-nrb:estimates', nsmap),
+            estimatesMean = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
                                              attrib={'pol': pol, 'type': 'mean'})
             estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
-        equivalentNumberOfLooks = etree.SubElement(performanceIndicators, _nsc('s1-nrb:equivalentNumberOfLooks', nsmap))
+        equivalentNumberOfLooks = etree.SubElement(performanceIndicators, _nsc('_:equivalentNumberOfLooks', nsmap,
+                                                                               ard_ns=ard_ns))
         equivalentNumberOfLooks.text = str(meta['source'][uid]['perfEquivalentNumberOfLooks'])
-        peakSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('s1-nrb:peakSideLobeRatio', nsmap),
+        peakSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('_:peakSideLobeRatio', nsmap, ard_ns=ard_ns),
                                              attrib={'uom': 'dB'})
         peakSideLobeRatio.text = str(meta['source'][uid]['perfPeakSideLobeRatio'])
-        integratedSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('s1-nrb:integratedSideLobeRatio', nsmap),
+        integratedSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('_:integratedSideLobeRatio', nsmap,
+                                                                               ard_ns=ard_ns),
                                                    attrib={'uom': 'dB'})
         integratedSideLobeRatio.text = str(meta['source'][uid]['perfIntegratedSideLobeRatio'])
         
-        polCalMatrices = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:polCalMatrices', nsmap),
+        polCalMatrices = etree.SubElement(earthObservationMetaData, _nsc('_:polCalMatrices', nsmap, ard_ns=ard_ns),
                                           attrib={
                                               _nsc('xlink:href', nsmap): str(meta['source'][uid]['polCalMatrices'])})
         meanFaradayRotationAngle = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('s1-nrb:meanFaradayRotationAngle', nsmap),
+                                                    _nsc('_:meanFaradayRotationAngle', nsmap, ard_ns=ard_ns),
                                                     attrib={'uom': 'deg'})
         meanFaradayRotationAngle.text = meta['source'][uid]['faradayMeanRotationAngle']
         faraday_ref = str(meta['source'][uid]['faradayRotationReference'])
         referenceFaradayRotation = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('s1-nrb:referenceFaradayRotation', nsmap),
+                                                    _nsc('_:referenceFaradayRotation', nsmap, ard_ns=ard_ns),
                                                     attrib={_nsc('xlink:href', nsmap): faraday_ref})
-        ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:ionosphereIndicator', nsmap))
+        ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('_:ionosphereIndicator', nsmap, ard_ns=ard_ns))
         ionosphereIndicator.text = meta['source'][uid]['ionosphereIndicator']
         
         ################################################################################################################
@@ -203,9 +216,9 @@ def source_xml(meta, target, nsmap, exist_ok=False):
         tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def product_xml(meta, target, assets, nsmap, exist_ok=False):
+def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     """
-    Function to generate product-level metadata for an NRB product in `OGC 10-157r4` compliant XML format.
+    Function to generate product-level metadata for an ARD product in `OGC 10-157r4` compliant XML format.
     
     Parameters
     ----------
@@ -214,9 +227,11 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
-        List of paths to all GeoTIFF and VRT assets of the currently processed NRB product.
+        List of paths to all GeoTIFF and VRT assets of the currently processed ARD product.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    ard_ns: str
+        Abbreviation of the ARD namespace. E.g., `s1-nrb` for the NRB ARD product.
     exist_ok: bool
         Do not create files if they already exist?
     """
@@ -229,10 +244,10 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
     
-    root = etree.Element(_nsc('s1-nrb:EarthObservation', nsmap), nsmap=nsmap,
+    root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
     _om_time(root=root, nsmap=nsmap, scene_id=scene_id, time_start=timeStart, time_stop=timeStop)
-    _om_procedure(root=root, nsmap=nsmap, scene_id=scene_id, meta=meta, prod=True)
+    _om_procedure(root=root, nsmap=nsmap, ard_ns=ard_ns, scene_id=scene_id, meta=meta, prod=True)
     observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                         attrib={'nilReason': 'inapplicable'})
     _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene_id,
@@ -244,7 +259,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     earthObservationResult = etree.SubElement(result, _nsc('eop:EarthObservationResult', nsmap),
                                               attrib={_nsc('gml:id', nsmap): scene_id + '_9'})
     product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
-    productInformation = etree.SubElement(product, _nsc('s1-nrb:ProductInformation', nsmap))
+    productInformation = etree.SubElement(product, _nsc('_:ProductInformation', nsmap, ard_ns=ard_ns))
     fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
     serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference', nsmap),
                                         attrib={_nsc('xlink:href', nsmap): scene_id})
@@ -275,7 +290,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
                 z_error = str(meta['prod']['compression_zerrors'][k])
         
         product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
-        productInformation = etree.SubElement(product, _nsc('s1-nrb:ProductInformation', nsmap))
+        productInformation = etree.SubElement(product, _nsc('_:ProductInformation', nsmap, ard_ns=ard_ns))
         fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
         serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference', nsmap),
                                             attrib={_nsc('xlink:href', nsmap): relpath})
@@ -284,25 +299,26 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
         size = etree.SubElement(productInformation, _nsc('eop:size', nsmap), attrib={'uom': 'bytes'})
         size.text = str(os.path.getsize(asset))
         if header_size is not None:
-            headerSize = etree.SubElement(productInformation, _nsc('s1-nrb:headerSize', nsmap), attrib={'uom': 'bytes'})
+            headerSize = etree.SubElement(productInformation, _nsc('_:headerSize', nsmap, ard_ns=ard_ns),
+                                          attrib={'uom': 'bytes'})
             headerSize.text = header_size
         if byte_order is not None:
-            byteOrder = etree.SubElement(productInformation, _nsc('s1-nrb:byteOrder', nsmap))
+            byteOrder = etree.SubElement(productInformation, _nsc('_:byteOrder', nsmap, ard_ns=ard_ns))
             byteOrder.text = byte_order
-        dataFormat = etree.SubElement(productInformation, _nsc('s1-nrb:dataFormat', nsmap))
+        dataFormat = etree.SubElement(productInformation, _nsc('_:dataFormat', nsmap, ard_ns=ard_ns))
         dataFormat.text = data_format
         if data_type is not None:
-            dataType = etree.SubElement(productInformation, _nsc('s1-nrb:dataType', nsmap))
+            dataType = etree.SubElement(productInformation, _nsc('_:dataType', nsmap, ard_ns=ard_ns))
             dataType.text = data_type.split()[0]
-            bitsPerSample = etree.SubElement(productInformation, _nsc('s1-nrb:bitsPerSample', nsmap))
+            bitsPerSample = etree.SubElement(productInformation, _nsc('_:bitsPerSample', nsmap, ard_ns=ard_ns))
             bitsPerSample.text = data_type.split()[1]
         if no_data is not None:
-            noDataVal = etree.SubElement(productInformation, _nsc('s1-nrb:noDataValue', nsmap))
+            noDataVal = etree.SubElement(productInformation, _nsc('_:noDataValue', nsmap, ard_ns=ard_ns))
             noDataVal.text = no_data
         if z_error is not None:
-            compressionType = etree.SubElement(productInformation, _nsc('s1-nrb:compressionType', nsmap))
+            compressionType = etree.SubElement(productInformation, _nsc('_:compressionType', nsmap, ard_ns=ard_ns))
             compressionType.text = meta['prod']['compression_type']
-            compressionzError = etree.SubElement(productInformation, _nsc('s1-nrb:compressionZError', nsmap))
+            compressionzError = etree.SubElement(productInformation, _nsc('_:compressionZError', nsmap, ard_ns=ard_ns))
             compressionzError.text = z_error
         
         if 'annotation' in asset:
@@ -319,47 +335,46 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
-                    if 1 < len(band_descr) < len(ASSET_MAP[key]['values']):
-                        samples = {key: val for key, val in ASSET_MAP[key]['values'].items() if val in band_descr}
-                        for i, sample_val in enumerate(samples.values()):
-                            bitValue = etree.SubElement(productInformation, _nsc('s1-nrb:bitValue', nsmap),
-                                                        attrib={'band': str(i + 1),
-                                                                'name': sample_val})
-                            bitValue.text = '1'
-                    else:
-                        raise RuntimeError('{} contains an unexpected number of bands!'.format(asset))
+                    samples = [x for x in band_descr if x in ASSET_MAP[key]['allowed']]
+                    for i, sample in enumerate(samples):
+                        bitValue = etree.SubElement(productInformation, _nsc('_:bitValue', nsmap, ard_ns=ard_ns),
+                                                    attrib={'band': str(i + 1),
+                                                            'name': sample})
+                        bitValue.text = '1'
                 else:  # key == '-id.tif'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE',
                                                                                             '').replace('.zip', '')
                                   for src in src_list]
                     for i, s in enumerate(src_target):
-                        bitValue = etree.SubElement(productInformation, _nsc('s1-nrb:bitValue', nsmap),
+                        bitValue = etree.SubElement(productInformation, _nsc('_:bitValue', nsmap, ard_ns=ard_ns),
                                                     attrib={'band': '1', 'name': s})
                         bitValue.text = str(i + 1)
             
             if ASSET_MAP[key]['unit'] is None:
                 ASSET_MAP[key]['unit'] = 'unitless'
-            sampleType = etree.SubElement(productInformation, _nsc('s1-nrb:sampleType', nsmap),
+            sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
                                           attrib={'uom': ASSET_MAP[key]['unit']})
             sampleType.text = ASSET_MAP[key]['type']
             
             if key == '-ei.tif':
-                ellipsoidalHeight = etree.SubElement(productInformation, _nsc('s1-nrb:ellipsoidalHeight', nsmap),
+                ellipsoidalHeight = etree.SubElement(productInformation, _nsc('_:ellipsoidalHeight', nsmap,
+                                                                              ard_ns=ard_ns),
                                                      attrib={'uom': 'm'})
                 ellipsoidalHeight.text = meta['prod']['ellipsoidalHeight']
         
         if 'measurement' in asset and not asset.endswith('.vrt'):
-            creationTime = etree.SubElement(productInformation, _nsc('s1-nrb:creationTime', nsmap))
+            creationTime = etree.SubElement(productInformation, _nsc('_:creationTime', nsmap, ard_ns=ard_ns))
             creationTime.text = datetime.fromtimestamp(os.path.getctime(asset), tz=timezone.utc).isoformat()
-            polarization = etree.SubElement(productInformation, _nsc('s1-nrb:polarization', nsmap))
+            polarization = etree.SubElement(productInformation, _nsc('_:polarization', nsmap, ard_ns=ard_ns))
             polarization.text = re.search('-[vh]{2}', relpath).group().removeprefix('-').upper()
-            numBorderPixels = etree.SubElement(productInformation, _nsc('s1-nrb:numBorderPixels', nsmap))
+            numBorderPixels = etree.SubElement(productInformation, _nsc('_:numBorderPixels', nsmap, ard_ns=ard_ns))
             numBorderPixels.text = str(meta['prod']['numBorderPixels'])
     
     ####################################################################################################################
     metaDataProperty = etree.SubElement(root, _nsc('eop:metaDataProperty', nsmap))
-    earthObservationMetaData = etree.SubElement(metaDataProperty, _nsc('s1-nrb:EarthObservationMetaData', nsmap))
+    earthObservationMetaData = etree.SubElement(metaDataProperty, _nsc('_:EarthObservationMetaData', nsmap,
+                                                                       ard_ns=ard_ns))
     
     identifier = etree.SubElement(earthObservationMetaData, _nsc('eop:identifier', nsmap))
     identifier.text = scene_id
@@ -372,7 +387,7 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     status.text = meta['prod']['status']
     
     processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing', nsmap))
-    processingInformation = etree.SubElement(processing, _nsc('s1-nrb:ProcessingInformation', nsmap))
+    processingInformation = etree.SubElement(processing, _nsc('_:ProcessingInformation', nsmap, ard_ns=ard_ns))
     if meta['prod']['processingCenter'] is not None:
         processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter', nsmap),
                                             attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
@@ -386,120 +401,134 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     processingMode = etree.SubElement(processingInformation, _nsc('eop:processingMode', nsmap),
                                       attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     processingMode.text = meta['prod']['processingMode']
-    processingLevel = etree.SubElement(processingInformation, _nsc('s1-nrb:processingLevel', nsmap))
+    processingLevel = etree.SubElement(processingInformation, _nsc('_:processingLevel', nsmap, ard_ns=ard_ns))
     processingLevel.text = meta['common']['processingLevel']
     for src in list(meta['source'].keys()):
         src_path = '{}.xml'.format(os.path.basename(meta['source'][src]['filename']).split('.')[0])
         src_target = os.path.join('./source', src_path).replace('\\', '/')
-        sourceProduct = etree.SubElement(processingInformation, _nsc('s1-nrb:sourceProduct', nsmap),
+        sourceProduct = etree.SubElement(processingInformation, _nsc('_:sourceProduct', nsmap, ard_ns=ard_ns),
                                          attrib={_nsc('xlink:href', nsmap): src_target})
-    auxData1 = etree.SubElement(processingInformation, _nsc('s1-nrb:auxiliaryDataSetFileName', nsmap),
+    auxData1 = etree.SubElement(processingInformation, _nsc('_:auxiliaryDataSetFileName', nsmap, ard_ns=ard_ns),
                                 attrib={_nsc('xlink:href', nsmap): meta['prod']['ancillaryData_KML']})
-    speckleFilterApplied = etree.SubElement(processingInformation, _nsc('s1-nrb:speckleFilterApplied', nsmap))
+    speckleFilterApplied = etree.SubElement(processingInformation, _nsc('_:speckleFilterApplied', nsmap,
+                                                                        ard_ns=ard_ns))
     speckleFilterApplied.text = str(meta['prod']['speckleFilterApplied']).lower()
-    nrApplied = etree.SubElement(processingInformation, _nsc('s1-nrb:NRApplied', nsmap))
+    nrApplied = etree.SubElement(processingInformation, _nsc('_:NRApplied', nsmap, ard_ns=ard_ns))
     nrApplied.text = str(meta['prod']['NRApplied']).lower()
     if meta['prod']['NRApplied']:
-        nrAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:NRAlgorithm', nsmap),
+        nrAlgorithm = etree.SubElement(processingInformation, _nsc('_:NRAlgorithm', nsmap, ard_ns=ard_ns),
                                        attrib={_nsc('xlink:href', nsmap): meta['prod']['NRAlgorithm']})
     if meta['prod']['RTCAlgorithm'] is not None:
-        rtcAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:RTCAlgorithm', nsmap),
+        rtcAlgorithm = etree.SubElement(processingInformation, _nsc('_:RTCAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
-    geoCorrAlgorithm = etree.SubElement(processingInformation, _nsc('s1-nrb:geoCorrAlgorithm', nsmap),
+    geoCorrAlgorithm = etree.SubElement(processingInformation, _nsc('_:geoCorrAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['geoCorrAlgorithm']})
-    geoCorrResamplingMethod = etree.SubElement(processingInformation, _nsc('s1-nrb:geoCorrResamplingAlgorithm', nsmap))
+    geoCorrResamplingMethod = etree.SubElement(processingInformation, _nsc('_:geoCorrResamplingAlgorithm', nsmap,
+                                                                           ard_ns=ard_ns))
     geoCorrResamplingMethod.text = meta['prod']['geoCorrResamplingMethod'].upper()
-    demReference = etree.SubElement(processingInformation, _nsc('s1-nrb:DEMReference', nsmap),
+    demReference = etree.SubElement(processingInformation, _nsc('_:DEMReference', nsmap, ard_ns=ard_ns),
                                     attrib={'name': meta['prod']['demName'],
                                             'dem': meta['prod']['demType'],
                                             _nsc('xlink:href', nsmap): meta['prod']['demReference']})
-    demResamplingMethod = etree.SubElement(processingInformation, _nsc('s1-nrb:DEMResamplingMethod', nsmap))
+    demResamplingMethod = etree.SubElement(processingInformation, _nsc('_:DEMResamplingMethod', nsmap, ard_ns=ard_ns))
     demResamplingMethod.text = meta['prod']['demResamplingMethod'].upper()
-    demAccess = etree.SubElement(processingInformation, _nsc('s1-nrb:DEMAccess', nsmap),
+    demAccess = etree.SubElement(processingInformation, _nsc('_:DEMAccess', nsmap, ard_ns=ard_ns),
                                  attrib={_nsc('xlink:href', nsmap): meta['prod']['demAccess']})
-    demGSD = etree.SubElement(processingInformation, _nsc('s1-nrb:DEMGroundSamplingDistance', nsmap),
+    demGSD = etree.SubElement(processingInformation, _nsc('_:DEMGroundSamplingDistance', nsmap, ard_ns=ard_ns),
                               attrib={'uom': meta['prod']['demGSD'].split()[1]})
     demGSD.text = meta['prod']['demGSD'].split()[0]
-    egmReference = etree.SubElement(processingInformation, _nsc('s1-nrb:EGMReference', nsmap),
+    egmReference = etree.SubElement(processingInformation, _nsc('_:EGMReference', nsmap, ard_ns=ard_ns),
                                     attrib={_nsc('xlink:href', nsmap): meta['prod']['demEGMReference']})
-    egmResamplingMethod = etree.SubElement(processingInformation, _nsc('s1-nrb:EGMResamplingMethod', nsmap))
+    egmResamplingMethod = etree.SubElement(processingInformation, _nsc('_:EGMResamplingMethod', nsmap,
+                                                                       ard_ns=ard_ns))
     egmResamplingMethod.text = meta['prod']['demEGMResamplingMethod'].upper()
     
-    productType = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:productType', nsmap),
+    productType = etree.SubElement(earthObservationMetaData, _nsc('_:productType', nsmap, ard_ns=ard_ns),
                                    attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     productType.text = meta['prod']['productName-short']
-    azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:azimuthNumberOfLooks', nsmap))
+    azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('_:azimuthNumberOfLooks', nsmap,
+                                                                           ard_ns=ard_ns))
     azimuthNumberOfLooks.text = str(meta['prod']['azimuthNumberOfLooks'])
-    rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:rangeNumberOfLooks', nsmap))
+    rangeNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('_:rangeNumberOfLooks', nsmap,
+                                                                         ard_ns=ard_ns))
     rangeNumberOfLooks.text = str(meta['prod']['rangeNumberOfLooks'])
-    equivalentNumberLooks = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:equivalentNumberOfLooks', nsmap))
+    equivalentNumberLooks = etree.SubElement(earthObservationMetaData, _nsc('_:equivalentNumberOfLooks', nsmap,
+                                                                            ard_ns=ard_ns))
     equivalentNumberLooks.text = str(meta['prod']['equivalentNumberLooks'])
-    refDoc = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:refDoc', nsmap),
+    refDoc = etree.SubElement(earthObservationMetaData, _nsc('_:refDoc', nsmap, ard_ns=ard_ns),
                               attrib={'name': meta['prod']['productName'],
                                       'version': meta['prod']['card4l-version'],
                                       _nsc('xlink:href', nsmap): meta['prod']['card4l-link']})
     radiometricAccuracyRelative = etree.SubElement(earthObservationMetaData,
-                                                   _nsc('s1-nrb:radiometricAccuracyRelative', nsmap),
+                                                   _nsc('_:radiometricAccuracyRelative', nsmap, ard_ns=ard_ns),
                                                    attrib={'uom': 'dB'})
     radiometricAccuracyRelative.text = meta['prod']['radiometricAccuracyRelative']
     radiometricAccuracyAbsolute = etree.SubElement(earthObservationMetaData,
-                                                   _nsc('s1-nrb:radiometricAccuracyAbsolute', nsmap),
+                                                   _nsc('_:radiometricAccuracyAbsolute', nsmap, ard_ns=ard_ns),
                                                    attrib={'uom': 'dB'})
     radiometricAccuracyAbsolute.text = meta['prod']['radiometricAccuracyAbsolute']
     radacc_ref = str(meta['prod']['radiometricAccuracyReference'])
     radiometricAccuracyReference = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('s1-nrb:radiometricAccuracyReference', nsmap),
+                                                    _nsc('_:radiometricAccuracyReference', nsmap, ard_ns=ard_ns),
                                                     attrib={_nsc('xlink:href', nsmap): radacc_ref})
-    geoCorrAccuracyType = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:geoCorrAccuracyType', nsmap))
+    geoCorrAccuracyType = etree.SubElement(earthObservationMetaData, _nsc('_:geoCorrAccuracyType', nsmap,
+                                                                          ard_ns=ard_ns))
     geoCorrAccuracyType.text = meta['prod']['geoCorrAccuracyType']
     geoCorrAccuracyNorthernSTDev = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('s1-nrb:geoCorrAccuracyNorthernSTDev', nsmap),
+                                                    _nsc('_:geoCorrAccuracyNorthernSTDev', nsmap, ard_ns=ard_ns),
                                                     attrib={'uom': 'm'})
     geoCorrAccuracyNorthernSTDev.text = meta['prod']['geoCorrAccuracyNorthernSTDev']
     geoCorrAccuracyEasternSTDev = etree.SubElement(earthObservationMetaData,
-                                                   _nsc('s1-nrb:geoCorrAccuracyEasternSTDev', nsmap),
+                                                   _nsc('_:geoCorrAccuracyEasternSTDev', nsmap, ard_ns=ard_ns),
                                                    attrib={'uom': 'm'})
     geoCorrAccuracyEasternSTDev.text = meta['prod']['geoCorrAccuracyEasternSTDev']
     geoCorrAccuracyNorthernBias = etree.SubElement(earthObservationMetaData,
-                                                   _nsc('s1-nrb:geoCorrAccuracyNorthernBias', nsmap),
+                                                   _nsc('_:geoCorrAccuracyNorthernBias', nsmap, ard_ns=ard_ns),
                                                    attrib={'uom': 'm'})
     geoCorrAccuracyNorthernBias.text = meta['prod']['geoCorrAccuracyNorthernBias']
     geoCorrAccuracyEasternBias = etree.SubElement(earthObservationMetaData,
-                                                  _nsc('s1-nrb:geoCorrAccuracyEasternBias', nsmap), attrib={'uom': 'm'})
+                                                  _nsc('_:geoCorrAccuracyEasternBias', nsmap, ard_ns=ard_ns),
+                                                  attrib={'uom': 'm'})
     geoCorrAccuracyEasternBias.text = meta['prod']['geoCorrAccuracyEasternBias']
     geoCorrAccuracy_rRMSE = etree.SubElement(earthObservationMetaData,
-                                             _nsc('s1-nrb:geoCorrAccuracy_rRMSE', nsmap), attrib={'uom': 'm'})
+                                             _nsc('_:geoCorrAccuracy_rRMSE', nsmap, ard_ns=ard_ns),
+                                             attrib={'uom': 'm'})
     geoCorrAccuracy_rRMSE.text = str(meta['prod']['geoCorrAccuracy_rRMSE'])
     geoacc_ref = meta['prod']['geoCorrAccuracyReference']
     geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData,
-                                                _nsc('s1-nrb:geoCorrAccuracyReference', nsmap),
+                                                _nsc('_:geoCorrAccuracyReference', nsmap, ard_ns=ard_ns),
                                                 attrib={_nsc('xlink:href', nsmap): geoacc_ref})
-    numLines = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:numLines', nsmap))
+    numLines = etree.SubElement(earthObservationMetaData, _nsc('_:numLines', nsmap, ard_ns=ard_ns))
     numLines.text = meta['prod']['numLines']
-    numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:numPixelsPerLine', nsmap))
+    numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('_:numPixelsPerLine', nsmap, ard_ns=ard_ns))
     numPixelsPerLine.text = meta['prod']['numPixelsPerLine']
-    columnSpacing = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:columnSpacing', nsmap), attrib={'uom': 'm'})
+    columnSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:columnSpacing', nsmap, ard_ns=ard_ns),
+                                     attrib={'uom': 'm'})
     columnSpacing.text = meta['prod']['pxSpacingColumn']
-    rowSpacing = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:rowSpacing', nsmap), attrib={'uom': 'm'})
+    rowSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:rowSpacing', nsmap, ard_ns=ard_ns),
+                                  attrib={'uom': 'm'})
     rowSpacing.text = meta['prod']['pxSpacingRow']
     pixelCoordinateConvention = etree.SubElement(earthObservationMetaData,
-                                                 _nsc('s1-nrb:pixelCoordinateConvention', nsmap))
+                                                 _nsc('_:pixelCoordinateConvention', nsmap, ard_ns=ard_ns))
     pixelCoordinateConvention.text = meta['prod']['pixelCoordinateConvention']
-    backscatterMeasurement = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:backscatterMeasurement', nsmap))
+    backscatterMeasurement = etree.SubElement(earthObservationMetaData, _nsc('_:backscatterMeasurement', nsmap,
+                                                                             ard_ns=ard_ns))
     backscatterMeasurement.text = meta['prod']['backscatterMeasurement']
-    backscatterConvention = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:backscatterConvention', nsmap))
+    backscatterConvention = etree.SubElement(earthObservationMetaData, _nsc('_:backscatterConvention', nsmap,
+                                                                            ard_ns=ard_ns))
     backscatterConvention.text = meta['prod']['backscatterConvention']
-    backscatterConversionEq = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:backscatterConversionEq', nsmap),
+    backscatterConversionEq = etree.SubElement(earthObservationMetaData, _nsc('_:backscatterConversionEq', nsmap,
+                                                                              ard_ns=ard_ns),
                                                attrib={'uom': 'dB'})
     backscatterConversionEq.text = meta['prod']['backscatterConversionEq']
-    griddingConvention = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:griddingConvention', nsmap),
+    griddingConvention = etree.SubElement(earthObservationMetaData, _nsc('_:griddingConvention', nsmap, ard_ns=ard_ns),
                                           attrib={_nsc('xlink:href', nsmap): meta['prod']['griddingConventionURL']})
-    mgrsID = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:mgrsID', nsmap))
+    mgrsID = etree.SubElement(earthObservationMetaData, _nsc('_:mgrsID', nsmap, ard_ns=ard_ns))
     mgrsID.text = meta['prod']['mgrsID']
-    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:crsEPSG', nsmap),
+    crsEPSG = etree.SubElement(earthObservationMetaData, _nsc('_:crsEPSG', nsmap, ard_ns=ard_ns),
                                attrib={'codeSpace': 'urn:esa:eop:crs'})
     crsEPSG.text = meta['prod']['crsEPSG']
-    crsWKT = etree.SubElement(earthObservationMetaData, _nsc('s1-nrb:crsWKT', nsmap))
+    crsWKT = etree.SubElement(earthObservationMetaData, _nsc('_:crsWKT', nsmap, ard_ns=ard_ns))
     crsWKT.text = meta['prod']['crsWKT']
     
     ####################################################################################################################
@@ -508,8 +537,10 @@ def product_xml(meta, target, assets, nsmap, exist_ok=False):
     tree.write(outname, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 
-def _nsc(text, nsmap):
+def _nsc(text, nsmap, ard_ns=None):
     ns, key = text.split(':')
+    if ard_ns is not None and ns == '_':
+        ns = ard_ns
     return '{{{0}}}{1}'.format(nsmap[ns], key)
 
 
@@ -545,7 +576,7 @@ def _om_time(root, nsmap, scene_id, time_start, time_stop):
     timePosition.text = time_stop
 
 
-def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
+def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
     """
     Creates the `om:procedure/eop:EarthObservationEquipment` XML elements and all relevant subelements for source and
     product metadata. Differences between source and product are controlled using the `prod=[True|False]` switch.
@@ -556,6 +587,8 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         Root XML element.
     nsmap: dict
         Dictionary listing abbreviation (key) and URI (value) of all necessary XML namespaces.
+    ard_ns: str
+        Abbreviation of the ARD namespace. E.g., `s1-nrb` for the NRB ARD product.
     scene_id: str
         Scene basename.
     meta: dict
@@ -576,13 +609,13 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     if prod:
         platform1 = etree.SubElement(platform0, _nsc('eop:Platform', nsmap))
     else:
-        platform1 = etree.SubElement(platform0, _nsc('s1-nrb:Platform', nsmap))
+        platform1 = etree.SubElement(platform0, _nsc('_:Platform', nsmap, ard_ns=ard_ns))
     shortName = etree.SubElement(platform1, _nsc('eop:shortName', nsmap))
     shortName.text = meta['common']['platformShortName'].upper()
     serialIdentifier = etree.SubElement(platform1, _nsc('eop:serialIdentifier', nsmap))
     serialIdentifier.text = meta['common']['platformIdentifier']
     if not prod:
-        satReference = etree.SubElement(platform1, _nsc('s1-nrb:satelliteReference', nsmap),
+        satReference = etree.SubElement(platform1, _nsc('_:satelliteReference', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['common']['platformReference']})
     
     # eop:instrument
@@ -593,7 +626,7 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     
     # eop:sensor
     sensor0 = etree.SubElement(earthObservationEquipment, _nsc('eop:sensor', nsmap))
-    sensor1 = etree.SubElement(sensor0, _nsc('s1-nrb:Sensor', nsmap))
+    sensor1 = etree.SubElement(sensor0, _nsc('_:Sensor', nsmap, ard_ns=ard_ns))
     sensorType = etree.SubElement(sensor1, _nsc('eop:sensorType', nsmap))
     sensorType.text = meta['common']['sensorType']
     operationalMode = etree.SubElement(sensor1, _nsc('eop:operationalMode', nsmap),
@@ -602,19 +635,19 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     swathIdentifier = etree.SubElement(sensor1, _nsc('eop:swathIdentifier', nsmap),
                                        attrib={'codeSpace': 'urn:esa:eop:C-SAR:swathIdentifier'})
     swathIdentifier.text = meta['common']['swathIdentifier']
-    radarBand = etree.SubElement(sensor1, _nsc('s1-nrb:radarBand', nsmap))
+    radarBand = etree.SubElement(sensor1, _nsc('_:radarBand', nsmap, ard_ns=ard_ns))
     radarBand.text = meta['common']['radarBand']
     if not prod:
-        radarCenterFreq = etree.SubElement(sensor1, _nsc('s1-nrb:radarCenterFrequency', nsmap),
+        radarCenterFreq = etree.SubElement(sensor1, _nsc('_:radarCenterFrequency', nsmap, ard_ns=ard_ns),
                                            attrib={'uom': 'Hz'})
         radarCenterFreq.text = '{:.3e}'.format(meta['common']['radarCenterFreq'])
-        sensorCalibration = etree.SubElement(sensor1, _nsc('s1-nrb:sensorCalibration', nsmap),
+        sensorCalibration = etree.SubElement(sensor1, _nsc('_:sensorCalibration', nsmap, ard_ns=ard_ns),
                                              attrib={
                                                  _nsc('xlink:href', nsmap): meta['source'][uid]['sensorCalibration']})
     
     # eop:acquisitionParameters
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
-    acquisition = etree.SubElement(acquisitionParameters, _nsc('s1-nrb:Acquisition', nsmap))
+    acquisition = etree.SubElement(acquisitionParameters, _nsc('_:Acquisition', nsmap, ard_ns=ard_ns))
     orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
     orbitNumber.text = meta['common']['orbitNumber']
     orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection', nsmap))
@@ -640,7 +673,7 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
     polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels', nsmap))
     polarisationChannels.text = ', '.join(meta['common']['polarisationChannels'])
     if prod:
-        numberOfAcquisitions = etree.SubElement(acquisition, _nsc('s1-nrb:numberOfAcquisitions', nsmap))
+        numberOfAcquisitions = etree.SubElement(acquisition, _nsc('_:numberOfAcquisitions', nsmap, ard_ns=ard_ns))
         numberOfAcquisitions.text = meta['prod']['numberOfAcquisitions']
     else:
         antennaLookDirection = etree.SubElement(acquisition, _nsc('sar:antennaLookDirection', nsmap))
@@ -651,12 +684,12 @@ def _om_procedure(root, nsmap, scene_id, meta, uid=None, prod=True):
         maximumIncidenceAngle = etree.SubElement(acquisition, _nsc('sar:maximumIncidenceAngle', nsmap),
                                                  attrib={'uom': 'deg'})
         maximumIncidenceAngle.text = str(meta['source'][uid]['incidenceAngleMax'])
-        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('s1-nrb:orbitMeanAltitude', nsmap),
+        orbitMeanAltitude = etree.SubElement(acquisition, _nsc('_:orbitMeanAltitude', nsmap, ard_ns=ard_ns),
                                              attrib={'uom': 'm'})
         orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
-        dataTakeID = etree.SubElement(acquisition, _nsc('s1-nrb:dataTakeID', nsmap))
+        dataTakeID = etree.SubElement(acquisition, _nsc('_:dataTakeID', nsmap, ard_ns=ard_ns))
         dataTakeID.text = meta['source'][uid]['datatakeID']
-        majorCycleID = etree.SubElement(acquisition, _nsc('s1-nrb:majorCycleID', nsmap))
+        majorCycleID = etree.SubElement(acquisition, _nsc('_:majorCycleID', nsmap, ard_ns=ard_ns))
         majorCycleID.text = meta['source'][uid]['majorCycleID']
 
 

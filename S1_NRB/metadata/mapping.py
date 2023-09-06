@@ -1,6 +1,6 @@
-NRB_PATTERN = r'^(?P<sensor>S1[AB])_' \
+ARD_PATTERN = r'^(?P<sensor>S1[AB])_' \
               r'(?P<mode>IW|EW|S[1-6])_' \
-              r'(?P<product>NRB)_' \
+              r'(?P<product>NRB|ORB)_' \
               r'(?P<resolution>_)' \
               r'(?P<processingLevel>1)' \
               r'(?P<category>S)' \
@@ -67,7 +67,7 @@ RES_MAP = {'IW': {'azimuthResolution': {'IW1': 22.5,
                                       'S6': 3.6}}
            }
 
-ORB_MAP = {'PREORB': 'predicted',
+OSV_MAP = {'PREORB': 'predicted',
            'RESORB': 'restituted',
            'POEORB': 'precise'}
 
@@ -106,8 +106,7 @@ DEM_MAP = {
 
 # XML namespaces are identifiers, and it is not their goal to be directly usable for schema retrieval:
 # https://stackoverflow.com/a/30761004
-NS_MAP = {'s1-nrb': {'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
-                     'product': 'http://earth.esa.int/sentinel-1/nrb/product/1.0'},
+NS_MAP = {'placeholder': 'http://earth.esa.int/sentinel-1/spec/role/1.0',
           'sar': 'http://www.opengis.net/sar/2.1',
           'eop': 'http://www.opengis.net/eop/2.1',
           'om': 'http://www.opengis.net/om/2.0',
@@ -119,11 +118,12 @@ ASSET_MAP = {'-dm.tif': {'type': 'Mask',
                          'unit': None,
                          'role': 'data-mask',
                          'title': 'Data Mask Image',
-                         'values': {0: 'not layover, nor shadow',
-                                    1: 'layover',
-                                    2: 'shadow',
-                                    3: 'layover and shadow',
-                                    4: 'ocean water'}},
+                         'allowed': ['not layover, nor shadow',
+                                     'layover',
+                                     'shadow',
+                                     'layover and shadow',
+                                     'ocean water',
+                                     'land']},
              '-ei.tif': {'type': 'Angle',
                          'unit': 'deg',
                          'role': 'ellipsoid-incidence-angle',

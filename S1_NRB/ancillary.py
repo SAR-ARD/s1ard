@@ -250,7 +250,7 @@ def set_logging(config, debug=False):
     sh = logging.StreamHandler(sys.stdout)
     log_pyro.addHandler(sh)
     
-    # NRB logging in logfile
+    # S1_NRB logging in logfile
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)
@@ -349,9 +349,9 @@ def _log_process_config(logger, config):
     etad                {config.get('etad')}
     
     work_dir            {config['work_dir']}
-    rtc_dir             {config['rtc_dir']}
+    sar_dir             {config['sar_dir']}
     tmp_dir             {config['tmp_dir']}
-    nrb_dir             {config['nrb_dir']}
+    ard_dir             {config['ard_dir']}
     wbm_dir             {config['wbm_dir']}
     log_dir             {config['log_dir']}
     etad_dir            {config['etad_dir']}

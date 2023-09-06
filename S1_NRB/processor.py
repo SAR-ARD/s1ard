@@ -38,12 +38,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     anc.check_spacing(geocode_prms['spacing'])
     
-    rtc_flag = True
-    nrb_flag = True
-    if config['mode'] == 'rtc':
-        nrb_flag = False
-    elif config['mode'] == 'nrb':
-        rtc_flag = False
+    sar_flag = config['mode'] in ['sar', 'all']
+    ard_flag = config['mode'] in ['ard', 'all']
+    orb_flag = config['mode'] == 'orb'
     
     # DEM download authentication
     username, password = dem.authenticate(dem_type=config['dem_type'],
@@ -164,13 +161,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     ####################################################################################################################
     # main SAR processing
-    if rtc_flag:
+    if sar_flag:
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
-            out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
+            out_dir_scene = os.path.join(config['sar_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            print(f'###### [    SAR] Scene {i + 1}/{len(scenes)}: {scene.scene}')
             if os.path.isdir(out_dir_scene) and not update:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
@@ -218,7 +215,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # otherwise there will be a gap between final geocoded images.
             neighbors = None
             if scene.product == 'GRD':
-                print('###### [    RTC] collecting GRD neighbors')
+                print('###### [    SAR] collecting GRD neighbors')
                 f = '%Y%m%dT%H%M%S'
                 td = timedelta(seconds=2)
                 start = datetime.strptime(scene.start, f) - td
@@ -241,7 +238,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # main processing routine
             start_time = time.time()
             try:
-                snap.process(scene=scene.scene, outdir=config['rtc_dir'],
+                snap.process(scene=scene.scene, outdir=config['sar_dir'],
                              measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
@@ -249,13 +246,15 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                              gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+                anc.log(handler=logger, mode='info', proc_step='SAR', scenes=scene.scene, msg=t)
             except Exception as e:
-                anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                anc.log(handler=logger, mode='exception', proc_step='SAR', scenes=scene.scene, msg=e)
                 raise
     ####################################################################################################################
-    # NRB - final product generation
-    if nrb_flag:
+    # ARD - final product generation
+    if ard_flag or orb_flag:
+        product_type = 'NRB' if ard_flag else 'ORB'
+        
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
@@ -266,7 +265,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        print('preparing NRB products')
+        print('preparing {} products'.format(product_type))
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, group in enumerate(selection_grouped):
             # check that the scenes can really be grouped together
@@ -284,31 +283,30 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 # select all scenes from the group whose footprint overlaps with the current tile
                 scenes_sub = [x for x in group if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
-                outdir = os.path.join(config['nrb_dir'], tile.mgrs)
+                outdir = os.path.join(config['ard_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
                                          '{}_WBM.tif'.format(tile.mgrs))
                 if not os.path.isfile(fname_wbm):
                     fname_wbm = None
                 add_dem = True  # add the DEM as output layer?
-                nrb_dem_type = config['dem_type'] if add_dem else None
+                dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
+                msg = '###### [    {product_type}] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
                 print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
                                  scenes=[os.path.basename(s) for s in scenes_sub_fnames],
-                                 s=s + 1, s_total=s_total))
+                                 product_type=product_type, s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
-                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=annotation,
-                                     update=update)
+                    msg = nrb.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
+                                     datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
+                                     wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
+                                     multithread=gdal_prms['multithread'], annotation=annotation, update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step=product_type, scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_sub_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step=product_type, scenes=scenes_sub_fnames, msg=e)
                     raise
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

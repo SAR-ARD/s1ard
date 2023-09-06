@@ -23,13 +23,14 @@ Processing Section
 ^^^^^^^^^^^^^^^^^^
 - **mode**
 
-Options: ``all | nrb | rtc``
+Options: ``sar | ard | all``
 
-This parameter determines if the entire processing chain should be executed or only part of it.
+This parameter determines if the entire processing chain (``all``) should be executed or only part of it.
+``sar`` will only start SAR processing, whereas ``ard`` will only start ARD generation from existing SAR products.
 
 - **aoi_tiles** & **aoi_geometry**
 
-The area of interest (AOI) for which S1-NRB products should be created.
+Limit processing to a specific area of interest (AOI).
 
 ``aoi_tiles`` can be used to define the area of interest via MGRS tile IDs, which must be provided comma-separated (e.g.,
 ``aoi_tiles = 32TNS, 32TMT, 32TMS``). ``aoi_geometry`` defines the area of interest via a full path to a vector file
@@ -40,7 +41,7 @@ If neither is defined, all tiles overlapping with the scene search result are pr
 
 - **mindate** & **maxdate**
 
-The time period to create S1-NRB products for.
+Search for source scenes within the defined date range.
 Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
 - **date_strict**
@@ -70,19 +71,19 @@ The product of the source scenes that should be processed.
 
 - **datatake**
 
-The datatake ID in hexadecimal representation, e.g. 04EBF7.
+The datatake ID of source scenes in hexadecimal representation, e.g. 04EBF7.
 
 - **work_dir**
 
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
 Needs to be provided as full path to an existing directory.
 
-- **rtc_dir**, **tmp_dir**, **nrb_dir**, **wbm_dir** & **log_dir**
+- **sar_dir**, **tmp_dir**, **ard_dir**, **wbm_dir** & **log_dir**
 
-Processing S1-NRB products creates many intermediate files that are expected to be stored in separate subdirectories. The
+Processing creates many intermediate files that are expected to be stored in separate subdirectories. The
 default values provided in the example configuration file linked above are recommended and will automatically create
-subdirectories relative to the directory specified with ``work_dir``. E.g., ``nrb_dir = NRB`` will create the subdirectory
-``/<work_dir>/NRB``. Optionally, full paths to existing directories can be provided for all of these parameters.
+subdirectories relative to the directory specified with ``work_dir``. E.g., ``ard_dir = ARD`` will create the subdirectory
+``/<work_dir>/ARD``. Optionally, full paths to existing directories can be provided for all of these parameters.
 
 - search option I: **scene_dir** & **db_file**
 
@@ -130,7 +131,8 @@ The backscatter measurement convention. Either creates gamma naught RTC (:math:`
 
 - **annotation**
 
-A comma-separated list to define the annotation layers to be created. Supported options:
+A comma-separated list to define the annotation layers to be created for each ARD product.
+Supported options:
 
  + dm: data mask (four masks: not layover not shadow, layover, shadow, ocean water)
  + ei: ellipsoidal incident angle (needed for computing geolocation accuracy)
@@ -161,21 +163,22 @@ Metadata Section
 ^^^^^^^^^^^^^^^^
 - **format**
 
-A comma-separated list to define the metadata file formats to be created. Supported options:
+A comma-separated list to define the metadata file formats to be created for each ARD product.
+Supported options:
 
  + OGC: XML file according to `OGC EO <https://docs.ogc.org/is/10-157r4/10-157r4.html>`_ standard
  + STAC: JSON file according to the `SpatioTemporal Asset Catalog <https://github.com/radiantearth/stac-spec/>`_ family of specifications
 
 - **copy_original**
 
-Copy the original metadata of the source scene(s)? This will copy the manifest.safe file and annotation folder into the
-S1-NRB product subdirectory: ``/source/<ProductIdentifier>``.
+Copy the original metadata of the source scene(s) into the ARD product directory?
+This will copy the manifest.safe file and annotation folder into the subdirectory: ``/source/<ProductIdentifier>``.
 
 - **access_url**, **licence**, **doi** & **processing_center**
 
-The metadata files created for each S1-NRB product contain some fields that should not be hidden away and hardcoded with
+The metadata files created for each ARD product contain some fields that should not be hidden away and hardcoded with
 arbitrary values. Instead, they can be accessed here in order to more easily generate a complete set of metadata. These
-fields are mostly relevant if you want to produce S1-NRB products systematically and make them available for others.
+fields are mostly relevant if you want to produce ARD products systematically and make them available for others.
 If you don't see a need for them you can just leave the fields empty, use the default 'None' or delete this entire section.
 
 Command Line Interface

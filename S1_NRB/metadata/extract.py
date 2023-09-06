@@ -14,13 +14,13 @@ from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import NRB_PATTERN, LERC_ERR_THRES, RES_MAP, ORB_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB.metadata.mapping import ARD_PATTERN, LERC_ERR_THRES, RES_MAP, OSV_MAP, DEM_MAP, SLC_ACC_MAP
 from S1_NRB import snap
 
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compression):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
@@ -31,11 +31,11 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     config: dict
         Dictionary of the parsed config parameters for the current process.
     target: str
-        A path pointing to the NRB product scene being created.
+        A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    rtc_dir: str
-        The RTC processing output directory.
+    sar_dir: str
+        The SAR processing output directory.
     proc_time: datetime.datetime
         The processing time object used to generate the unique product identifier.
     start: datetime.datetime
@@ -44,6 +44,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
         The product stop time.
     compression: str
         The compression type applied to raster files of the product.
+    product_type: str
+        The type of ARD product that is being created. Either 'NRB' or 'ORB'.
     
     Returns
     -------
@@ -68,7 +70,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
-                              src_ids=src_ids, rtc_dir=rtc_dir)
+                              src_ids=src_ids, sar_dir=sar_dir)
     
     tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
     z_err_dict = dict(tups)
@@ -109,8 +111,13 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
-    meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
-    meta['prod']['card4l-version'] = '5.5'
+    if product_type == 'ORB':
+        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/ORB/v1.0/CARD4L_Product_Family_Specification_' \
+                                      'Ocean_Radar_Backscatter-v1.0.pdf'
+        meta['prod']['card4l-version'] = '1.0'
+    else:
+        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
+        meta['prod']['card4l-version'] = '5.5'
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['compression_type'] = compression
@@ -161,8 +168,8 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 'S1_NRB'
     meta['prod']['processorVersion'] = S1_NRB.__version__
-    meta['prod']['productName'] = 'Normalised Radar Backscatter'
-    meta['prod']['productName-short'] = 'NRB'
+    meta['prod']['productName'] = 'Ocean Radar Backscatter' if product_type == 'ORB' else 'Normalised Radar Backscatter'
+    meta['prod']['productName-short'] = product_type
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None
@@ -264,9 +271,9 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
-        for orb in list(ORB_MAP.keys()):
-            if orb in meta['source'][uid]['orbitStateVector']:
-                meta['source'][uid]['orbitDataSource'] = ORB_MAP[orb]
+        for osv in list(OSV_MAP.keys()):
+            if osv in meta['source'][uid]['orbitStateVector']:
+                meta['source'][uid]['orbitDataSource'] = OSV_MAP[osv]
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         if len(np_tifs) > 0:
             meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)
@@ -306,7 +313,7 @@ def meta_dict(config, target, src_ids, rtc_dir, proc_time, start, stop, compress
     return meta
 
 
-def get_prod_meta(product_id, tif, src_ids, rtc_dir):
+def get_prod_meta(product_id, tif, src_ids, sar_dir):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -320,15 +327,15 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
         The path to a measurement GeoTIFF file of the product scene.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
-    rtc_dir: str
-        A path pointing to the processed datasets of the product.
+    sar_dir: str
+        A path pointing to the processed SAR datasets of the product.
     
     Returns
     -------
     dict
         A dictionary containing metadata for the product scene.
     """
-    out = re.match(re.compile(NRB_PATTERN), product_id).groupdict()
+    out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
     with _vec_from_srccoords(coord_list=coord_list) as srcvec:
@@ -357,7 +364,7 @@ def get_prod_meta(product_id, tif, src_ids, rtc_dir):
     rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//rangeProcessing/numberOfLooks',
                                       out_type='int')
-    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=rtc_dir)
+    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
     out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
     out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
     return out
@@ -754,7 +761,7 @@ def get_header_size(tif):
     Parameters
     ----------
     tif: str
-        A path to a GeoTIFF file of the currently processed NRB product.
+        A path to a GeoTIFF file of the currently processed ARD product.
 
     Returns
     -------
@@ -791,12 +798,13 @@ def get_header_size(tif):
 
 def copy_src_meta(target, src_ids):
     """
-    Copies the original metadata of the source scenes to the NRB product scene.
+    Copies the original metadata of the source scenes to the ARD product
+    directory.
     
     Parameters
     ----------
     target: str
-        A path pointing to the NRB product scene being created.
+        A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     
