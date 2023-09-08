@@ -55,8 +55,6 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
-    os.makedirs(metadir, exist_ok=True)
-    
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.xml'.format(scene))
