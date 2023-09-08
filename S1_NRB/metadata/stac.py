@@ -177,8 +177,58 @@ def source_json(meta, target, exist_ok=False):
                                           title='Metadata in XML format.',
                                           media_type=pystac.MediaType.XML,
                                           roles=['metadata', 'card4l']))
+        _asset_add_orig_src(metadir=metadir, uid=uid, item=item)
         
         item.save_object(dest_href=outname)
+
+
+def _asset_add_orig_src(metadir, uid, item):
+    """
+    Helper function to add the original source metadata files as assets to a STAC item.
+    
+    Parameters
+    ----------
+    metadir: str
+        Source directory of the current ARD product.
+    uid: str
+        Unique identifier of a source scene.
+    item: pystac.Item
+        The pystac.Item to add the assets to.
+    
+    Returns
+    -------
+    
+    """
+    pattern = r'^(.+?)-\d{8}t\d{6}-\d{8}t\d{6}-\w+-\w+-\d{3}\.xml$'
+    prefixes = {'calibration': 'Calibration metadata',
+                'noise': 'Estimated thermal noise look-up tables',
+                'rfi': 'Radio Frequency Interference metadata'}
+    
+    root_dir = os.path.join(metadir, uid)
+    file_list = finder(target=root_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
+    for file in file_list:
+        basename = os.path.basename(file)
+        href = './' + os.path.relpath(file, metadir).replace('\\', '/')
+        if basename == 'manifest.safe':
+            key = 'manifest'
+            title = 'Mandatory product metadata'
+        else:
+            try:
+                key = re.match(pattern, basename).group(1)
+            except AttributeError:
+                raise RuntimeError(
+                    'Unexpected file in original source metadata directory: ' + os.path.join(root_dir, file))
+            title = prefixes.get(key.split('-')[0], 'Measurement metadata')
+            if title == 'Measurement metadata':
+                title = title + ' ({},{})'.format(key.split('-')[1].upper(), key.split('-')[3].upper())
+            else:
+                title = title + ' ({},{})'.format(key.split('-')[2].upper(), key.split('-')[4].upper())
+        
+        item.add_asset(key=key,
+                       asset=pystac.Asset(href=href,
+                                          title=title,
+                                          media_type=pystac.MediaType.XML,
+                                          roles=['metadata']))
 
 
 def product_json(meta, target, assets, exist_ok=False):
