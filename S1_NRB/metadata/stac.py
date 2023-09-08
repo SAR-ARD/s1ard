@@ -171,7 +171,7 @@ def source_json(meta, target, exist_ok=False):
                                              ' Faraday rotation angle.'))
         
         # Add assets
-        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
+        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), metadir).replace('\\', '/')
         item.add_asset(key='card4l',
                        asset=pystac.Asset(href=xml_relpath,
                                           title='Metadata in XML format.',
