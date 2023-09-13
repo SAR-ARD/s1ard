@@ -206,29 +206,30 @@ def _asset_add_orig_src(metadir, uid, item):
     
     root_dir = os.path.join(metadir, uid)
     file_list = finder(target=root_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
-    for file in file_list:
-        basename = os.path.basename(file)
-        href = './' + os.path.relpath(file, metadir).replace('\\', '/')
-        if basename == 'manifest.safe':
-            key = 'manifest'
-            title = 'Mandatory product metadata'
-        else:
-            try:
-                key = re.match(pattern, basename).group(1)
-            except AttributeError:
-                raise RuntimeError(
-                    'Unexpected file in original source metadata directory: ' + os.path.join(root_dir, file))
-            title = prefixes.get(key.split('-')[0], 'Measurement metadata')
-            if title == 'Measurement metadata':
-                title = title + ' ({},{})'.format(key.split('-')[1].upper(), key.split('-')[3].upper())
+    if len(file_list) > 0:
+        for file in file_list:
+            basename = os.path.basename(file)
+            href = './' + os.path.relpath(file, metadir).replace('\\', '/')
+            if basename == 'manifest.safe':
+                key = 'manifest'
+                title = 'Mandatory product metadata'
             else:
-                title = title + ' ({},{})'.format(key.split('-')[2].upper(), key.split('-')[4].upper())
-        
-        item.add_asset(key=key,
-                       asset=pystac.Asset(href=href,
-                                          title=title,
-                                          media_type=pystac.MediaType.XML,
-                                          roles=['metadata']))
+                try:
+                    key = re.match(pattern, basename).group(1)
+                except AttributeError:
+                    raise RuntimeError(
+                        'Unexpected file in original source metadata directory: ' + os.path.join(root_dir, file))
+                title = prefixes.get(key.split('-')[0], 'Measurement metadata')
+                if title == 'Measurement metadata':
+                    title = title + ' ({},{})'.format(key.split('-')[1].upper(), key.split('-')[3].upper())
+                else:
+                    title = title + ' ({},{})'.format(key.split('-')[2].upper(), key.split('-')[4].upper())
+            
+            item.add_asset(key=key,
+                           asset=pystac.Asset(href=href,
+                                              title=title,
+                                              media_type=pystac.MediaType.XML,
+                                              roles=['metadata']))
 
 
 def product_json(meta, target, assets, exist_ok=False):
