@@ -345,7 +345,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
                              product_type=product_type)
-    ard_assets = list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True)
+    ard_assets = sorted(sorted(list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True),
+                               key=lambda x: os.path.splitext(x)[1]),
+                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
