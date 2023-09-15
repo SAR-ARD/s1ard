@@ -280,10 +280,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     args = {'fact': 10}
     scale = None
     for item in measure_tifs:
-        gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
-        if not os.path.isfile(gamma0_rtc_log):
-            print(gamma0_rtc_log)
-            create_vrt(src=item, dst=gamma0_rtc_log, fun=fun, scale=scale,
+        target = item.replace('lin.tif', 'log.vrt')
+        if not os.path.isfile(target):
+            print(target)
+            create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
     
