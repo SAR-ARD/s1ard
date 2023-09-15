@@ -45,6 +45,7 @@ Search for source scenes within the defined date range.
 Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
 - **date_strict**
+
 Treat dates as strict limits or also allow flexible limits to incorporate scenes
 whose acquisition period overlaps with the defined limit?
 
@@ -146,6 +147,13 @@ Supported options:
 
    + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
    + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
+
+ + wm: wind-modeled backscatter extracted from a Sentinel-1 OCN (ocean) product.
+   The variable `owiNrcsCmod` is used.
+   The OCN products and corresponding Level-1 products must be searchable in the same way.
+   If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`),
+   a co-polarization wind normalization ratio VRT is created by dividing the measurement by the
+   wind-modeled backscatter.
 
 Use one of the following to create no annotation layer:
 

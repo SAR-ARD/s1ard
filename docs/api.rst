@@ -80,6 +80,7 @@ NRB
         create_vrt
         format
         get_datasets
+        wind_normalization
 
 ETAD
 ^^^^
@@ -107,6 +108,20 @@ DEM
 
         mosaic
         prepare
+
+OCN
+^^^
+
+.. automodule:: S1_NRB.ocn
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        extract
+        gapfill
 
 Tile Extraction
 ---------------
