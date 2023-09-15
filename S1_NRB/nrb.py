@@ -334,7 +334,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(os.path.join(ard_dir, 'support'), schema)
+        schema_out = os.path.join(ard_dir, 'support', schema)
         if not os.path.isfile(schema_out):
             print(schema_out)
             shutil.copy(schema_in, schema_out)
