@@ -594,7 +594,7 @@ def calc_enl(tif, block_size=30, return_arr=False):
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
     blocks = arr[:num_blocks_rows * block_size,
-                 :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
+             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
@@ -768,6 +768,7 @@ def get_header_size(tif):
     header_size: int
         The size of all IFD headers of the GeoTIFF file in bytes.
     """
+    
     def _get_block_offset(band):
         blockxsize, blockysize = band.GetBlockSize()
         for y in range(int((band.YSize + blockysize - 1) / blockysize)):
@@ -818,11 +819,13 @@ def copy_src_meta(target, src_ids):
         
         if src_id.scene.endswith('.zip'):
             base = os.path.basename(src_id.file)
-            with zipfile.ZipFile(src_id.scene, 'r') as zip_ref:
-                zip_ref.extract(member=base + '/manifest.safe', path=source_dir)
-                annotation_files = [f for f in zip_ref.namelist() if base + '/annotation' in f]
-                zip_ref.extractall(members=annotation_files, path=source_dir)
-            os.rename(os.path.join(source_dir, base), os.path.join(source_dir, pid))
+            target = os.path.join(source_dir, pid)
+            if not os.path.isdir(target):
+                with zipfile.ZipFile(src_id.scene, 'r') as zip_ref:
+                    zip_ref.extract(member=base + '/manifest.safe', path=source_dir)
+                    annotation_files = [f for f in zip_ref.namelist() if base + '/annotation' in f]
+                    zip_ref.extractall(members=annotation_files, path=source_dir)
+                os.rename(os.path.join(source_dir, base), target)
         else:
             pid_dir = os.path.join(source_dir, pid)
             os.makedirs(pid_dir, exist_ok=True)
