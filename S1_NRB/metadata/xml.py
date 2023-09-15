@@ -327,6 +327,11 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
             if re.search(np_pat, key) is not None:
                 key = np_pat
             
+            sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
+                                          attrib={'uom': 'unitless' if ASSET_MAP[key]['unit'] is None else
+                                                         ASSET_MAP[key]['unit']})
+            sampleType.text = ASSET_MAP[key]['type']
+            
             if key in ['-dm.tif', '-id.tif']:
                 dataType.text = 'UINT'
                 bitsPerSample.text = '8'
@@ -350,12 +355,6 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                         bitValue = etree.SubElement(productInformation, _nsc('_:bitValue', nsmap, ard_ns=ard_ns),
                                                     attrib={'band': '1', 'name': s})
                         bitValue.text = str(i + 1)
-            
-            if ASSET_MAP[key]['unit'] is None:
-                ASSET_MAP[key]['unit'] = 'unitless'
-            sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
-                                          attrib={'uom': ASSET_MAP[key]['unit']})
-            sampleType.text = ASSET_MAP[key]['type']
             
             if key == '-ei.tif':
                 ellipsoidalHeight = etree.SubElement(productInformation, _nsc('_:ellipsoidalHeight', nsmap,
