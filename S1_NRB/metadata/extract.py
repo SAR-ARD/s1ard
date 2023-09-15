@@ -156,9 +156,10 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
-    meta['prod']['NRApplied'] = True
-    meta['prod']['NRAlgorithm'] = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-' \
-                                  'Generated-by-Sentinel-1-IPF' if meta['prod']['NRApplied'] else None
+    meta['prod']['noiseRemovalApplied'] = True
+    nr_algo = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-' \
+              'Sentinel-1-IPF' if meta['prod']['noiseRemovalApplied'] else None
+    meta['prod']['noiseRemovalAlgorithm'] = nr_algo
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
     meta['prod']['numLines'] = str(prod_meta['rows'])

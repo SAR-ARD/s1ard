@@ -413,11 +413,13 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     speckleFilterApplied = etree.SubElement(processingInformation, _nsc('_:speckleFilterApplied', nsmap,
                                                                         ard_ns=ard_ns))
     speckleFilterApplied.text = str(meta['prod']['speckleFilterApplied']).lower()
-    nrApplied = etree.SubElement(processingInformation, _nsc('_:NRApplied', nsmap, ard_ns=ard_ns))
-    nrApplied.text = str(meta['prod']['NRApplied']).lower()
-    if meta['prod']['NRApplied']:
-        nrAlgorithm = etree.SubElement(processingInformation, _nsc('_:NRAlgorithm', nsmap, ard_ns=ard_ns),
-                                       attrib={_nsc('xlink:href', nsmap): meta['prod']['NRAlgorithm']})
+    noiseRemovalApplied = etree.SubElement(processingInformation, _nsc('_:noiseRemovalApplied', nsmap, ard_ns=ard_ns))
+    noiseRemovalApplied.text = str(meta['prod']['noiseRemovalApplied']).lower()
+    if meta['prod']['noiseRemovalApplied']:
+        noiseRemovalAlgorithm = etree.SubElement(processingInformation,
+                                                 _nsc('_:noiseRemovalAlgorithm', nsmap, ard_ns=ard_ns),
+                                                 attrib={_nsc('xlink:href', nsmap):
+                                                         meta['prod']['noiseRemovalAlgorithm']})
     if meta['prod']['RTCAlgorithm'] is not None:
         rtcAlgorithm = etree.SubElement(processingInformation, _nsc('_:RTCAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
