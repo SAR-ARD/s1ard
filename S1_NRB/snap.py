@@ -658,7 +658,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             output_beta0=apply_rtc, gpt_args=gpt_args)
     ############################################################################
     # GRD buffering
-    if neighbors is not None:
+    if neighbors is not None and len(neighbors) > 0:
         # general preprocessing of neighboring scenes
         out_pre_neighbors = []
         for item in neighbors:
