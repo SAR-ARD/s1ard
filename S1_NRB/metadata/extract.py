@@ -113,7 +113,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
                                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-    meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
+    meta['prod']['azimuthNumberOfLooks'] = round(prod_meta['ML_nAzLooks'], 2)
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
@@ -178,7 +178,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['radiometricAccuracyAbsolute'] = None
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
-    meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
+    meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' \
         if meta['prod']['backscatterMeasurement'] == 'gamma0' or len(ratio_tif) > 0 else None
     meta['prod']['speckleFilterApplied'] = False
@@ -264,10 +264,11 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
         meta['source'][uid]['geom_xml_envelop'] = geom['envelop']
-        meta['source'][uid]['incidenceAngleMax'] = np.max(inc_vals)
-        meta['source'][uid]['incidenceAngleMin'] = np.min(inc_vals)
-        meta['source'][uid]['incidenceAngleMidSwath'] = np.max(inc_vals) - ((np.max(inc_vals) - np.min(inc_vals)) / 2)
-        meta['source'][uid]['instrumentAzimuthAngle'] = str(sid.meta['heading'])
+        meta['source'][uid]['incidenceAngleMax'] = round(np.max(inc_vals), 2)
+        meta['source'][uid]['incidenceAngleMin'] = round(np.min(inc_vals), 2)
+        meta['source'][uid]['incidenceAngleMidSwath'] = round(np.max(inc_vals) -
+                                                              ((np.max(inc_vals) - np.min(inc_vals)) / 2), 2)
+        meta['source'][uid]['instrumentAzimuthAngle'] = round(sid.meta['heading'], 2)
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(sid.meta['cycleNumber'])
@@ -285,8 +286,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
             meta['source'][uid]['perfEstimates'] = pe
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = None
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
-        meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
-        meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
+        meta['source'][uid]['perfIntegratedSideLobeRatio'] = round(islr, 2)
+        meta['source'][uid]['perfPeakSideLobeRatio'] = round(pslr, 2)
         meta['source'][uid]['polCalMatrices'] = None
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
         fac_name = _read_manifest('.//safe:facility', attrib='name')
@@ -696,9 +697,9 @@ def calc_performance_estimates(files):
             _max = float(np.nanmax(arr))
             _mean = float(np.nanmean(arr))
             del arr
-        out[pol] = {'minimum': _min,
-                    'maximum': _max,
-                    'mean': _mean}
+        out[pol] = {'minimum': round(_min, 2),
+                    'maximum': round(_max, 2),
+                    'mean': round(_mean, 2)}
     return out
 
 

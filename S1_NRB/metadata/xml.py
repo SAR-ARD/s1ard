@@ -676,7 +676,7 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
         completionTimeFromAscendingNode.text = meta['source'][uid]['timeCompletionFromAscendingNode']
         instrumentAzimuthAngle = etree.SubElement(acquisition, _nsc('eop:instrumentAzimuthAngle', nsmap),
                                                   attrib={'uom': 'deg'})
-        instrumentAzimuthAngle.text = meta['source'][uid]['instrumentAzimuthAngle']
+        instrumentAzimuthAngle.text = str(meta['source'][uid]['instrumentAzimuthAngle'])
     polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode', nsmap))
     polarisationMode.text = meta['common']['polarisationMode']
     polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels', nsmap))
