@@ -71,15 +71,16 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
                               src_ids=src_ids, sar_dir=sar_dir)
+    op_mode = prod_meta['mode']
     
     tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
     z_err_dict = dict(tups)
     
-    # Common metadata (sorted alphabetically)
+    # COMMON metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
     meta['common']['constellation'] = 'sentinel-1'
     meta['common']['instrumentShortName'] = 'C-SAR'
-    meta['common']['operationalMode'] = prod_meta['mode']
+    meta['common']['operationalMode'] = op_mode
     meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
     meta['common']['orbitNumber'] = str(sid0.meta['orbitNumbers_abs']['stop'])
@@ -102,11 +103,17 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['common']['swathIdentifier'] = swath_id
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
-    # Product metadata (sorted alphabetically)
+    # PRODUCT metadata
+    if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower():
+        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad'])
+    else:
+        geo_corr_accuracy = None
+    
+    # (sorted alphabetically)
     meta['prod']['access'] = config['meta']['access_url']
+    meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
                                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-    meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['azimuthNumberOfLooks'] = prod_meta['ML_nAzLooks']
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
@@ -118,10 +125,11 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     else:
         meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
         meta['prod']['card4l-version'] = '5.5'
-    meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
-    meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['compression_type'] = compression
     meta['prod']['compression_zerrors'] = z_err_dict
+    meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
+    meta['prod']['crsWKT'] = prod_meta['wkt']
+    meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
     meta['prod']['demEGMReference'] = DEM_MAP[config['dem_type']]['egm']
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
     meta['prod']['demGSD'] = DEM_MAP[config['dem_type']]['gsd']
@@ -129,21 +137,17 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['demReference'] = DEM_MAP[config['dem_type']]['ref']
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = DEM_MAP[config['dem_type']]['type']
-    meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['equivalentNumberLooks'] = np.round(calc_enl(tif=ref_tif), 2)
-    meta['prod']['speckleFilterApplied'] = False
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
-    meta['prod']['geoCorrAccuracy_rRMSE'] = \
-        calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad']) \
-            if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower() else None
     meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
                                                ''.format(S1_NRB.__version__)
     meta['prod']['geoCorrAccuracyType'] = 'slant-range'
+    meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
                                        'Guide-to-Sentinel-1-Geocoding.pdf'
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
@@ -152,8 +156,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
     meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
     meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
-    meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
+    meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
     meta['prod']['licence'] = config['meta']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['NRApplied'] = True
@@ -178,13 +182,14 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['rangeNumberOfLooks'] = prod_meta['ML_nRgLooks']
     meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' \
         if meta['prod']['backscatterMeasurement'] == 'gamma0' or len(ratio_tif) > 0 else None
+    meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
     meta['prod']['timeStart'] = start
     meta['prod']['timeStop'] = stop
     meta['prod']['transform'] = prod_meta['transform']
     
-    # Source metadata
+    # SOURCE metadata
     for uid in list(src_sid.keys()):
         nsmap = src_xml[uid]['manifest'].nsmap
         
@@ -241,7 +246,6 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
-        op_mode = meta['common']['operationalMode']
         if re.search('S[1-6]', op_mode):
             res_az = {op_mode: RES_MAP['SM']['azimuthResolution'][op_mode]}
             res_rg = {op_mode: RES_MAP['SM']['rangeResolution'][op_mode]}
@@ -270,11 +274,11 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
+        meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for osv in list(OSV_MAP.keys()):
             if osv in meta['source'][uid]['orbitStateVector']:
                 meta['source'][uid]['orbitDataSource'] = OSV_MAP[osv]
-        meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         if len(np_tifs) > 0:
             meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
@@ -292,14 +296,13 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
         meta['source'][uid]['processingDate'] = _read_manifest('.//safe:processing', attrib='stop')
         meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
+        meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
         meta['source'][uid]['processorVersion'] = _read_manifest('.//safe:software', attrib='version')
-        meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['productType'] = src_sid[uid].meta['product']
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
-        meta['source'][uid]['azimuthResolution'] = res_az
         meta['source'][uid]['rangeResolution'] = res_rg
         meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/' \
                                                    'sentinel-1-sar/sar-instrument/calibration'

@@ -635,8 +635,8 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     
     unique_tiles = list(
         set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
-    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products, recursive=recursive,
-                                   silent=silent)
+    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products,
+                                   recursive=recursive, silent=silent)
     
     catalog = pystac.Catalog(id=f'{product_type.lower()}_catalog',
                              description=f'STAC Catalog of Sentinel-1 {product_type} products.',
@@ -706,8 +706,8 @@ def _reorganize_by_tile(directory, product_type, products=None, recursive=True, 
     """
     if products is None:
         parent_dir = os.path.dirname(directory)
-        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
-                  fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
+        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_' \
+                  fr'[0-9]{{6}}_[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
         products = finder(target=parent_dir, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     
     inp = input('WARNING:\n{}\nand the ARD products it contains will be reorganized into subdirectories '
