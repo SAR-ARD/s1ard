@@ -149,7 +149,7 @@ Supported options:
    + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
    + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
 
- + wm: wind-modeled backscatter extracted from a Sentinel-1 OCN (ocean) product.
+ + wm: wind-modelled backscatter extracted from a Sentinel-1 OCN (ocean) product.
    The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised
    Radar Cross Section (NRCS) predicted using a CMOD model and ECMWF wind model data.
    For each OCN product, a Level-1 counterpart (SLC/GRD) exists.
@@ -157,7 +157,7 @@ Supported options:
    via the two search options described above.
    If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`),
    a co-polarization wind normalization ratio VRT is created by dividing the measurement by the
-   wind-modeled backscatter.
+   wind-modelled backscatter.
 
 Use one of the following to create no annotation layer:
 
