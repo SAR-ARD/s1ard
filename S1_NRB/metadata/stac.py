@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import shutil
-from statistics import mean, median
+from statistics import mean
 from datetime import datetime, timezone
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
@@ -98,8 +98,8 @@ def source_json(meta, target, exist_ok=False):
                       resolution_azimuth=min(meta['source'][uid]['azimuthResolution'].values()),
                       pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
                       pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
-                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
-                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
+                      looks_range=mean(meta['source'][uid]['rangeNumberOfLooks'].values()),
+                      looks_azimuth=mean(meta['source'][uid]['azimuthNumberOfLooks'].values()),
                       looks_equivalent_number=float(meta['source'][uid]['perfEquivalentNumberOfLooks']),
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
         view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
