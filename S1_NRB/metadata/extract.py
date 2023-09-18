@@ -225,27 +225,26 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
             res_rg = RES_MAP_SLC[op_mode]['rg']
             enl = 1.0
         
-        az_look_bandwidth = rg_look_bandwidth = az_num_looks = rg_num_looks = az_px_spacing = rg_px_spacing = inc = \
-            lut_applied = {}
-        properties_to_extract = [
-            ('azimuthProcessing/lookBandwidth', 'False', 'float', 'az_look_bandwidth'),
-            ('rangeProcessing/lookBandwidth', 'False', 'float', 'rg_look_bandwidth'),
-            ('azimuthProcessing/numberOfLooks', 'False', 'int', 'az_num_looks'),
-            ('rangeProcessing/numberOfLooks', 'False', 'int', 'rg_num_looks'),
-            ('azimuthPixelSpacing', 'False', 'float', 'az_px_spacing'),
-            ('rangePixelSpacing', 'False', 'float', 'rg_px_spacing'),
-            ('geolocationGridPoint/incidenceAngle', 'False', 'float', 'inc'),
-            ('applicationLutId', 'True', 'str', 'lut_applied')
+        patterns = [
+            './/azimuthProcessing/lookBandwidth',
+            './/rangeProcessing/lookBandwidth',
+            './/azimuthProcessing/numberOfLooks',
+            './/rangeProcessing/numberOfLooks',
+            './/azimuthPixelSpacing',
+            './/rangePixelSpacing',
+            './/geolocationGridPoint/incidenceAngle'
         ]
-        for pattern, single, out_type, var_name in properties_to_extract:
-            locals()[var_name] = find_in_annotation(
-                annotation_dict=src_xml[uid]['annotation'],
-                pattern=f'.//{pattern}',
-                single=bool(single),
-                out_type=out_type
-            )
+        out_types = ['float', 'float', 'int', 'int', 'float', 'float', 'float']
+        results = []
+        for pattern, out_type in zip(patterns, out_types):
+            result = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                        pattern=pattern, out_type=out_type)
+            results.append(result)
+        az_look_bandwidth, rg_look_bandwidth, az_num_looks, rg_num_looks, az_px_spacing, rg_px_spacing, inc = results
         
         inc_vals = dissolve(list(inc.values()))
+        lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
+                                         pattern='.//applicationLutId', single=True)
         pslr, islr = calc_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
         
         def _read_manifest(pattern, attrib=None):
