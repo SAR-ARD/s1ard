@@ -3,6 +3,7 @@ import re
 import shutil
 import zipfile
 import math
+from statistics import mean
 import json
 from lxml import etree
 from datetime import datetime
@@ -14,7 +15,8 @@ from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
 import S1_NRB
-from S1_NRB.metadata.mapping import ARD_PATTERN, LERC_ERR_THRES, RES_MAP, OSV_MAP, DEM_MAP, SLC_ACC_MAP
+from S1_NRB.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
+                                     DEM_MAP, SLC_ACC_MAP)
 from S1_NRB import snap
 
 gdal.UseExceptions()
@@ -205,25 +207,23 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         with sid.geometry() as vec:
             geom = geometry_from_vec(vectorobject=vec)
         
-        az_look_bandwidth = rg_look_bandwidth = az_num_looks = rg_num_looks = az_px_spacing = rg_px_spacing = inc = \
-            lut_applied = {}
-        properties_to_extract = [
-            ('azimuthProcessing/lookBandwidth', 'False', 'float', 'az_look_bandwidth'),
-            ('rangeProcessing/lookBandwidth', 'False', 'float', 'rg_look_bandwidth'),
-            ('azimuthProcessing/numberOfLooks', 'False', 'int', 'az_num_looks'),
-            ('rangeProcessing/numberOfLooks', 'False', 'int', 'rg_num_looks'),
-            ('azimuthPixelSpacing', 'False', 'float', 'az_px_spacing'),
-            ('rangePixelSpacing', 'False', 'float', 'rg_px_spacing'),
-            ('geolocationGridPoint/incidenceAngle', 'False', 'float', 'inc'),
-            ('applicationLutId', 'True', 'str', 'lut_applied')
-        ]
-        for pattern, single, out_type, var_name in properties_to_extract:
-            locals()[var_name] = find_in_annotation(
-                annotation_dict=src_xml[uid]['annotation'],
-                pattern=f'.//{pattern}',
-                single=bool(single),
-                out_type=out_type
-            )
+        res_mode = re.match(re.compile(sid.pattern), os.path.basename(sid.file)).groupdict()['resolution']
+        product_type = sid.meta['product'] + (res_mode if res_mode != '_' else '')
+        if product_type.startswith('GRD'):
+            data_geometry = 'ground-range'
+            if re.search('S[1-6]', op_mode):
+                res_az = {op_mode: RES_MAP_GRD[res_mode]['SM']['az'][op_mode]}
+                res_rg = {op_mode: RES_MAP_GRD[res_mode]['SM']['rg'][op_mode]}
+                enl = round(mean(ENL_MAP_GRD[res_mode]['SM']), 2)
+            else:
+                res_az = RES_MAP_GRD[res_mode][op_mode]['az']
+                res_rg = RES_MAP_GRD[res_mode][op_mode]['rg']
+                enl = round(mean(ENL_MAP_GRD[res_mode][op_mode]), 2)
+        else:  # SLC
+            data_geometry = 'slant-range'
+            res_az = RES_MAP_SLC[op_mode]['az']
+            res_rg = RES_MAP_SLC[op_mode]['rg']
+            enl = 1.0
         
         inc_vals = dissolve(list(inc.values()))
         pslr, islr = calc_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
@@ -243,17 +243,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
-        if re.search('S[1-6]', op_mode):
-            res_az = {op_mode: RES_MAP['SM']['azimuthResolution'][op_mode]}
-            res_rg = {op_mode: RES_MAP['SM']['rangeResolution'][op_mode]}
-        else:
-            res_az = RES_MAP[op_mode]['azimuthResolution']
-            res_rg = RES_MAP[op_mode]['rangeResolution']
         meta['source'][uid]['azimuthResolution'] = res_az
-        if src_sid[uid].meta['product'] == 'GRD':
-            meta['source'][uid]['dataGeometry'] = 'ground-range'
-        else:
-            meta['source'][uid]['dataGeometry'] = 'slant-range'
+        meta['source'][uid]['dataGeometry'] = data_geometry
         meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
         meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/' \
                                      'Sentinel-1-Product-Specification'
@@ -285,7 +276,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
             pe = {pol: stats for pol in meta['common']['polarisationChannels']}
             meta['source'][uid]['perfEstimates'] = pe
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = None
-        meta['source'][uid]['perfEquivalentNumberOfLooks'] = 1
+        meta['source'][uid]['perfEquivalentNumberOfLooks'] = enl
         meta['source'][uid]['perfIntegratedSideLobeRatio'] = round(islr, 2)
         meta['source'][uid]['perfPeakSideLobeRatio'] = round(pslr, 2)
         meta['source'][uid]['polCalMatrices'] = None
@@ -297,7 +288,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
         meta['source'][uid]['processorVersion'] = _read_manifest('.//safe:software', attrib='version')
-        meta['source'][uid]['productType'] = sid.meta['product']
+        meta['source'][uid]['productType'] = product_type
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
