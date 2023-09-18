@@ -86,8 +86,8 @@ def source_json(meta, target, exist_ok=False):
         
         # Add properties
         sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      relative_orbit=meta['common']['orbitNumber_rel'],
+                      absolute_orbit=meta['common']['orbitNumber_abs'],
                       anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
@@ -284,8 +284,8 @@ def product_json(meta, target, assets, exist_ok=False):
     
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                  relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                  absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
+                  relative_orbit=meta['common']['orbitNumber_rel'],
+                  absolute_orbit=meta['common']['orbitNumber_abs'])
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],

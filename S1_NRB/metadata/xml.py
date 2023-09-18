@@ -658,7 +658,7 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
     acquisition = etree.SubElement(acquisitionParameters, _nsc('_:Acquisition', nsmap, ard_ns=ard_ns))
     orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
-    orbitNumber.text = meta['common']['orbitNumber']
+    orbitNumber.text = str(meta['common']['orbitNumbers_abs'])
     orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection', nsmap))
     orbitDirection.text = meta['common']['orbitDirection'].upper()
     wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid', nsmap),

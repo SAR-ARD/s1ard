@@ -83,9 +83,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['common']['operationalMode'] = op_mode
     meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
-    meta['common']['orbitNumber'] = str(sid0.meta['orbitNumbers_abs']['stop'])
-    meta['common']['orbitNumbers_abs'] = sid0.meta['orbitNumbers_abs']
-    meta['common']['orbitNumbers_rel'] = sid0.meta['orbitNumbers_rel']
+    meta['common']['orbitNumbers_abs'] = sid0.meta['orbitNumber_abs']
+    meta['common']['orbitNumbers_rel'] = sid0.meta['orbitNumber_rel']
     meta['common']['platformIdentifier'] = {'S1A': '1A', 'S1B': '1B'}[sid0.sensor]
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
