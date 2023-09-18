@@ -187,6 +187,9 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     -------
 
     """
+    if len(neighbors) == 0:
+        raise RuntimeError("the list of 'neighbors' is empty")
+    
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
     ############################################
@@ -596,7 +599,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         (only applies to GRD) an optional list of neighboring scenes to add
         a buffer around the main scene using function :func:`grd_buffer`.
         If GRDs are processed compeletely independently, gaps are introduced
-        due to a missing overlap.
+        due to a missing overlap. If `neighbors` is None or an empty list,
+        buffering is skipped.
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
