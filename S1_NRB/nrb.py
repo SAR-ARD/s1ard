@@ -275,6 +275,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         if not os.path.isfile(cc_path):
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
+        key = re.search('cc-[gs]-lin', cc_path).group()
+        datasets_ard[key] = cc_path
     
     # create log-scaled gamma0|sigma0 nought VRTs (-[vh|vv|hh|hv]-[gs]-log.vrt)
     fun = 'dB'
@@ -287,6 +289,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
+        key = re.search('[hv]{2}-[gs]-log', target).group()
+        datasets_ard[key] = target
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     if 'gs' in allowed:
@@ -308,6 +312,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
+            key = key.replace('lin', 'log')
+            datasets_ard[key] = sigma0_rtc_log
     
     # create gamma nought RTC VRTs (-[vh|vv|hh|hv]-g-[lin|log].vrt)
     if 'sg' in allowed:
@@ -323,12 +329,16 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
+            key = re.search('[hv]{2}-g-lin', gamma0_rtc_lin).group()
+            datasets_ard[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
                 print(gamma0_rtc_log)
                 create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
+            key = key.replace('lin', 'log')
+            datasets_ard[key] = gamma0_rtc_log
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
@@ -358,6 +368,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
                            gapfill=gapfill, bounds=bounds, epsg=epsg)
+        datasets_ard['wm'] = wm_ard
+        datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
@@ -377,7 +389,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
                              product_type=product_type)
-    ard_assets = list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True)
+    ard_assets = list(datasets_ard.values())
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
