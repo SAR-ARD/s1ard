@@ -190,6 +190,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     
     # SOURCE metadata
     for uid in list(src_sid.keys()):
+        sid = src_sid[uid]
         nsmap = src_xml[uid]['manifest'].nsmap
         
         swath_ids = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
@@ -200,8 +201,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
                 swaths.extend(item)
             else:
                 swaths.append(item)
-        osv = src_sid[uid].getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
-        with src_sid[uid].geometry() as vec:
+        osv = sid.getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
+        with sid.geometry() as vec:
             geom = geometry_from_vec(vectorobject=vec)
         
         az_look_bandwidth = rg_look_bandwidth = az_num_looks = rg_num_looks = az_px_spacing = rg_px_spacing = inc = \
@@ -258,7 +259,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
                                      'Sentinel-1-Product-Specification'
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
-        meta['source'][uid]['filename'] = src_sid[uid].file
+        meta['source'][uid]['filename'] = sid.file
         meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
@@ -266,10 +267,10 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['incidenceAngleMax'] = np.max(inc_vals)
         meta['source'][uid]['incidenceAngleMin'] = np.min(inc_vals)
         meta['source'][uid]['incidenceAngleMidSwath'] = np.max(inc_vals) - ((np.max(inc_vals) - np.min(inc_vals)) / 2)
-        meta['source'][uid]['instrumentAzimuthAngle'] = str(src_sid[uid].meta['heading'])
+        meta['source'][uid]['instrumentAzimuthAngle'] = str(sid.meta['heading'])
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
-        meta['source'][uid]['majorCycleID'] = str(src_sid[uid].meta['cycleNumber'])
+        meta['source'][uid]['majorCycleID'] = str(sid.meta['cycleNumber'])
         meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for osv in list(OSV_MAP.keys()):
@@ -295,7 +296,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
         meta['source'][uid]['processorVersion'] = _read_manifest('.//safe:software', attrib='version')
-        meta['source'][uid]['productType'] = src_sid[uid].meta['product']
+        meta['source'][uid]['productType'] = sid.meta['product']
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
@@ -306,8 +307,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(_read_manifest('.//s1:startTimeANX')))
-        meta['source'][uid]['timeStart'] = datetime.strptime(src_sid[uid].start, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['timeStop'] = datetime.strptime(src_sid[uid].stop, '%Y%m%dT%H%M%S')
+        meta['source'][uid]['timeStart'] = datetime.strptime(sid.start, '%Y%m%dT%H%M%S')
+        meta['source'][uid]['timeStop'] = datetime.strptime(sid.stop, '%Y%m%dT%H%M%S')
     
     return meta
 
