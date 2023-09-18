@@ -161,6 +161,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     else:
         ard_dir = os.path.join(outdir, ard_base)
     os.makedirs(ard_dir, exist_ok=True)
+    subdirectories = ['measurement', 'annotation', 'source', 'support']
+    for subdirectory in subdirectories:
+        os.makedirs(os.path.join(ard_dir, subdirectory), exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -197,7 +200,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         outname = os.path.join(ard_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
-            os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
             images = [ds[key] for ds in datasets_sar]
             ras = None
@@ -373,12 +375,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
-    support_dir = os.path.join(ard_dir, 'support')
     schemas = os.listdir(schema_dir)
-    os.makedirs(support_dir, exist_ok=True)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(support_dir, schema)
+        schema_out = os.path.join(ard_dir, 'support', schema)
         if not os.path.isfile(schema_out):
             print(schema_out)
             shutil.copy(schema_in, schema_out)
@@ -390,12 +390,12 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
                              product_type=product_type)
     ard_assets = list(datasets_ard.values())
+    if config['meta']['copy_original']:
+        copy_src_meta(target=ard_dir, src_ids=src_ids)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
         stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
-    if config['meta']['copy_original']:
-        copy_src_meta(target=ard_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
