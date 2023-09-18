@@ -91,7 +91,8 @@ subdirectories relative to the directory specified with ``work_dir``. E.g., ``ar
 Metadata of any Sentinel-1 scene found in ``scene_dir`` will be stored in an SQLite database file created by :class:`pyrosar.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
-``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1 scenes using the regex pattern ``'^S1[AB].*(SAFE|zip)$'``.
+``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1
+scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
 
 - search option II: **stac_catalog** & **stac_collections**
 
@@ -149,8 +150,11 @@ Supported options:
    + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
 
  + wm: wind-modeled backscatter extracted from a Sentinel-1 OCN (ocean) product.
-   The variable `owiNrcsCmod` is used.
-   The OCN products and corresponding Level-1 products must be searchable in the same way.
+   The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised
+   Radar Cross Section (NRCS) predicted using a CMOD model and ECMWF wind model data.
+   For each OCN product, a Level-1 counterpart (SLC/GRD) exists.
+   The OCN products and corresponding Level-1 products must be searchable in the same way
+   via the two search options described above.
    If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`),
    a co-polarization wind normalization ratio VRT is created by dividing the measurement by the
    wind-modeled backscatter.
