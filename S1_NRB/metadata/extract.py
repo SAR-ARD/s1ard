@@ -205,31 +205,28 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         with src_sid[uid].geometry() as vec:
             geom = geometry_from_vec(vectorobject=vec)
         
-        az_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                               pattern='.//azimuthProcessing/lookBandwidth',
-                                               out_type='float')
-        az_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//azimuthProcessing/numberOfLooks',
-                                          out_type='int')
-        az_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                           pattern='.//azimuthPixelSpacing',
-                                           out_type='float')
-        inc = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                 pattern='.//geolocationGridPoint/incidenceAngle',
-                                 out_type='float')
+        az_look_bandwidth = rg_look_bandwidth = az_num_looks = rg_num_looks = az_px_spacing = rg_px_spacing = inc = \
+            lut_applied = {}
+        properties_to_extract = [
+            ('azimuthProcessing/lookBandwidth', 'False', 'float', 'az_look_bandwidth'),
+            ('rangeProcessing/lookBandwidth', 'False', 'float', 'rg_look_bandwidth'),
+            ('azimuthProcessing/numberOfLooks', 'False', 'int', 'az_num_looks'),
+            ('rangeProcessing/numberOfLooks', 'False', 'int', 'rg_num_looks'),
+            ('azimuthPixelSpacing', 'False', 'float', 'az_px_spacing'),
+            ('rangePixelSpacing', 'False', 'float', 'rg_px_spacing'),
+            ('geolocationGridPoint/incidenceAngle', 'False', 'float', 'inc'),
+            ('applicationLutId', 'True', 'str', 'lut_applied')
+        ]
+        for pattern, single, out_type, var_name in properties_to_extract:
+            locals()[var_name] = find_in_annotation(
+                annotation_dict=src_xml[uid]['annotation'],
+                pattern=f'.//{pattern}',
+                single=bool(single),
+                out_type=out_type
+            )
+        
         inc_vals = dissolve(list(inc.values()))
-        lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//applicationLutId', single=True)
         pslr, islr = calc_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
-        rg_look_bandwidth = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                               pattern='.//rangeProcessing/lookBandwidth',
-                                               out_type='float')
-        rg_num_looks = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                          pattern='.//rangeProcessing/numberOfLooks',
-                                          out_type='int')
-        rg_px_spacing = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                           pattern='.//rangePixelSpacing',
-                                           out_type='float')
         
         def _read_manifest(pattern, attrib=None):
             obj = src_xml[uid]['manifest'].find(pattern, nsmap)
