@@ -1036,7 +1036,8 @@ def look_direction(dim):
         lons = []
         lines = []
         pixels = []
-        times = []
+        rgtimes = []
+        aztimes = []
         
         pols = tree.xpath("//MDElem[@name='standAloneProductInformation']"
                           "/MDATTR[@name='transmitterReceiverPolarisation']")
@@ -1055,14 +1056,16 @@ def look_direction(dim):
             line = int(point.find("./MDATTR[@name='line']").text)
             lat = float(point.find("./MDATTR[@name='latitude']").text)
             lon = float(point.find("./MDATTR[@name='longitude']").text)
+            rgtime = float(point.find("./MDATTR[@name='slantRangeTime']").text)
             aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
             aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
             pixels.append(pixel)
             lines.append(line)
-            times.append(aztime)
+            rgtimes.append(rgtime)
+            aztimes.append(aztime)
             lats.append(lat)
             lons.append(lon)
-        coords = list(zip(pixels, times))
+        coords = list(zip(rgtimes, aztimes))
         
         flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
         flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
@@ -1084,7 +1087,7 @@ def look_direction(dim):
         g = Geod(ellps='WGS84')
         for i, v in enumerate(coords):
             if v in coords_sub:
-                if i + 1 < len(coords) and coords[i][0] < coords[i + 1][0]:
+                if i + 1 < len(coords) and pixels[i] < pixels[i + 1]:
                     az12, az21, dist = g.inv(lons[i], lats[i], lons[i + 1], lats[i + 1])
                     values.append(az12)
                 else:
@@ -1095,7 +1098,11 @@ def look_direction(dim):
         coords = np.array(coords_select)
         values = np.array(values)
         
-        xi = np.linspace(0, npixels - 1, npixels)
+        rgtime_fl_max = max([v for i, v in enumerate(rgtimes) if lines[i] == 0])
+        rgtime_ll_max = max([v for i, v in enumerate(rgtimes) if lines[i] == max(lines)])
+        rgtime_max = min([rgtime_fl_max, rgtime_ll_max])
+        
+        xi = np.linspace(min(rgtimes), rgtime_max, npixels)
         yi = np.linspace(flt, llt, nlines)
         xi, yi = np.meshgrid(xi, yi)
         zi = griddata(coords, values, (xi, yi), method=method, fill_value=0)
