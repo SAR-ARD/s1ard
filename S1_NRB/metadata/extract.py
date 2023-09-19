@@ -140,7 +140,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['demType'] = DEM_MAP[config['dem_type']]['type']
     meta['prod']['doi'] = config['meta']['doi']
     meta['prod']['ellipsoidalHeight'] = None
-    meta['prod']['equivalentNumberLooks'] = np.round(calc_enl(tif=ref_tif), 2)
+    meta['prod']['equivalentNumberLooks'] = calc_enl(tif=ref_tif)
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
@@ -296,8 +296,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
             meta['source'][uid]['perfEstimates'] = pe
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = None
         meta['source'][uid]['perfEquivalentNumberOfLooks'] = enl
-        meta['source'][uid]['perfIntegratedSideLobeRatio'] = round(islr, 2)
-        meta['source'][uid]['perfPeakSideLobeRatio'] = round(pslr, 2)
+        meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
+        meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
         meta['source'][uid]['polCalMatrices'] = None
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
         fac_name = _read_manifest('.//safe:facility', attrib='name')
@@ -569,7 +569,7 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
         return out
 
 
-def calc_enl(tif, block_size=30, return_arr=False):
+def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     """
     Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
     calculation is performed block-wise for the entire image and by default the median ENL value is returned.
@@ -583,6 +583,8 @@ def calc_enl(tif, block_size=30, return_arr=False):
         evenly divisible by the block size. Default is 30, which calculates ENL for 30x30 pixel blocks.
     return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
+    decimals: int, optional
+        Number of decimal places to round the calculated ENL value to. Default is 2.
     
     Returns
     -------
@@ -617,14 +619,12 @@ def calc_enl(tif, block_size=30, return_arr=False):
     
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
     out_arr[:num_blocks_rows, :num_blocks_cols] = enl
+    out_median = np.nanmedian(out_arr)
     
-    if return_arr:
-        return out_arr
-    else:
-        return np.nanmedian(out_arr)
+    return np.round(out_median, decimals) if not return_arr else out_arr
 
 
-def calc_geolocation_accuracy(swath_identifier, ei_tif, etad):
+def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
     """
     Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
     (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html.
@@ -638,6 +638,8 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, etad):
         Path to the annotation GeoTIFF layer 'Ellipsoidal Incident Angle' of the current product.
     etad: bool
         Was the ETAD correction applied?
+    decimals: int, optional
+        Number of decimal places to round the calculated rRMSE value to. Default is 2.
 
     Returns
     -------
@@ -680,10 +682,10 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, etad):
                             rmse_az ** 2 +
                             rmse_dem_planar ** 2)
     
-    return round(rmse_planar, 2)
+    return round(rmse_planar, decimals)
 
 
-def calc_performance_estimates(files):
+def calc_performance_estimates(files, decimals=2):
     """
     Calculates the performance estimates specified in CARD4L NRB 1.6.9 for all noise power images if available.
     
@@ -691,6 +693,8 @@ def calc_performance_estimates(files):
     ----------
     files: list[str]
         List of paths pointing to the noise power images the estimates should be calculated for.
+    decimals: int, optional
+        Number of decimal places to round the calculated values to. Default is 2.
     
     Returns
     -------
@@ -707,13 +711,13 @@ def calc_performance_estimates(files):
             _max = float(np.nanmax(arr))
             _mean = float(np.nanmean(arr))
             del arr
-        out[pol] = {'minimum': round(_min, 2),
-                    'maximum': round(_max, 2),
-                    'mean': round(_mean, 2)}
+        out[pol] = {'minimum': round(_min, decimals),
+                    'maximum': round(_max, decimals),
+                    'mean': round(_mean, decimals)}
     return out
 
 
-def calc_pslr_islr(annotation_dict):
+def calc_pslr_islr(annotation_dict, decimals=2):
     """
     Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated Side Lobe Ratio (ISLR) from the annotation
     metadata of a scene and calculates the mean value for all swaths.
@@ -722,6 +726,8 @@ def calc_pslr_islr(annotation_dict):
     ----------
     annotation_dict: dict
         A dictionary of annotation files in the form: {'swath ID':`lxml.etree._Element` object}
+    decimals: int, optional
+        Number of decimal places to round the calculated values to. Default is 2.
     
     Returns
     -------
@@ -743,9 +749,8 @@ def calc_pslr_islr(annotation_dict):
         islr_mean[swath] = np.nanmean(islr_dict[swath])
     
     # Mean value for all swaths
-    pslr = np.nanmean(list(pslr_mean.values()))
-    islr = np.nanmean(list(islr_mean.values()))
-    
+    pslr = np.round(np.nanmean(list(pslr_mean.values())), decimals)
+    islr = np.round(np.nanmean(list(islr_mean.values())), decimals)
     return pslr, islr
 
 
