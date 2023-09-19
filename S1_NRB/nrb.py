@@ -391,7 +391,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              product_type=product_type)
     ard_assets = list(datasets_ard.values())
     if config['meta']['copy_original']:
-        copy_src_meta(target=ard_dir, src_ids=src_ids)
+        copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
