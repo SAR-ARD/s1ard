@@ -137,6 +137,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                                                                 ard_ns=ard_ns),
                                                     attrib={'uom': 'Hz', 'beam': swath})
             azimuthLookBandwidth.text = str(meta['source'][uid]['azimuthLookBandwidth'][swath])
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('_:rangeLookBandwidth', nsmap,
                                                                               ard_ns=ard_ns),
                                                   attrib={'uom': 'Hz', 'beam': swath})
@@ -152,6 +153,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                                     _nsc('_:azimuthNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                     attrib={'beam': swath})
             azimuthNumberOfLooks.text = str(meta['source'][uid]['azimuthNumberOfLooks'][swath])
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
                                                   _nsc('_:rangeNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                   attrib={'beam': swath})
@@ -164,6 +166,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                                  _nsc('_:azimuthResolution', nsmap, ard_ns=ard_ns),
                                                  attrib={'uom': 'm', 'beam': swath})
             azimuthResolution.text = str(meta['source'][uid]['azimuthResolution'][swath])
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeResolution = etree.SubElement(earthObservationMetaData,
                                                _nsc('_:rangeResolution', nsmap, ard_ns=ard_ns),
                                                attrib={'uom': 'm', 'beam': swath})
