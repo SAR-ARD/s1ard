@@ -205,6 +205,8 @@ def _asset_add_orig_src(metadir, uid, item):
                 'rfi': 'Radio Frequency Interference metadata'}
     
     root_dir = os.path.join(metadir, uid)
+    if not os.path.isdir(root_dir):
+        return
     file_list = finder(target=root_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
     if len(file_list) > 0:
         for file in file_list:
