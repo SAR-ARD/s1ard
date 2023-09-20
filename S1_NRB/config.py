@@ -291,7 +291,7 @@ def snap_conf(config):
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
-                        'EW': 20}[config['acq_mode']],
+                        'EW': 40}[config['acq_mode']],
             'allow_res_osv': True,
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
