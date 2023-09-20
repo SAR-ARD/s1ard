@@ -797,14 +797,14 @@ def get_header_size(tif):
     return headers_size
 
 
-def copy_src_meta(target, src_ids):
+def copy_src_meta(ard_dir, src_ids):
     """
     Copies the original metadata of the source scenes to the ARD product
     directory.
     
     Parameters
     ----------
-    target: str
+    ard_dir: str
         A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
@@ -814,7 +814,7 @@ def copy_src_meta(target, src_ids):
     None
     """
     for src_id in src_ids:
-        source_dir = os.path.join(target, 'source')
+        source_dir = os.path.join(ard_dir, 'source')
         pid = re.match(src_id.pattern, os.path.basename(src_id.file)).group('productIdentifier')
         
         if src_id.scene.endswith('.zip'):
