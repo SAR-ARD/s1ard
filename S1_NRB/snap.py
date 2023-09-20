@@ -1045,26 +1045,27 @@ def look_direction(dim):
         re_ns = "http://exslt.org/regular-expressions"
         ann_pol = tree.xpath(f"//MDElem[@name='annotation']"
                              f"//MDElem[re:test(@name, '-{polarization}-', 'i')]",
-                             namespaces={'re': re_ns})[0]
+                             namespaces={'re': re_ns})
         nlines = int(tree.find('Raster_Dimensions/NROWS').text)
         npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
         abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
         
-        points = ann_pol.xpath(".//MDElem[@name='geolocationGridPoint']")
-        for point in points:
-            pixel = int(point.find("./MDATTR[@name='pixel']").text)
-            line = int(point.find("./MDATTR[@name='line']").text)
-            lat = float(point.find("./MDATTR[@name='latitude']").text)
-            lon = float(point.find("./MDATTR[@name='longitude']").text)
-            rgtime = float(point.find("./MDATTR[@name='slantRangeTime']").text)
-            aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
-            aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
-            pixels.append(pixel)
-            lines.append(line)
-            rgtimes.append(rgtime)
-            aztimes.append(aztime)
-            lats.append(lat)
-            lons.append(lon)
+        for ann in ann_pol:
+            points = ann.xpath(".//MDElem[@name='geolocationGridPoint']")
+            for point in points:
+                pixel = int(point.find("./MDATTR[@name='pixel']").text)
+                line = int(point.find("./MDATTR[@name='line']").text)
+                lat = float(point.find("./MDATTR[@name='latitude']").text)
+                lon = float(point.find("./MDATTR[@name='longitude']").text)
+                rgtime = float(point.find("./MDATTR[@name='slantRangeTime']").text)
+                aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
+                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
+                pixels.append(pixel)
+                lines.append(line)
+                rgtimes.append(rgtime)
+                aztimes.append(aztime)
+                lats.append(lat)
+                lons.append(lon)
         coords = list(zip(rgtimes, aztimes))
         
         flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
