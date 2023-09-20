@@ -159,7 +159,11 @@ ASSET_MAP = {'-dm.tif': {'type': 'Mask',
              '-sg.tif': {'type': 'Ratio',
                          'unit': None,
                          'role': 'sigma-gamma-ratio',
-                         'title': 'Sigma0 ellipsoidal to gamma0 RTC ratio'}}
+                         'title': 'Sigma0 ellipsoidal to gamma0 RTC ratio'},
+             '-wm.tif': {'type': 'wind-modelled-backscatter',
+                         'unit': None,
+                         'role': 'wind-modelled-backscatter',
+                         'title': 'wind-modelled backscatter (OCN CMOD NRCS)'}}
 
 # https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf
 SLC_ACC_MAP = {'SM': {'ALE': {'rg': -3.02,
