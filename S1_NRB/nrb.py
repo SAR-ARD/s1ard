@@ -184,11 +184,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_ard = dict()
     for key in list(datasets_sar[0].keys()):
-        if key == 'dm' or key not in LERC_ERR_THRES.keys():
-            # the data mask raster (-dm.tif) will be created later
-            continue
-        
-        if key not in allowed:
+        if key in ['dm', 'wm'] or key not in LERC_ERR_THRES.keys() or key not in allowed:
+            # raster files for keys 'dm' and 'wm' are created later
             continue
         
         meta_lower['suffix'] = key
