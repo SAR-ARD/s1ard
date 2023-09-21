@@ -33,7 +33,8 @@ LERC_ERR_THRES = {'vv-g-lin': 1e-4,
                   'np-vh': 2e-5,
                   'np-hh': 2e-5,
                   'np-hv': 2e-5,
-                  'sg': 1e-4}
+                  'sg': 1e-4,
+                  'wm': 2e-5}
 
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex

@@ -184,11 +184,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_ard = dict()
     for key in list(datasets_sar[0].keys()):
-        if key == 'dm' or key not in LERC_ERR_THRES.keys():
-            # the data mask raster (-dm.tif) will be created later
-            continue
-        
-        if key not in allowed:
+        if key in ['dm', 'wm'] or key not in LERC_ERR_THRES.keys() or key not in allowed:
+            # raster files for keys 'dm' and 'wm' are created later
             continue
         
         meta_lower['suffix'] = key
@@ -369,7 +366,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         gapfill = True if src_ids[0].product == 'GRD' else False
         
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
-                           gapfill=gapfill, bounds=bounds, epsg=epsg)
+                           gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver, creation_opt=write_options['wm'],
+                           dst_nodata=dst_nodata_float, multithread=multithread)
         datasets_ard['wm'] = wm_ard
         datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
     
@@ -1034,7 +1032,8 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
                       overviews=overviews, options=creation_opt)
 
 
-def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, resolution=915):
+def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver, creation_opt, dst_nodata,
+                       multithread, resolution=915):
     """
     Create wind normalization layers. A wind model annotation layer is created and optionally
     a wind normalization VRT.
@@ -1042,31 +1041,39 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
     Parameters
     ----------
     src: list[str]
-        a list of OCN products as prepared by :func:`S1_NRB.ocn.extract`
+        A list of OCN products as prepared by :func:`S1_NRB.ocn.extract`
     dst_wm: str
-        the name of the wind model layer in the ARD product
+        The name of the wind model layer in the ARD product
     dst_wn: str or None
-        the name of the wind normalization VRT. If None, no VRT will be created.
+        The name of the wind normalization VRT. If None, no VRT will be created.
         Requires `measurement` to point to a file.
     measurement: str or None
-        the name of the measurement file used for wind normalization in `dst_wn`.
+        The name of the measurement file used for wind normalization in `dst_wn`.
         If None, no wind normalization VRT will be created.
     gapfill: bool
-        perform additional gap filling (:func:`S1_NRB.ocn.gapfill`)?
+        Perform additional gap filling (:func:`S1_NRB.ocn.gapfill`)?
         This is recommended if the Level-1 source product of `measurement` is GRD
         in which case gaps are introduced between subsequently acquired scenes.
     bounds: list[float]
         the bounds of the MGRS tile
     epsg: int
-        the EPSG code of the MGRS tile
-    resolution: int
-        the target pixel resolution in meters. 915 is chosen as default because it is closest
+        The EPSG code of the MGRS tile
+    driver: str
+        GDAL driver to use for raster file creation.
+    creation_opt: list[str]
+        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+    dst_nodata: float
+        Nodata value to write to the output raster.
+    multithread: bool
+        Should `gdalwarp` use multithreading?
+    resolution: int, optional
+        The target pixel resolution in meters. 915 is chosen as default because it is closest
         to the OCN product resolution (1000) and still fits into the MGRS bounds
         (``109800 % 915 == 0``).
-
+    
     Returns
     -------
-
+    
     """
     if len(src) > 1:
         cmod_mosaic = tempfile.NamedTemporaryFile(suffix='.tif').name
@@ -1086,7 +1093,11 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
                  outputBounds=bounds,
                  dstSRS=f'EPSG:{epsg}',
                  xRes=resolution, yRes=resolution,
-                 resampleAlg='bilinear')
+                 resampleAlg='bilinear',
+                 format=driver,
+                 dstNodata=dst_nodata,
+                 multithread=multithread,
+                 creationOptions=creation_opt)
     
     if dst_wn is not None and measurement is not None:
         if not os.path.isfile(dst_wn):
