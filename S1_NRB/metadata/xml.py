@@ -86,18 +86,20 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                             attrib={_nsc('xlink:href', nsmap): scene})
         requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage', nsmap))
         
-        org_src_files = finder(target=os.path.join(metadir, uid), matchlist=['*.safe', '*.xml'], foldermode=0)
-        if len(org_src_files) > 0:
-            for file in org_src_files:
-                href = './' + os.path.relpath(file, metadir).replace('\\', '/')
-                product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
-                productInformation = etree.SubElement(product, _nsc('_:ProductInformation', nsmap, ard_ns=ard_ns))
-                fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
-                serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference', nsmap),
-                                                    attrib={_nsc('xlink:href', nsmap): href})
-                requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage', nsmap))
-                dataFormat = etree.SubElement(productInformation, _nsc('_:dataFormat', nsmap, ard_ns=ard_ns))
-                dataFormat.text = 'XML'
+        org_src_files_dir = os.path.join(metadir, uid)
+        if os.path.isdir(org_src_files_dir):
+            org_src_files = finder(target=org_src_files_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
+            if len(org_src_files) > 0:
+                for file in org_src_files:
+                    href = './' + os.path.relpath(file, metadir).replace('\\', '/')
+                    product = etree.SubElement(earthObservationResult, _nsc('eop:product', nsmap))
+                    productInformation = etree.SubElement(product, _nsc('_:ProductInformation', nsmap, ard_ns=ard_ns))
+                    fileName = etree.SubElement(productInformation, _nsc('eop:fileName', nsmap))
+                    serviceReference = etree.SubElement(fileName, _nsc('ows:ServiceReference', nsmap),
+                                                        attrib={_nsc('xlink:href', nsmap): href})
+                    requestMessage = etree.SubElement(serviceReference, _nsc('ows:RequestMessage', nsmap))
+                    dataFormat = etree.SubElement(productInformation, _nsc('_:dataFormat', nsmap, ard_ns=ard_ns))
+                    dataFormat.text = 'XML'
         ################################################################################################################
         metaDataProperty = etree.SubElement(root, _nsc('eop:metaDataProperty', nsmap))
         earthObservationMetaData = etree.SubElement(metaDataProperty, _nsc('_:EarthObservationMetaData', nsmap,

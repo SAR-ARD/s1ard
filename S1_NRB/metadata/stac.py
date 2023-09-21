@@ -205,6 +205,8 @@ def _asset_add_orig_src(metadir, uid, item):
                 'rfi': 'Radio Frequency Interference metadata'}
     
     root_dir = os.path.join(metadir, uid)
+    if not os.path.isdir(root_dir):
+        return
     file_list = finder(target=root_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
     if len(file_list) > 0:
         for file in file_list:
@@ -482,8 +484,13 @@ def _asset_get_key_title(meta, asset):
     key = None
     title = None
     if 'measurement' in asset:
-        title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
-        info = re.search('(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))', asset).groupdict()
+        title_dict = {'g': 'gamma nought', 's': 'sigma nought',
+                      'lin': 'linear', 'log': 'logarithmic'}
+        pattern = ('(?P<key>(?P<pol>[vhc]{2})-'
+                   '(?P<nought>[gs])-'
+                   '(?P<scaling>lin|log)'
+                   '(?P<windnorm>-wn|))')
+        info = re.search(pattern, asset).groupdict()
         key = info['key']
         
         if re.search('cc-[gs]-lin', key):
@@ -498,7 +505,10 @@ def _asset_get_key_title(meta, asset):
                                  cross=cross.lower(),
                                  nought=info['nought'])
         else:
-            skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
+            if info['windnorm'] == '-wn':
+                skeleton = '{pol} {nought} {subtype} wind normalisation ratio, {scale} scaling'
+            else:
+                skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
             subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
             title = skeleton.format(pol=info['pol'].upper(),
                                     nought=title_dict[info['nought']],
