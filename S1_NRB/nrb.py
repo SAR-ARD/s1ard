@@ -389,7 +389,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
                              product_type=product_type)
-    ard_assets = list(datasets_ard.values())
+    ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
+                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['meta']['copy_original']:
         copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
     if 'OGC' in config['meta']['format']:

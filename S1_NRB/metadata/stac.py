@@ -314,7 +314,7 @@ def product_json(meta, target, assets, exist_ok=False):
     item.properties['card4l:measurement_convention'] = meta['prod']['backscatterConvention']
     item.properties['card4l:pixel_coordinate_convention'] = meta['prod']['pixelCoordinateConvention']
     item.properties['card4l:speckle_filtering'] = meta['prod']['speckleFilterApplied']
-    item.properties['card4l:noise_removal_applied'] = meta['prod']['NRApplied']
+    item.properties['card4l:noise_removal_applied'] = meta['prod']['noiseRemovalApplied']
     item.properties['card4l:conversion_eq'] = meta['prod']['backscatterConversionEq']
     item.properties['card4l:relative_radiometric_accuracy'] = meta['prod']['radiometricAccuracyRelative']
     item.properties['card4l:absolute_radiometric_accuracy'] = meta['prod']['radiometricAccuracyAbsolute']
@@ -359,9 +359,9 @@ def product_json(meta, target, assets, exist_ok=False):
                                    target=meta['prod']['ancillaryData_KML'],
                                    title='Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '
                                          'used as auxiliary data during processing.'))
-    if meta['prod']['NRApplied']:
+    if meta['prod']['noiseRemovalApplied']:
         item.add_link(link=pystac.Link(rel='noise-removal',
-                                       target=meta['prod']['NRAlgorithm'],
+                                       target=meta['prod']['noiseRemovalAlgorithm'],
                                        title='Reference to the noise removal algorithm details.'))
     if meta['prod']['RTCAlgorithm'] is not None:
         item.add_link(link=pystac.Link(rel='radiometric-terrain-correction',
