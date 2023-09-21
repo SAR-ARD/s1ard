@@ -10,6 +10,7 @@ import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.archive import STACArchive
 from datetime import datetime, timedelta
+from S1_NRB import ocn
 
 gdal.UseExceptions()
 
@@ -128,9 +129,23 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                          product=config['product'], mindate=config['mindate'],
                          maxdate=config['maxdate'], scene_dir=config['scene_dir'],
                          datatake=config['datatake']))
+        archive.close()
         return
     scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
+    
+    # OCN scene selection
+    if 'wm' in config['annotation']:
+        basenames = [x.outname_base() for x in scenes]
+        scenes_ocn = archive.select(product='OCN', outname_base=basenames)
+        if len(scenes_ocn) != len(scenes):
+            print('could not find an OCN product for each selected Level-1 product')
+            archive.close()
+            return
+        scenes_ocn = identify_many(scenes_ocn)
+    else:
+        scenes_ocn = []
+    
     archive.close()
     
     if aoi_tiles is None:
@@ -153,7 +168,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     if annotation is not None:
         annotation = ['gs' if x == 'ratio' and measurement == 'gamma' else 'sg' if x == 'ratio'
-                      else x for x in annotation]
+        else x for x in annotation]
         export_extra = []
         for layer in annotation:
             if layer in lookup:
@@ -250,6 +265,18 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             except Exception as e:
                 anc.log(handler=logger, mode='exception', proc_step='SAR', scenes=scene.scene, msg=e)
                 raise
+    ####################################################################################################################
+    # OCN preparation
+    for scene in scenes_ocn:
+        if scene.compression is not None:
+            scene.unpack(directory=config['tmp_dir'], exist_ok=True)
+        basename = os.path.basename(scene.scene).replace('.SAFE', '')
+        outdir = os.path.join(config['sar_dir'], basename)
+        os.makedirs(outdir, exist_ok=True)
+        out = os.path.join(outdir, 'owiNrcsCmod.tif')
+        if not os.path.isfile(out):
+            ocn.extract(src=scene.scene, dst=out,
+                        variable='owiNrcsCmod')
     ####################################################################################################################
     # ARD - final product generation
     if ard_flag or orb_flag:

@@ -16,7 +16,7 @@ from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 import S1_NRB
-from S1_NRB import dem
+from S1_NRB import dem, ocn
 from S1_NRB.metadata import extract, xml, stac
 from S1_NRB.metadata.mapping import LERC_ERR_THRES
 from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
@@ -79,10 +79,12 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         - em: digital elevation model
         - id: acquisition ID image (source scene ID per pixel)
         - lc: RTC local contributing area
+        - ld: range look direction angle
         - li: local incident angle
         - np: noise power (NESZ, per polarization)
         - gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC
         - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
+        - wm: OCN product wind model; requires OCN scenes via argument `scenes_ocn`
     update: bool
         modify existing products so that only missing files are re-created?
     
@@ -101,6 +103,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     dst_nodata_float = -9999.0
     dst_nodata_byte = 255
     vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
+    vrt_options = {'VRTNodata': vrt_nodata}
     
     # determine processing timestamp and generate unique ID
     start_time = time.time()
@@ -158,6 +161,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     else:
         ard_dir = os.path.join(outdir, ard_base)
     os.makedirs(ard_dir, exist_ok=True)
+    subdirectories = ['measurement', 'annotation', 'source', 'support']
+    for subdirectory in subdirectories:
+        os.makedirs(os.path.join(ard_dir, subdirectory), exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -194,7 +200,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         outname = os.path.join(ard_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
-            os.makedirs(os.path.dirname(outname), exist_ok=True)
             print(outname)
             images = [ds[key] for ds in datasets_sar]
             ras = None
@@ -272,20 +277,22 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         if not os.path.isfile(cc_path):
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
+        key = re.search('cc-[gs]-lin', cc_path).group()
+        datasets_ard[key] = cc_path
     
-    vrt_options = {'VRTNodata': vrt_nodata}
-    
-    # create log-scaled gamma0/sigma0 nought VRTs (-[vh|vv|hh|hv]-[gs]-log.vrt)
+    # create log-scaled gamma0|sigma0 nought VRTs (-[vh|vv|hh|hv]-[gs]-log.vrt)
     fun = 'dB'
     args = {'fact': 10}
     scale = None
     for item in measure_tifs:
-        gamma0_rtc_log = item.replace('lin.tif', 'log.vrt')
-        if not os.path.isfile(gamma0_rtc_log):
-            print(gamma0_rtc_log)
-            create_vrt(src=item, dst=gamma0_rtc_log, fun=fun, scale=scale,
+        target = item.replace('lin.tif', 'log.vrt')
+        if not os.path.isfile(target):
+            print(target)
+            create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
+        key = re.search('[hv]{2}-[gs]-log', target).group()
+        datasets_ard[key] = target
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     if 'gs' in allowed:
@@ -299,12 +306,16 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
+            key = re.search('[hv]{2}-s-lin', sigma0_rtc_lin).group()
+            datasets_ard[key] = sigma0_rtc_lin
             
             if not os.path.isfile(sigma0_rtc_log):
                 print(sigma0_rtc_log)
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
+            key = key.replace('lin', 'log')
+            datasets_ard[key] = sigma0_rtc_log
     
     # create gamma nought RTC VRTs (-[vh|vv|hh|hv]-g-[lin|log].vrt)
     if 'sg' in allowed:
@@ -320,21 +331,54 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
+            key = re.search('[hv]{2}-g-lin', gamma0_rtc_lin).group()
+            datasets_ard[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
                 print(gamma0_rtc_log)
                 create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
+            key = key.replace('lin', 'log')
+            datasets_ard[key] = gamma0_rtc_log
+    
+    # create backscatter wind model (-wm.tif)
+    # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
+    if 'wm' in annotation:
+        wm = []
+        for i, ds in enumerate(datasets_sar):
+            if 'wm' in ds.keys():
+                wm.append(ds['wm'])
+            else:
+                scene_base = os.path.basename(src_ids[i].scene)
+                raise RuntimeError(f'could not find wind model product for scene {scene_base}')
+        
+        copol = 'VV' if 'VV' in src_ids[0].polarizations else 'HH'
+        copol_sigma0_key = f'{copol.lower()}-s-lin'
+        if copol_sigma0_key in datasets_ard.keys():
+            copol_sigma0 = datasets_ard[copol_sigma0_key]
+            wn_ard = re.sub(r's-lin\.(?:tif|vrt)', 's-lin-wn.vrt', copol_sigma0)
+        else:
+            copol_sigma0 = None
+            wn_ard = None
+        
+        meta_lower['suffix'] = 'wm'
+        outname_base = skeleton_files.format(**meta_lower)
+        wm_ard = os.path.join(ard_dir, 'annotation', outname_base)
+        
+        gapfill = True if src_ids[0].product == 'GRD' else False
+        
+        wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
+                           gapfill=gapfill, bounds=bounds, epsg=epsg)
+        datasets_ard['wm'] = wm_ard
+        datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
     
     # copy support files
     schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
-    support_dir = os.path.join(ard_dir, 'support')
     schemas = os.listdir(schema_dir)
-    os.makedirs(support_dir, exist_ok=True)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(support_dir, schema)
+        schema_out = os.path.join(ard_dir, 'support', schema)
         if not os.path.isfile(schema_out):
             print(schema_out)
             shutil.copy(schema_in, schema_out)
@@ -345,15 +389,14 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
                              product_type=product_type)
-    ard_assets = sorted(sorted(list(datasets_ard.values()) + finder(ard_dir, ['.vrt$'], regex=True, recursive=True),
-                               key=lambda x: os.path.splitext(x)[1]),
+    ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
+    if config['meta']['copy_original']:
+        copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
     if 'OGC' in config['meta']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['meta']['format']:
         stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
-    if config['meta']['copy_original']:
-        copy_src_meta(target=ard_dir, src_ids=src_ids)
     return str(round((time.time() - start_time), 2))
 
 
@@ -400,6 +443,23 @@ def get_datasets(scenes, datadir, extent, epsg):
     for i, _id in enumerate(ids):
         files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
+            
+            base = os.path.splitext(os.path.basename(_id.scene))[0]
+            ocn = re.sub('(?:SLC_|GRD[FHM])_1', 'OCN__2', base)[:-5]
+            # allow 1 second tolerance
+            s_start = int(ocn[31])
+            s_stop = int(ocn[47])
+            ocn_list = list(ocn)
+            s = 1
+            ocn_list[31] = f'[{s_start - s}{s_start}{s_start + s}]'
+            ocn_list[47] = f'[{s_stop - s}{s_stop}{s_stop + s}]'
+            ocn = ''.join(ocn_list)
+            ocn_match = finder(target=datadir, matchlist=[ocn], regex=True, foldermode=2)
+            if len(ocn_match) > 0:
+                cmod = os.path.join(ocn_match[0], 'owiNrcsCmod.tif')
+                if os.path.isfile(cmod):
+                    files['wm'] = cmod
+            
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
@@ -872,7 +932,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         ds_tmp.SetProjection(proj)
         
         for i, _dict in enumerate(dm_bands):
-            band = ds_tmp.GetRasterBand(i+1)
+            band = ds_tmp.GetRasterBand(i + 1)
             arr_val = _dict['arr_val']
             b_name = _dict['name']
             
@@ -972,3 +1032,66 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
     with Raster(ref_tif) as ref_ras:
         ref_ras.write(outname, format=driver, array=out_arr.astype('uint8'), nodata=dst_nodata, overwrite=True,
                       overviews=overviews, options=creation_opt)
+
+
+def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, resolution=915):
+    """
+    Create wind normalization layers. A wind model annotation layer is created and optionally
+    a wind normalization VRT.
+    
+    Parameters
+    ----------
+    src: list[str]
+        a list of OCN products as prepared by :func:`S1_NRB.ocn.extract`
+    dst_wm: str
+        the name of the wind model layer in the ARD product
+    dst_wn: str or None
+        the name of the wind normalization VRT. If None, no VRT will be created.
+        Requires `measurement` to point to a file.
+    measurement: str or None
+        the name of the measurement file used for wind normalization in `dst_wn`.
+        If None, no wind normalization VRT will be created.
+    gapfill: bool
+        perform additional gap filling (:func:`S1_NRB.ocn.gapfill`)?
+        This is recommended if the Level-1 source product of `measurement` is GRD
+        in which case gaps are introduced between subsequently acquired scenes.
+    bounds: list[float]
+        the bounds of the MGRS tile
+    epsg: int
+        the EPSG code of the MGRS tile
+    resolution: int
+        the target pixel resolution in meters. 915 is chosen as default because it is closest
+        to the OCN product resolution (1000) and still fits into the MGRS bounds
+        (``109800 % 915 == 0``).
+
+    Returns
+    -------
+
+    """
+    if len(src) > 1:
+        cmod_mosaic = tempfile.NamedTemporaryFile(suffix='.tif').name
+        gdalwarp(src=src, dst=cmod_mosaic)
+        if gapfill:
+            cmod_geo = tempfile.NamedTemporaryFile(suffix='.tif').name
+            ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=1, si=1)
+        else:
+            cmod_geo = cmod_mosaic
+    else:
+        cmod_geo = src[0]
+    
+    if not os.path.isfile(dst_wm):
+        print(dst_wm)
+        gdalwarp(src=cmod_geo,
+                 dst=dst_wm,
+                 outputBounds=bounds,
+                 dstSRS=f'EPSG:{epsg}',
+                 xRes=resolution, yRes=resolution,
+                 resampleAlg='bilinear')
+    
+    if dst_wn is not None and measurement is not None:
+        if not os.path.isfile(dst_wn):
+            print(dst_wn)
+            with Raster(measurement) as ras:
+                xres, yres = ras.res
+            create_vrt(src=[measurement, dst_wm], dst=dst_wn, fun='div',
+                       options={'xRes': xres, 'yRes': yres})

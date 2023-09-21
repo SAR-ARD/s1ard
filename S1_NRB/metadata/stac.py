@@ -52,8 +52,6 @@ def source_json(meta, target, exist_ok=False):
         Do not create files if they already exist?
     """
     metadir = os.path.join(target, 'source')
-    os.makedirs(metadir, exist_ok=True)
-    
     for uid in list(meta['source'].keys()):
         scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
         outname = os.path.join(metadir, '{}.json'.format(scene))
@@ -173,14 +171,67 @@ def source_json(meta, target, exist_ok=False):
                                              ' Faraday rotation angle.'))
         
         # Add assets
-        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
+        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), metadir).replace('\\', '/')
         item.add_asset(key='card4l',
                        asset=pystac.Asset(href=xml_relpath,
                                           title='Metadata in XML format.',
                                           media_type=pystac.MediaType.XML,
                                           roles=['metadata', 'card4l']))
+        _asset_add_orig_src(metadir=metadir, uid=uid, item=item)
         
         item.save_object(dest_href=outname)
+
+
+def _asset_add_orig_src(metadir, uid, item):
+    """
+    Helper function to add the original source metadata files as assets to a STAC item.
+    
+    Parameters
+    ----------
+    metadir: str
+        Source directory of the current ARD product.
+    uid: str
+        Unique identifier of a source scene.
+    item: pystac.Item
+        The pystac.Item to add the assets to.
+    
+    Returns
+    -------
+    
+    """
+    pattern = r'^(.+?)-\d{8}t\d{6}-\d{8}t\d{6}-\w+-\w+-\d{3}\.xml$'
+    prefixes = {'calibration': 'Calibration metadata',
+                'noise': 'Estimated thermal noise look-up tables',
+                'rfi': 'Radio Frequency Interference metadata'}
+    
+    root_dir = os.path.join(metadir, uid)
+    if not os.path.isdir(root_dir):
+        return
+    file_list = finder(target=root_dir, matchlist=['*.safe', '*.xml'], foldermode=0)
+    if len(file_list) > 0:
+        for file in file_list:
+            basename = os.path.basename(file)
+            href = './' + os.path.relpath(file, metadir).replace('\\', '/')
+            if basename == 'manifest.safe':
+                key = 'manifest'
+                title = 'Mandatory product metadata'
+            else:
+                try:
+                    key = re.match(pattern, basename).group(1)
+                except AttributeError:
+                    raise RuntimeError(
+                        'Unexpected file in original source metadata directory: ' + os.path.join(root_dir, file))
+                title = prefixes.get(key.split('-')[0], 'Measurement metadata')
+                if title == 'Measurement metadata':
+                    title = title + ' ({},{})'.format(key.split('-')[1].upper(), key.split('-')[3].upper())
+                else:
+                    title = title + ' ({},{})'.format(key.split('-')[2].upper(), key.split('-')[4].upper())
+            
+            item.add_asset(key=key,
+                           asset=pystac.Asset(href=href,
+                                              title=title,
+                                              media_type=pystac.MediaType.XML,
+                                              roles=['metadata']))
 
 
 def product_json(meta, target, assets, exist_ok=False):
@@ -433,8 +484,13 @@ def _asset_get_key_title(meta, asset):
     key = None
     title = None
     if 'measurement' in asset:
-        title_dict = {'g': 'gamma nought', 's': 'sigma nought', 'lin': 'linear', 'log': 'logarithmic'}
-        info = re.search('(?P<key>(?P<pol>[vhc]{2})-(?P<nought>[gs])-(?P<scaling>lin|log))', asset).groupdict()
+        title_dict = {'g': 'gamma nought', 's': 'sigma nought',
+                      'lin': 'linear', 'log': 'logarithmic'}
+        pattern = ('(?P<key>(?P<pol>[vhc]{2})-'
+                   '(?P<nought>[gs])-'
+                   '(?P<scaling>lin|log)'
+                   '(?P<windnorm>-wn|))')
+        info = re.search(pattern, asset).groupdict()
         key = info['key']
         
         if re.search('cc-[gs]-lin', key):
@@ -449,7 +505,10 @@ def _asset_get_key_title(meta, asset):
                                  cross=cross.lower(),
                                  nought=info['nought'])
         else:
-            skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
+            if info['windnorm'] == '-wn':
+                skeleton = '{pol} {nought} {subtype} wind normalisation ratio, {scale} scaling'
+            else:
+                skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
             subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
             title = skeleton.format(pol=info['pol'].upper(),
                                     nought=title_dict[info['nought']],

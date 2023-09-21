@@ -161,8 +161,6 @@ def check_spacing(spacing):
     """
     if 109800 % spacing != 0:
         raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 109800 m.')
-    if 9780 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile overlap of 9780 m.')
 
 
 def generate_unique_id(encoded_str):
