@@ -139,7 +139,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                                                                 ard_ns=ard_ns),
                                                     attrib={'uom': 'Hz', 'beam': swath})
             azimuthLookBandwidth.text = str(meta['source'][uid]['azimuthLookBandwidth'][swath])
-        for swath in meta['source'][uid]['swaths']:
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('_:rangeLookBandwidth', nsmap,
                                                                               ard_ns=ard_ns),
                                                   attrib={'uom': 'Hz', 'beam': swath})
@@ -150,25 +150,25 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         productType = etree.SubElement(earthObservationMetaData, _nsc('_:productType', nsmap, ard_ns=ard_ns),
                                        attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
         productType.text = meta['source'][uid]['productType']
+        dataGeometry = etree.SubElement(earthObservationMetaData,
+                                        _nsc('_:dataGeometry', nsmap, ard_ns=ard_ns))
+        dataGeometry.text = meta['source'][uid]['dataGeometry']
         for swath in meta['source'][uid]['swaths']:
             azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData,
                                                     _nsc('_:azimuthNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                     attrib={'beam': swath})
             azimuthNumberOfLooks.text = str(meta['source'][uid]['azimuthNumberOfLooks'][swath])
-        for swath in meta['source'][uid]['swaths']:
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
                                                   _nsc('_:rangeNumberOfLooks', nsmap, ard_ns=ard_ns),
                                                   attrib={'beam': swath})
             rangeNumberOfLooks.text = str(meta['source'][uid]['rangeNumberOfLooks'][swath])
-        dataGeometry = etree.SubElement(earthObservationMetaData,
-                                        _nsc('_:dataGeometry', nsmap, ard_ns=ard_ns))
-        dataGeometry.text = meta['source'][uid]['dataGeometry']
         for swath in meta['source'][uid]['swaths']:
             azimuthResolution = etree.SubElement(earthObservationMetaData,
                                                  _nsc('_:azimuthResolution', nsmap, ard_ns=ard_ns),
                                                  attrib={'uom': 'm', 'beam': swath})
             azimuthResolution.text = str(meta['source'][uid]['azimuthResolution'][swath])
-        for swath in meta['source'][uid]['swaths']:
+        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
             rangeResolution = etree.SubElement(earthObservationMetaData,
                                                _nsc('_:rangeResolution', nsmap, ard_ns=ard_ns),
                                                attrib={'uom': 'm', 'beam': swath})
@@ -220,7 +220,8 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         referenceFaradayRotation = etree.SubElement(earthObservationMetaData,
                                                     _nsc('_:referenceFaradayRotation', nsmap, ard_ns=ard_ns),
                                                     attrib={_nsc('xlink:href', nsmap): faraday_ref})
-        ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('_:ionosphereIndicator', nsmap, ard_ns=ard_ns))
+        ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('_:ionosphereIndicator', nsmap,
+                                                                              ard_ns=ard_ns))
         ionosphereIndicator.text = meta['source'][uid]['ionosphereIndicator']
         
         ################################################################################################################
@@ -460,6 +461,10 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     productType = etree.SubElement(earthObservationMetaData, _nsc('_:productType', nsmap, ard_ns=ard_ns),
                                    attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
     productType.text = meta['prod']['productName-short']
+    refDoc = etree.SubElement(earthObservationMetaData, _nsc('_:refDoc', nsmap, ard_ns=ard_ns),
+                              attrib={'name': meta['prod']['productName'],
+                                      'version': meta['prod']['card4l-version'],
+                                      _nsc('xlink:href', nsmap): meta['prod']['card4l-link']})
     azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData, _nsc('_:azimuthNumberOfLooks', nsmap,
                                                                            ard_ns=ard_ns))
     azimuthNumberOfLooks.text = str(meta['prod']['azimuthNumberOfLooks'])
@@ -469,10 +474,6 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     equivalentNumberLooks = etree.SubElement(earthObservationMetaData, _nsc('_:equivalentNumberOfLooks', nsmap,
                                                                             ard_ns=ard_ns))
     equivalentNumberLooks.text = str(meta['prod']['equivalentNumberLooks'])
-    refDoc = etree.SubElement(earthObservationMetaData, _nsc('_:refDoc', nsmap, ard_ns=ard_ns),
-                              attrib={'name': meta['prod']['productName'],
-                                      'version': meta['prod']['card4l-version'],
-                                      _nsc('xlink:href', nsmap): meta['prod']['card4l-link']})
     radiometricAccuracyRelative = etree.SubElement(earthObservationMetaData,
                                                    _nsc('_:radiometricAccuracyRelative', nsmap, ard_ns=ard_ns),
                                                    attrib={'uom': 'dB'})
@@ -663,7 +664,7 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
     acquisitionParameters = etree.SubElement(earthObservationEquipment, _nsc('eop:acquisitionParameters', nsmap))
     acquisition = etree.SubElement(acquisitionParameters, _nsc('_:Acquisition', nsmap, ard_ns=ard_ns))
     orbitNumber = etree.SubElement(acquisition, _nsc('eop:orbitNumber', nsmap))
-    orbitNumber.text = meta['common']['orbitNumber']
+    orbitNumber.text = str(meta['common']['orbitNumber_abs'])
     orbitDirection = etree.SubElement(acquisition, _nsc('eop:orbitDirection', nsmap))
     orbitDirection.text = meta['common']['orbitDirection'].upper()
     wrsLongitudeGrid = etree.SubElement(acquisition, _nsc('eop:wrsLongitudeGrid', nsmap),
@@ -681,7 +682,7 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
         completionTimeFromAscendingNode.text = meta['source'][uid]['timeCompletionFromAscendingNode']
         instrumentAzimuthAngle = etree.SubElement(acquisition, _nsc('eop:instrumentAzimuthAngle', nsmap),
                                                   attrib={'uom': 'deg'})
-        instrumentAzimuthAngle.text = meta['source'][uid]['instrumentAzimuthAngle']
+        instrumentAzimuthAngle.text = str(meta['source'][uid]['instrumentAzimuthAngle'])
     polarisationMode = etree.SubElement(acquisition, _nsc('sar:polarisationMode', nsmap))
     polarisationMode.text = meta['common']['polarisationMode']
     polarisationChannels = etree.SubElement(acquisition, _nsc('sar:polarisationChannels', nsmap))

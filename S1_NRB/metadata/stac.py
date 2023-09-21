@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import shutil
-from statistics import mean, median
+from statistics import mean
 from datetime import datetime, timezone
 import pystac
 from pystac.extensions.sar import SarExtension, FrequencyBand, Polarization, ObservationDirection
@@ -86,24 +86,24 @@ def source_json(meta, target, exist_ok=False):
         
         # Add properties
         sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                      relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                      absolute_orbit=meta['common']['orbitNumbers_abs']['stop'],
+                      relative_orbit=meta['common']['orbitNumber_rel'],
+                      absolute_orbit=meta['common']['orbitNumber_abs'],
                       anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
                       center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
-                      resolution_range=mean(meta['source'][uid]['rangeResolution'].values()),
-                      resolution_azimuth=mean(meta['source'][uid]['azimuthResolution'].values()),
+                      resolution_range=min(meta['source'][uid]['rangeResolution'].values()),
+                      resolution_azimuth=min(meta['source'][uid]['azimuthResolution'].values()),
                       pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
                       pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
-                      looks_range=median(meta['source'][uid]['rangeNumberOfLooks'].values()),
-                      looks_azimuth=median(meta['source'][uid]['azimuthNumberOfLooks'].values()),
-                      looks_equivalent_number=float(meta['source'][uid]['perfEquivalentNumberOfLooks']),
+                      looks_range=mean(meta['source'][uid]['rangeNumberOfLooks'].values()),
+                      looks_azimuth=mean(meta['source'][uid]['azimuthNumberOfLooks'].values()),
+                      looks_equivalent_number=meta['source'][uid]['perfEquivalentNumberOfLooks'],
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
-        view_ext.apply(incidence_angle=float(meta['source'][uid]['incidenceAngleMidSwath']),
-                       azimuth=float(meta['source'][uid]['instrumentAzimuthAngle']))
+        view_ext.apply(incidence_angle=meta['source'][uid]['incidenceAngleMidSwath'],
+                       azimuth=meta['source'][uid]['instrumentAzimuthAngle'])
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
                                                   meta['source'][uid]['processorVersion']}
@@ -286,14 +286,14 @@ def product_json(meta, target, assets, exist_ok=False):
     
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
-                  relative_orbit=meta['common']['orbitNumbers_rel']['stop'],
-                  absolute_orbit=meta['common']['orbitNumbers_abs']['stop'])
+                  relative_orbit=meta['common']['orbitNumber_rel'],
+                  absolute_orbit=meta['common']['orbitNumber_abs'])
     sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                   frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                   polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                   product_type=meta['prod']['productName-short'],
-                  looks_range=int(meta['prod']['rangeNumberOfLooks']),
-                  looks_azimuth=int(meta['prod']['azimuthNumberOfLooks']),
+                  looks_range=meta['prod']['rangeNumberOfLooks'],
+                  looks_azimuth=meta['prod']['azimuthNumberOfLooks'],
                   looks_equivalent_number=meta['prod']['equivalentNumberLooks'])
     proj_ext.apply(epsg=int(meta['prod']['crsEPSG']),
                    wkt2=meta['prod']['crsWKT'],
@@ -645,8 +645,8 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     
     unique_tiles = list(
         set([re.search(re.compile(r'_[0-9A-Z]{5}_'), prod).group().replace('_', '') for prod in products]))
-    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products, recursive=recursive,
-                                   silent=silent)
+    products = _reorganize_by_tile(directory=directory, product_type=product_type, products=products,
+                                   recursive=recursive, silent=silent)
     
     catalog = pystac.Catalog(id=f'{product_type.lower()}_catalog',
                              description=f'STAC Catalog of Sentinel-1 {product_type} products.',
@@ -716,8 +716,8 @@ def _reorganize_by_tile(directory, product_type, products=None, recursive=True, 
     """
     if products is None:
         parent_dir = os.path.dirname(directory)
-        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
-                  fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
+        pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_' \
+                  fr'[0-9]{{6}}_[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
         products = finder(target=parent_dir, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     
     inp = input('WARNING:\n{}\nand the ARD products it contains will be reorganized into subdirectories '
