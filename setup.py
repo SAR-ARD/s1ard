@@ -21,7 +21,7 @@ setup(
                       'click>=7.1.0',
                       'lxml',
                       'pystac>=1.8.0',
-                      'pyroSAR>=0.21.0',
+                      'pyroSAR>=0.22.0',
                       'spatialist>=0.12.0',
                       'scipy',
                       's1etad>=0.5.3',
