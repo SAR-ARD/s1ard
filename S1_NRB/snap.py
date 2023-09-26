@@ -553,8 +553,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
         
-        - gamma: RTC gamma nought (gamma^0_T)
-        - sigma: ellipsoidal sigmal nought (sigma^0_E)
+        - gamma: RTC gamma nought (:math:`\gamma^0_T`)
+        - sigma: ellipsoidal sigmal nought (:math:`\sigma^0_E`)
     spacing: int or float
         The output pixel spacing in meters.
     kml: str
@@ -576,8 +576,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         Options:
         
          - DEM
-         - gammaSigmaRatio: sigma^0_T / gamma^0_T
-         - sigmaGammaRatio: gamma^0_T / sigma^0_E
+         - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
+         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_E`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
