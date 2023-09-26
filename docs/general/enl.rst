@@ -9,9 +9,9 @@ In case of linear scaled backscatter data, ENL can be calculated as:
 .. math::
     ENL = \frac{\mu^2}{\sigma^2}
 
-where :math:`\mu` is the mean and :math:`\sigma` is the standard deviation of the image. ([1], section A1.1.7)
+where :math:`\mu` is the mean and :math:`\sigma` is the standard deviation of the image. (:footcite:`cls_2016`, section A1.1.7)
 
-The ENL value stored in the metadata of each S1-NRB product is calculated as suggested in [2], where ENL is first
+The ENL value stored in the metadata of each S1-NRB product is calculated as suggested in :footcite:`anfinsen.etal_2009`, where ENL is first
 calculated for small pixel windows over the cross-polarized backscatter image and afterwards the median value of
 the distribution is selected.
 
@@ -71,5 +71,4 @@ consistently higher ENL values for the GRDH product (Avg. ENL: 4.81) in comparis
 
 References
 ----------
-* [1] CLS (2016): Sentinel-1 Product Definition. Version 2.7. URL: https://sentinel.esa.int/web/sentinel/user-guides/sentinel-1-sar/document-library/-/asset_publisher/1dO7RF5fJMbd/content/sentinel-1-product-definition.
-* [2] S. N. Anfinsen, A. P. Doulgeris and T. Eltoft, "Estimation of the Equivalent Number of Looks in Polarimetric Synthetic Aperture Radar Imagery," in IEEE Transactions on Geoscience and Remote Sensing, vol. 47, no. 11, pp. 3795-3809, Nov. 2009, doi: `10.1109/TGRS.2009.2019269 <https://doi.org/10.1109/TGRS.2009.2019269>`_.
+.. footbibliography::
