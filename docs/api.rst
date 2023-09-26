@@ -134,6 +134,7 @@ Tile Extraction
     .. autosummary::
         :nosignatures:
 
+        aoi_from_scene
         aoi_from_tile
         description2dict
         tile_from_aoi
