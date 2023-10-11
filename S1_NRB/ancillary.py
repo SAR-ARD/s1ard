@@ -446,12 +446,12 @@ def buffer_min_overlap(geom1, geom2, percent=1):
 
     Parameters
     ----------
-    geom1: Vector
+    geom1: spatialist.vector.Vector
         the geometry to be buffered
-    geom2: Vector
+    geom2: spatialist.vector.Vector
         the reference geometry to intersect with
-    percent: int
-        the minimum overlap as percent of `geom1`
+    percent: int or float
+        the minimum overlap in percent of `geom1`
 
     Returns
     -------
