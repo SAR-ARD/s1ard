@@ -162,7 +162,7 @@ def description2dict(description):
     return attrib
 
 
-def aoi_from_scene(scene, kml, multi=True):
+def aoi_from_scene(scene, kml, multi=True, percent=1):
     """
     Get processing AOIs for a SAR scene. The MGRS grid requires a SAR scene to be geocoded to multiple UTM zones
     depending on the overlapping MGRS tiles and their projection. This function returns the following for each
@@ -172,6 +172,9 @@ def aoi_from_scene(scene, kml, multi=True):
     - the EPSG code of the UTM zone (key `epsg`)
     - the Easting coordinate for pixel alignment (key `align_x`)
     - the Northing coordinate for pixel alignment (key `align_y`)
+    
+    A minimum overlap of the AOIs with the SAR scene is ensured by buffering the AOIs if necessary.
+    The minimum overlap can be controlled with parameter `percent`.
     
     Parameters
     ----------
@@ -183,6 +186,9 @@ def aoi_from_scene(scene, kml, multi=True):
         split into multiple AOIs per overlapping UTM zone or just one AOI covering the whole scene.
         In the latter case the best matching UTM zone is auto-detected
         (using function :func:`spatialist.auxil.utm_autodetect`).
+    percent: int or float
+        the minimum overlap in percent of each AOI with the SAR scene.
+        See function :func:`S1_NRB.ancillary.buffer_min_overlap`.
 
     Returns
     -------
@@ -212,7 +218,8 @@ def aoi_from_scene(scene, kml, multi=True):
             # ensure a minimum overlap between AOI and pre-processed scene
             with bbox(ext, 4326) as geom1:
                 with scene.geometry() as geom2:
-                    with buffer_min_overlap(geom1=geom1, geom2=geom2) as buffered:
+                    with buffer_min_overlap(geom1=geom1, geom2=geom2,
+                                            percent=percent) as buffered:
                         ext = buffered.extent
             out.append({'extent': ext, 'epsg': epsg,
                         'align_x': align_x, 'align_y': align_y})
