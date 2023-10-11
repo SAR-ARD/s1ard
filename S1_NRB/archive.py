@@ -79,7 +79,7 @@ class STACArchive(object):
         i = 1
         while True:
             try:
-                self.catalog = Client.open(self.url, ignore_conformance=True)
+                self.catalog = Client.open(self.url)
                 # print('catalog opened successfully')
                 break
             except pystac_client.exceptions.APIError:
@@ -230,8 +230,11 @@ class STACArchive(object):
             ref = assets[list(assets.keys())[0]]
             href = ref.href
             path = href[:re.search(r'\.SAFE', href).end()]
-            if check_exist:
-                if not Path(path).exists():
+            path = re.sub('^file://', '', path)
+            if Path(path).exists():
+                path = os.path.realpath(path)
+            else:
+                if check_exist:
                     raise RuntimeError('scene does not exist locally:', path)
             out.append(path)
         out = self._filter_duplicates(out)

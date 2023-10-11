@@ -1,6 +1,5 @@
 import os
 import re
-import itertools
 import shutil
 from math import ceil
 import copy
@@ -11,16 +10,14 @@ from osgeo import gdal, gdalconst
 from scipy.interpolate import griddata
 from datetime import datetime
 from dateutil.parser import parse as dateparse
-from spatialist import bbox, Raster
+from spatialist import Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
-from spatialist.auxil import utm_autodetect
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
-from S1_NRB.ancillary import get_max_ext
+from S1_NRB.tile_extraction import aoi_from_scene
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -651,7 +648,9 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     id = identify(scene)
     workflows = []
     
-    apply_rtc = True
+    apply_rtc = measurement == 'gamma' \
+                or 'sigmaGammaRatio' in export_extra \
+                or 'gammaSigmaRatio' in export_extra
     ############################################################################
     # general pre-processing
     out_pre = tmp_base + '_pre.dim'
@@ -716,12 +715,11 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_rtc = tmp_base + '_rtc.dim'
         out_rtc_wf = out_rtc.replace('.dim', '.xml')
         workflows.append(out_rtc_wf)
-        output_sigma0_rtc = measurement == 'sigma' or 'gammaSigmaRatio' in export_extra
         if not os.path.isfile(out_rtc):
             print('### radiometric terrain correction')
             rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
                 dem_resampling_method=dem_resampling_method,
-                sigma0=output_sigma0_rtc,
+                sigma0='gammaSigmaRatio' in export_extra,
                 scattering_area='scatteringArea' in export_extra,
                 gpt_args=gpt_args)
         ########################################################################
@@ -742,8 +740,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_sgr_wf = out_sgr.replace('.dim', '.xml')
             workflows.append(out_sgr_wf)
             if not os.path.isfile(out_sgr):
-                sgr(src=out_rtc, dst=out_sgr, workflow=out_sgr_wf,
-                    gpt_args=gpt_args)
+                sgr(src=out_mli, dst=out_sgr, workflow=out_sgr_wf,
+                    src_gamma=out_rtc, gpt_args=gpt_args)
     ############################################################################
     # geocoding
     
@@ -767,7 +765,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 bands1.append('simulatedImage')
             if 'lookDirection' in export_extra:
                 bands0.append('lookDirection')
-            geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
+            geo(out_mli, out_rtc, out_gsr, out_sgr,
+                dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
                 standard_grid_origin_x=align_x,
@@ -784,34 +783,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             if wf != wf_dst:
                 shutil.copyfile(src=wf, dst=wf_dst)
     
-    if utm_multi:
-        print('### determining UTM zone overlaps')
-        with id.geometry() as geom:
-            tiles = tile_from_aoi(vector=geom, kml=kml)
-        for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
-            group = list(group)
-            geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
-            epsg = geometries[0].getProjection(type='epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            ext = get_max_ext(geometries=geometries)
-            align_x = ext['xmin']
-            align_y = ext['ymax']
-            del geometries
-            with bbox(coordinates=ext, crs=epsg) as geom:
-                geom.reproject(projection=4326)
-                ext = geom.extent
-            run()
-    else:
-        with id.bbox() as geom:
-            ext = geom.extent
-            epsg = utm_autodetect(geom, 'epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
-                                  return_geometries=True, strict=False)
-            ext_utm = tiles[0].extent
-            del tiles
-            align_x = ext_utm['xmin']
-            align_y = ext_utm['ymax']
+    print('### determining UTM zone overlaps')
+    aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
+    for aoi in aois:
+        ext = aoi['extent']
+        epsg = aoi['epsg']
+        align_x = aoi['align_x']
+        align_y = aoi['align_y']
+        print(f'### geocoding to EPSG:{epsg}')
         run()
     if cleanup:
         if id.product == 'GRD':
