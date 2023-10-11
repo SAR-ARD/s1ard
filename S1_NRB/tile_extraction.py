@@ -3,7 +3,7 @@ import itertools
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
-from S1_NRB.ancillary import get_max_ext
+from S1_NRB.ancillary import get_max_ext, buffer_min_overlap
 
 
 def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, tilenames=None):
@@ -209,6 +209,11 @@ def aoi_from_scene(scene, kml, multi=True):
             with bbox(coordinates=ext, crs=epsg) as geom:
                 geom.reproject(projection=4326)
                 ext = geom.extent
+            # ensure a minimum overlap between AOI and pre-processed scene
+            with bbox(ext, 4326) as geom1:
+                with scene.geometry() as geom2:
+                    with buffer_min_overlap(geom1=geom1, geom2=geom2) as buffered:
+                        ext = buffered.extent
             out.append({'extent': ext, 'epsg': epsg,
                         'align_x': align_x, 'align_y': align_y})
     else:
