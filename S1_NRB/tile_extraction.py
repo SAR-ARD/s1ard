@@ -1,6 +1,9 @@
 import re
+import itertools
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
+from spatialist.auxil import utm_autodetect
+from S1_NRB.ancillary import get_max_ext, buffer_min_overlap
 
 
 def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, tilenames=None):
@@ -157,3 +160,82 @@ def description2dict(description):
     attrib = dict(zip(attrib[0::2], attrib[1::2]))
     attrib['EPSG'] = int(attrib['EPSG'])
     return attrib
+
+
+def aoi_from_scene(scene, kml, multi=True, percent=1):
+    """
+    Get processing AOIs for a SAR scene. The MGRS grid requires a SAR scene to be geocoded to multiple UTM zones
+    depending on the overlapping MGRS tiles and their projection. This function returns the following for each
+    UTM zone group:
+    
+    - the extent in WGS84 coordinates (key `extent`)
+    - the EPSG code of the UTM zone (key `epsg`)
+    - the Easting coordinate for pixel alignment (key `align_x`)
+    - the Northing coordinate for pixel alignment (key `align_y`)
+    
+    A minimum overlap of the AOIs with the SAR scene is ensured by buffering the AOIs if necessary.
+    The minimum overlap can be controlled with parameter `percent`.
+    
+    Parameters
+    ----------
+    scene: pyroSAR.drivers.ID
+        the SAR scene object
+    kml: str
+        Path to the Sentinel-2 tiling grid KML file.
+    multi: bool
+        split into multiple AOIs per overlapping UTM zone or just one AOI covering the whole scene.
+        In the latter case the best matching UTM zone is auto-detected
+        (using function :func:`spatialist.auxil.utm_autodetect`).
+    percent: int or float
+        the minimum overlap in percent of each AOI with the SAR scene.
+        See function :func:`S1_NRB.ancillary.buffer_min_overlap`.
+
+    Returns
+    -------
+    list[dict]
+        a list of dictionaries with keys `extent`, `epsg`, `align_x`, `align_y`
+    """
+    out = []
+    if multi:
+        # extract all overlapping tiles
+        with scene.geometry() as geom:
+            tiles = tile_from_aoi(vector=geom, kml=kml, return_geometries=True)
+        # group tiles by UTM zone
+        for zone, group in itertools.groupby(tiles, lambda x: x.mgrs[:2]):
+            geometries = list(group)
+            # get UTM EPSG code
+            epsg = geometries[0].getProjection(type='epsg')
+            # get maximum extent of tile group
+            ext = get_max_ext(geometries=geometries)
+            # determine corner coordinate for alignment
+            align_x = ext['xmin']
+            align_y = ext['ymax']
+            del geometries
+            # convert extent to EPSG:4326
+            with bbox(coordinates=ext, crs=epsg) as geom:
+                geom.reproject(projection=4326)
+                ext = geom.extent
+            # ensure a minimum overlap between AOI and pre-processed scene
+            with bbox(ext, 4326) as geom1:
+                with scene.geometry() as geom2:
+                    with buffer_min_overlap(geom1=geom1, geom2=geom2,
+                                            percent=percent) as buffered:
+                        ext = buffered.extent
+            out.append({'extent': ext, 'epsg': epsg,
+                        'align_x': align_x, 'align_y': align_y})
+    else:
+        with scene.bbox() as geom:
+            ext = geom.extent
+            # auto-detect UTM zone
+            epsg = utm_autodetect(geom, 'epsg')
+            # get all tiles, reprojected to the target UTM zone if necessary
+            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
+                                  return_geometries=True, strict=False)
+        # determine corner coordinate for alignment
+        ext_utm = tiles[0].extent
+        align_x = ext_utm['xmin']
+        align_y = ext_utm['ymax']
+        del tiles
+        out.append({'extent': ext, 'epsg': epsg,
+                    'align_x': align_x, 'align_y': align_y})
+    return out

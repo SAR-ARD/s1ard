@@ -134,6 +134,7 @@ Tile Extraction
     .. autosummary::
         :nosignatures:
 
+        aoi_from_scene
         aoi_from_tile
         description2dict
         tile_from_aoi
@@ -149,6 +150,7 @@ Ancillary Functions
     .. autosummary::
         :nosignatures:
 
+        buffer_min_overlap
         check_acquisition_completeness
         check_scene_consistency
         check_spacing

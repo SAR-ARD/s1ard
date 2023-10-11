@@ -7,6 +7,8 @@ Abbreviations
 
    * - Abbreviation
      - Meaning
+   * - AOI
+     - Area Of Interest
    * - ARD
      - Analysis Ready Data
    * - ASF

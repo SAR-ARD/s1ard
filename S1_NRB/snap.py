@@ -1,6 +1,5 @@
 import os
 import re
-import itertools
 import shutil
 from math import ceil
 import copy
@@ -11,16 +10,14 @@ from osgeo import gdal, gdalconst
 from scipy.interpolate import griddata
 from datetime import datetime
 from dateutil.parser import parse as dateparse
-from spatialist import bbox, Raster
+from spatialist import Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
-from spatialist.auxil import utm_autodetect
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
-from S1_NRB.ancillary import get_max_ext
+from S1_NRB.tile_extraction import aoi_from_scene
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -556,8 +553,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
         
-        - gamma: RTC gamma nought (gamma^0_T)
-        - sigma: ellipsoidal sigmal nought (sigma^0_E)
+        - gamma: RTC gamma nought (:math:`\gamma^0_T`)
+        - sigma: ellipsoidal sigmal nought (:math:`\sigma^0_E`)
     spacing: int or float
         The output pixel spacing in meters.
     kml: str
@@ -579,8 +576,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         Options:
         
          - DEM
-         - gammaSigmaRatio: sigma^0_T / gamma^0_T
-         - sigmaGammaRatio: gamma^0_T / sigma^0_E
+         - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
+         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_E`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
@@ -763,7 +760,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 bands1.append('simulatedImage')
             if 'lookDirection' in export_extra:
                 bands0.append('lookDirection')
-            geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
+            geo(out_mli, out_rtc, out_gsr, out_sgr,
+                dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
                 standard_grid_origin_x=align_x,
@@ -780,34 +778,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             if wf != wf_dst:
                 shutil.copyfile(src=wf, dst=wf_dst)
     
-    if utm_multi:
-        print('### determining UTM zone overlaps')
-        with id.geometry() as geom:
-            tiles = tile_from_aoi(vector=geom, kml=kml)
-        for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
-            group = list(group)
-            geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
-            epsg = geometries[0].getProjection(type='epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            ext = get_max_ext(geometries=geometries)
-            align_x = ext['xmin']
-            align_y = ext['ymax']
-            del geometries
-            with bbox(coordinates=ext, crs=epsg) as geom:
-                geom.reproject(projection=4326)
-                ext = geom.extent
-            run()
-    else:
-        with id.bbox() as geom:
-            ext = geom.extent
-            epsg = utm_autodetect(geom, 'epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
-                                  return_geometries=True, strict=False)
-            ext_utm = tiles[0].extent
-            del tiles
-            align_x = ext_utm['xmin']
-            align_y = ext_utm['ymax']
+    print('### determining UTM zone overlaps')
+    aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
+    for aoi in aois:
+        ext = aoi['extent']
+        epsg = aoi['epsg']
+        align_x = aoi['align_x']
+        align_y = aoi['align_y']
+        print(f'### geocoding to EPSG:{epsg}')
         run()
     if cleanup:
         if id.product == 'GRD':

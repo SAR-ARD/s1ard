@@ -40,7 +40,7 @@ the resulting array is shown in Figure 1.
 
 Comparison between GRDH and NRB
 -------------------------------
-[1] provides estimates of ENL for different Sentinel-1 products (average over all swaths), e.g. ENL of 4.4 for GRDH in
+:footcite:`cls_2016` provides estimates of ENL for different Sentinel-1 products (average over all swaths), e.g. ENL of 4.4 for GRDH in
 IW mode, and a description of the estimation process in section D1. The following shows a simple comparison between the
 GRDH product:
 

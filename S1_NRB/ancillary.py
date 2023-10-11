@@ -7,6 +7,7 @@ from lxml import etree
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
+from spatialist.vector import bbox, intersect
 import pyroSAR
 from pyroSAR import examine, identify_many
 import S1_NRB
@@ -43,7 +44,6 @@ def check_acquisition_completeness(scenes, archive):
     """
     messages = []
     for scene in scenes:
-        print(scene.scene)
         slice = scene.meta['sliceNumber']
         n_slices = scene.meta['totalSlices']
         groupsize = 3
@@ -435,3 +435,46 @@ def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
     ovr.attrib['resampling'] = resampling.lower()
     etree.indent(root)
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
+
+
+def buffer_min_overlap(geom1, geom2, percent=1):
+    """
+    Buffer a geometry to a minimum overlap with a second geometry.
+    The geometry is iteratively buffered until the minimum overlap is reached.
+    If the overlap of the input geometries is already larger than the defined
+    threshold, a copy of the original geometry is returned.
+
+    Parameters
+    ----------
+    geom1: spatialist.vector.Vector
+        the geometry to be buffered
+    geom2: spatialist.vector.Vector
+        the reference geometry to intersect with
+    percent: int or float
+        the minimum overlap in percent of `geom1`
+
+    Returns
+    -------
+
+    """
+    geom2_area = geom2.getArea()
+    ext = geom1.extent
+    ext2 = ext.copy()
+    xdist = ext['xmax'] - ext['xmin']
+    ydist = ext['ymax'] - ext['ymin']
+    buffer = 0
+    overlap = 0
+    while overlap < percent:
+        xbuf = xdist * buffer / 100 / 2
+        ybuf = ydist * buffer / 100 / 2
+        ext2['xmin'] = ext['xmin'] - xbuf
+        ext2['xmax'] = ext['xmax'] + xbuf
+        ext2['ymin'] = ext['ymin'] - ybuf
+        ext2['ymax'] = ext['ymax'] + ybuf
+        with bbox(ext2, 4326) as geom3:
+            ext3 = geom3.extent
+            with intersect(geom2, geom3) as inter:
+                inter_area = inter.getArea()
+                overlap = inter_area / geom2_area * 100
+        buffer += 1
+    return bbox(ext3, 4326)
