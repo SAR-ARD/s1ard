@@ -79,7 +79,7 @@ class STACArchive(object):
         i = 1
         while True:
             try:
-                self.catalog = Client.open(self.url, ignore_conformance=True)
+                self.catalog = Client.open(self.url)
                 # print('catalog opened successfully')
                 break
             except pystac_client.exceptions.APIError:
