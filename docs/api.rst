@@ -150,6 +150,7 @@ Ancillary Functions
     .. autosummary::
         :nosignatures:
 
+        buffer_min_overlap
         check_acquisition_completeness
         check_scene_consistency
         check_spacing
