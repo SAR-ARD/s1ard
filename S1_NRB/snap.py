@@ -760,7 +760,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 bands1.append('simulatedImage')
             if 'lookDirection' in export_extra:
                 bands0.append('lookDirection')
-            geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
+            geo(out_mli, out_rtc, out_gsr, out_sgr,
+                dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
                 standard_grid_origin_x=align_x,
