@@ -182,8 +182,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
-    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616' \
-        if meta['prod']['backscatterMeasurement'] == 'gamma0' or len(ratio_tif) > 0 else None
+    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time

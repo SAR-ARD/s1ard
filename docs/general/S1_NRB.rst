@@ -72,11 +72,7 @@ The function :func:`S1_NRB.snap.find_datasets` can be used to collect the indivi
 
 Depending on the user configuration parameters ``measurement`` and ``annotation``, some modifications to the workflow above are possible:
 
-- :func:`S1_NRB.snap.pre` may only calibrate to sigma naught if no RTC is necessary (``measurement = sigma``)
-
-- execution of :func:`S1_NRB.snap.rtc` may be skipped
-
-- :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_E`)
+- :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_T`)
 
 NRB Formatting
 --------------
