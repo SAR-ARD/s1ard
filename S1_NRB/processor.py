@@ -119,18 +119,21 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     if len(selection) == 0:
         msg = "No scenes could be found for the following search query:\n" \
-              " sensor:    '{sensor}'\n" \
-              " product:   '{product}'\n" \
-              " acq. mode: '{acq_mode}'\n" \
-              " mindate:   '{mindate}'\n" \
-              " maxdate:   '{maxdate}'\n" \
-              " datatake:  '{datatake}'\n"
+              " sensor:      '{sensor}'\n" \
+              " product:     '{product}'\n" \
+              " acq. mode:   '{acq_mode}'\n" \
+              " mindate:     '{mindate}'\n" \
+              " maxdate:     '{maxdate}'\n" \
+              " date_strict: '{date_strict}'\n" \
+              " datatake:    '{datatake}'\n"
         print(msg.format(sensor=config['sensor'], acq_mode=config['acq_mode'],
                          product=config['product'], mindate=config['mindate'],
-                         maxdate=config['maxdate'], scene_dir=config['scene_dir'],
+                         maxdate=config['maxdate'], date_strict=config['date_strict'],
                          datatake=config['datatake']))
         archive.close()
         return
+    print('found the following scene(s):')
+    print('\n'.join(selection))
     scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
     
