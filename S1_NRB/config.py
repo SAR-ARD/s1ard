@@ -50,6 +50,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_annotation': _parse_annotation,
                                                    '_datetime': _parse_datetime,
+                                                   '_modes': _parse_modes,
                                                    '_stac_collections': _parse_list,
                                                    '_tile_list': _parse_tile_list,
                                                    '_list': _parse_list})
@@ -112,9 +113,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
-            allowed = ['sar', 'ard', 'all', 'orb']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
-            v = v.lower()
+            v = proc_sec.get_modes(k)
         if k == 'aoi_tiles':
             if v is not None:
                 v = proc_sec.get_tile_list(k)
@@ -233,6 +232,19 @@ def _parse_datetime(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     return dateutil.parser.parse(s)
+
+
+def _parse_modes(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    mode_list = _parse_list(s)
+    allowed = ['sar', 'ard', 'orb']
+    for mode in mode_list:
+        if mode not in allowed:
+            msg = "Parameter 'annotation': Error while parsing to list; " \
+                  "mode '{}' is not supported. Allowed keys:\n{}"
+            raise ValueError(msg.format(mode, allowed))
+    return mode_list
 
 
 def _parse_tile_list(s):
