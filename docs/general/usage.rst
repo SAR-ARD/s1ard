@@ -1,6 +1,38 @@
 Usage
 =====
 
+This section outlines how to configure and run the processor. Configuration is most conveniently kept in a ``config.ini``
+configuration file but can also be modified via the command line.
+
+Two different types of product were intended when developing the processor, Normalised Radar Backscatter (NRB)
+and Ocean Radar Backscatter (ORB). However, the processor does not strictly separate between them and products can be created that
+conform to both types.
+
+To create an NRB product as defined by the CEOS ARD specification, the following configuration would be necessary:
+
+.. code-block:: ini
+
+    mode = sar, nrb
+    measurement = gamma
+    annotation = dm, ei, em, id, lc, li, np, ratio
+
+The generated backscatter is gamma nought RTC. Annotation layers are a data mask, ellipsoidal incident angle, elevation model,
+acquisition id mask, local contributing area, local incidence angle, noise power and a gamma-sigma ratio.
+
+For ORB, the following configuration is foreseen:
+
+.. code-block:: ini
+
+    mode = sar, orb
+    measurement = sigma
+    annotation = dm, em, id, lc, ld, li, np, wm
+
+Compared to NRB, the backscatter is now sigma nought RTC. The ellipsoidal incident angle is excluded because over ocean
+it is nearly identical to the local incident angle. Furthermore, the backscatter ratio is excluded as it is not seen as necessary.
+Two new annotation layers are added. A look direction angle and a wind model.
+
+See below for further details.
+
 Configuration
 -------------
 Usage of the S1_NRB package relies on a configuration file that needs to be set up by the user. The configuration
@@ -23,11 +55,16 @@ Processing Section
 ^^^^^^^^^^^^^^^^^^
 - **mode**
 
-Options: ``sar | ard | orb``
+Options: ``sar | nrb | orb``
 
-This parameter determines what should be executed.
-``sar`` will only start SAR processing, whereas ``nrb`` and ``orb`` will only start ARD generation from existing SAR products preprocessed in ``sar``.
-By defining both ``sar`` and one of the ARD modes as list, both SAR preprocessing and ARD generation can be run together.
+This parameter determines what steps should be executed.
+``sar`` will only start SAR preprocessing, whereas ``nrb`` and ``orb`` will only start ARD generation from existing SAR 
+products preprocessed in ``sar``.
+By defining both ``sar`` and one of the ARD modes as list, both SAR preprocessing and ARD generation can be run together:
+
+.. code-block:: python
+
+    mode = sar, nrb
 
 - **aoi_tiles** & **aoi_geometry**
 
