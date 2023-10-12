@@ -75,7 +75,8 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
 
 
 def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
-        output_noise=True, output_beta0=True, gpt_args=None):
+        output_noise=True, output_beta0=True, output_sigma0=True,
+        output_gamma0=False, gpt_args=None):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -96,6 +97,10 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output the noise power images?
     output_beta0: bool
         output beta nought backscatter needed for RTC?
+    output_sigma0: bool
+        output sigma nought backscatter needed for NESZ?
+    output_gama0: bool
+        output gamma nought backscatter needed?
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -132,8 +137,8 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     wf.insert_node(cal, before=last.id)
     cal.parameters['selectedPolarisations'] = polarizations
     cal.parameters['outputBetaBand'] = output_beta0
-    cal.parameters['outputSigmaBand'] = True
-    cal.parameters['outputGammaBand'] = False
+    cal.parameters['outputSigmaBand'] = output_sigma0
+    cal.parameters['outputGammaBand'] = output_gamma0
     ############################################
     tnr = parse_node('ThermalNoiseRemoval')
     wf.insert_node(tnr, before=cal.id)
@@ -554,7 +559,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         the backscatter measurement convention:
         
         - gamma: RTC gamma nought (:math:`\gamma^0_T`)
-        - sigma: ellipsoidal sigmal nought (:math:`\sigma^0_E`)
+        - sigma: RTC sigma nought (:math:`\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
     kml: str
@@ -577,7 +582,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         
          - DEM
          - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
-         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_E`
+         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_T`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle

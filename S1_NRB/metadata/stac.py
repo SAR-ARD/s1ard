@@ -509,7 +509,7 @@ def _asset_get_key_title(meta, asset):
                 skeleton = '{pol} {nought} {subtype} wind normalisation ratio, {scale} scaling'
             else:
                 skeleton = '{pol} {nought} {subtype} backscatter, {scale} scaling'
-            subtype = 'RTC' if info['nought'] == 'g' else 'ellipsoidal'
+            subtype = 'RTC'
             title = skeleton.format(pol=info['pol'].upper(),
                                     nought=title_dict[info['nought']],
                                     subtype=subtype,
