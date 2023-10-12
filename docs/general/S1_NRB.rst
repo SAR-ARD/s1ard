@@ -46,7 +46,7 @@ SNAP Processing
 ---------------
 
 The central function for processing backscatter data with SNAP is :func:`S1_NRB.snap.process`. It will perform all necessary steps to
-generate radiometrically terrain corrected gamma naught backscatter plus all relevant additional datasets like
+generate radiometrically terrain corrected gamma/sigma naught backscatter plus all relevant additional datasets like
 local incident angle and local contribution area (see argument ``export_extra``).
 In a full processor run, the following functions are called in sequence:
 
@@ -79,7 +79,7 @@ NRB Formatting
 
 During SAR processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
 If one tile overlaps with multiple scenes, these scenes are first virtually mosaiced using VRT files.
-The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB naming scheme.
+The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB or S1-ORB naming scheme.
 All steps are performed by :func:`S1_NRB.nrb.format`.
 The actual file format conversion is done with :func:`spatialist.auxil.gdalwarp`, which is a simple wrapper around the gdalwarp utility of GDAL.
 The following is an incomplete code example highlighting the general procedure of converting the individual images.

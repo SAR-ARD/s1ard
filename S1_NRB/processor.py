@@ -4,7 +4,7 @@ from osgeo import gdal
 from spatialist import Vector, bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
-from S1_NRB import etad, dem, nrb, snap
+from S1_NRB import etad, dem, ard, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
@@ -39,9 +39,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     anc.check_spacing(geocode_prms['spacing'])
     
-    sar_flag = config['mode'] in ['sar', 'all']
-    ard_flag = config['mode'] in ['ard', 'all']
-    orb_flag = config['mode'] == 'orb'
+    sar_flag = 'sar' in config['mode']
+    nrb_flag = 'nrb' in config['mode']
+    orb_flag = 'orb' in config['mode']
     
     # DEM download authentication
     username, password = dem.authenticate(dem_type=config['dem_type'],
@@ -282,8 +282,8 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         variable='owiNrcsCmod')
     ####################################################################################################################
     # ARD - final product generation
-    if ard_flag or orb_flag:
-        product_type = 'NRB' if ard_flag else 'ORB'
+    if nrb_flag or orb_flag:
+        product_type = 'NRB' if nrb_flag else 'ORB'
         
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
@@ -328,7 +328,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                  scenes=[os.path.basename(s) for s in scenes_sub_fnames],
                                  product_type=product_type, s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
+                    msg = ard.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
                                      datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
                                      multithread=gdal_prms['multithread'], annotation=annotation, update=update)

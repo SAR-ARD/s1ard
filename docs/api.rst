@@ -65,7 +65,7 @@ SNAP
 NRB
 ^^^
 
-.. automodule:: S1_NRB.nrb
+.. automodule:: S1_NRB.ard
     :members:
     :undoc-members:
     :show-inheritance:

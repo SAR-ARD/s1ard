@@ -23,10 +23,11 @@ Processing Section
 ^^^^^^^^^^^^^^^^^^
 - **mode**
 
-Options: ``sar | ard | all``
+Options: ``sar | ard | orb``
 
-This parameter determines if the entire processing chain (``all``) should be executed or only part of it.
-``sar`` will only start SAR processing, whereas ``ard`` will only start ARD generation from existing SAR products.
+This parameter determines what should be executed.
+``sar`` will only start SAR processing, whereas ``nrb`` and ``orb`` will only start ARD generation from existing SAR products preprocessed in ``sar``.
+By defining both ``sar`` and one of the ARD modes as list, both SAR preprocessing and ARD generation can be run together.
 
 - **aoi_tiles** & **aoi_geometry**
 
