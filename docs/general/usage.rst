@@ -130,7 +130,7 @@ Temporarily changes GDAL_NUM_THREADS during processing. Will be reset after proc
 
 Options: ``gamma | sigma``
 
-The backscatter measurement convention. Either creates gamma naught RTC (:math:`\gamma^0_T`) or ellipsoidal sigma naught (:math:`\sigma^0_E`).
+The backscatter measurement convention. Either creates gamma naught RTC (:math:`\gamma^0_T`) or sigma naught RTC (:math:`\sigma^0_T`) backscatter.
 
 - **annotation**
 
@@ -148,7 +148,7 @@ Supported options:
  + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
 
    + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
-   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (if ``measurement = sigma``)
+   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 RTC (if ``measurement = sigma``)
 
  + wm: wind-modelled backscatter extracted from a Sentinel-1 OCN (ocean) product.
    The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised
