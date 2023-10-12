@@ -1,6 +1,43 @@
 Changelog
 =========
 
+1.5.0 | 2023-10-12
+------------------
+
+* Replace `gs` and `sg` annotation options with `ratio` (`#116 <https://github.com/SAR-ARD/S1_NRB/pull/116>`_)
+* Metadata/review (`#117 <https://github.com/SAR-ARD/S1_NRB/pull/117>`_)
+* Equivalent Number of Looks (`#113 <https://github.com/SAR-ARD/S1_NRB/pull/113>`_)
+* [copy_src_meta] fixed bug in reading zip content on Windows (`#124 <https://github.com/SAR-ARD/S1_NRB/pull/124>`_)
+* Documentation: Table of abbreviations (`#123 <https://github.com/SAR-ARD/S1_NRB/pull/123>`_)
+* fixed bug in GRD buffering of ascending scenes (`#126 <https://github.com/SAR-ARD/S1_NRB/pull/126>`_)
+* new annotation layer "range look direction angle" (`#103 <https://github.com/SAR-ARD/S1_NRB/pull/103>`_)
+* ENL calculation: Suppress warnings and increase default block_size (`#127 <https://github.com/SAR-ARD/S1_NRB/pull/127>`_)
+* Add missing pyproj dependency (`#128 <https://github.com/SAR-ARD/S1_NRB/pull/128>`_)
+* Simplified datamask for ORB product (`#122 <https://github.com/SAR-ARD/S1_NRB/pull/122>`_)
+* Update .readthedocs.yaml (`#129 <https://github.com/SAR-ARD/S1_NRB/pull/129>`_)
+* [nrb.create_vrt] fixed bug in handling default 'options=None' (`#132 <https://github.com/SAR-ARD/S1_NRB/pull/132>`_)
+* [docs] point to right environment.yaml when installing specific version (`#133 <https://github.com/SAR-ARD/S1_NRB/pull/133>`_)
+* Fix missing STAC FileExtension entries (`#131 <https://github.com/SAR-ARD/S1_NRB/pull/131>`_)
+* Accommodate ORB product (`#121 <https://github.com/SAR-ARD/S1_NRB/pull/121>`_)
+* rename config default annotation IDs gs and sg to ratio (`#135 <https://github.com/SAR-ARD/S1_NRB/pull/135>`_)
+* [snap.process] skip GRD buffering if list is empty (`#139 <https://github.com/SAR-ARD/S1_NRB/pull/139>`_)
+* Refer to original source metadata in source XML and JSON (`#136 <https://github.com/SAR-ARD/S1_NRB/pull/136>`_)
+* wind normalization (`#138 <https://github.com/SAR-ARD/S1_NRB/pull/138>`_)
+* Look direction angle improvements (`#141 <https://github.com/SAR-ARD/S1_NRB/pull/141>`_)
+* do not look for source metadata files if copying is not user-configured (`#142 <https://github.com/SAR-ARD/S1_NRB/pull/142>`_)
+* change EW spacing from 20 to 40 m (`#143 <https://github.com/SAR-ARD/S1_NRB/pull/143>`_)
+* XML product metadata improvements (`#137 <https://github.com/SAR-ARD/S1_NRB/pull/137>`_)
+* Metadata/review (`#140 <https://github.com/SAR-ARD/S1_NRB/pull/140>`_)
+* wind normalization - GDAL options (`#144 <https://github.com/SAR-ARD/S1_NRB/pull/144>`_)
+* Require pyroSAR >=0.22.0 and update license year (`#145 <https://github.com/SAR-ARD/S1_NRB/pull/145>`_)
+* documentation improvements (`#146 <https://github.com/SAR-ARD/S1_NRB/pull/146>`_)
+* STACArchive file path handling (`#148 <https://github.com/SAR-ARD/S1_NRB/pull/148>`_)
+* geometry buffering for minimum overlap (`#147 <https://github.com/SAR-ARD/S1_NRB/pull/147>`_)
+* apply RTC to sigma0 (`#149 <https://github.com/SAR-ARD/S1_NRB/pull/149>`_)
+* config 'mode': removed 'all', added 'orb'; renamed module 'nrb' to 'ard' (`#150 <https://github.com/SAR-ARD/S1_NRB/pull/150>`_)
+
+`Full v1.5.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.4.0...v1.5.0>`_
+
 1.4.0 | 2023-07-04
 ------------------
 
