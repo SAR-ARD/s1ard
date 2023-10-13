@@ -593,10 +593,7 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     
     References
     ----------
-    .. [1]  S. N. Anfinsen, A. P. Doulgeris and T. Eltoft,
-            "Estimation of the Equivalent Number of Looks in Polarimetric Synthetic Aperture Radar Imagery,"
-            in IEEE Transactions on Geoscience and Remote Sensing, vol. 47, no. 11, pp. 3795-3809, Nov. 2009,
-            doi: 10.1109/TGRS.2009.2019269.
+    :cite:`anfinsen.etal_2009`
     """
     with Raster(tif) as ras:
         arr = ras.array()

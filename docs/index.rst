@@ -7,10 +7,10 @@ Further information about these products can be found
 `here <https://sentinel.esa.int/web/sentinel/sentinel-1-ard-normalised-radar-backscatter-nrb-product>`_.
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   general/index.rst
-   api.rst
-   examples/index.rst
-   about/index.rst
-   tocs.rst
+    general/index.rst
+    api.rst
+    examples/index.rst
+    about/index.rst
+    tocs.rst
