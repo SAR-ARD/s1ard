@@ -9,9 +9,9 @@ In case of linear scaled backscatter data, ENL can be calculated as:
 .. math::
     ENL = \frac{\mu^2}{\sigma^2}
 
-where :math:`\mu` is the mean and :math:`\sigma` is the standard deviation of the image. (:footcite:`cls_2016`, section A1.1.7)
+where :math:`\mu` is the mean and :math:`\sigma` is the standard deviation of the image. (:cite:`cls_2016`, section A1.1.7)
 
-The ENL value stored in the metadata of each S1-NRB product is calculated as suggested in :footcite:`anfinsen.etal_2009`, where ENL is first
+The ENL value stored in the metadata of each S1-NRB product is calculated as suggested in :cite:`anfinsen.etal_2009`, where ENL is first
 calculated for small pixel windows over the cross-polarized backscatter image and afterwards the median value of
 the distribution is selected.
 
@@ -40,7 +40,7 @@ the resulting array is shown in Figure 1.
 
 Comparison between GRDH and NRB
 -------------------------------
-:footcite:`cls_2016` provides estimates of ENL for different Sentinel-1 products (average over all swaths), e.g. ENL of 4.4 for GRDH in
+:cite:`cls_2016` provides estimates of ENL for different Sentinel-1 products (average over all swaths), e.g. ENL of 4.4 for GRDH in
 IW mode, and a description of the estimation process in section D1. The following shows a simple comparison between the
 GRDH product:
 
@@ -68,7 +68,3 @@ consistently higher ENL values for the GRDH product (Avg. ENL: 4.81) in comparis
     :alt: Figure 3: Scatter plot comparing ENL values between GRDH and NRB, calculated for selected areas (see Fig. 2).
 
     Figure 3: Scatter plot comparing ENL values between GRDH and NRB, calculated for selected areas (see Fig. 2).
-
-References
-----------
-.. footbibliography::
