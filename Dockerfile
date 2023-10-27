@@ -1,4 +1,4 @@
-FROM conda/miniconda3 as snap
+FROM continuumio/miniconda3 as snap
 
 USER root
 
