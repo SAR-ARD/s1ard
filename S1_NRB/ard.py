@@ -1080,7 +1080,7 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
         gdalwarp(src=src, dst=cmod_mosaic)
         if gapfill:
             cmod_geo = tempfile.NamedTemporaryFile(suffix='.tif').name
-            ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=1, si=1)
+            ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=2, si=1)
         else:
             cmod_geo = cmod_mosaic
     else:
