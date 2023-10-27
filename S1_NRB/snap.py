@@ -648,9 +648,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     id = identify(scene)
     workflows = []
     
-    apply_rtc = measurement == 'gamma' \
-                or 'sigmaGammaRatio' in export_extra \
-                or 'gammaSigmaRatio' in export_extra
+    apply_rtc = True
     ############################################################################
     # general pre-processing
     out_pre = tmp_base + '_pre.dim'
@@ -715,11 +713,12 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_rtc = tmp_base + '_rtc.dim'
         out_rtc_wf = out_rtc.replace('.dim', '.xml')
         workflows.append(out_rtc_wf)
+        output_sigma0_rtc = measurement == 'sigma' or 'gammaSigmaRatio' in export_extra
         if not os.path.isfile(out_rtc):
             print('### radiometric terrain correction')
             rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
                 dem_resampling_method=dem_resampling_method,
-                sigma0='gammaSigmaRatio' in export_extra,
+                sigma0=output_sigma0_rtc,
                 scattering_area='scatteringArea' in export_extra,
                 gpt_args=gpt_args)
         ########################################################################
@@ -740,8 +739,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_sgr_wf = out_sgr.replace('.dim', '.xml')
             workflows.append(out_sgr_wf)
             if not os.path.isfile(out_sgr):
-                sgr(src=out_mli, dst=out_sgr, workflow=out_sgr_wf,
-                    src_gamma=out_rtc, gpt_args=gpt_args)
+                sgr(src=out_rtc, dst=out_sgr, workflow=out_sgr_wf,
+                    gpt_args=gpt_args)
     ############################################################################
     # geocoding
     
