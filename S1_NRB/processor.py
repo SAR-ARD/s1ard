@@ -4,12 +4,13 @@ from osgeo import gdal
 from spatialist import Vector, bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
-from S1_NRB import etad, dem, nrb, snap
+from S1_NRB import etad, dem, ard, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
 from S1_NRB.archive import STACArchive
 from datetime import datetime, timedelta
+from S1_NRB import ocn
 
 gdal.UseExceptions()
 
@@ -38,12 +39,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     anc.check_spacing(geocode_prms['spacing'])
     
-    rtc_flag = True
-    nrb_flag = True
-    if config['mode'] == 'rtc':
-        nrb_flag = False
-    elif config['mode'] == 'nrb':
-        rtc_flag = False
+    sar_flag = 'sar' in config['mode']
+    nrb_flag = 'nrb' in config['mode']
+    orb_flag = 'orb' in config['mode']
     
     # DEM download authentication
     username, password = dem.authenticate(dem_type=config['dem_type'],
@@ -121,19 +119,36 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     if len(selection) == 0:
         msg = "No scenes could be found for the following search query:\n" \
-              " sensor:    '{sensor}'\n" \
-              " product:   '{product}'\n" \
-              " acq. mode: '{acq_mode}'\n" \
-              " mindate:   '{mindate}'\n" \
-              " maxdate:   '{maxdate}'\n" \
-              " datatake:  '{datatake}'\n"
+              " sensor:      '{sensor}'\n" \
+              " product:     '{product}'\n" \
+              " acq. mode:   '{acq_mode}'\n" \
+              " mindate:     '{mindate}'\n" \
+              " maxdate:     '{maxdate}'\n" \
+              " date_strict: '{date_strict}'\n" \
+              " datatake:    '{datatake}'\n"
         print(msg.format(sensor=config['sensor'], acq_mode=config['acq_mode'],
                          product=config['product'], mindate=config['mindate'],
-                         maxdate=config['maxdate'], scene_dir=config['scene_dir'],
+                         maxdate=config['maxdate'], date_strict=config['date_strict'],
                          datatake=config['datatake']))
+        archive.close()
         return
+    print('found the following scene(s):')
+    print('\n'.join(selection))
     scenes = identify_many(selection, sortkey='start')
     anc.check_acquisition_completeness(scenes=scenes, archive=archive)
+    
+    # OCN scene selection
+    if 'wm' in config['annotation']:
+        basenames = [x.outname_base() for x in scenes]
+        scenes_ocn = archive.select(product='OCN', outname_base=basenames)
+        if len(scenes_ocn) != len(scenes):
+            print('could not find an OCN product for each selected Level-1 product')
+            archive.close()
+            return
+        scenes_ocn = identify_many(scenes_ocn)
+    else:
+        scenes_ocn = []
+    
     archive.close()
     
     if aoi_tiles is None:
@@ -141,14 +156,36 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
         del vec
     ####################################################################################################################
+    # annotation layer selection
+    annotation = config.get('annotation', None)
+    measurement = config['measurement']
+    export_extra = None
+    lookup = {'dm': 'layoverShadowMask',
+              'ei': 'incidenceAngleFromEllipsoid',
+              'lc': 'scatteringArea',
+              'ld': 'lookDirection',
+              'li': 'localIncidenceAngle',
+              'np': 'NESZ',
+              'gs': 'gammaSigmaRatio',
+              'sg': 'sigmaGammaRatio'}
+    
+    if annotation is not None:
+        annotation = ['gs' if x == 'ratio' and measurement == 'gamma' else 'sg' if x == 'ratio'
+        else x for x in annotation]
+        export_extra = []
+        for layer in annotation:
+            if layer in lookup:
+                export_extra.append(lookup[layer])
+    
+    ####################################################################################################################
     # main SAR processing
-    if rtc_flag:
+    if sar_flag:
         for i, scene in enumerate(scenes):
             scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
-            out_dir_scene = os.path.join(config['rtc_dir'], scene_base)
+            out_dir_scene = os.path.join(config['sar_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            print(f'###### [    RTC] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            print(f'###### [    SAR] Scene {i + 1}/{len(scenes)}: {scene.scene}')
             if os.path.isdir(out_dir_scene) and not update:
                 msg = 'Already processed - Skip!'
                 print('### ' + msg)
@@ -196,7 +233,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # otherwise there will be a gap between final geocoded images.
             neighbors = None
             if scene.product == 'GRD':
-                print('###### [    RTC] collecting GRD neighbors')
+                print('###### [    SAR] collecting GRD neighbors')
                 f = '%Y%m%dT%H%M%S'
                 td = timedelta(seconds=2)
                 start = datetime.strptime(scene.start, f) - td
@@ -218,40 +255,36 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             ############################################################################################################
             # main processing routine
             start_time = time.time()
-            lookup = {'dm': 'layoverShadowMask',
-                      'ei': 'incidenceAngleFromEllipsoid',
-                      'gs': 'gammaSigmaRatio',
-                      'li': 'localIncidenceAngle',
-                      'lc': 'scatteringArea',
-                      'np': 'NESZ',
-                      'sg': 'sigmaGammaRatio'}
-            if config['annotation'] is None:
-                export_extra = None
-            else:
-                export_extra = []
-                for annotation in config['annotation']:
-                    if annotation == 'gs' and config['measurement'] != 'gamma':
-                        continue
-                    if annotation == 'sg' and config['measurement'] != 'sigma':
-                        continue
-                    if annotation in lookup.keys():
-                        export_extra.append(lookup[annotation])
             try:
-                snap.process(scene=scene.scene, outdir=config['rtc_dir'],
-                             measurement=config['measurement'],
+                snap.process(scene=scene.scene, outdir=config['sar_dir'],
+                             measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
                              dem=fname_dem, neighbors=neighbors,
                              export_extra=export_extra,
                              gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                anc.log(handler=logger, mode='info', proc_step='RTC', scenes=scene.scene, msg=t)
+                anc.log(handler=logger, mode='info', proc_step='SAR', scenes=scene.scene, msg=t)
             except Exception as e:
-                anc.log(handler=logger, mode='exception', proc_step='RTC', scenes=scene.scene, msg=e)
+                anc.log(handler=logger, mode='exception', proc_step='SAR', scenes=scene.scene, msg=e)
                 raise
     ####################################################################################################################
-    # NRB - final product generation
-    if nrb_flag:
+    # OCN preparation
+    for scene in scenes_ocn:
+        if scene.compression is not None:
+            scene.unpack(directory=config['tmp_dir'], exist_ok=True)
+        basename = os.path.basename(scene.scene).replace('.SAFE', '')
+        outdir = os.path.join(config['sar_dir'], basename)
+        os.makedirs(outdir, exist_ok=True)
+        out = os.path.join(outdir, 'owiNrcsCmod.tif')
+        if not os.path.isfile(out):
+            ocn.extract(src=scene.scene, dst=out,
+                        variable='owiNrcsCmod')
+    ####################################################################################################################
+    # ARD - final product generation
+    if nrb_flag or orb_flag:
+        product_type = 'NRB' if nrb_flag else 'ORB'
+        
         # prepare WBM MGRS tiles
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
@@ -262,7 +295,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        print('preparing NRB products')
+        print('preparing {} products'.format(product_type))
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, group in enumerate(selection_grouped):
             # check that the scenes can really be grouped together
@@ -280,31 +313,30 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 # select all scenes from the group whose footprint overlaps with the current tile
                 scenes_sub = [x for x in group if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
-                outdir = os.path.join(config['nrb_dir'], tile.mgrs)
+                outdir = os.path.join(config['ard_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config['wbm_dir'], config['dem_type'],
                                          '{}_WBM.tif'.format(tile.mgrs))
                 if not os.path.isfile(fname_wbm):
                     fname_wbm = None
                 add_dem = True  # add the DEM as output layer?
-                nrb_dem_type = config['dem_type'] if add_dem else None
+                dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                msg = '###### [    NRB] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
+                msg = '###### [    {product_type}] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
                 print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
                                  scenes=[os.path.basename(s) for s in scenes_sub_fnames],
-                                 s=s + 1, s_total=s_total))
+                                 product_type=product_type, s=s + 1, s_total=s_total))
                 try:
-                    msg = nrb.format(config=config, scenes=scenes_sub_fnames, datadir=config['rtc_dir'],
-                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=nrb_dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=config['annotation'],
-                                     update=update)
+                    msg = ard.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
+                                     datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
+                                     wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
+                                     multithread=gdal_prms['multithread'], annotation=annotation, update=update)
                     if msg == 'Already processed - Skip!':
                         print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step='NRB', scenes=scenes_sub_fnames, msg=msg)
+                    anc.log(handler=logger, mode='info', proc_step=product_type, scenes=scenes_sub_fnames, msg=msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step='NRB', scenes=scenes_sub_fnames, msg=e)
+                    anc.log(handler=logger, mode='exception', proc_step=product_type, scenes=scenes_sub_fnames, msg=e)
                     raise
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

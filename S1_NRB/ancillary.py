@@ -7,6 +7,7 @@ from lxml import etree
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
+from spatialist.vector import bbox, intersect
 import pyroSAR
 from pyroSAR import examine, identify_many
 import S1_NRB
@@ -19,8 +20,8 @@ def check_acquisition_completeness(scenes, archive):
     Check that for each scene a predecessor and successor can be queried
     from the database unless the scene is at the start or end of the data take.
     This ensures that no scene that could be covering an area of interest is missed
-    during processing. In case a scene is suspected to be missing, the ASF online
-    catalog is cross-checked.
+    during processing. In case a scene is suspected to be missing, the Alaska Satellite Facility (ASF)
+    online catalog is cross-checked.
     An error will only be raised if the locally missing scene is present in the ASF catalog.
     
     Parameters
@@ -43,7 +44,6 @@ def check_acquisition_completeness(scenes, archive):
     """
     messages = []
     for scene in scenes:
-        print(scene.scene)
         slice = scene.meta['sliceNumber']
         n_slices = scene.meta['totalSlices']
         groupsize = 3
@@ -161,8 +161,6 @@ def check_spacing(spacing):
     """
     if 109800 % spacing != 0:
         raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 109800 m.')
-    if 9780 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile overlap of 9780 m.')
 
 
 def generate_unique_id(encoded_str):
@@ -250,7 +248,7 @@ def set_logging(config, debug=False):
     sh = logging.StreamHandler(sys.stdout)
     log_pyro.addHandler(sh)
     
-    # NRB logging in logfile
+    # S1_NRB logging in logfile
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)
@@ -349,9 +347,9 @@ def _log_process_config(logger, config):
     etad                {config.get('etad')}
     
     work_dir            {config['work_dir']}
-    rtc_dir             {config['rtc_dir']}
+    sar_dir             {config['sar_dir']}
     tmp_dir             {config['tmp_dir']}
-    nrb_dir             {config['nrb_dir']}
+    ard_dir             {config['ard_dir']}
     wbm_dir             {config['wbm_dir']}
     log_dir             {config['log_dir']}
     etad_dir            {config['etad_dir']}
@@ -437,3 +435,46 @@ def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
     ovr.attrib['resampling'] = resampling.lower()
     etree.indent(root)
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
+
+
+def buffer_min_overlap(geom1, geom2, percent=1):
+    """
+    Buffer a geometry to a minimum overlap with a second geometry.
+    The geometry is iteratively buffered until the minimum overlap is reached.
+    If the overlap of the input geometries is already larger than the defined
+    threshold, a copy of the original geometry is returned.
+
+    Parameters
+    ----------
+    geom1: spatialist.vector.Vector
+        the geometry to be buffered
+    geom2: spatialist.vector.Vector
+        the reference geometry to intersect with
+    percent: int or float
+        the minimum overlap in percent of `geom1`
+
+    Returns
+    -------
+
+    """
+    geom2_area = geom2.getArea()
+    ext = geom1.extent
+    ext2 = ext.copy()
+    xdist = ext['xmax'] - ext['xmin']
+    ydist = ext['ymax'] - ext['ymin']
+    buffer = 0
+    overlap = 0
+    while overlap < percent:
+        xbuf = xdist * buffer / 100 / 2
+        ybuf = ydist * buffer / 100 / 2
+        ext2['xmin'] = ext['xmin'] - xbuf
+        ext2['xmax'] = ext['xmax'] + xbuf
+        ext2['ymin'] = ext['ymin'] - ybuf
+        ext2['ymax'] = ext['ymax'] + ybuf
+        with bbox(ext2, 4326) as geom3:
+            ext3 = geom3.extent
+            with intersect(geom2, geom3) as inter:
+                inter_area = inter.getArea()
+                overlap = inter_area / geom2_area * 100
+        buffer += 1
+    return bbox(ext3, 4326)

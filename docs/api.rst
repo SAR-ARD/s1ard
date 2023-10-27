@@ -50,6 +50,7 @@ SNAP
         pre
         rtc
         sgr
+        look_direction
 
     .. rubric:: ancillary functions
 
@@ -64,7 +65,7 @@ SNAP
 NRB
 ^^^
 
-.. automodule:: S1_NRB.nrb
+.. automodule:: S1_NRB.ard
     :members:
     :undoc-members:
     :show-inheritance:
@@ -79,6 +80,7 @@ NRB
         create_vrt
         format
         get_datasets
+        wind_normalization
 
 ETAD
 ^^^^
@@ -107,6 +109,20 @@ DEM
         mosaic
         prepare
 
+OCN
+^^^
+
+.. automodule:: S1_NRB.ocn
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        extract
+        gapfill
+
 Tile Extraction
 ---------------
 
@@ -118,6 +134,7 @@ Tile Extraction
     .. autosummary::
         :nosignatures:
 
+        aoi_from_scene
         aoi_from_tile
         description2dict
         tile_from_aoi
@@ -133,6 +150,7 @@ Ancillary Functions
     .. autosummary::
         :nosignatures:
 
+        buffer_min_overlap
         check_acquisition_completeness
         check_scene_consistency
         check_spacing
@@ -165,16 +183,17 @@ Extraction
     .. autosummary::
         :nosignatures:
 
+        calc_enl
         calc_geolocation_accuracy
         calc_performance_estimates
-        etree_from_sid
-        extract_pslr_islr
+        calc_pslr_islr
+        copy_src_meta
         find_in_annotation
         geometry_from_vec
         get_header_size
         get_prod_meta
+        get_src_meta
         meta_dict
-        vec_from_srccoords
 
 XML
 ^^^

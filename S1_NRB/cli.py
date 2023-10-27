@@ -33,8 +33,7 @@ def cli(ctx, config_file, section, debug, version):
     \b
     The following defaults are set:
     (processing section)
-    - annotation (measurement=gamma): dm,ei,id,lc,li,np,gs
-    - annotation (measurement=sigma): dm,ei,id,lc,li,np,sg
+    - annotation: dm,ei,id,lc,li,np,ratio
     - dem_type:          Copernicus 30m Global DEM
     - date_strict:       True
     - etad:              False
@@ -43,8 +42,8 @@ def cli(ctx, config_file, section, debug, version):
     - snap_gpt_args:     None
     - log_dir:           LOG
     - measurement:       gamma
-    - nrb_dir:           NRB
-    - rtc_dir:           RTC
+    - ard_dir:           ARD
+    - sar_dir:           SAR
     - tmp_dir:           TMP
     - wbm_dir:           WBM
     (metadata section)

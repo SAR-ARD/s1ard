@@ -1,20 +1,23 @@
 import os
 import re
-import itertools
 import shutil
 from math import ceil
+import copy
 from lxml import etree
+import numpy as np
+from pyproj import Geod
+from osgeo import gdal, gdalconst
+from scipy.interpolate import griddata
+from datetime import datetime
 from dateutil.parser import parse as dateparse
-from spatialist import bbox, Raster
+from spatialist import Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
-from spatialist.auxil import utm_autodetect
 from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from S1_NRB.tile_extraction import tile_from_aoi, aoi_from_tile
-from S1_NRB.ancillary import get_max_ext
+from S1_NRB.tile_extraction import aoi_from_scene
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -72,7 +75,8 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
 
 
 def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
-        output_noise=True, output_beta0=True, gpt_args=None):
+        output_noise=True, output_beta0=True, output_sigma0=True,
+        output_gamma0=False, gpt_args=None):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -93,6 +97,10 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output the noise power images?
     output_beta0: bool
         output beta nought backscatter needed for RTC?
+    output_sigma0: bool
+        output sigma nought backscatter needed for NESZ?
+    output_gama0: bool
+        output gamma nought backscatter needed?
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -129,8 +137,8 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     wf.insert_node(cal, before=last.id)
     cal.parameters['selectedPolarisations'] = polarizations
     cal.parameters['outputBetaBand'] = output_beta0
-    cal.parameters['outputSigmaBand'] = True
-    cal.parameters['outputGammaBand'] = False
+    cal.parameters['outputSigmaBand'] = output_sigma0
+    cal.parameters['outputGammaBand'] = output_gamma0
     ############################################
     tnr = parse_node('ThermalNoiseRemoval')
     wf.insert_node(tnr, before=cal.id)
@@ -176,11 +184,14 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
         a list of additional arguments to be passed to the gpt call
         
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
-     
+    
     Returns
     -------
 
     """
+    if len(neighbors) == 0:
+        raise RuntimeError("the list of 'neighbors' is empty")
+    
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
     ############################################
@@ -199,7 +210,6 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     wf.insert_node(asm, before=read_ids)
     ############################################
     id_main = [x.scene for x in scenes].index(src)
-    id_top = 0 if scenes[0].orbit == 'D' else -1
     buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
     xmin = 0
     width = scenes[id_main].samples
@@ -207,8 +217,9 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
         ymin = 0
         height = scenes[id_main].lines + buffer_px
     else:
-        ymin = scenes[id_top].lines - buffer_px
-        height = scenes[id_main].lines + buffer_px * 2
+        ymin = scenes[0].lines - buffer_px
+        factor = 1 if id_main == len(scenes) - 1 else 2
+        height = scenes[id_main].lines + buffer_px * factor
     sub = parse_node('Subset')
     sub.parameters['region'] = [xmin, ymin, width, height]
     sub.parameters['geoRegion'] = ''
@@ -547,8 +558,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
         
-        - gamma: RTC gamma nought (gamma^0_T)
-        - sigma: ellipsoidal sigmal nought (sigma^0_E)
+        - gamma: RTC gamma nought (:math:`\gamma^0_T`)
+        - sigma: RTC sigma nought (:math:`\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
     kml: str
@@ -570,14 +581,15 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         Options:
         
          - DEM
-         - gammaSigmaRatio: sigma^0_T / gamma^0_T
-         - sigmaGammaRatio: gamma^0_T / sigma^0_E
+         - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
+         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_T`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
          - NESZ: noise equivalent sigma zero
          - projectedLocalIncidenceAngle
          - scatteringArea
+         - lookDirection: range look direction angle
     allow_res_osv: bool
         Also allow the less accurate RES orbit files to be used?
     clean_edges: bool
@@ -589,7 +601,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         (only applies to GRD) an optional list of neighboring scenes to add
         a buffer around the main scene using function :func:`grd_buffer`.
         If GRDs are processed compeletely independently, gaps are introduced
-        due to a missing overlap.
+        due to a missing overlap. If `neighbors` is None or an empty list,
+        buffering is skipped.
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -645,12 +658,13 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
     if not os.path.isfile(out_pre):
+        print('### preprocessing')
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
             allow_res_osv=allow_res_osv, output_noise=output_noise,
             output_beta0=apply_rtc, gpt_args=gpt_args)
     ############################################################################
     # GRD buffering
-    if neighbors is not None:
+    if neighbors is not None and len(neighbors) > 0:
         # general preprocessing of neighboring scenes
         out_pre_neighbors = []
         for item in neighbors:
@@ -677,6 +691,11 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                        neighbors=out_pre_neighbors, gpt_args=gpt_args,
                        buffer=10 * spacing)
         out_pre = out_buffer
+    ############################################################################
+    # range look direction angle
+    if 'lookDirection' in export_extra:
+        print('### look direction computation')
+        look_direction(dim=out_pre)
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
@@ -726,7 +745,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     ############################################################################
     # geocoding
     
-    # Process tu multiple UTM zones or just one?
+    # Process to multiple UTM zones or just one?
     # For testing purposes only.
     utm_multi = True
     
@@ -744,7 +763,10 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 bands1 = []
             if 'scatteringArea' in export_extra:
                 bands1.append('simulatedImage')
-            geo(out_mli, out_rtc, out_gsr, out_sgr, dst=out_geo, workflow=out_geo_wf,
+            if 'lookDirection' in export_extra:
+                bands0.append('lookDirection')
+            geo(out_mli, out_rtc, out_gsr, out_sgr,
+                dst=out_geo, workflow=out_geo_wf,
                 spacing=spacing, crs=epsg, geometry=ext,
                 export_extra=export_extra,
                 standard_grid_origin_x=align_x,
@@ -753,6 +775,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 dem_resampling_method=dem_resampling_method,
                 img_resampling_method=img_resampling_method,
                 gpt_args=gpt_args)
+            print('### edge cleaning')
             postprocess(out_geo, clean_edges=clean_edges,
                         clean_edges_pixels=clean_edges_pixels)
         for wf in workflows:
@@ -760,33 +783,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             if wf != wf_dst:
                 shutil.copyfile(src=wf, dst=wf_dst)
     
-    if utm_multi:
-        with id.geometry() as geom:
-            tiles = tile_from_aoi(vector=geom, kml=kml)
-        for zone, group in itertools.groupby(tiles, lambda x: x[:2]):
-            group = list(group)
-            geometries = [aoi_from_tile(kml=kml, tile=x) for x in group]
-            epsg = geometries[0].getProjection(type='epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            ext = get_max_ext(geometries=geometries)
-            align_x = ext['xmin']
-            align_y = ext['ymax']
-            del geometries
-            with bbox(coordinates=ext, crs=epsg) as geom:
-                geom.reproject(projection=4326)
-                ext = geom.extent
-            run()
-    else:
-        with id.bbox() as geom:
-            ext = geom.extent
-            epsg = utm_autodetect(geom, 'epsg')
-            print(f'### geocoding to EPSG:{epsg}')
-            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
-                                  return_geometries=True, strict=False)
-            ext_utm = tiles[0].extent
-            del tiles
-            align_x = ext_utm['xmin']
-            align_y = ext_utm['ymax']
+    print('### determining UTM zone overlaps')
+    aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
+    for aoi in aois:
+        ext = aoi['extent']
+        epsg = aoi['epsg']
+        align_x = aoi['align_x']
+        align_y = aoi['align_y']
+        print(f'### geocoding to EPSG:{epsg}')
         run()
     if cleanup:
         if id.product == 'GRD':
@@ -834,7 +838,7 @@ def postprocess(src, clean_edges=True, clean_edges_pixels=4):
 
 def find_datasets(scene, outdir, epsg):
     """
-    Find processed datasets for a scene in a certain CRS.
+    Find processed datasets for a scene in a certain Coordinate Reference System (CRS).
     
     Parameters
     ----------
@@ -864,6 +868,7 @@ def find_datasets(scene, outdir, epsg):
          - ei: ellipsoidal incident angle
          - gs: gamma-sigma ratio
          - lc: local contributing area (aka scattering area)
+         - ld: range look direction angle
          - li: local incident angle
          - sg: sigma-gamma ratio
          - np-hh: NESZ HH polarization
@@ -880,6 +885,7 @@ def find_datasets(scene, outdir, epsg):
               'ei': r'incidenceAngleFromEllipsoid\.img$',
               'gs': r'gammaSigmaRatio_[VH]{2}\.img$',
               'lc': r'simulatedImage_[VH]{2}\.img$',
+              'ld': r'lookDirection_[VH]{2}\.img$',
               'li': r'localIncidenceAngle\.img$',
               'sg': r'sigmaGammaRatio_[VH]{2}\.img$'}
     out = {}
@@ -904,7 +910,7 @@ def find_datasets(scene, outdir, epsg):
 
 def get_metadata(scene, outdir):
     """
-    Get processing metadata needed for NRB metadata.
+    Get processing metadata needed for ARD product metadata.
     
     Parameters
     ----------
@@ -971,3 +977,200 @@ def nrt_slice_num(dim):
         tree = etree.ElementTree(root)
         tree.write(dim, pretty_print=True, xml_declaration=True,
                    encoding='utf-8')
+
+
+def look_direction(dim):
+    """
+    Compute the per-pixel range look direction angle.
+    This adds a new layer to an existing BEAM-DIMAP product.
+    
+    Steps performed:
+    
+    - read geolocation grid points
+    - limit grid point list to those relevant to the image
+    - for each point, compute the range direction angle to the next point in range direction.
+    - interpolate the grid to the full image dimensions
+    
+    Notes
+    -----
+    - The interpolation depends on the location of the grid points relative to the image.
+      Hence, by subsetting the image by an amount of pixels/lines different to the grid point
+      sampling rate, the first and last points will no longer be in the first and last line respectively.
+    - The list might get very large when merging the scene with neighboring acquisitions using
+      SliceAssembly and this longer list significantly changes the interpolation result.
+      The difference in interpolation can be mitigated by reducing the list of points to
+      those inside the image and those just outside of it.
+
+    Parameters
+    ----------
+    dim: str
+        a BEAM-DIMAP metadata file (extension .dim)
+
+    Returns
+    -------
+
+    """
+    
+    def interpolate(infile, method='linear'):
+        with open(infile, 'rb') as f:
+            tree = etree.fromstring(f.read())
+        
+        lats = []
+        lons = []
+        lines = []
+        pixels = []
+        rgtimes = []
+        aztimes = []
+        
+        pols = tree.xpath("//MDElem[@name='standAloneProductInformation']"
+                          "/MDATTR[@name='transmitterReceiverPolarisation']")
+        polarization = pols[0].text.lower()
+        re_ns = "http://exslt.org/regular-expressions"
+        ann_pol = tree.xpath(f"//MDElem[@name='annotation']"
+                             f"//MDElem[re:test(@name, '-{polarization}-', 'i')]",
+                             namespaces={'re': re_ns})
+        nlines = int(tree.find('Raster_Dimensions/NROWS').text)
+        npixels = int(tree.find('Raster_Dimensions/NCOLS').text)
+        abstract = tree.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
+        
+        for ann in ann_pol:
+            points = ann.xpath(".//MDElem[@name='geolocationGridPoint']")
+            for point in points:
+                pixel = int(point.find("./MDATTR[@name='pixel']").text)
+                line = int(point.find("./MDATTR[@name='line']").text)
+                lat = float(point.find("./MDATTR[@name='latitude']").text)
+                lon = float(point.find("./MDATTR[@name='longitude']").text)
+                rgtime = float(point.find("./MDATTR[@name='slantRangeTime']").text)
+                aztime = dateparse(point.find("./MDATTR[@name='azimuthTime']").text)
+                aztime = (aztime - datetime(1900, 1, 1)).total_seconds()
+                pixels.append(pixel)
+                lines.append(line)
+                rgtimes.append(rgtime)
+                aztimes.append(aztime)
+                lats.append(lat)
+                lons.append(lon)
+        coords = list(zip(rgtimes, aztimes))
+        
+        flt = abstract.xpath("./MDATTR[@name='first_line_time']")[0].text
+        flt = (dateparse(flt) - datetime(1900, 1, 1)).total_seconds()
+        llt = abstract.xpath("./MDATTR[@name='last_line_time']")[0].text
+        llt = (dateparse(llt) - datetime(1900, 1, 1)).total_seconds()
+        lti = float(abstract.xpath("./MDATTR[@name='line_time_interval']")[0].text)
+        
+        # limit the coords to those relevant to the image
+        # (SliceAssembly extends the list but a subsequent Subset does not shorten it)
+        az_before = [x[1] for x in coords if x[1] < flt]
+        tmp_min = (max(az_before) if len(az_before) > 0 else flt) - lti
+        az_after = [x[1] for x in coords if x[1] > llt]
+        tmp_max = (min(az_after) if len(az_after) > 0 else llt) + lti
+        
+        coords_sub = [x for x in coords if tmp_min <= x[1] <= tmp_max]
+        
+        values = []
+        coords_select = []
+        g = Geod(ellps='WGS84')
+        for i, v in enumerate(coords):
+            if v in coords_sub:
+                if i + 1 < len(coords) and pixels[i] < pixels[i + 1]:
+                    az12, az21, dist = g.inv(lons[i], lats[i], lons[i + 1], lats[i + 1])
+                    values.append(az12)
+                else:
+                    az12, az21, dist = g.inv(lons[i], lats[i], lons[i - 1], lats[i - 1])
+                    values.append(az21)
+                coords_select.append(v)
+        
+        coords = np.array(coords_select)
+        values = np.array(values)
+        
+        rgtime_fl_max = max([v for i, v in enumerate(rgtimes) if lines[i] == 0])
+        rgtime_ll_max = max([v for i, v in enumerate(rgtimes) if lines[i] == max(lines)])
+        rgtime_max = min([rgtime_fl_max, rgtime_ll_max])
+        
+        xi = np.linspace(min(rgtimes), rgtime_max, npixels)
+        yi = np.linspace(flt, llt, nlines)
+        xi, yi = np.meshgrid(xi, yi)
+        zi = griddata(coords, values, (xi, yi), method=method, fill_value=0)
+        return zi
+    
+    def write(array, out, reference, format='ENVI'):
+        src_dataset = gdal.Open(reference)
+        cols = src_dataset.RasterXSize
+        rows = src_dataset.RasterYSize
+        driver = gdal.GetDriverByName(format)
+        
+        dst_dataset = driver.Create(out, cols, rows, 1, gdalconst.GDT_Float32)
+        
+        dst_dataset.SetMetadata(src_dataset.GetMetadata())
+        dst_dataset.SetGeoTransform(src_dataset.GetGeoTransform())
+        dst_dataset.SetProjection(src_dataset.GetProjection())
+        if format == 'GTiff':
+            dst_dataset.SetGCPs(src_dataset.GetGCPs(), src_dataset.GetGCPSpatialRef())
+        else:
+            array = array.astype('float32').byteswap().newbyteorder()
+        dst_band = dst_dataset.GetRasterBand(1)
+        dst_band.WriteArray(array)
+        dst_band.FlushCache()
+        dst_band = None
+        src_dataset = None
+        dst_dataset = None
+        driver = None
+        if format == 'ENVI':
+            hdrfile = os.path.splitext(out)[0] + '.hdr'
+            with HDRobject(hdrfile) as hdr:
+                hdr.byte_order = 1
+                hdr.description = 'Sentinel-1 EW Level-1 GRD Product - Unit: deg'
+                hdr.band_names = 'lookDirection'
+                hdr.write()
+            auxfile = out + '.aux.xml'
+            os.remove(auxfile)
+    
+    def metadata(dim):
+        with open(dim, 'rb') as f:
+            root = etree.fromstring(f.read())
+        
+        image_interp = root.find('Image_Interpretation')
+        ld_search = image_interp.xpath('Spectral_Band_Info[BAND_NAME="lookDirection"]')
+        
+        if len(ld_search) == 0:
+            # number of bands
+            element_bands = root.find('Raster_Dimensions/NBANDS')
+            bands = int(element_bands.text)
+            element_bands.text = str(bands + 1)
+            
+            # data access
+            data_access = root.find('Data_Access')
+            data_files = data_access.findall('./Data_File')
+            last = data_files[-1]
+            new = copy.deepcopy(last)
+            fpath = new.find('DATA_FILE_PATH').attrib['href']
+            fpath = fpath.replace(os.path.basename(fpath), 'lookDirection.hdr')
+            new.find('DATA_FILE_PATH').attrib['href'] = fpath
+            new.find('BAND_INDEX').text = str(bands)
+            data_access.insert(data_access.index(last) + 1, new)
+            
+            # band info
+            info = etree.SubElement(image_interp, 'Spectral_Band_Info')
+            npixels = root.find('Raster_Dimensions/NCOLS').text
+            nlines = root.find('Raster_Dimensions/NROWS').text
+            etree.SubElement(info, 'BAND_INDEX').text = str(bands)
+            etree.SubElement(info, 'BAND_DESCRIPTION').text = 'range look direction'
+            etree.SubElement(info, 'BAND_NAME').text = 'lookDirection'
+            etree.SubElement(info, 'BAND_RASTER_WIDTH').text = npixels
+            etree.SubElement(info, 'BAND_RASTER_HEIGHT').text = nlines
+            etree.SubElement(info, 'DATA_TYPE').text = 'float32'
+            etree.SubElement(info, 'PHYSICAL_UNIT').text = 'deg'
+            etree.SubElement(info, 'LOG10_SCALED').text = 'false'
+            etree.SubElement(info, 'NO_DATA_VALUE_USED').text = 'true'
+            etree.SubElement(info, 'NO_DATA_VALUE').text = '0.0'
+            
+            etree.indent(root, space='    ')
+            tree = etree.ElementTree(root)
+            tree.write(dim, pretty_print=True, xml_declaration=True, encoding='utf-8')
+    
+    data = dim.replace('.dim', '.data')
+    out = os.path.join(data, 'lookDirection.img')
+    if not os.path.isfile(out):
+        ref = finder(target=data, matchlist=['*.img'])[0]
+        arr = interpolate(infile=dim)
+        write(array=arr, out=out, reference=ref)
+        metadata(dim=dim)

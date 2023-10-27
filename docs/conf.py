@@ -21,7 +21,7 @@ version = '.'.join(version_full.split('.')[:2])
 # release is automatically added to the latex document title and header
 release = version
 
-autodoc_mock_imports = ['osgeo']
+autodoc_mock_imports = ['osgeo', 'pyproj']
 
 # If your documentation needs a minimal Sphinx version, state it here.
 needs_sphinx = '1.6'
@@ -51,7 +51,8 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
                        'pystac': ('https://pystac.readthedocs.io/en/stable', None),
                        'pystac-client': ('https://pystac-client.readthedocs.io/en/stable', None),
-                       'dateutil': ('https://dateutil.readthedocs.io/en/stable', None)
+                       'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
+                       'osgeo': ('https://gdal.org', None)
                        }
 
 napoleon_google_docstring = False

@@ -1,6 +1,43 @@
 Changelog
 =========
 
+1.5.0 | 2023-10-12
+------------------
+
+* Replace `gs` and `sg` annotation options with `ratio` (`#116 <https://github.com/SAR-ARD/S1_NRB/pull/116>`_)
+* Metadata/review (`#117 <https://github.com/SAR-ARD/S1_NRB/pull/117>`_)
+* Equivalent Number of Looks (`#113 <https://github.com/SAR-ARD/S1_NRB/pull/113>`_)
+* [copy_src_meta] fixed bug in reading zip content on Windows (`#124 <https://github.com/SAR-ARD/S1_NRB/pull/124>`_)
+* Documentation: Table of abbreviations (`#123 <https://github.com/SAR-ARD/S1_NRB/pull/123>`_)
+* fixed bug in GRD buffering of ascending scenes (`#126 <https://github.com/SAR-ARD/S1_NRB/pull/126>`_)
+* new annotation layer "range look direction angle" (`#103 <https://github.com/SAR-ARD/S1_NRB/pull/103>`_)
+* ENL calculation: Suppress warnings and increase default block_size (`#127 <https://github.com/SAR-ARD/S1_NRB/pull/127>`_)
+* Add missing pyproj dependency (`#128 <https://github.com/SAR-ARD/S1_NRB/pull/128>`_)
+* Simplified datamask for ORB product (`#122 <https://github.com/SAR-ARD/S1_NRB/pull/122>`_)
+* Update .readthedocs.yaml (`#129 <https://github.com/SAR-ARD/S1_NRB/pull/129>`_)
+* [nrb.create_vrt] fixed bug in handling default 'options=None' (`#132 <https://github.com/SAR-ARD/S1_NRB/pull/132>`_)
+* [docs] point to right environment.yaml when installing specific version (`#133 <https://github.com/SAR-ARD/S1_NRB/pull/133>`_)
+* Fix missing STAC FileExtension entries (`#131 <https://github.com/SAR-ARD/S1_NRB/pull/131>`_)
+* Accommodate ORB product (`#121 <https://github.com/SAR-ARD/S1_NRB/pull/121>`_)
+* rename config default annotation IDs gs and sg to ratio (`#135 <https://github.com/SAR-ARD/S1_NRB/pull/135>`_)
+* [snap.process] skip GRD buffering if list is empty (`#139 <https://github.com/SAR-ARD/S1_NRB/pull/139>`_)
+* Refer to original source metadata in source XML and JSON (`#136 <https://github.com/SAR-ARD/S1_NRB/pull/136>`_)
+* wind normalization (`#138 <https://github.com/SAR-ARD/S1_NRB/pull/138>`_)
+* Look direction angle improvements (`#141 <https://github.com/SAR-ARD/S1_NRB/pull/141>`_)
+* do not look for source metadata files if copying is not user-configured (`#142 <https://github.com/SAR-ARD/S1_NRB/pull/142>`_)
+* change EW spacing from 20 to 40 m (`#143 <https://github.com/SAR-ARD/S1_NRB/pull/143>`_)
+* XML product metadata improvements (`#137 <https://github.com/SAR-ARD/S1_NRB/pull/137>`_)
+* Metadata/review (`#140 <https://github.com/SAR-ARD/S1_NRB/pull/140>`_)
+* wind normalization - GDAL options (`#144 <https://github.com/SAR-ARD/S1_NRB/pull/144>`_)
+* Require pyroSAR >=0.22.0 and update license year (`#145 <https://github.com/SAR-ARD/S1_NRB/pull/145>`_)
+* documentation improvements (`#146 <https://github.com/SAR-ARD/S1_NRB/pull/146>`_)
+* STACArchive file path handling (`#148 <https://github.com/SAR-ARD/S1_NRB/pull/148>`_)
+* geometry buffering for minimum overlap (`#147 <https://github.com/SAR-ARD/S1_NRB/pull/147>`_)
+* apply RTC to sigma0 (`#149 <https://github.com/SAR-ARD/S1_NRB/pull/149>`_)
+* config 'mode': removed 'all', added 'orb'; renamed module 'nrb' to 'ard' (`#150 <https://github.com/SAR-ARD/S1_NRB/pull/150>`_)
+
+`Full v1.5.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.4.0...v1.5.0>`_
+
 1.4.0 | 2023-07-04
 ------------------
 
@@ -20,7 +57,7 @@ Changelog
 * New metadata config parameters (`#110 <https://github.com/SAR-ARD/S1_NRB/pull/110>`_)
 * support for scenes acquired in NRT Slicing mode (`#112 <https://github.com/SAR-ARD/S1_NRB/pull/112>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.3.0...v1.4.0>`_
+`Full v1.4.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.3.0...v1.4.0>`_
 
 1.3.0 | 2023-05-24
 ------------------
@@ -33,7 +70,7 @@ Changelog
 * enhanced time filtering (`#84 <https://github.com/SAR-ARD/S1_NRB/pull/84>`_)
 * general processor improvements (`#85 <https://github.com/SAR-ARD/S1_NRB/pull/85>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.2.0...v1.3.0>`_
+`Full v1.3.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.2.0...v1.3.0>`_
 
 1.2.0 | 2022-12-29
 ------------------
@@ -44,7 +81,7 @@ Changelog
 * add DEM as additional output layer (`#70 <https://github.com/SAR-ARD/S1_NRB/pull/70>`_)
 * sigma0 processing and annotation layer configuration (`#74 <https://github.com/SAR-ARD/S1_NRB/pull/74>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.1.0...v1.2.0>`_
+`Full v1.2.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.1.0...v1.2.0>`_
 
 1.1.0 | 2022-09-29
 ------------------
@@ -56,7 +93,7 @@ Changelog
 * documentation update reflecting the recent process restructuring (`#66 <https://github.com/SAR-ARD/S1_NRB/pull/66>`_)
 * renamed processing mode 'snap' to 'rtc' (`#67 <https://github.com/SAR-ARD/S1_NRB/pull/67>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.2...v1.1.0>`_
+`Full v1.1.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.2...v1.1.0>`_
 
 1.0.2 | 2022-08-24
 ------------------
@@ -69,14 +106,14 @@ Changelog
 * Fix and improve metadata geometry handling (`#57 <https://github.com/SAR-ARD/S1_NRB/pull/57>`_)
 * SNAP 9 compatibility (`#58 <https://github.com/SAR-ARD/S1_NRB/pull/58>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.1...v1.0.2>`_
+`Full v1.0.2 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.1...v1.0.2>`_
 
 1.0.1 | 2022-07-03
 ------------------
 
 * dem handling improvements (`#45 <https://github.com/SAR-ARD/S1_NRB/pull/45>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.0...v1.0.1>`_
+`Full v1.0.1 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.0.0...v1.0.1>`_
 
 1.0.0 | 2022-06-23
 ------------------
@@ -88,7 +125,7 @@ Changelog
 * Geolocation accuracy (`#40 <https://github.com/SAR-ARD/S1_NRB/pull/40>`_)
 * various bug fixes and documentation improvements
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.2...v1.0.0>`_
+`Full v1.0.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.2...v1.0.0>`_
 
 0.4.2 | 2022-06-16
 ------------------
@@ -96,7 +133,7 @@ Changelog
 * Update documentation (`#27 <https://github.com/SAR-ARD/S1_NRB/pull/27>`_)
 * find unpacked .SAFE scenes in scene_dir (instead of just .zip) (`aea53a5 <https://github.com/SAR-ARD/S1_NRB/commit/aea53a57bc5fa1418fea4f46f69b41b7332909b1>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.1...v0.4.2>`_
+`Full v0.4.2 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.1...v0.4.2>`_
 
 0.4.1 | 2022-06-01
 ------------------
@@ -105,7 +142,7 @@ Changelog
 * set dem download authentication via env. variables (`#26 <https://github.com/SAR-ARD/S1_NRB/pull/26>`_)
 * various bug fixes
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.0...v0.4.1>`_
+`Full v0.4.1 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.4.0...v0.4.1>`_
 
 0.4.0 | 2022-05-30
 ------------------
@@ -119,7 +156,7 @@ Changelog
 * Set up sphinx documentation (`#23 <https://github.com/SAR-ARD/S1_NRB/pull/23>`_)
 * AOI scene selection (`#24 <https://github.com/SAR-ARD/S1_NRB/pull/24>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.3.0...v0.4.0>`_
+`Full v0.4.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.3.0...v0.4.0>`_
 
 0.3.0 | 2022-03-30
 ------------------
@@ -133,13 +170,9 @@ Changelog
 * Improved RGB composite (`#15 <https://github.com/SAR-ARD/S1_NRB/pull/15>`_)
 * Store DEM/WBM tiles in UTM zones different to the native MGRS zone (`#16 <https://github.com/SAR-ARD/S1_NRB/pull/16>`_)
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.2.0...v0.3.0>`_
+`Full v0.3.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.2.0...v0.3.0>`_
 
 0.2.0 | 2022-03-03
 ------------------
 
-`Full Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.1.0...v0.2.0>`_
-
-0.1.0 | 2022-01-14
-------------------
-
+`Full v0.2.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v0.1.0...v0.2.0>`_

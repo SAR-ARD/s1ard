@@ -22,8 +22,8 @@ def get_keys(section):
     """
     if section == 'processing':
         return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
-                'work_dir', 'scene_dir', 'rtc_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'nrb_dir',
+                'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
+                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'ard_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args']
     elif section == 'metadata':
@@ -50,6 +50,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_annotation': _parse_annotation,
                                                    '_datetime': _parse_datetime,
+                                                   '_modes': _parse_modes,
                                                    '_stac_collections': _parse_list,
                                                    '_tile_list': _parse_tile_list,
                                                    '_list': _parse_list})
@@ -79,7 +80,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'etad' not in proc_sec.keys():
         proc_sec['etad'] = 'False'
         proc_sec['etad_dir'] = 'None'
-    for item in ['rtc_dir', 'tmp_dir', 'nrb_dir', 'wbm_dir', 'log_dir']:
+    for item in ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'log_dir']:
         if item not in proc_sec.keys():
             proc_sec[item] = item[:3].upper()
     if 'gdal_threads' not in proc_sec.keys():
@@ -96,10 +97,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'measurement' not in proc_sec.keys():
         proc_sec['measurement'] = 'gamma'
     if 'annotation' not in proc_sec.keys():
-        if proc_sec['measurement'] == 'gamma':
-            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,gs'
-        else:
-            proc_sec['annotation'] = 'dm,ei,id,lc,li,np,sg'
+        proc_sec['annotation'] = 'dm,ei,id,lc,li,np,ratio'
     
     # check completeness of configuration parameters
     missing = []
@@ -115,9 +113,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
-            allowed = ['nrb', 'rtc', 'all']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
-            v = v.lower()
+            v = proc_sec.get_modes(k)
         if k == 'aoi_tiles':
             if v is not None:
                 v = proc_sec.get_tile_list(k)
@@ -223,12 +219,12 @@ def _parse_annotation(s):
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     annotation_list = _parse_list(s)
     if annotation_list is not None:
-        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'li', 'np', 'gs', 'sg']
-        for annotation in annotation_list:
-            if annotation not in allowed:
+        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'ld', 'li', 'np', 'ratio', 'wm']
+        for layer in annotation_list:
+            if layer not in allowed:
                 msg = "Parameter 'annotation': Error while parsing to list; " \
-                      "annotation '{}' is not supported. Allowed keys:\n{}"
-                raise ValueError(msg.format(annotation, allowed))
+                      "layer '{}' is not supported. Allowed keys:\n{}"
+                raise ValueError(msg.format(layer, allowed))
     return annotation_list
 
 
@@ -236,6 +232,19 @@ def _parse_datetime(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     return dateutil.parser.parse(s)
+
+
+def _parse_modes(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    mode_list = _parse_list(s)
+    allowed = ['sar', 'ard', 'orb']
+    for mode in mode_list:
+        if mode not in allowed:
+            msg = "Parameter 'annotation': Error while parsing to list; " \
+                  "mode '{}' is not supported. Allowed keys:\n{}"
+            raise ValueError(msg.format(mode, allowed))
+    return mode_list
 
 
 def _parse_tile_list(s):
@@ -291,7 +300,7 @@ def snap_conf(config):
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
-                        'EW': 20}[config['acq_mode']],
+                        'EW': 40}[config['acq_mode']],
             'allow_res_osv': True,
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',

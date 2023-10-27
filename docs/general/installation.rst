@@ -4,7 +4,7 @@ Installation
 SNAP
 ----
 
-S1_NRB requires ESA’s Sentinels Application Platform (SNAP) software to produce S1-NRB products.
+S1_NRB requires ESA's Sentinels Application Platform (SNAP) software for SAR data processing.
 Version 1.0.0 has been developed based on SNAP 8.
 SNAP 9 is supported since version 1.0.2.
 Downloaders for different operating systems can be obtained from the `official webpage <https://step.esa.int/main/download/snap-download/>`_.
@@ -21,6 +21,9 @@ The following code can be used to replicate the software installation on a Linux
     bash $INSTALLER -q -dir $TARGET
     $TARGET/bin/snap --nosplash --nogui --modules --update-all
 
+    # add SNAP location to the PATH environment variable in the .bashrc file
+    echo PATH=$PATH:$TARGET/snap/bin >> ~/.bashrc
+
 See also the web page on how to `update SNAP from the command line <https://senbox.atlassian.net/wiki/spaces/SNAP/pages/30539785/Update+SNAP+from+the+command+line>`_.
 
 Alternatively, updates for individual modules and versions can be downloaded in the `SNAP Update Center <https://step.esa.int/updatecenter/>`_.
@@ -30,7 +33,10 @@ S1_NRB
 ------
 
 The S1_NRB package is not yet available via conda-forge or other common package distribution channels. For now,
-the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed:
+the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed.
+
+Latest State on Github
+++++++++++++++++++++++
 
 1. Create and then activate the conda environment
 
@@ -41,11 +47,20 @@ the following shall provide a convenient installation option provided that Anaco
 
 2. Install the S1_NRB package into the environment
 
+::
+
+    pip install git+https://github.com/SAR-ARD/S1_NRB.git
+
+Specific Version
+++++++++++++++++
+
 The package version can be changed as necessary. See the `Tags <https://github.com/SAR-ARD/S1_NRB/tags>`_ section of the
 repository for available versions.
 
 ::
 
+    conda env create --file https://raw.githubusercontent.com/SAR-ARD/S1_NRB/v1.0.0/environment.yaml
+    conda activate nrb_env
     pip install git+https://github.com/SAR-ARD/S1_NRB.git@v1.0.0
 
 Docker

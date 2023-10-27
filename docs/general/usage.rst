@@ -1,6 +1,38 @@
 Usage
 =====
 
+This section outlines how to configure and run the processor. Configuration is most conveniently kept in a ``config.ini``
+configuration file but can also be modified via the command line.
+
+Two different types of product were intended when developing the processor, Normalised Radar Backscatter (NRB)
+and Ocean Radar Backscatter (ORB). However, the processor does not strictly separate between them and products can be created that
+conform to both types.
+
+To create an NRB product as defined by the CEOS ARD specification, the following configuration would be necessary:
+
+.. code-block:: ini
+
+    mode = sar, nrb
+    measurement = gamma
+    annotation = dm, ei, em, id, lc, li, np, ratio
+
+The generated backscatter is gamma nought RTC. Annotation layers are a data mask, ellipsoidal incident angle, elevation model,
+acquisition id mask, local contributing area, local incidence angle, noise power and a gamma-sigma ratio.
+
+For ORB, the following configuration is foreseen:
+
+.. code-block:: ini
+
+    mode = sar, orb
+    measurement = sigma
+    annotation = dm, em, id, lc, ld, li, np, wm
+
+Compared to NRB, the backscatter is now sigma nought RTC. The ellipsoidal incident angle is excluded because over ocean
+it is nearly identical to the local incident angle. Furthermore, the backscatter ratio is excluded as it is not seen as necessary.
+Two new annotation layers are added. A look direction angle and a wind model.
+
+See below for further details.
+
 Configuration
 -------------
 Usage of the S1_NRB package relies on a configuration file that needs to be set up by the user. The configuration
@@ -23,13 +55,20 @@ Processing Section
 ^^^^^^^^^^^^^^^^^^
 - **mode**
 
-Options: ``all | nrb | rtc``
+Options: ``sar | nrb | orb``
 
-This parameter determines if the entire processing chain should be executed or only part of it.
+This parameter determines what steps should be executed.
+``sar`` will only start SAR preprocessing, whereas ``nrb`` and ``orb`` will only start ARD generation from existing SAR 
+products preprocessed in ``sar``.
+By defining both ``sar`` and one of the ARD modes as list, both SAR preprocessing and ARD generation can be run together:
+
+.. code-block:: python
+
+    mode = sar, nrb
 
 - **aoi_tiles** & **aoi_geometry**
 
-The area of interest (AOI) for which S1-NRB products should be created.
+Limit processing to a specific area of interest (AOI).
 
 ``aoi_tiles`` can be used to define the area of interest via MGRS tile IDs, which must be provided comma-separated (e.g.,
 ``aoi_tiles = 32TNS, 32TMT, 32TMS``). ``aoi_geometry`` defines the area of interest via a full path to a vector file
@@ -40,10 +79,11 @@ If neither is defined, all tiles overlapping with the scene search result are pr
 
 - **mindate** & **maxdate**
 
-The time period to create S1-NRB products for.
+Search for source scenes within the defined date range.
 Allowed are all string representations that can be parsed by :meth:`dateutil.parser.parse`.
 
 - **date_strict**
+
 Treat dates as strict limits or also allow flexible limits to incorporate scenes
 whose acquisition period overlaps with the defined limit?
 
@@ -70,26 +110,27 @@ The product of the source scenes that should be processed.
 
 - **datatake**
 
-The datatake ID in hexadecimal representation, e.g. 04EBF7.
+The datatake ID of source scenes in hexadecimal representation, e.g. 04EBF7.
 
 - **work_dir**
 
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
 Needs to be provided as full path to an existing directory.
 
-- **rtc_dir**, **tmp_dir**, **nrb_dir**, **wbm_dir** & **log_dir**
+- **sar_dir**, **tmp_dir**, **ard_dir**, **wbm_dir** & **log_dir**
 
-Processing S1-NRB products creates many intermediate files that are expected to be stored in separate subdirectories. The
+Processing creates many intermediate files that are expected to be stored in separate subdirectories. The
 default values provided in the example configuration file linked above are recommended and will automatically create
-subdirectories relative to the directory specified with ``work_dir``. E.g., ``nrb_dir = NRB`` will create the subdirectory
-``/<work_dir>/NRB``. Optionally, full paths to existing directories can be provided for all of these parameters.
+subdirectories relative to the directory specified with ``work_dir``. E.g., ``ard_dir = ARD`` will create the subdirectory
+``/<work_dir>/ARD``. Optionally, full paths to existing directories can be provided for all of these parameters.
 
 - search option I: **scene_dir** & **db_file**
 
 Metadata of any Sentinel-1 scene found in ``scene_dir`` will be stored in an SQLite database file created by :class:`pyrosar.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
-``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1 scenes using the regex pattern ``'^S1[AB].*(SAFE|zip)$'``.
+``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1
+scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
 
 - search option II: **stac_catalog** & **stac_collections**
 
@@ -126,21 +167,35 @@ Temporarily changes GDAL_NUM_THREADS during processing. Will be reset after proc
 
 Options: ``gamma | sigma``
 
-The backscatter measurement convention. Either creates gamma naught RTC (:math:`\gamma^0_T`) or ellipsoidal sigma naught (:math:`\sigma^0_E`).
+The backscatter measurement convention. Either creates gamma naught RTC (:math:`\gamma^0_T`) or sigma naught RTC (:math:`\sigma^0_T`) backscatter.
 
 - **annotation**
 
-A comma-separated list to define the annotation layers to be created. Supported options:
+A comma-separated list to define the annotation layers to be created for each ARD product.
+Supported options:
 
  + dm: data mask (four masks: not layover not shadow, layover, shadow, ocean water)
  + ei: ellipsoidal incident angle (needed for computing geolocation accuracy)
  + em: digital elevation model
  + id: acquisition ID image (source scene ID per pixel)
  + lc: RTC local contributing area
+ + ld: range look direction angle
  + li: local incident angle
  + np: noise power (NESZ, per polarization)
- + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (ignored if ``measurement`` is not gamma)
- + sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal (ignored if ``measurement`` is not sigma)
+ + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
+
+   + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
+   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 RTC (if ``measurement = sigma``)
+
+ + wm: wind-modelled backscatter extracted from a Sentinel-1 OCN (ocean) product.
+   The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised
+   Radar Cross Section (NRCS) predicted using a CMOD model and ECMWF wind model data.
+   For each OCN product, a Level-1 counterpart (SLC/GRD) exists.
+   The OCN products and corresponding Level-1 products must be searchable in the same way
+   via the two search options described above.
+   If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`),
+   a co-polarization wind normalization ratio VRT is created by dividing the measurement by the
+   wind-modelled backscatter.
 
 Use one of the following to create no annotation layer:
 
@@ -158,21 +213,22 @@ Metadata Section
 ^^^^^^^^^^^^^^^^
 - **format**
 
-A comma-separated list to define the metadata file formats to be created. Supported options:
+A comma-separated list to define the metadata file formats to be created for each ARD product.
+Supported options:
 
  + OGC: XML file according to `OGC EO <https://docs.ogc.org/is/10-157r4/10-157r4.html>`_ standard
  + STAC: JSON file according to the `SpatioTemporal Asset Catalog <https://github.com/radiantearth/stac-spec/>`_ family of specifications
 
 - **copy_original**
 
-Copy the original metadata of the source scene(s)? This will copy the manifest.safe file and annotation folder into the
-S1-NRB product subdirectory: ``/source/<ProductIdentifier>``.
+Copy the original metadata of the source scene(s) into the ARD product directory?
+This will copy the manifest.safe file and annotation folder into the subdirectory: ``/source/<ProductIdentifier>``.
 
 - **access_url**, **licence**, **doi** & **processing_center**
 
-The metadata files created for each S1-NRB product contain some fields that should not be hidden away and hardcoded with
+The metadata files created for each ARD product contain some fields that should not be hidden away and hardcoded with
 arbitrary values. Instead, they can be accessed here in order to more easily generate a complete set of metadata. These
-fields are mostly relevant if you want to produce S1-NRB products systematically and make them available for others.
+fields are mostly relevant if you want to produce ARD products systematically and make them available for others.
 If you don't see a need for them you can just leave the fields empty, use the default 'None' or delete this entire section.
 
 Command Line Interface
@@ -212,3 +268,10 @@ override some parameters, e.g. ``acq_mode`` and ``annotation``:
 ::
 
     s1_nrb -c /path/to/config.ini --acq_mode IW --annotation dm,id
+
+The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
+In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
+
+::
+
+    s1_nrb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"

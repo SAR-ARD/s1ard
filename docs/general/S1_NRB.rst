@@ -46,7 +46,7 @@ SNAP Processing
 ---------------
 
 The central function for processing backscatter data with SNAP is :func:`S1_NRB.snap.process`. It will perform all necessary steps to
-generate radiometrically terrain corrected gamma naught backscatter plus all relevant additional datasets like
+generate radiometrically terrain corrected gamma/sigma naught backscatter plus all relevant additional datasets like
 local incident angle and local contribution area (see argument ``export_extra``).
 In a full processor run, the following functions are called in sequence:
 
@@ -72,22 +72,18 @@ The function :func:`S1_NRB.snap.find_datasets` can be used to collect the indivi
 
 Depending on the user configuration parameters ``measurement`` and ``annotation``, some modifications to the workflow above are possible:
 
-- :func:`S1_NRB.snap.pre` may only calibrate to sigma naught if no RTC is necessary (``measurement = sigma``)
-
-- execution of :func:`S1_NRB.snap.rtc` may be skipped
-
-- :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_E`)
+- :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_T`)
 
 NRB Formatting
 --------------
 
-During RTC processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
+During SAR processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
 If one tile overlaps with multiple scenes, these scenes are first virtually mosaiced using VRT files.
-The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB naming scheme.
+The files are then subsetted to the actual tile extent, converted to Cloud Optimized GeoTIFFs (COG), and renamed to the S1-NRB or S1-ORB naming scheme.
 All steps are performed by :func:`S1_NRB.nrb.format`.
 The actual file format conversion is done with :func:`spatialist.auxil.gdalwarp`, which is a simple wrapper around the gdalwarp utility of GDAL.
 The following is an incomplete code example highlighting the general procedure of converting the individual images.
-The ``outfile`` name is generated from information of the source images, the MGRS tile ID and the name of the respective file of the RTC processing step.
+The ``outfile`` name is generated from information of the source images, the MGRS tile ID and the name of the respective file of the SAR processing step.
 
 .. code-block:: python
 
