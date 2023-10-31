@@ -858,8 +858,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
                 {'arr_val': 1, 'name': 'layover'},
                 {'arr_val': 2, 'name': 'shadow'},
-                # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
-                {'arr_val': 4, 'name': 'ocean water'}]
+                {'arr_val': 3, 'name': 'water'}]
     
     if product_type == 'ORB':
         if wbm is None:
@@ -883,12 +882,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             proj = ras_ls.raster.GetProjection()
             arr_dm = ras_ls.array()
             
-            # Add Water Body Mask
+            # Get Water Body Mask
             if wbm is not None:
                 with Raster(wbm) as ras_wbm:
                     ras_wbm_cols = ras_wbm.cols
                     cols_ratio = ras_wbm_cols / cols
                     if cols_ratio > 1:
+                        # create low resolution VRT
                         res = int(ras_ls_res[0])
                         wbm_lowres = wbm.replace('.tif', f'_{res}m.vrt')
                         options = {'xRes': res, 'yRes': res,
@@ -898,23 +898,20 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                             arr_wbm = ras_wbm_lowres.array()
                     else:
                         arr_wbm = ras_wbm.array()
-                    out_arr = np.where((arr_wbm == 1), 4, arr_dm)
-                    del arr_wbm
             else:
-                out_arr = arr_dm
                 del dm_bands[3]
-            del arr_dm
             
-            # Extend the shadow class of the data mask with nodata values from backscatter data and create final array
+            # Extend the shadow class of the data mask with nodata values
+            # from backscatter data and create final array
             with Raster(vrt_valid)[tile_vec] as ras_valid:
                 with Raster(vrt_measurement)[tile_vec] as ras_measurement:
                     arr_valid = ras_valid.array()
                     arr_measurement = ras_measurement.array()
                     
-                    out_arr = np.nan_to_num(out_arr)
-                    out_arr = np.where(((arr_valid == 1) & (np.isnan(arr_measurement)) & (out_arr != 4)), 2,
-                                       out_arr)
-                    out_arr[np.isnan(arr_valid)] = dst_nodata
+                    arr_dm = np.nan_to_num(arr_dm)
+                    arr_dm = np.where(((arr_valid == 1) & (np.isnan(arr_measurement))),
+                                      2, arr_dm)
+                    arr_dm[np.isnan(arr_valid)] = dst_nodata
                     del arr_measurement
                     del arr_valid
         
@@ -932,13 +929,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             b_name = _dict['name']
             
             arr = np.full((rows, cols), 0)
-            arr[out_arr == dst_nodata] = dst_nodata
-            if arr_val in [0, 4]:
-                arr[out_arr == arr_val] = 1
-            elif arr_val in [1, 2]:
-                arr[(out_arr == arr_val) | (out_arr == 3)] = 1
-            elif arr_val == [0, 1, 2]:
-                arr[out_arr != 4] = 1
+            arr[arr_dm == dst_nodata] = dst_nodata
+            # not layover, nor shadow | layover | shadow
+            if arr_val in [0, 1, 2]:
+                arr[arr_dm == arr_val] = 1
+            # water
+            elif arr_val == 3:
+                arr = arr_wbm
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
