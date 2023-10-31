@@ -854,19 +854,16 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         else:
             return  # do not create a data mask if not all scenes have a layover-shadow mask
     print(outname)
-    if product_type == 'NRB':
-        dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
-                    {'arr_val': 1, 'name': 'layover'},
-                    {'arr_val': 2, 'name': 'shadow'},
-                    # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
-                    {'arr_val': 4, 'name': 'ocean water'}]
-    elif product_type == 'ORB':
+    
+    dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
+                {'arr_val': 1, 'name': 'layover'},
+                {'arr_val': 2, 'name': 'shadow'},
+                # {'arr_val': 3, 'name': 'layover and shadow'},  # just for context, not used as an individual band
+                {'arr_val': 4, 'name': 'ocean water'}]
+    
+    if product_type == 'ORB':
         if wbm is None:
             raise RuntimeError('Water body mask is required for ORB products')
-        dm_bands = [{'arr_val': [0, 1, 2], 'name': 'land'},
-                    {'arr_val': 4, 'name': 'ocean water'}]
-    else:
-        raise RuntimeError(f'Unknown product type: {product_type}')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
