@@ -845,4 +845,5 @@ def copy_src_meta(ard_dir, src_ids):
             shutil.copy(src=os.path.join(src_id.scene, 'manifest.safe'),
                         dst=os.path.join(pid_dir, 'manifest.safe'))
             shutil.copytree(src=os.path.join(src_id.scene, 'annotation'),
-                            dst=os.path.join(pid_dir, 'annotation'))
+                            dst=os.path.join(pid_dir, 'annotation'),
+                            dirs_exist_ok=True)
