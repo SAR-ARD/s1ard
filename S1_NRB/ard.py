@@ -74,7 +74,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         an optional list to select the annotation layers. Default `None`: create all layers if the
         source products contain the required input layers. Options:
         
-        - dm: data mask (four masks: not layover not shadow, layover, shadow, ocean water)
+        - dm: data mask (four masks: not layover not shadow, layover, shadow, water)
         - ei: ellipsoidal incident angle
         - em: digital elevation model
         - id: acquisition ID image (source scene ID per pixel)

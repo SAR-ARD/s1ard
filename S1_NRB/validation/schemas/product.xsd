@@ -213,7 +213,7 @@
                                     <attribute name="name" use="required">
                                         <simpleType>
                                             <restriction base="string">
-                                                <pattern value="not layover, nor shadow|layover|shadow|ocean water|S1.*_[0-9A-Z]{4}"/>
+                                                <pattern value="not layover, nor shadow|layover|shadow|water|S1.*_[0-9A-Z]{4}"/>
                                                 <whiteSpace value="preserve"/>
                                             </restriction>
                                         </simpleType>
