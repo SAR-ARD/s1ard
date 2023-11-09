@@ -238,7 +238,7 @@ def _parse_modes(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     mode_list = _parse_list(s)
-    allowed = ['sar', 'ard', 'orb']
+    allowed = ['sar', 'nrb', 'orb']
     for mode in mode_list:
         if mode not in allowed:
             msg = "Parameter 'annotation': Error while parsing to list; " \
