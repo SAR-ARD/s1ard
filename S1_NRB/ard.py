@@ -858,7 +858,9 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
                 {'arr_val': 1, 'name': 'layover'},
                 {'arr_val': 2, 'name': 'shadow'},
-                {'arr_val': 3, 'name': 'water'}]
+                {'arr_val': 3, 'name': 'ocean'},
+                {'arr_val': 4, 'name': 'lakes'},
+                {'arr_val': 5, 'name': 'rivers'}]
     
     if product_type == 'ORB':
         if wbm is None:
@@ -899,7 +901,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     else:
                         arr_wbm = ras_wbm.array()
             else:
-                del dm_bands[3]
+                del dm_bands[3], dm_bands[4], dm_bands[5]
             
             # Extend the shadow class of the data mask with nodata values
             # from backscatter data and create final array
@@ -928,14 +930,20 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             arr_val = _dict['arr_val']
             b_name = _dict['name']
             
-            arr = np.full((rows, cols), 0)
-            arr[arr_dm == dst_nodata] = dst_nodata
             # not layover, nor shadow | layover | shadow
             if arr_val in [0, 1, 2]:
-                arr[arr_dm == arr_val] = 1
-            # water
+                arr = arr_dm == arr_val
+            # ocean
             elif arr_val == 3:
-                arr = arr_wbm
+                arr = arr_wbm == 1
+            # lakes
+            elif arr_val == 4:
+                arr = arr_wbm == 2
+            # rivers
+            elif arr_val == 5:
+                arr = arr_wbm == 3
+            else:
+                raise ValueError('unknown array value')
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
