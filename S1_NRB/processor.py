@@ -139,12 +139,24 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     
     # OCN scene selection
     if 'wm' in config['annotation']:
-        basenames = [x.outname_base() for x in scenes]
-        scenes_ocn = archive.select(product='OCN', outname_base=basenames)
-        if len(scenes_ocn) != len(scenes):
-            print('could not find an OCN product for each selected Level-1 product')
-            archive.close()
-            return
+        scenes_ocn = []
+        for scene in scenes:
+            start = datetime.strptime(scene.start, '%Y%m%dT%H%M%S')
+            start -= timedelta(seconds=2)
+            stop = datetime.strptime(scene.stop, '%Y%m%dT%H%M%S')
+            stop += timedelta(seconds=2)
+            result = archive.select(product='OCN', mindate=start,
+                                    maxdate=stop, date_strict=True)
+            if len(result) == 1:
+                scenes_ocn.append(result[0])
+            else:
+                if len(result) == 0:
+                    print('could not find an OCN product for scene', scene.scene)
+                else:
+                    print('found multiple OCN products for scene', scene.scene)
+                    print('\n'.join(result))
+                archive.close()
+                return
         scenes_ocn = identify_many(scenes_ocn)
     else:
         scenes_ocn = []
