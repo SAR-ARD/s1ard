@@ -1,6 +1,21 @@
 Changelog
 =========
 
+1.6.0 | 2023-11-15
+------------------
+
+* central documentation literature management (`#151 <https://github.com/SAR-ARD/S1_NRB/pull/151>`_)
+* Use the official Continuum Docker base image (`#152 <https://github.com/SAR-ARD/S1_NRB/pull/152>`_)
+* re-introduce recently lost radiometric terrain correction (`#154 <https://github.com/SAR-ARD/S1_NRB/pull/154>`_)
+* strip line breaks from all parameters passed via the command line (`#155 <https://github.com/SAR-ARD/S1_NRB/pull/155>`_)
+* increase OCN gap fill distance (`#156 <https://github.com/SAR-ARD/S1_NRB/pull/156>`_)
+* data mask modifications (`#157 <https://github.com/SAR-ARD/S1_NRB/pull/157>`_)
+* [config] corrected list of allowed modes (`#158 <https://github.com/SAR-ARD/S1_NRB/pull/158>`_)
+* search OCN scenes by buffered start and stop time (`#160 <https://github.com/SAR-ARD/S1_NRB/pull/160>`_)
+* separate ocean, rivers and lakes into separate data mask bands (`#161 <https://github.com/SAR-ARD/S1_NRB/pull/161>`_)
+
+`Full v1.6.0 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.5.0...v1.6.0>`_
+
 1.5.0 | 2023-10-12
 ------------------
 
