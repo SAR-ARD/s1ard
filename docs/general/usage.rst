@@ -174,7 +174,7 @@ The backscatter measurement convention. Either creates gamma naught RTC (:math:`
 A comma-separated list to define the annotation layers to be created for each ARD product.
 Supported options:
 
- + dm: data mask (four masks: not layover not shadow, layover, shadow, water)
+ + dm: data mask (six masks: not layover not shadow, layover, shadow, ocean, lakes, rivers)
  + ei: ellipsoidal incident angle (needed for computing geolocation accuracy)
  + em: digital elevation model
  + id: acquisition ID image (source scene ID per pixel)
