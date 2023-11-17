@@ -62,7 +62,7 @@ SNAP
         postprocess
         nrt_slice_num
 
-NRB
+ARD
 ^^^
 
 .. automodule:: S1_NRB.ard
