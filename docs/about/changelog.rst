@@ -1,6 +1,13 @@
 Changelog
 =========
 
+1.6.1 | 2023-11-17
+------------------
+
+* use relative paths in wind normalization VRT (`#163 <https://github.com/SAR-ARD/S1_NRB/pull/163>`_)
+
+`Full v1.6.1 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.6.0...v1.6.1>`_
+
 1.6.0 | 2023-11-15
 ------------------
 
