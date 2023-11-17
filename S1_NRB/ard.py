@@ -1107,4 +1107,4 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
             with Raster(measurement) as ras:
                 xres, yres = ras.res
             create_vrt(src=[measurement, dst_wm], dst=dst_wn, fun='div',
-                       options={'xRes': xres, 'yRes': yres})
+                       options={'xRes': xres, 'yRes': yres}, relpaths=True)
