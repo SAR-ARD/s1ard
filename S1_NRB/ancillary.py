@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import logging
 import binascii
@@ -11,110 +10,6 @@ from spatialist.vector import bbox, intersect
 import pyroSAR
 from pyroSAR import examine, identify_many
 import S1_NRB
-from .archive import asf_select
-
-
-def check_acquisition_completeness(scenes, archive):
-    """
-    Check presence of neighboring acquisitions.
-    Check that for each scene a predecessor and successor can be queried
-    from the database unless the scene is at the start or end of the data take.
-    This ensures that no scene that could be covering an area of interest is missed
-    during processing. In case a scene is suspected to be missing, the Alaska Satellite Facility (ASF)
-    online catalog is cross-checked.
-    An error will only be raised if the locally missing scene is present in the ASF catalog.
-    
-    Parameters
-    ----------
-    scenes: list[pyroSAR.drivers.ID]
-        a list of scenes
-    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
-        an open scene archive connection
-
-    Returns
-    -------
-    
-    Raises
-    ------
-    RuntimeError
-    
-    See Also
-    --------
-    S1_NRB.archive.asf_select
-    """
-    messages = []
-    for scene in scenes:
-        slice = scene.meta['sliceNumber']
-        n_slices = scene.meta['totalSlices']
-        groupsize = 3
-        has_successor = True
-        has_predecessor = True
-        
-        f = '%Y%m%dT%H%M%S'
-        td = timedelta(seconds=2)
-        start = datetime.strptime(scene.start, f) - td
-        start = datetime.strftime(start, f)
-        stop = datetime.strptime(scene.stop, f) + td
-        stop = datetime.strftime(stop, f)
-        ref = None
-        if slice == 0 or n_slices == 0:
-            # NRT slicing mode
-            ref = asf_select(sensor=scene.sensor,
-                             product=scene.product,
-                             acquisition_mode=scene.acquisition_mode,
-                             mindate=start,
-                             maxdate=stop)
-            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
-            ref_start_min = min([x['start'] for x in match])
-            ref_stop_max = max([x['stop'] for x in match])
-            if ref_start_min == scene.start:
-                groupsize -= 1
-                has_predecessor = False
-            if ref_stop_max == scene.stop:
-                groupsize -= 1
-                has_successor = False
-        else:
-            if slice == 1:  # first slice in the data take
-                groupsize -= 1
-                has_predecessor = False
-            if slice == n_slices:  # last slice in the data take
-                groupsize -= 1
-                has_successor = False
-        # Do another database selection to get the scene in question as well as its potential
-        # predecessor and successor by adding an acquisition time buffer of two seconds.
-        group = archive.select(sensor=scene.sensor,
-                               product=scene.product,
-                               acquisition_mode=scene.acquisition_mode,
-                               mindate=start,
-                               maxdate=stop,
-                               date_strict=False)
-        group = identify_many(group)
-        # if the number of selected scenes is lower than the expected group size,
-        # check whether the predecessor, the successor or both are missing by
-        # cross-checking with the ASF database.
-        if len(group) < groupsize:
-            if ref is None:
-                ref = asf_select(sensor=scene.sensor,
-                                 product=scene.product,
-                                 acquisition_mode=scene.acquisition_mode,
-                                 mindate=start,
-                                 maxdate=stop)
-            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
-            ref_start_min = min([x['start'] for x in match])
-            ref_stop_max = max([x['stop'] for x in match])
-            start_min = min([x.start for x in group])
-            stop_max = max([x.stop for x in group])
-            missing = []
-            if ref_start_min < start < start_min and has_predecessor:
-                missing.append('predecessor')
-            if stop_max < stop < ref_stop_max and has_successor:
-                missing.append('successor')
-            if len(missing) > 0:
-                base = os.path.basename(scene.scene)
-                messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
-    if len(messages) != 0:
-        text = '\n - '.join(messages)
-        raise RuntimeError(f'missing the following scenes:\n - {text}')
 
 
 def check_scene_consistency(scenes):
@@ -478,3 +373,29 @@ def buffer_min_overlap(geom1, geom2, percent=1):
                 overlap = inter_area / geom2_area * 100
         buffer += 1
     return bbox(ext3, 4326)
+
+
+def buffer_time(start, stop, **kwargs):
+    """
+    Time range buffering
+    
+    Parameters
+    ----------
+    start: str
+        the start time in format '%Y%m%dT%H%M%S'
+    stop: str
+        the stop time in format '%Y%m%dT%H%M%S'
+    kwargs
+        time arguments passed to :func:`datetime.timedelta`
+
+    Returns
+    -------
+
+    """
+    f = '%Y%m%dT%H%M%S'
+    td = timedelta(**kwargs)
+    start = datetime.strptime(start, f) - td
+    start = datetime.strftime(start, f)
+    stop = datetime.strptime(stop, f) + td
+    stop = datetime.strftime(stop, f)
+    return start, stop

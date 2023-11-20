@@ -3,11 +3,14 @@ import re
 import time
 from lxml import etree
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from pystac_client import Client
 import pystac_client.exceptions
 from spatialist import Vector
 import asf_search as asf
+from pyroSAR import identify_many
+from S1_NRB.ancillary import buffer_time
+from S1_NRB.tile_extraction import aoi_from_tile, tile_from_aoi
 
 
 class STACArchive(object):
@@ -284,3 +287,197 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
                         end=end).geojson()
     scenes = sorted([x['properties']['sceneName'] for x in result['features']])
     return scenes
+
+
+def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs):
+    """
+    
+    Parameters
+    ----------
+    archive: pyroSAR.drivers.Archive or STACArchive
+    kml_file: str
+    aoi_tiles: list[str] or None
+    aoi_geometry: list[str] or None
+    kwargs
+        further search arguments passed to :meth:`pyroSAR.drivers.Archive.select` or :meth:`STACArchive.select`
+
+    Returns
+    -------
+    tuple[list[str], list[str]]
+    
+     - the list of scenes
+     - the list of MGRS tiles
+    
+    """
+    args = kwargs.copy()
+    for key in ['acquisition_mode']:
+        if key not in args.keys():
+            args[key] = None
+    
+    if args['acquisition_mode'] == 'SM':
+        args['acquisition_mode'] = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
+    
+    vec = None
+    selection = []
+    if aoi_tiles is not None:
+        vec = aoi_from_tile(kml=kml_file, tile=aoi_tiles)
+        if not isinstance(vec, list):
+            vec = [vec]
+    elif aoi_geometry is not None:
+        vec = [Vector(aoi_geometry)]
+        aoi_tiles = tile_from_aoi(vector=vec[0], kml=kml_file)
+    
+    # derive geometries and tiles from scene footprints
+    if vec is None:
+        selection_tmp = archive.select(vectorobject=vec, **args)
+        scenes = identify_many(scenes=selection_tmp, sortkey='start')
+        scenes_geom = [x.geometry() for x in scenes]
+        # select all tiles overlapping with the scenes for further processing
+        vec = tile_from_aoi(vector=scenes_geom, kml=kml_file,
+                            return_geometries=True)
+        aoi_tiles = [x.mgrs for x in vec]
+        del scenes_geom
+        
+        if args['mindate'] is None:
+            args['mindate'] = scenes[0].start
+        if isinstance(args['mindate'], str):
+            args['mindate'] = datetime.strptime(args['mindate'], '%Y%m%dT%H%M%S')
+        if args['maxdate'] is None:
+            args['maxdate'] = scenes[-1].stop
+        if isinstance(args['maxdate'], str):
+            args['maxdate'] = datetime.strptime(args['maxdate'], '%Y%m%dT%H%M%S')
+        del scenes
+        # extend the time range to fully cover all tiles
+        # (one additional scene needed before and after each data take group)
+        args['mindate'] -= timedelta(minutes=1)
+        args['maxdate'] += timedelta(minutes=1)
+    
+    for item in vec:
+        selection.extend(
+            archive.select(vectorobject=item, **args))
+    del vec
+    return list(set(selection)), aoi_tiles
+
+
+def collect_neighbors(archive, scene):
+    """
+    Collect neighboring acquisitions in a Sentinel-1 data take
+    
+    Parameters
+    ----------
+    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
+        an open scene archive connection
+    scene: pyroSAR.drivers.ID
+        the Sentinel-1 scene to be checked
+
+    Returns
+    -------
+    list[str]
+        the file names of the neighboring scenes
+    """
+    start, stop = buffer_time(scene.start, scene.stop, seconds=2)
+    
+    neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
+                               sensor=scene.sensor, product=scene.product,
+                               acquisition_mode=scene.acquisition_mode)
+    archive.close()
+    del neighbors[neighbors.index(scene.scene)]
+    return neighbors
+
+
+def check_acquisition_completeness(archive, scenes):
+    """
+    Check presence of neighboring acquisitions.
+    Check that for each scene a predecessor and successor can be queried
+    from the database unless the scene is at the start or end of the data take.
+    This ensures that no scene that could be covering an area of interest is missed
+    during processing. In case a scene is suspected to be missing, the Alaska Satellite Facility (ASF)
+    online catalog is cross-checked.
+    An error will only be raised if the locally missing scene is present in the ASF catalog.
+
+    Parameters
+    ----------
+    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
+        an open scene archive connection
+    scenes: list[pyroSAR.drivers.ID]
+        a list of scenes
+
+    Returns
+    -------
+
+    Raises
+    ------
+    RuntimeError
+
+    See Also
+    --------
+    S1_NRB.archive.asf_select
+    """
+    messages = []
+    for scene in scenes:
+        slice = scene.meta['sliceNumber']
+        n_slices = scene.meta['totalSlices']
+        groupsize = 3
+        has_successor = True
+        has_predecessor = True
+        
+        start, stop = buffer_time(scene.start, scene.stop, seconds=2)
+        ref = None
+        if slice == 0 or n_slices == 0:
+            # NRT slicing mode
+            ref = asf_select(sensor=scene.sensor,
+                             product=scene.product,
+                             acquisition_mode=scene.acquisition_mode,
+                             mindate=start,
+                             maxdate=stop)
+            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+            ref_start_min = min([x['start'] for x in match])
+            ref_stop_max = max([x['stop'] for x in match])
+            if ref_start_min == scene.start:
+                groupsize -= 1
+                has_predecessor = False
+            if ref_stop_max == scene.stop:
+                groupsize -= 1
+                has_successor = False
+        else:
+            if slice == 1:  # first slice in the data take
+                groupsize -= 1
+                has_predecessor = False
+            if slice == n_slices:  # last slice in the data take
+                groupsize -= 1
+                has_successor = False
+        # Do another database selection to get the scene in question as well as its potential
+        # predecessor and successor by adding an acquisition time buffer of two seconds.
+        group = archive.select(sensor=scene.sensor,
+                               product=scene.product,
+                               acquisition_mode=scene.acquisition_mode,
+                               mindate=start,
+                               maxdate=stop,
+                               date_strict=False)
+        group = identify_many(group)
+        # if the number of selected scenes is lower than the expected group size,
+        # check whether the predecessor, the successor or both are missing by
+        # cross-checking with the ASF database.
+        if len(group) < groupsize:
+            if ref is None:
+                ref = asf_select(sensor=scene.sensor,
+                                 product=scene.product,
+                                 acquisition_mode=scene.acquisition_mode,
+                                 mindate=start,
+                                 maxdate=stop)
+            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+            ref_start_min = min([x['start'] for x in match])
+            ref_stop_max = max([x['stop'] for x in match])
+            start_min = min([x.start for x in group])
+            stop_max = max([x.stop for x in group])
+            missing = []
+            if ref_start_min < start < start_min and has_predecessor:
+                missing.append('predecessor')
+            if stop_max < stop < ref_stop_max and has_successor:
+                missing.append('successor')
+            if len(missing) > 0:
+                base = os.path.basename(scene.scene)
+                messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
+    if len(messages) != 0:
+        text = '\n - '.join(messages)
+        raise RuntimeError(f'missing the following scenes:\n - {text}')

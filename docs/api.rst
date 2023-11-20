@@ -164,7 +164,7 @@ Ancillary Functions
 Scene Search
 ------------
 
-.. automodule:: S1_NRB.archive
+.. automodule:: S1_NRB.search
     :members:
     :undoc-members:
     :show-inheritance:
