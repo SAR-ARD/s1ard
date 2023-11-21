@@ -256,7 +256,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
-        meta['source'][uid]['access'] = 'https://scihub.copernicus.eu'
+        meta['source'][uid]['access'] = 'https://dataspace.copernicus.eu'
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
         meta['source'][uid]['ascendingNodeDate'] = _read_manifest('.//s1:ascendingNodeTime')
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
