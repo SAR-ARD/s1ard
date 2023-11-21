@@ -22,7 +22,8 @@ from S1_NRB import snap
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type,
+              wm_ref_files=None):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
@@ -48,6 +49,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         The compression type applied to raster files of the product.
     product_type: str
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
+    wm_ref_files: list[str], optional
+        A list of paths pointing to wind model reference files. Default is None.
     
     Returns
     -------
