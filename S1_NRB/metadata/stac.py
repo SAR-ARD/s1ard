@@ -368,7 +368,7 @@ def product_json(meta, target, assets, exist_ok=False):
                                        target=meta['prod']['RTCAlgorithm'],
                                        title='Reference to the Radiometric Terrain Correction algorithm details.'))
     if meta['prod']['windNormReferenceModel'] is not None:
-        item.add_link(link=pystac.Link(rel='wind-norm-reference-model',
+        item.add_link(link=pystac.Link(rel='wind-norm-reference',
                                        target=meta['prod']['windNormReferenceModel'],
                                        title='Reference to the model used to create the wind normalisation layer.'))
     item.add_link(link=pystac.Link(rel='radiometric-accuracy',
