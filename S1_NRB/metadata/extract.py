@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import zipfile
+import tempfile
 import math
 from statistics import mean
 import json
@@ -10,6 +11,7 @@ from datetime import datetime
 import numpy as np
 from statistics import median
 from spatialist import Raster
+from spatialist.auxil import gdalwarp
 from spatialist.ancillary import finder, dissolve
 from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
@@ -752,6 +754,54 @@ def calc_pslr_islr(annotation_dict, decimals=2):
     pslr = np.round(np.nanmean(list(pslr_mean.values())), decimals)
     islr = np.round(np.nanmean(list(islr_mean.values())), decimals)
     return pslr, islr
+
+
+def calc_wm_ref_stats(wm_ref_files, epsg, bounds):
+    """
+    Calculates the mean wind model reference speed and direction for the wind model annotation layer.
+    
+    Parameters
+    ----------
+    wm_ref_files: list[str]
+        List of paths pointing to the wind model reference files.
+    epsg: int
+        The EPSG code of the current MGRS tile.
+    bounds: list[float]
+        The bounds of the current MGRS tile.
+    
+    Returns
+    -------
+    tuple[float]
+        a tuple with the following values:
+        
+        - ref_speed_mean: Mean wind model reference speed.
+        - ref_direction_mean: Mean wind model reference direction.
+    """
+    files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
+    files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
+    
+    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif').name
+    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif').name
+    
+    gdalwarp(src=files_speed, dst=ref_speed,
+             outputBounds=bounds,
+             dstSRS=f'EPSG:{epsg}',
+             xRes=915, yRes=915,
+             resampleAlg='bilinear')
+    gdalwarp(src=files_direction, dst=ref_direction,
+             outputBounds=bounds,
+             dstSRS=f'EPSG:{epsg}',
+             xRes=915, yRes=915,
+             resampleAlg='bilinear')
+    
+    with Raster(ref_speed) as ras:
+        ref_speed_arr = ras.array()
+        ref_speed_mean = round(np.nanmean(ref_speed_arr), 2)
+    with Raster(ref_direction) as ras:
+        ref_direction_arr = ras.array()
+        ref_direction_mean = round(np.nanmean(ref_direction_arr), 2)
+    
+    return ref_speed_mean, ref_direction_mean
 
 
 def get_header_size(tif):
