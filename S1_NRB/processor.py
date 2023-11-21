@@ -288,10 +288,10 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         basename = os.path.basename(scene.scene).replace('.SAFE', '')
         outdir = os.path.join(config['sar_dir'], basename)
         os.makedirs(outdir, exist_ok=True)
-        out = os.path.join(outdir, 'owiNrcsCmod.tif')
-        if not os.path.isfile(out):
-            ocn.extract(src=scene.scene, dst=out,
-                        variable='owiNrcsCmod')
+        for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
+            out = os.path.join(outdir, f'{v}.tif')
+            if not os.path.isfile(out):
+                ocn.extract(src=scene.scene, dst=out, variable=v)
     ####################################################################################################################
     # ARD - final product generation
     if nrb_flag or orb_flag:
