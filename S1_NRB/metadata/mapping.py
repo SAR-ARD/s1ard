@@ -248,7 +248,7 @@ ASSET_MAP = {'-dm.tif': {'type': 'Mask',
                          'unit': None,
                          'role': 'sigma-gamma-ratio',
                          'title': 'Sigma0 RTC to gamma0 RTC ratio'},
-             '-wm.tif': {'type': 'wind-modelled-backscatter',
+             '-wm.tif': {'type': 'Sigma-0',
                          'unit': None,
                          'role': 'wind-modelled-backscatter',
                          'title': 'wind-modelled backscatter (OCN CMOD NRCS)'}}
