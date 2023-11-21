@@ -201,7 +201,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
         meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
         meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
-        meta['prod']['windNormReferenceModel'] = "https://scatterometer.knmi.nl/cmod7"
+        meta['prod']['windNormReferenceModel'] = "https://www.ecmwf.int/sites/default/files/3.1.pdf"
         meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
         meta['prod']['windNormReferenceType'] = 'sigma0-ref'
     else:
