@@ -194,6 +194,23 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['timeStart'] = start
     meta['prod']['timeStop'] = stop
     meta['prod']['transform'] = prod_meta['transform']
+    if wm_ref_files is not None:
+        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_files=wm_ref_files,
+                                                               epsg=prod_meta['epsg'],
+                                                               bounds=prod_meta['geom']['bbox_native'])
+        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
+        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
+        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
+        meta['prod']['windNormReferenceModel'] = "https://scatterometer.knmi.nl/cmod7"
+        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
+        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
+    else:
+        meta['prod']['windNormBackscatterMeasurement'] = None
+        meta['prod']['windNormBackscatterConvention'] = None
+        meta['prod']['windNormReferenceDirection'] = None
+        meta['prod']['windNormReferenceModel'] = None
+        meta['prod']['windNormReferenceSpeed'] = None
+        meta['prod']['windNormReferenceType'] = None
     
     # SOURCE metadata
     for uid in list(src_sid.keys()):
