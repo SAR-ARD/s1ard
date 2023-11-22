@@ -773,7 +773,7 @@ def calc_pslr_islr(annotation_dict, decimals=2):
     return pslr, islr
 
 
-def calc_wm_ref_stats(wm_ref_files, epsg, bounds):
+def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
     """
     Calculates the mean wind model reference speed and direction for the wind model annotation layer.
     
@@ -785,14 +785,16 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds):
         The EPSG code of the current MGRS tile.
     bounds: list[float]
         The bounds of the current MGRS tile.
+    resolution: int, optional
+        The resolution of the wind model reference files in meters. Default is 915.
     
     Returns
     -------
     tuple[float]
-        a tuple with the following values:
+        a tuple with the following values in the following order:
         
-        - ref_speed_mean: Mean wind model reference speed.
-        - ref_direction_mean: Mean wind model reference direction.
+        - Mean wind model reference speed.
+        - Mean wind model reference direction.
     """
     files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
     files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
@@ -800,25 +802,18 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds):
     ref_speed = tempfile.NamedTemporaryFile(suffix='.tif').name
     ref_direction = tempfile.NamedTemporaryFile(suffix='.tif').name
     
-    gdalwarp(src=files_speed, dst=ref_speed,
-             outputBounds=bounds,
-             dstSRS=f'EPSG:{epsg}',
-             xRes=915, yRes=915,
-             resampleAlg='bilinear')
-    gdalwarp(src=files_direction, dst=ref_direction,
-             outputBounds=bounds,
-             dstSRS=f'EPSG:{epsg}',
-             xRes=915, yRes=915,
-             resampleAlg='bilinear')
+    out = []
+    for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):
+        gdalwarp(src=src, dst=dst,
+                 outputBounds=bounds,
+                 dstSRS=f'EPSG:{epsg}',
+                 xRes=resolution, yRes=resolution,
+                 resampleAlg='bilinear')
+        with Raster(dst) as ras:
+            arr = ras.array()
+            out.append(round(np.nanmean(arr), 2))
     
-    with Raster(ref_speed) as ras:
-        ref_speed_arr = ras.array()
-        ref_speed_mean = round(np.nanmean(ref_speed_arr), 2)
-    with Raster(ref_direction) as ras:
-        ref_direction_arr = ras.array()
-        ref_direction_mean = round(np.nanmean(ref_direction_arr), 2)
-    
-    return ref_speed_mean, ref_direction_mean
+    return tuple(out)
 
 
 def get_header_size(tif):
