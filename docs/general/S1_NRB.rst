@@ -1,5 +1,5 @@
-S1-NRB Production
-=================
+ARD Production
+==============
 
 The following sections give a brief overview of the major components of creating a S1-NRB product.
 All steps are comprised in function :func:`S1_NRB.processor.main`.
@@ -74,7 +74,7 @@ Depending on the user configuration parameters ``measurement`` and ``annotation`
 
 - :func:`S1_NRB.snap.gsr` may be replaced by :func:`S1_NRB.snap.sgr` to create a sigma-gamma ratio (:math:`\gamma^0_T / \sigma^0_T`)
 
-NRB Formatting
+ARD Formatting
 --------------
 
 During SAR processing, files covering a whole scene are created. In this last step, the scene-based structure is converted to the MGRS tile structure.
