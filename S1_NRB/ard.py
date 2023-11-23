@@ -745,9 +745,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     Returns
     -------
     tuple[str]
-    
-    - Start time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
-    - Stop time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
+        Start and stop time of the ARD product formatted as `YYYYmmddTHHMMSS` in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
