@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import zipfile
+import tempfile
 import math
 from statistics import mean
 import json
@@ -10,6 +11,7 @@ from datetime import datetime
 import numpy as np
 from statistics import median
 from spatialist import Raster
+from spatialist.auxil import gdalwarp
 from spatialist.ancillary import finder, dissolve
 from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
@@ -22,7 +24,8 @@ from S1_NRB import snap
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type,
+              wm_ref_files=None):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
@@ -48,6 +51,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
         The compression type applied to raster files of the product.
     product_type: str
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
+    wm_ref_files: list[str], optional
+        A list of paths pointing to wind model reference files. Default is None.
     
     Returns
     -------
@@ -189,6 +194,23 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['timeStart'] = start
     meta['prod']['timeStop'] = stop
     meta['prod']['transform'] = prod_meta['transform']
+    if wm_ref_files is not None:
+        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_files=wm_ref_files,
+                                                               epsg=prod_meta['epsg'],
+                                                               bounds=prod_meta['geom']['bbox_native'])
+        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
+        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
+        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
+        meta['prod']['windNormReferenceModel'] = "https://www.ecmwf.int/sites/default/files/3.1.pdf"
+        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
+        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
+    else:
+        meta['prod']['windNormBackscatterMeasurement'] = None
+        meta['prod']['windNormBackscatterConvention'] = None
+        meta['prod']['windNormReferenceDirection'] = None
+        meta['prod']['windNormReferenceModel'] = None
+        meta['prod']['windNormReferenceSpeed'] = None
+        meta['prod']['windNormReferenceType'] = None
     
     # SOURCE metadata
     for uid in list(src_sid.keys()):
@@ -749,6 +771,51 @@ def calc_pslr_islr(annotation_dict, decimals=2):
     pslr = np.round(np.nanmean(list(pslr_mean.values())), decimals)
     islr = np.round(np.nanmean(list(islr_mean.values())), decimals)
     return pslr, islr
+
+
+def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
+    """
+    Calculates the mean wind model reference speed and direction for the wind model annotation layer.
+    
+    Parameters
+    ----------
+    wm_ref_files: list[str]
+        List of paths pointing to the wind model reference files.
+    epsg: int
+        The EPSG code of the current MGRS tile.
+    bounds: list[float]
+        The bounds of the current MGRS tile.
+    resolution: int, optional
+        The resolution of the wind model reference files in meters. Default is 915.
+    
+    Returns
+    -------
+    tuple[float]
+        a tuple with the following values in the following order:
+        
+        - Mean wind model reference speed.
+        - Mean wind model reference direction.
+    """
+    files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
+    files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
+    
+    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif')
+    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif')
+    
+    out = []
+    for src, dst in zip([files_speed, files_direction], [ref_speed.name, ref_direction.name]):
+        gdalwarp(src=src, dst=dst,
+                 outputBounds=bounds,
+                 dstSRS=f'EPSG:{epsg}',
+                 xRes=resolution, yRes=resolution,
+                 resampleAlg='bilinear')
+        with Raster(dst) as ras:
+            arr = ras.array()
+            out.append(round(np.nanmean(arr), 2))
+    
+    ref_speed.close()
+    ref_direction.close()
+    return tuple(out)
 
 
 def get_header_size(tif):
