@@ -1,6 +1,19 @@
 Changelog
 =========
 
+1.6.2 | 2023-11-23
+------------------
+
+* Update metadata links (`#165 <https://github.com/SAR-ARD/S1_NRB/pull/165>`_)
+* Fix missing datamask layers in metadata (`#164 <https://github.com/SAR-ARD/S1_NRB/pull/164>`_)
+* Add wind normalisation metadata fields (`#166 <https://github.com/SAR-ARD/S1_NRB/pull/166>`_)
+* documentation updates (`#167 <https://github.com/SAR-ARD/S1_NRB/pull/167>`_)
+* [metadata.xml.product_xml] add geo acc. reference only if performed (`#168 <https://github.com/SAR-ARD/S1_NRB/pull/168>`_)
+* require pyroSAR>=0.23.0 (`#169 <https://github.com/SAR-ARD/S1_NRB/pull/169>`_)
+
+
+`Full v1.6.2 Changelog <https://github.com/SAR-ARD/S1_NRB/compare/v1.6.1...v1.6.2>`_
+
 1.6.1 | 2023-11-17
 ------------------
 
