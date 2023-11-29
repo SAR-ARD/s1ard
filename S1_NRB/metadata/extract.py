@@ -799,11 +799,11 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
     files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
     files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
     
-    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif')
-    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif')
+    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
+    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
     
     out = []
-    for src, dst in zip([files_speed, files_direction], [ref_speed.name, ref_direction.name]):
+    for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):
         gdalwarp(src=src, dst=dst,
                  outputBounds=bounds,
                  dstSRS=f'EPSG:{epsg}',
@@ -812,9 +812,8 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
         with Raster(dst) as ras:
             arr = ras.array()
             out.append(round(np.nanmean(arr), 2))
+        os.remove(dst)
     
-    ref_speed.close()
-    ref_direction.close()
     return tuple(out)
 
 
