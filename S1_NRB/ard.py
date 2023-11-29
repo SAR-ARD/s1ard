@@ -341,11 +341,16 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
+    wm_ref_files = None
     if 'wm' in annotation:
         wm = []
+        wm_ref_files = []
         for i, ds in enumerate(datasets_sar):
             if 'wm' in ds.keys():
                 wm.append(ds['wm'])
+                for key in ['wm_ref_speed', 'wm_ref_direction']:
+                    if key in ds.keys():
+                        wm_ref_files.append(ds[key])
             else:
                 scene_base = os.path.basename(src_ids[i].scene)
                 raise RuntimeError(f'could not find wind model product for scene {scene_base}')
@@ -386,7 +391,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     stop = datetime.strptime(ard_stop, '%Y%m%dT%H%M%S')
     meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
                              proc_time=proc_time, start=start, stop=stop, compression=compress,
-                             product_type=product_type)
+                             product_type=product_type, wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['meta']['copy_original']:
@@ -454,10 +459,15 @@ def get_datasets(scenes, datadir, extent, epsg):
             ocn = ''.join(ocn_list)
             ocn_match = finder(target=datadir, matchlist=[ocn], regex=True, foldermode=2)
             if len(ocn_match) > 0:
-                cmod = os.path.join(ocn_match[0], 'owiNrcsCmod.tif')
-                if os.path.isfile(cmod):
-                    files['wm'] = cmod
-            
+                for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
+                    ocn_tif = os.path.join(ocn_match[0], f'{v}.tif')
+                    if os.path.isfile(ocn_tif):
+                        if v.endswith('Speed'):
+                            files['wm_ref_speed'] = ocn_tif
+                        elif v.endswith('Direction'):
+                            files['wm_ref_direction'] = ocn_tif
+                        else:
+                            files['wm'] = ocn_tif
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
@@ -735,9 +745,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     Returns
     -------
     tuple[str]
-    
-    - Start time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
-    - Stop time of the ARD product formatted as `%Y%m%dT%H%M%S` in UTC.
+        Start and stop time of the ARD product formatted as `YYYYmmddTHHMMSS` in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)

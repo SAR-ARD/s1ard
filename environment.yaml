@@ -13,7 +13,7 @@ dependencies:
   - pystac>=1.8.0
   - pystac-client
   - scipy
-  - pyroSAR>=0.22.1
+  - pyroSAR>=0.23.0
   - spatialist>=0.12.0
   - s1etad>=0.5.3
   - s1etad_tools>=0.8.1

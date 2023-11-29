@@ -343,7 +343,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
             
             sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
                                           attrib={'uom': 'unitless' if ASSET_MAP[key]['unit'] is None else
-                                                         ASSET_MAP[key]['unit']})
+                                          ASSET_MAP[key]['unit']})
             sampleType.text = ASSET_MAP[key]['type']
             
             if key in ['-dm.tif', '-id.tif']:
@@ -432,10 +432,34 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
         noiseRemovalAlgorithm = etree.SubElement(processingInformation,
                                                  _nsc('_:noiseRemovalAlgorithm', nsmap, ard_ns=ard_ns),
                                                  attrib={_nsc('xlink:href', nsmap):
-                                                         meta['prod']['noiseRemovalAlgorithm']})
+                                                             meta['prod']['noiseRemovalAlgorithm']})
     if meta['prod']['RTCAlgorithm'] is not None:
         rtcAlgorithm = etree.SubElement(processingInformation, _nsc('_:RTCAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
+    if meta['prod']['windNormBackscatterMeasurement'] is not None:
+        windNormBackscatterMeasurement = etree.SubElement(processingInformation,
+                                                          _nsc('_:windNormBackscatterMeasurement',
+                                                               nsmap, ard_ns=ard_ns))
+        windNormBackscatterMeasurement.text = meta['prod']['windNormBackscatterMeasurement']
+        windNormBackscatterConvention = etree.SubElement(processingInformation,
+                                                         _nsc('_:windNormBackscatterConvention', nsmap, ard_ns=ard_ns))
+        windNormBackscatterConvention.text = meta['prod']['windNormBackscatterConvention']
+        windNormReferenceDirection = etree.SubElement(processingInformation,
+                                                      _nsc('_:windNormReferenceDirection', nsmap, ard_ns=ard_ns),
+                                                      attrib={'uom': 'deg'})
+        windNormReferenceDirection.text = str(meta['prod']['windNormReferenceDirection'])
+        
+        windNormReferenceModel = etree.SubElement(processingInformation, _nsc('_:windNormReferenceModel', nsmap,
+                                                                              ard_ns=ard_ns),
+                                                  attrib={_nsc('xlink:href', nsmap):
+                                                              meta['prod']['windNormReferenceModel']})
+        windNormReferenceSpeed = etree.SubElement(processingInformation,
+                                                  _nsc('_:windNormReferenceSpeed', nsmap, ard_ns=ard_ns),
+                                                  attrib={'uom': 'm_s'})
+        windNormReferenceSpeed.text = str(meta['prod']['windNormReferenceSpeed'])
+        windNormReferenceType = etree.SubElement(processingInformation,
+                                                 _nsc('_:windNormReferenceType', nsmap, ard_ns=ard_ns))
+        windNormReferenceType.text = meta['prod']['windNormReferenceType']
     geoCorrAlgorithm = etree.SubElement(processingInformation, _nsc('_:geoCorrAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['geoCorrAlgorithm']})
     geoCorrResamplingMethod = etree.SubElement(processingInformation, _nsc('_:geoCorrResamplingAlgorithm', nsmap,
@@ -510,9 +534,10 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                                              attrib={'uom': 'm'})
     geoCorrAccuracy_rRMSE.text = str(meta['prod']['geoCorrAccuracy_rRMSE'])
     geoacc_ref = meta['prod']['geoCorrAccuracyReference']
-    geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData,
-                                                _nsc('_:geoCorrAccuracyReference', nsmap, ard_ns=ard_ns),
-                                                attrib={_nsc('xlink:href', nsmap): geoacc_ref})
+    if geoacc_ref is not None:
+        geoCorrAccuracyReference = etree.SubElement(earthObservationMetaData,
+                                                    _nsc('_:geoCorrAccuracyReference', nsmap, ard_ns=ard_ns),
+                                                    attrib={_nsc('xlink:href', nsmap): geoacc_ref})
     numLines = etree.SubElement(earthObservationMetaData, _nsc('_:numLines', nsmap, ard_ns=ard_ns))
     numLines.text = meta['prod']['numLines']
     numPixelsPerLine = etree.SubElement(earthObservationMetaData, _nsc('_:numPixelsPerLine', nsmap, ard_ns=ard_ns))
