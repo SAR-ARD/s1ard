@@ -249,7 +249,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
     Search scenes in the Alaska Satellite Facility (ASF) data catalog using the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
     This simplified function is solely intended for cross-checking an online catalog in
-    :func:`S1_NRB.ancillary.check_acquisition_completeness`.
+    :func:`~S1_NRB.search.check_acquisition_completeness`.
     
     Parameters
     ----------
@@ -365,7 +365,7 @@ def collect_neighbors(archive, scene):
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
+    archive: pyroSAR.drivers.Archive or STACArchive
         an open scene archive connection
     scene: pyroSAR.drivers.ID
         the Sentinel-1 scene to be checked
@@ -397,7 +397,7 @@ def check_acquisition_completeness(archive, scenes):
 
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or S1_NRB.archive.STACArchive
+    archive: pyroSAR.drivers.Archive or STACArchive
         an open scene archive connection
     scenes: list[pyroSAR.drivers.ID]
         a list of scenes
@@ -411,7 +411,7 @@ def check_acquisition_completeness(archive, scenes):
 
     See Also
     --------
-    S1_NRB.archive.asf_select
+    S1_NRB.search.asf_select
     """
     messages = []
     for scene in scenes:
