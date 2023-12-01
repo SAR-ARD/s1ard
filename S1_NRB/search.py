@@ -361,7 +361,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
 
 def collect_neighbors(archive, scene):
     """
-    Collect neighboring acquisitions in a Sentinel-1 data take
+    Collect a scene's neighboring acquisitions in a data take
     
     Parameters
     ----------
@@ -380,7 +380,6 @@ def collect_neighbors(archive, scene):
     neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
                                sensor=scene.sensor, product=scene.product,
                                acquisition_mode=scene.acquisition_mode)
-    archive.close()
     del neighbors[neighbors.index(scene.scene)]
     return neighbors
 
