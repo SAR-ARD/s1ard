@@ -356,7 +356,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         selection.extend(
             archive.select(vectorobject=item, **args))
     del vec
-    return list(set(selection)), aoi_tiles
+    return sorted(list(set(selection))), aoi_tiles
 
 
 def collect_neighbors(archive, scene):
