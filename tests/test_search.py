@@ -1,7 +1,7 @@
 from S1_NRB.search import STACArchive
 
 
-def test_search(stac, kml):
+def test_search(stac):
     archive = STACArchive(url=stac['url'],
                           collections=[stac['collection']])
     scenes = archive.select(sensor='S1A', mindate='20200708T182600',
