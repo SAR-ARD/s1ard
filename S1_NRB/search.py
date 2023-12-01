@@ -291,15 +291,39 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
 
 def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs):
     """
+    Central scene search utility. Selects scenes from a database and returns their file names
+    together with the MGRS tile names for which to process ARD products.
+    The list of MGRS tile names is either identical to the list provided with `aoi_tiles`,
+    the list of all tiles overlapping with `aoi_geometry`, or the list of all tiles overlapping
+    with an initial scene search result if no geometry has been defined via `aoi_tiles` or
+    `aoi_geometry`. In the latter case, the search procedure is as follows:
+    
+     - perform a first search matching all other search parameters
+     - derive all MGRS tile geometries overlapping with the selection
+     - derive the minimum and maximum acquisition times of the selection as search parameters
+       `mindate` and `maxdate`
+     - extend the `mindate` and `maxdate` search parameters by one minute
+     - perform a second search with the extended acquisition date parameters and the
+       derived MGRS tile geometries
+    
+    As consequence, if one defines the search parameters to only return one scene, the neighboring
+    acquisitions will also be returned. This is because the scene overlaps with a set of MGRS
+    tiles of which many or all will also overlap with these neighboring acquisitions. To ensure
+    full coverage of all MGRS tiles, the neighbors of the scene in focus have to be processed too.
     
     Parameters
     ----------
     archive: pyroSAR.drivers.Archive or STACArchive
+        an open scene archive connection
     kml_file: str
+        the KML file containing the MGRS tile geometries.
     aoi_tiles: list[str] or None
-    aoi_geometry: list[str] or None
+        a list of MGRS tile names for spatial search
+    aoi_geometry: str or None
+        the name of a vector geometry file for spatial search
     kwargs
-        further search arguments passed to :meth:`pyroSAR.drivers.Archive.select` or :meth:`STACArchive.select`
+        further search arguments passed to :meth:`pyroSAR.drivers.Archive.select`
+        or :meth:`STACArchive.select`
 
     Returns
     -------
