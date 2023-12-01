@@ -57,7 +57,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         archive = search.STACArchive(url=config['stac_catalog'],
                                      collections=config['stac_collections'])
     
-    attr_search = ['sensor', 'product', 'acq_mode', 'mindate', 'maxdate',
+    attr_search = ['sensor', 'product', 'mindate', 'maxdate',
                    'aoi_tiles', 'aoi_geometry', 'date_strict']
     dict_search = {k: config[k] for k in attr_search}
     dict_search['acquisition_mode'] = config['acq_mode']
