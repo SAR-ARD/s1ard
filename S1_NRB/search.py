@@ -3,14 +3,47 @@ import re
 import time
 from lxml import etree
 from pathlib import Path
+import dateutil.parser
 from datetime import datetime, timedelta
 from pystac_client import Client
 import pystac_client.exceptions
-from spatialist import Vector
+from spatialist import Vector, crsConvert
 import asf_search as asf
-from pyroSAR import identify_many
+from pyroSAR import identify_many, ID
 from S1_NRB.ancillary import buffer_time
 from S1_NRB.tile_extraction import aoi_from_tile, tile_from_aoi
+
+
+class ASF(ID):
+    def __init__(self, meta):
+        self.scene = meta['properties']['url']
+        self.meta = self.scanMetadata(meta)
+        super(ASF, self).__init__(self.meta)
+    
+    def scanMetadata(self, meta):
+        out = dict()
+        out['acquisition_mode'] = meta['properties']['beamModeType']
+        out['coordinates'] = [tuple(x) for x in meta['geometry']['coordinates'][0]]
+        out['frameNumber'] = meta['properties']['frameNumber']
+        out['orbit'] = meta['properties']['flightDirection'][0]
+        out['orbitNumber_abs'] = meta['properties']['orbit']
+        out['orbitNumber_rel'] = meta['properties']['pathNumber']
+        out['polarizations'] = meta['properties']['polarization'].split('+')
+        product = meta['properties']['processingLevel']
+        out['product'] = re.search('(?:GRD|SLC|SM|OCN)', product).group()
+        out['projection'] = crsConvert(4326, 'wkt')
+        out['sensor'] = meta['properties']['platform'].replace('entinel-', '')
+        start = meta['properties']['startTime']
+        stop = meta['properties']['stopTime']
+        out['start'] = datetime.strptime(start, '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y%m%dT%H%M%S')
+        out['stop'] = datetime.strptime(stop, '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y%m%dT%H%M%S')
+        out['spacing'] = -1
+        out['samples'] = -1
+        out['lines'] = -1
+        out['cycleNumber'] = -1
+        out['sliceNumber'] = -1
+        out['totalSlices'] = -1
+        return out
 
 
 class STACArchive(object):
@@ -244,7 +277,54 @@ class STACArchive(object):
         return out
 
 
-def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
+class ASFArchive(object):
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return
+    
+    @staticmethod
+    def select(sensor=None, product=None, acquisition_mode=None, mindate=None,
+               maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
+        """
+        Select scenes from the ASF catalog.
+
+        Parameters
+        ----------
+        sensor: str or list[str] or None
+            S1A or S1B
+        product: str or list[str] or None
+            GRD or SLC
+        acquisition_mode: str or list[str] or None
+            IW, EW or SM
+        mindate: str or datetime.datetime or None
+            the minimum acquisition date
+        maxdate: str or datetime.datetime or None
+            the maximum acquisition date
+        vectorobject: spatialist.vector.Vector or None
+            a geometry with which the scenes need to overlap
+        date_strict: bool
+            treat dates as strict limits or also allow flexible limits to incorporate scenes
+            whose acquisition period overlaps with the defined limit?
+            
+            - strict: start >= mindate & stop <= maxdate
+            - not strict: stop >= mindate & start <= maxdate
+        return_value: str or list[str] or ASF
+            the metadata return value; see :func:`~S1_NRB.search.asf_select` for details
+        
+        Returns
+        -------
+        list[str] or list[tuple[str]] or list[ASF]
+            the scene metadata attributes as specified with `return_value`;
+            see :func:`~S1_NRB.search.asf_select` for details
+        """
+        return asf_select(sensor, product, acquisition_mode, mindate, maxdate, vectorobject,
+                          return_value=return_value, date_strict=date_strict)
+
+
+def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
+               vectorobject=None, return_value='url', date_strict=True):
     """
     Search scenes in the Alaska Satellite Facility (ASF) data catalog using the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
@@ -259,15 +339,31 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
         GRD or SLC
     acquisition_mode: str
         IW, EW or SM
-    mindate: str
+    mindate: str or datetime.datetime
         the minimum acquisition date
-    maxdate: str
+    maxdate: str or datetime.datetime
         the maximum acquisition date
+    vectorobject: spatialist.vector.Vector or None
+        a geometry with which the scenes need to overlap
+    return_value: str or list[str] or ASF
+        the metadata return value; if ASF, a :class:`~S1_NRB.search.ASF` object is returned;
+        string options specify certain properties to return: `beamModeType`, `browse`, `bytes`, `centerLat`, `centerLon`,
+        `faradayRotation`, `fileID`, `flightDirection`, `groupID`, `granuleType`, `insarStackId`, `md5sum`,
+        `offNadirAngle`, `orbit`, `pathNumber`, `platform`, `pointingAngle`, `polarization`, `processingDate`,
+        `processingLevel`, `sceneName`, `sensor`, `startTime`, `stopTime`, `url`, `pgeVersion`, `fileName`,
+        `frameNumber`
+    date_strict: bool
+        treat dates as strict limits or also allow flexible limits to incorporate scenes
+        whose acquisition period overlaps with the defined limit?
+        
+        - strict: start >= mindate & stop <= maxdate
+        - not strict: stop >= mindate & start <= maxdate
 
     Returns
     -------
-    list[str]
-        the IDs of the found scenes
+    list[str] or list[tuple[str]] or list[ASF]
+        the scene metadata attributes as specified with `return_value`; the return type is a list of strings,
+        tuples or :class:`~S1_NRB.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~S1_NRB.search.ASF`.
     
     """
     if product == 'GRD':
@@ -278,15 +374,53 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate):
         beam_mode = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
     else:
         beam_mode = acquisition_mode
-    start = datetime.strptime(mindate, '%Y%m%dT%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
-    end = datetime.strptime(maxdate, '%Y%m%dT%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
+    if vectorobject is not None:
+        with vectorobject.clone() as geom:
+            geom.reproject(4326)
+            geometry = geom.convert2wkt(set3D=False)[0]
+    else:
+        geometry = None
+    
+    if isinstance(mindate, str):
+        start = dateutil.parser.parse(mindate)
+    else:
+        start = mindate
+    
+    if isinstance(maxdate, str):
+        stop = dateutil.parser.parse(maxdate)
+    else:
+        stop = maxdate
+    
     result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
                         processingLevel=processing_level,
                         beamMode=beam_mode,
                         start=start,
-                        end=end).geojson()
-    scenes = sorted([x['properties']['sceneName'] for x in result['features']])
-    return scenes
+                        end=stop,
+                        intersectsWith=geometry).geojson()
+    features = result['features']
+    
+    def date_extract(item, key):
+        value = item['properties'][key]
+        out = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+        return out
+    
+    if date_strict:
+        features = [x for x in features
+                    if start <= date_extract(x, 'startTime')
+                    and date_extract(x, 'stopTime') <= stop]
+    
+    if return_value is ASF:
+        return [ASF(x) for x in features]
+    out = []
+    for item in features:
+        properties = item['properties']
+        if isinstance(return_value, str):
+            out.append(properties[return_value])
+        elif isinstance(return_value, list):
+            out.append(tuple([properties[x] for x in return_value]))
+        else:
+            raise TypeError(f'invalid type of return value: {type(return_value)}')
+    return sorted(out)
 
 
 def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs):
@@ -313,7 +447,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
         an open scene archive connection
     kml_file: str
         the KML file containing the MGRS tile geometries.
@@ -323,7 +457,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         the name of a vector geometry file for spatial search
     kwargs
         further search arguments passed to :meth:`pyroSAR.drivers.Archive.select`
-        or :meth:`STACArchive.select`
+        or :meth:`STACArchive.select` or :meth:`ASFArchive.select`
 
     Returns
     -------
@@ -341,6 +475,9 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     if args['acquisition_mode'] == 'SM':
         args['acquisition_mode'] = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     
+    if isinstance(archive, ASFArchive):
+        args['return_value'] = ASF
+    
     vec = None
     selection = []
     if aoi_tiles is not None:
@@ -354,7 +491,10 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     # derive geometries and tiles from scene footprints
     if vec is None:
         selection_tmp = archive.select(vectorobject=vec, **args)
-        scenes = identify_many(scenes=selection_tmp, sortkey='start')
+        if not isinstance(selection_tmp[0], ID):
+            scenes = identify_many(scenes=selection_tmp, sortkey='start')
+        else:
+            scenes = selection_tmp
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
         vec = tile_from_aoi(vector=scenes_geom, kml=kml_file,
@@ -362,13 +502,16 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         aoi_tiles = [x.mgrs for x in vec]
         del scenes_geom
         
-        args['mindate'] = datetime.strptime(scenes[0].start, '%Y%m%dT%H%M%S')
-        args['maxdate'] = datetime.strptime(scenes[-1].stop, '%Y%m%dT%H%M%S')
+        args['mindate'] = min([datetime.strptime(x.start, '%Y%m%dT%H%M%S') for x in scenes])
+        args['maxdate'] = max([datetime.strptime(x.stop, '%Y%m%dT%H%M%S') for x in scenes])
         del scenes
         # extend the time range to fully cover all tiles
         # (one additional scene needed before and after each data take group)
         args['mindate'] -= timedelta(minutes=1)
         args['maxdate'] += timedelta(minutes=1)
+    
+    if isinstance(archive, ASFArchive):
+        args['return_value'] = 'url'
     
     for item in vec:
         selection.extend(
@@ -383,7 +526,7 @@ def collect_neighbors(archive, scene):
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
         an open scene archive connection
     scene: pyroSAR.drivers.ID
         the Sentinel-1 scene to be checked
@@ -446,7 +589,8 @@ def check_acquisition_completeness(archive, scenes):
                              product=scene.product,
                              acquisition_mode=scene.acquisition_mode,
                              mindate=start,
-                             maxdate=stop)
+                             maxdate=stop,
+                             return_value='sceneName')
             match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
             ref_start_min = min([x['start'] for x in match])
             ref_stop_max = max([x['stop'] for x in match])
@@ -481,7 +625,8 @@ def check_acquisition_completeness(archive, scenes):
                                  product=scene.product,
                                  acquisition_mode=scene.acquisition_mode,
                                  mindate=start,
-                                 maxdate=stop)
+                                 maxdate=stop,
+                                 return_value='sceneName')
             match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
             ref_start_min = min([x['start'] for x in match])
             ref_stop_max = max([x['stop'] for x in match])

@@ -151,7 +151,6 @@ Ancillary Functions
         :nosignatures:
 
         buffer_min_overlap
-        check_acquisition_completeness
         check_scene_consistency
         check_spacing
         generate_unique_id
@@ -168,6 +167,17 @@ Scene Search
     :members:
     :undoc-members:
     :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        ASF
+        ASFArchive
+        STACArchive
+        asf_select
+        check_acquisition_completeness
+        collect_neighbors
+        scene_select
 
 Metadata
 --------
