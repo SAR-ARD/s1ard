@@ -15,6 +15,24 @@ from S1_NRB.tile_extraction import aoi_from_tile, tile_from_aoi
 
 
 class ASF(ID):
+    """
+    Simple SAR metadata handler for scenes in the ASF archive. The interface is consistent with the driver classes in
+    :mod:`pyroSAR.drivers` but does not implement the full functionality due to limited content of the CMR
+    metadata catalog. Registered attributes:
+    
+    - acquisition_mode
+    - coordinates
+    - frameNumber
+    - orbit
+    - orbitNumber_abs
+    - orbitNumber_rel
+    - polarizations
+    - product
+    - projection
+    - sensor
+    - start
+    - stop
+    """
     def __init__(self, meta):
         self.scene = meta['properties']['url']
         self.meta = self.scanMetadata(meta)
@@ -50,7 +68,7 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :class:`pyroSAR.drivers.Archive`.
+    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive` and :class:`pyroSAR.drivers.Archive`.
 
     Parameters
     ----------
@@ -278,6 +296,9 @@ class STACArchive(object):
 
 
 class ASFArchive(object):
+    """
+    Search for scenes in the Alaska Satellite Facility (ASF) catalog.
+    """
     def __enter__(self):
         return self
     
@@ -288,7 +309,9 @@ class ASFArchive(object):
     def select(sensor=None, product=None, acquisition_mode=None, mindate=None,
                maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
         """
-        Select scenes from the ASF catalog.
+        Select scenes from the ASF catalog. This is a simple wrapper around the function
+        :func:`~S1_NRB.search.asf_select` to be consistent with the interfaces of
+        :func:`~S1_NRB.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
 
         Parameters
         ----------
@@ -313,6 +336,10 @@ class ASFArchive(object):
         return_value: str or list[str] or ASF
             the metadata return value; see :func:`~S1_NRB.search.asf_select` for details
         
+        See Also
+        --------
+        asf_select
+        
         Returns
         -------
         list[str] or list[tuple[str]] or list[ASF]
@@ -326,10 +353,8 @@ class ASFArchive(object):
 def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                vectorobject=None, return_value='url', date_strict=True):
     """
-    Search scenes in the Alaska Satellite Facility (ASF) data catalog using the
+    Search scenes in the Alaska Satellite Facility (ASF) data catalog. This is a simple interface to the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
-    This simplified function is solely intended for cross-checking an online catalog in
-    :func:`~S1_NRB.search.check_acquisition_completeness`.
     
     Parameters
     ----------
@@ -346,7 +371,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap
     return_value: str or list[str] or ASF
-        the metadata return value; if ASF, a :class:`~S1_NRB.search.ASF` object is returned;
+        the metadata return value; if ASF, an :class:`~S1_NRB.search.ASF` object is returned;
         string options specify certain properties to return: `beamModeType`, `browse`, `bytes`, `centerLat`, `centerLon`,
         `faradayRotation`, `fileID`, `flightDirection`, `groupID`, `granuleType`, `insarStackId`, `md5sum`,
         `offNadirAngle`, `orbit`, `pathNumber`, `platform`, `pointingAngle`, `polarization`, `processingDate`,
