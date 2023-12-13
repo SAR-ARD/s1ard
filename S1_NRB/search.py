@@ -33,35 +33,39 @@ class ASF(ID):
     - start
     - stop
     """
+    
     def __init__(self, meta):
         self.scene = meta['properties']['url']
-        self.meta = self.scanMetadata(meta)
+        self._meta = meta
+        self.meta = self.scanMetadata()
         super(ASF, self).__init__(self.meta)
     
-    def scanMetadata(self, meta):
-        out = dict()
-        out['acquisition_mode'] = meta['properties']['beamModeType']
-        out['coordinates'] = [tuple(x) for x in meta['geometry']['coordinates'][0]]
-        out['frameNumber'] = meta['properties']['frameNumber']
-        out['orbit'] = meta['properties']['flightDirection'][0]
-        out['orbitNumber_abs'] = meta['properties']['orbit']
-        out['orbitNumber_rel'] = meta['properties']['pathNumber']
-        out['polarizations'] = meta['properties']['polarization'].split('+')
-        product = meta['properties']['processingLevel']
-        out['product'] = re.search('(?:GRD|SLC|SM|OCN)', product).group()
-        out['projection'] = crsConvert(4326, 'wkt')
-        out['sensor'] = meta['properties']['platform'].replace('entinel-', '')
-        start = meta['properties']['startTime']
-        stop = meta['properties']['stopTime']
-        out['start'] = datetime.strptime(start, '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y%m%dT%H%M%S')
-        out['stop'] = datetime.strptime(stop, '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%Y%m%dT%H%M%S')
-        out['spacing'] = -1
-        out['samples'] = -1
-        out['lines'] = -1
-        out['cycleNumber'] = -1
-        out['sliceNumber'] = -1
-        out['totalSlices'] = -1
-        return out
+    def scanMetadata(self):
+        meta = dict()
+        meta['acquisition_mode'] = self._meta['properties']['beamModeType']
+        meta['coordinates'] = [tuple(x) for x in self._meta['geometry']['coordinates'][0]]
+        meta['frameNumber'] = self._meta['properties']['frameNumber']
+        meta['orbit'] = self._meta['properties']['flightDirection'][0]
+        meta['orbitNumber_abs'] = self._meta['properties']['orbit']
+        meta['orbitNumber_rel'] = self._meta['properties']['pathNumber']
+        meta['polarizations'] = self._meta['properties']['polarization'].split('+')
+        product = self._meta['properties']['processingLevel']
+        meta['product'] = re.search('GRD|SLC|SM|OCN', product).group()
+        meta['projection'] = crsConvert(4326, 'wkt')
+        meta['sensor'] = self._meta['properties']['platform'].replace('entinel-', '')
+        start = self._meta['properties']['startTime']
+        stop = self._meta['properties']['stopTime']
+        p1 = '%Y-%m-%dT%H:%M:%S.%fZ'
+        p2 = '%Y%m%dT%H%M%S'
+        meta['start'] = datetime.strptime(start, p1).strftime(p2)
+        meta['stop'] = datetime.strptime(stop, p1).strftime(p2)
+        meta['spacing'] = None
+        meta['samples'] = None
+        meta['lines'] = None
+        meta['cycleNumber'] = None
+        meta['sliceNumber'] = None
+        meta['totalSlices'] = None
+        return meta
 
 
 class STACArchive(object):
@@ -299,6 +303,7 @@ class ASFArchive(object):
     """
     Search for scenes in the Alaska Satellite Facility (ASF) catalog.
     """
+    
     def __enter__(self):
         return self
     
