@@ -953,7 +953,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             elif i == 5:
                 arr = arr_wbm == 3
             else:
-                raise ValueError('unknown array value')
+                raise ValueError(f'unknown array value: {i}')
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
