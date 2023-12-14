@@ -936,9 +936,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         for i, name in enumerate(dm_bands):
             band = ds_tmp.GetRasterBand(i + 1)
             
-            # not layover, nor shadow | layover | shadow
-            if i in [0, 1, 2]:
+            # not layover, nor shadow
+            if i == 0:
                 arr = arr_dm == i
+            # layover | shadow
+            # source value 3: layover and shadow
+            elif i in [1, 2]:
+                arr = (arr_dm == i) | (arr_dm == 3)
             # ocean
             elif i == 3:
                 arr = arr_wbm == 1
