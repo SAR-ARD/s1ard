@@ -863,12 +863,12 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             return  # do not create a data mask if not all scenes have a layover-shadow mask
     print(outname)
     
-    dm_bands = [{'arr_val': 0, 'name': 'not layover, nor shadow'},
-                {'arr_val': 1, 'name': 'layover'},
-                {'arr_val': 2, 'name': 'shadow'},
-                {'arr_val': 3, 'name': 'ocean'},
-                {'arr_val': 4, 'name': 'lakes'},
-                {'arr_val': 5, 'name': 'rivers'}]
+    dm_bands = ['not layover, nor shadow',
+                'layover',
+                'shadow',
+                'ocean',
+                'lakes',
+                'rivers']
     
     if product_type == 'ORB':
         if wbm is None:
@@ -909,7 +909,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     else:
                         arr_wbm = ras_wbm.array()
             else:
-                del dm_bands[3], dm_bands[4], dm_bands[5]
+                del dm_bands[3:]
             
             # Extend the shadow class of the data mask with nodata values
             # from backscatter data and create final array
@@ -933,30 +933,32 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         ds_tmp.SetGeoTransform(geotrans)
         ds_tmp.SetProjection(proj)
         
-        for i, _dict in enumerate(dm_bands):
+        for i, name in enumerate(dm_bands):
             band = ds_tmp.GetRasterBand(i + 1)
-            arr_val = _dict['arr_val']
-            b_name = _dict['name']
             
-            # not layover, nor shadow | layover | shadow
-            if arr_val in [0, 1, 2]:
-                arr = arr_dm == arr_val
+            # not layover, nor shadow
+            if i == 0:
+                arr = arr_dm == i
+            # layover | shadow
+            # source value 3: layover and shadow
+            elif i in [1, 2]:
+                arr = (arr_dm == i) | (arr_dm == 3)
             # ocean
-            elif arr_val == 3:
+            elif i == 3:
                 arr = arr_wbm == 1
             # lakes
-            elif arr_val == 4:
+            elif i == 4:
                 arr = arr_wbm == 2
             # rivers
-            elif arr_val == 5:
+            elif i == 5:
                 arr = arr_wbm == 3
             else:
-                raise ValueError('unknown array value')
+                raise ValueError(f'unknown array value: {i}')
             
             arr = arr.astype('uint8')
             band.WriteArray(arr)
             band.SetNoDataValue(dst_nodata)
-            band.SetDescription(b_name)
+            band.SetDescription(name)
             band.FlushCache()
             band = None
             del arr
