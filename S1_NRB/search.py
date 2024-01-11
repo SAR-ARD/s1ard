@@ -464,7 +464,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     The list of MGRS tile names is either identical to the list provided with `aoi_tiles`,
     the list of all tiles overlapping with `aoi_geometry`, or the list of all tiles overlapping
     with an initial scene search result if no geometry has been defined via `aoi_tiles` or
-    `aoi_geometry`. In the latter case, the search procedure is as follows:
+    `aoi_geometry`. In the latter (most complex) case, the search procedure is as follows:
     
      - perform a first search matching all other search parameters
      - derive all MGRS tile geometries overlapping with the selection
@@ -539,10 +539,14 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['mindate'] = min([datetime.strptime(x.start, '%Y%m%dT%H%M%S') for x in scenes])
         args['maxdate'] = max([datetime.strptime(x.stop, '%Y%m%dT%H%M%S') for x in scenes])
         del scenes
-        # extend the time range to fully cover all tiles
-        # (one additional scene needed before and after each data take group)
-        args['mindate'] -= timedelta(minutes=1)
-        args['maxdate'] += timedelta(minutes=1)
+    else:
+        args['mindate'] = datetime.strptime(args['mindate'], '%Y%m%dT%H%M%S')
+        args['maxdate'] = datetime.strptime(args['maxdate'], '%Y%m%dT%H%M%S')
+    
+    # extend the time range to fully cover all tiles
+    # (one additional scene needed before and after each data take group)
+    args['mindate'] -= timedelta(minutes=1)
+    args['maxdate'] += timedelta(minutes=1)
     
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
