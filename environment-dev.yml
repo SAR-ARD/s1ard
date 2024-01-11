@@ -25,5 +25,7 @@ dependencies:
   - nbsphinx
   - sphinx_rtd_theme
   - sphinx-toolbox
-  - ipython # for notebook code highlighting
+  - ipython  # for notebook code highlighting
   - filelock  # needed for sphinx_toolbox.collapse
+  - pytest  # for unit tests
+  - requests # for test data download

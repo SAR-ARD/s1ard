@@ -32,6 +32,7 @@ setup(
                       'pyproj'],
     extras_require={
           'docs': ['sphinx', 'sphinxcontrib-bibtex', 'nbsphinx', 'sphinx_rtd_theme', 'sphinx-toolbox', 'ipython'],
+          'tests': ['pytest', 'requests']
     },
     python_requires='>=3.8',
     license='MIT',
