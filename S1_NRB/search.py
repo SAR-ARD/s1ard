@@ -510,7 +510,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['acquisition_mode'] = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     
     if isinstance(archive, ASFArchive):
-        args['return_value'] = ASF
+        args['return_value'] = 'ASF'
     
     vec = None
     selection = []
