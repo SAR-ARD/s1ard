@@ -338,7 +338,7 @@ class ASFArchive(object):
             
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        return_value: str or list[str] or ASF
+        return_value: str or list[str]
             the metadata return value; see :func:`~S1_NRB.search.asf_select` for details
         
         See Also
@@ -347,7 +347,7 @@ class ASFArchive(object):
         
         Returns
         -------
-        list[str] or list[tuple[str]] or list[ASF]
+        list[str or tuple[str] or ASF]
             the scene metadata attributes as specified with `return_value`;
             see :func:`~S1_NRB.search.asf_select` for details
         """
@@ -375,13 +375,14 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
         the maximum acquisition date
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap
-    return_value: str or list[str] or ASF
-        the metadata return value; if ASF, an :class:`~S1_NRB.search.ASF` object is returned;
-        string options specify certain properties to return: `beamModeType`, `browse`, `bytes`, `centerLat`, `centerLon`,
-        `faradayRotation`, `fileID`, `flightDirection`, `groupID`, `granuleType`, `insarStackId`, `md5sum`,
-        `offNadirAngle`, `orbit`, `pathNumber`, `platform`, `pointingAngle`, `polarization`, `processingDate`,
-        `processingLevel`, `sceneName`, `sensor`, `startTime`, `stopTime`, `url`, `pgeVersion`, `fileName`,
-        `frameNumber`
+    return_value: str or list[str]
+        the metadata return value; if `ASF`, an :class:`~S1_NRB.search.ASF` object is returned;
+        further string options specify certain properties to return: `beamModeType`, `browse`,
+        `bytes`, `centerLat`, `centerLon`, `faradayRotation`, `fileID`, `flightDirection`, `groupID`,
+        `granuleType`, `insarStackId`, `md5sum`, `offNadirAngle`, `orbit`, `pathNumber`, `platform`,
+        `pointingAngle`, `polarization`, `processingDate`, `processingLevel`, `sceneName`, `sensor`,
+        `startTime`, `stopTime`, `url`, `pgeVersion`, `fileName`, `frameNumber`; all options except
+        `ASF` can also be combined in a list
     date_strict: bool
         treat dates as strict limits or also allow flexible limits to incorporate scenes
         whose acquisition period overlaps with the defined limit?
@@ -391,11 +392,14 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
 
     Returns
     -------
-    list[str] or list[tuple[str]] or list[ASF]
+    list[str or tuple[str] or ASF]
         the scene metadata attributes as specified with `return_value`; the return type is a list of strings,
         tuples or :class:`~S1_NRB.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~S1_NRB.search.ASF`.
     
     """
+    if isinstance(return_value, list) and 'ASF' in return_value:
+        raise RuntimeError("'ASF' may not be a list element of 'return_value'")
+    
     if product == 'GRD':
         processing_level = ['GRD_HD', 'GRD_MD', 'GRD_MS', 'GRD_HS', 'GRD_FD']
     else:
@@ -439,7 +443,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                     if start <= date_extract(x, 'startTime')
                     and date_extract(x, 'stopTime') <= stop]
     
-    if return_value is ASF:
+    if return_value is 'ASF':
         return [ASF(x) for x in features]
     out = []
     for item in features:

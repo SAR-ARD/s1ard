@@ -13,7 +13,7 @@ def test_asf():
     with ASFArchive() as archive:
         scenes = archive.select(sensor='S1A', product='GRD',
                                 mindate='20200708T182600', maxdate='20200708T182800',
-                                return_value=ASF)
+                                return_value='ASF')
         assert len(scenes) == 4
         neighbors = collect_neighbors(archive=archive, scene=scenes[0])
         assert len(neighbors) == 2
