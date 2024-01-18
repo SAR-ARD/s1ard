@@ -24,6 +24,20 @@ def test_scene_select(kml):
         scenes, tiles = scene_select(archive=archive, kml_file=kml,
                                      sensor='S1A', product='GRD',
                                      mindate='20200708T182600', maxdate='20200708T182800')
+    
+    # four scenes matching the search result:
+    # S1A_IW_GRDH_1SDV_20200708T182614_20200708T182643_033367_03DDAA_D160 (first scene of the data take)
+    # S1A_IW_GRDH_1SDV_20200708T182643_20200708T182708_033367_03DDAA_9550
+    # S1A_IW_GRDH_1SDV_20200708T182708_20200708T182733_033367_03DDAA_DAAD
+    # S1A_IW_GRDH_1SDV_20200708T182733_20200708T182758_033367_03DDAA_888C
+    
+    # 31 MGRS tiles overlapping with the four scenes
+    
+    # one additional scene to fully cover the MGRS tiles:
+    # the default is "date_strict=True" so initially this scene is not selected
+    # because it exceeds the define time range.
+    # S1A_IW_GRDH_1SDV_20200708T182758_20200708T182823_033367_03DDAA_A793
+    
     assert len(scenes) == 5
     assert len(tiles) == 31
 
