@@ -1,15 +1,14 @@
 import os
 import time
 from osgeo import gdal
-from spatialist import Vector, bbox, intersect
+from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify_many, Archive
 from S1_NRB import etad, dem, ard, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
 import S1_NRB.tile_extraction as tile_ex
-from S1_NRB.archive import STACArchive
-from datetime import datetime, timedelta
+from S1_NRB import search
 from S1_NRB import ocn
 
 gdal.UseExceptions()
@@ -47,28 +46,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     username, password = dem.authenticate(dem_type=config['dem_type'],
                                           username=None, password=None)
     ####################################################################################################################
-    # archive / scene selection
-    if config['acq_mode'] == 'SM':
-        acq_mode_search = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
-    else:
-        acq_mode_search = config['acq_mode']
-    
-    vec = None
-    aoi_tiles = None
-    selection = []
-    if config['aoi_tiles'] is not None:
-        vec = tile_ex.aoi_from_tile(kml=config['kml_file'], tile=config['aoi_tiles'])
-        if not isinstance(vec, list):
-            vec = [vec]
-        aoi_tiles = config['aoi_tiles']
-    elif config['aoi_geometry'] is not None:
-        vec = [Vector(config['aoi_geometry'])]
-        aoi_tiles = tile_ex.tile_from_aoi(vector=vec[0], kml=config['kml_file'])
-    
-    if config['datatake'] is not None:
-        datatake = [int(x, 16) for x in config['datatake']]
-    else:
-        datatake = None
+    # scene selection
     
     if config['db_file'] is not None:
         scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
@@ -76,75 +54,55 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         archive = Archive(dbfile=config['db_file'])
         archive.insert(scenes)
     else:
-        archive = STACArchive(url=config['stac_catalog'],
-                              collections=config['stac_collections'])
+        archive = search.STACArchive(url=config['stac_catalog'],
+                                     collections=config['stac_collections'])
     
-    # derive geometries and tiles from scene footprints
-    if vec is None:
-        selection_tmp = archive.select(sensor=config['sensor'],
-                                       vectorobject=None,
-                                       product=config['product'],
-                                       acquisition_mode=acq_mode_search,
-                                       mindate=config['mindate'],
-                                       maxdate=config['maxdate'],
-                                       frameNumber=datatake,
-                                       date_strict=config['date_strict'])
-        scenes = identify_many(scenes=selection_tmp)
-        scenes_geom = [x.geometry() for x in scenes]
-        # select all tiles overlapping with the scenes for further processing
-        vec = tile_ex.tile_from_aoi(vector=scenes_geom, kml=config['kml_file'],
-                                    return_geometries=True)
-        aoi_tiles = [x.mgrs for x in vec]
-        del scenes_geom, scenes
-        # extend the time range to fully cover all tiles
-        # (one additional scene needed before and after each data take group)
-        mindate = config['mindate'] - timedelta(minutes=1)
-        maxdate = config['maxdate'] + timedelta(minutes=1)
+    attr_search = ['sensor', 'product', 'mindate', 'maxdate',
+                   'aoi_tiles', 'aoi_geometry', 'date_strict']
+    dict_search = {k: config[k] for k in attr_search}
+    dict_search['acquisition_mode'] = config['acq_mode']
+    
+    if config['datatake'] is not None:
+        frame_number = [int(x, 16) for x in config['datatake']]
     else:
-        mindate = config['mindate']
-        maxdate = config['maxdate']
+        frame_number = None
+    dict_search['frameNumber'] = frame_number
     
-    for item in vec:
-        selection.extend(
-            archive.select(sensor=config['sensor'],
-                           vectorobject=item,
-                           product=config['product'],
-                           acquisition_mode=acq_mode_search,
-                           mindate=mindate,
-                           maxdate=maxdate,
-                           frameNumber=datatake,
-                           date_strict=config['date_strict']))
-    selection = list(set(selection))
-    del vec
+    selection, aoi_tiles = search.scene_select(archive=archive, kml_file=config['kml_file'], **dict_search)
     
     if len(selection) == 0:
         msg = "No scenes could be found for the following search query:\n" \
-              " sensor:      '{sensor}'\n" \
-              " product:     '{product}'\n" \
-              " acq. mode:   '{acq_mode}'\n" \
-              " mindate:     '{mindate}'\n" \
-              " maxdate:     '{maxdate}'\n" \
-              " date_strict: '{date_strict}'\n" \
-              " datatake:    '{datatake}'\n"
-        print(msg.format(sensor=config['sensor'], acq_mode=config['acq_mode'],
-                         product=config['product'], mindate=config['mindate'],
-                         maxdate=config['maxdate'], date_strict=config['date_strict'],
-                         datatake=config['datatake']))
+              " sensor:       '{sensor}'\n" \
+              " product:      '{product}'\n" \
+              " acq. mode:    '{acq_mode}'\n" \
+              " aoi_tiles:    '{aoi_tiles}'\n" \
+              " aoi_geometry: '{aoi_geometry}'\n" \
+              " mindate:      '{mindate}'\n" \
+              " maxdate:      '{maxdate}'\n" \
+              " date_strict:  '{date_strict}'\n" \
+              " datatake:     '{datatake}'\n"
+        print(msg.format(**dict_search))
         archive.close()
         return
     print('found the following scene(s):')
     print('\n'.join(selection))
     scenes = identify_many(selection, sortkey='start')
-    anc.check_acquisition_completeness(scenes=scenes, archive=archive)
-    
+    search.check_acquisition_completeness(scenes=scenes, archive=archive)
+    ####################################################################################################################
+    # get neighboring GRD scenes to add a buffer to the geocoded scenes
+    # otherwise there will be a gap between final geocoded images.
+    neighbors = None
+    if config['product'] == 'GRD':
+        print('###### [    SAR] collecting GRD neighbors')
+        neighbors = []
+        for scene in scenes:
+            neighbors.append(search.collect_neighbors(archive=archive, scene=scene))
+    ####################################################################################################################
     # OCN scene selection
     if 'wm' in config['annotation']:
         scenes_ocn = []
         for scene in scenes:
-            start = datetime.strptime(scene.start, '%Y%m%dT%H%M%S')
-            start -= timedelta(seconds=2)
-            stop = datetime.strptime(scene.stop, '%Y%m%dT%H%M%S')
-            stop += timedelta(seconds=2)
+            start, stop = anc.buffer_time(scene.start, scene.stop, seconds=2)
             result = archive.select(product='OCN', mindate=start,
                                     maxdate=stop, date_strict=True)
             if len(result) == 1:
@@ -162,11 +120,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         scenes_ocn = []
     
     archive.close()
-    
-    if aoi_tiles is None:
-        vec = [x.bbox() for x in scenes]
-        aoi_tiles = tile_ex.tile_from_aoi(vector=vec, kml=config['kml_file'])
-        del vec
     ####################################################################################################################
     # annotation layer selection
     annotation = config.get('annotation', None)
@@ -188,7 +141,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         for layer in annotation:
             if layer in lookup:
                 export_extra.append(lookup[layer])
-    
     ####################################################################################################################
     # main SAR processing
     if sar_flag:
@@ -241,37 +193,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             else:
                 rlks = azlks = None
             ############################################################################################################
-            # get neighbouring GRD scenes to add a buffer to the geocoded scenes
-            # otherwise there will be a gap between final geocoded images.
-            neighbors = None
-            if scene.product == 'GRD':
-                print('###### [    SAR] collecting GRD neighbors')
-                f = '%Y%m%dT%H%M%S'
-                td = timedelta(seconds=2)
-                start = datetime.strptime(scene.start, f) - td
-                start = datetime.strftime(start, f)
-                stop = datetime.strptime(scene.stop, f) + td
-                stop = datetime.strftime(stop, f)
-                
-                if config['db_file'] is not None:
-                    archive = Archive(dbfile=config['db_file'])
-                else:
-                    archive = STACArchive(url=config['stac_catalog'],
-                                          collections=config['stac_collections'])
-                
-                neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
-                                           sensor=scene.sensor, product=scene.product,
-                                           acquisition_mode=scene.acquisition_mode)
-                archive.close()
-                del neighbors[neighbors.index(scene.scene)]
-            ############################################################################################################
             # main processing routine
             start_time = time.time()
             try:
                 snap.process(scene=scene.scene, outdir=config['sar_dir'],
                              measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
-                             dem=fname_dem, neighbors=neighbors,
+                             dem=fname_dem, neighbors=neighbors[i],
                              export_extra=export_extra,
                              gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
