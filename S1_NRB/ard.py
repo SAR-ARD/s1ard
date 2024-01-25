@@ -11,7 +11,8 @@ from time import gmtime, strftime
 from copy import deepcopy
 from scipy.interpolate import griddata
 from osgeo import gdal
-from spatialist import Raster, Vector, vectorize, boundary, bbox, intersect, rasterize
+from spatialist.vector import Vector, vectorize, boundary, bbox, intersect
+from spatialist.raster import Raster, rasterize, Dtype
 from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
@@ -519,8 +520,8 @@ def get_datasets(scenes, datadir, extent, epsg):
     return ids, datasets
 
 
-def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None,
-               options=None, overviews=None, overview_resampling=None):
+def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, dtype=None,
+               args=None, options=None, overviews=None, overview_resampling=None):
     """
     Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
     when opening the VRT file.
@@ -546,6 +547,9 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
     offset: float or None
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
+    dtype: str or None
+        the data type of the written VRT file; default None: same data type as source data.
+        data type notations of GDAL (e.g. `Float32`) and numpy (e.g. `int8`) are supported.
     args: dict or None
         arguments for `fun` passed as `PixelFunctionArguments`. Requires GDAL>=3.5 to be read.
     options: dict or None
@@ -586,6 +590,9 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, args=None
     root = tree.getroot()
     band = tree.find('VRTRasterBand')
     band.attrib['subClass'] = 'VRTDerivedRasterBand'
+    
+    if dtype is not None:
+        band.attrib['dataType'] = Dtype(dtype).gdalstr
     
     if fun == 'decibel':
         pxfun_language = etree.SubElement(band, 'PixelFunctionLanguage')
