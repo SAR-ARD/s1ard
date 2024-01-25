@@ -540,8 +540,10 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['maxdate'] = max([datetime.strptime(x.stop, '%Y%m%dT%H%M%S') for x in scenes])
         del scenes
     else:
-        args['mindate'] = datetime.strptime(args['mindate'], '%Y%m%dT%H%M%S')
-        args['maxdate'] = datetime.strptime(args['maxdate'], '%Y%m%dT%H%M%S')
+        if isinstance(args['mindate'], str):
+            args['mindate'] = dateutil.parser.parse(args['mindate'])
+        if isinstance(args['maxdate'], str):
+            args['maxdate'] = dateutil.parser.parse(args['maxdate'])
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
