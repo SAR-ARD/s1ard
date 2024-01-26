@@ -443,7 +443,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                     if start <= date_extract(x, 'startTime')
                     and date_extract(x, 'stopTime') <= stop]
     
-    if return_value is 'ASF':
+    if return_value == 'ASF':
         return [ASF(x) for x in features]
     out = []
     for item in features:
