@@ -479,6 +479,9 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     tiles of which many or all will also overlap with these neighboring acquisitions. To ensure
     full coverage of all MGRS tiles, the neighbors of the scene in focus have to be processed too.
     
+    This function has three ways to define search geometries. In order of priority overriding others:
+    `aoi_tiles` > `aoi_geometry` > `vectorobject` (via `kwargs`).
+    
     Parameters
     ----------
     archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
@@ -516,11 +519,14 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     selection = []
     if aoi_tiles is not None:
         vec = aoi_from_tile(kml=kml_file, tile=aoi_tiles)
-        if not isinstance(vec, list):
-            vec = [vec]
     elif aoi_geometry is not None:
         vec = [Vector(aoi_geometry)]
         aoi_tiles = tile_from_aoi(vector=vec[0], kml=kml_file)
+    elif 'vectorobject' in args.keys() and args['vectorobject'] is not None:
+        vec = args['vectorobject']
+        aoi_tiles = tile_from_aoi(vector=vec, kml=kml_file)
+    if not isinstance(vec, list):
+        vec = [vec]
     
     # derive geometries and tiles from scene footprints
     if vec is None:
@@ -554,9 +560,9 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['return_value'] = 'url'
     
     for item in vec:
-        selection.extend(
-            archive.select(vectorobject=item, **args))
-    del vec
+        args['vectorobject'] = item
+        selection.extend(archive.select(**args))
+    del vec, args
     return sorted(list(set(selection))), aoi_tiles
 
 
