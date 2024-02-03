@@ -99,7 +99,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output beta nought backscatter needed for RTC?
     output_sigma0: bool
         output sigma nought backscatter needed for NESZ?
-    output_gama0: bool
+    output_gamma0: bool
         output gamma nought backscatter needed?
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
