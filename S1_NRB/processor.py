@@ -3,7 +3,7 @@ import time
 from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
-from pyroSAR import identify_many, Archive
+from pyroSAR import identify, identify_many, Archive
 from S1_NRB import etad, dem, ard, snap
 from S1_NRB.config import get_config, snap_conf, gdal_conf
 import S1_NRB.ancillary as anc
@@ -57,37 +57,45 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         archive = search.STACArchive(url=config['stac_catalog'],
                                      collections=config['stac_collections'])
     
-    attr_search = ['sensor', 'product', 'mindate', 'maxdate',
-                   'aoi_tiles', 'aoi_geometry', 'date_strict']
-    dict_search = {k: config[k] for k in attr_search}
-    dict_search['acquisition_mode'] = config['acq_mode']
-    
-    if config['datatake'] is not None:
-        frame_number = [int(x, 16) for x in config['datatake']]
+    if config['scene'] is None:
+        attr_search = ['sensor', 'product', 'mindate', 'maxdate',
+                       'aoi_tiles', 'aoi_geometry', 'date_strict']
+        dict_search = {k: config[k] for k in attr_search}
+        dict_search['acquisition_mode'] = config['acq_mode']
+        
+        if config['datatake'] is not None:
+            frame_number = [int(x, 16) for x in config['datatake']]
+        else:
+            frame_number = None
+        dict_search['frameNumber'] = frame_number
+        
+        selection, aoi_tiles = search.scene_select(archive=archive,
+                                                   kml_file=config['kml_file'],
+                                                   **dict_search)
+        
+        if len(selection) == 0:
+            msg = "No scenes could be found for the following search query:\n" \
+                  " sensor:       '{sensor}'\n" \
+                  " product:      '{product}'\n" \
+                  " acq. mode:    '{acq_mode}'\n" \
+                  " aoi_tiles:    '{aoi_tiles}'\n" \
+                  " aoi_geometry: '{aoi_geometry}'\n" \
+                  " mindate:      '{mindate}'\n" \
+                  " maxdate:      '{maxdate}'\n" \
+                  " date_strict:  '{date_strict}'\n" \
+                  " datatake:     '{datatake}'\n"
+            print(msg.format(**dict_search))
+            archive.close()
+            return
+        print('found the following scene(s):')
+        print('\n'.join(selection))
+        scenes = identify_many(selection, sortkey='start')
+        search.check_acquisition_completeness(scenes=scenes, archive=archive)
     else:
-        frame_number = None
-    dict_search['frameNumber'] = frame_number
-    
-    selection, aoi_tiles = search.scene_select(archive=archive, kml_file=config['kml_file'], **dict_search)
-    
-    if len(selection) == 0:
-        msg = "No scenes could be found for the following search query:\n" \
-              " sensor:       '{sensor}'\n" \
-              " product:      '{product}'\n" \
-              " acq. mode:    '{acq_mode}'\n" \
-              " aoi_tiles:    '{aoi_tiles}'\n" \
-              " aoi_geometry: '{aoi_geometry}'\n" \
-              " mindate:      '{mindate}'\n" \
-              " maxdate:      '{maxdate}'\n" \
-              " date_strict:  '{date_strict}'\n" \
-              " datatake:     '{datatake}'\n"
-        print(msg.format(**dict_search))
-        archive.close()
-        return
-    print('found the following scene(s):')
-    print('\n'.join(selection))
-    scenes = identify_many(selection, sortkey='start')
-    search.check_acquisition_completeness(scenes=scenes, archive=archive)
+        if config['mode'] != ['sar']:
+            raise RuntimeError("if argument 'scene' is set, the processing mode must be 'sar'")
+        scenes = [identify(config['scene'])]
+        aoi_tiles = []
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.

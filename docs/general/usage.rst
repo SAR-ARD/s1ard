@@ -70,6 +70,13 @@ By defining both ``sar`` and one of the ARD modes as list, both SAR preprocessin
 
     mode = sar, nrb
 
+scene
++++++
+
+Define a single SAR scene filename instead of searching for scenes in a database.
+If this parameter is set, the 'mode' must be 'sar'.
+In case of a GRD, database search is still performed to collect neighbors.
+
 aoi_tiles & aoi_geometry
 ++++++++++++++++++++++++
 
