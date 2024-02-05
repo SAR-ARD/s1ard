@@ -18,6 +18,7 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
 from S1_NRB.tile_extraction import aoi_from_scene
+from S1_NRB.ancillary import Lock, LockCollection
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -113,51 +114,53 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     --------
     pyroSAR.snap.auxil.orb_parametrize
     """
-    scene = identify(src)
-    polarizations = scene.polarizations
-    wf = parse_recipe('blank')
-    ############################################
-    read = parse_node('Read')
-    read.parameters['file'] = scene.scene
-    wf.insert_node(read)
-    ############################################
-    orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
-                          allow_RES_OSV=allow_res_osv,
-                          continueOnFail=osv_continue_on_fail)
-    wf.insert_node(orb, before=read.id)
-    last = orb
-    ############################################
-    if scene.sensor in ['S1A', 'S1B'] and scene.product == 'GRD':
-        bn = parse_node('Remove-GRD-Border-Noise')
-        wf.insert_node(bn, before=last.id)
-        bn.parameters['selectedPolarisations'] = polarizations
-        last = bn
-    ############################################
-    cal = parse_node('Calibration')
-    wf.insert_node(cal, before=last.id)
-    cal.parameters['selectedPolarisations'] = polarizations
-    cal.parameters['outputBetaBand'] = output_beta0
-    cal.parameters['outputSigmaBand'] = output_sigma0
-    cal.parameters['outputGammaBand'] = output_gamma0
-    ############################################
-    tnr = parse_node('ThermalNoiseRemoval')
-    wf.insert_node(tnr, before=cal.id)
-    tnr.parameters['outputNoise'] = output_noise
-    last = tnr
-    ############################################
-    if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
-        deb = parse_node('TOPSAR-Deburst')
-        wf.insert_node(deb, before=last.id)
-        last = deb
-    ############################################
-    write = parse_node('Write')
-    wf.insert_node(write, before=last.id)
-    write.parameters['file'] = dst
-    write.parameters['formatName'] = 'BEAM-DIMAP'
-    ############################################
-    wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
-        gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
+    if not os.path.isfile(workflow):
+        scene = identify(src)
+        polarizations = scene.polarizations
+        wf = parse_recipe('blank')
+        ############################################
+        read = parse_node('Read')
+        read.parameters['file'] = scene.scene
+        wf.insert_node(read)
+        ############################################
+        orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
+                              allow_RES_OSV=allow_res_osv,
+                              continueOnFail=osv_continue_on_fail)
+        wf.insert_node(orb, before=read.id)
+        last = orb
+        ############################################
+        if scene.sensor in ['S1A', 'S1B'] and scene.product == 'GRD':
+            bn = parse_node('Remove-GRD-Border-Noise')
+            wf.insert_node(bn, before=last.id)
+            bn.parameters['selectedPolarisations'] = polarizations
+            last = bn
+        ############################################
+        cal = parse_node('Calibration')
+        wf.insert_node(cal, before=last.id)
+        cal.parameters['selectedPolarisations'] = polarizations
+        cal.parameters['outputBetaBand'] = output_beta0
+        cal.parameters['outputSigmaBand'] = output_sigma0
+        cal.parameters['outputGammaBand'] = output_gamma0
+        ############################################
+        tnr = parse_node('ThermalNoiseRemoval')
+        wf.insert_node(tnr, before=cal.id)
+        tnr.parameters['outputNoise'] = output_noise
+        last = tnr
+        ############################################
+        if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
+            deb = parse_node('TOPSAR-Deburst')
+            wf.insert_node(deb, before=last.id)
+            last = deb
+        ############################################
+        write = parse_node('Write')
+        wf.insert_node(write, before=last.id)
+        write.parameters['file'] = dst
+        write.parameters['formatName'] = 'BEAM-DIMAP'
+        ############################################
+        wf.write(workflow)
+    if not os.path.isfile(dst):
+        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+            gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
 
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
@@ -655,8 +658,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
-    if not os.path.isfile(out_pre):
-        print('### preprocessing')
+    print('### preprocessing main scene')
+    with Lock(out_pre):
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
             allow_res_osv=allow_res_osv, output_noise=output_noise,
             output_beta0=apply_rtc, gpt_args=gpt_args)
@@ -672,8 +675,8 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             tmp_base_nb = os.path.join(tmpdir_nb, basename_nb)
             out_pre_nb = tmp_base_nb + '_pre.dim'
             out_pre_nb_wf = out_pre_nb.replace('.dim', '.xml')
-            if not os.path.isfile(out_pre_nb):
-                print('### preprocessing neighbor:', item)
+            print('### preprocessing neighbor:', item)
+            with Lock(out_pre_nb):
                 pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
                     allow_res_osv=allow_res_osv, output_noise=output_noise,
                     output_beta0=apply_rtc, gpt_args=gpt_args)
@@ -685,9 +688,10 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
             print('### buffering scene with neighboring acquisitions')
-            grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
-                       neighbors=out_pre_neighbors, gpt_args=gpt_args,
-                       buffer=10 * spacing)
+            with LockCollection(out_pre_neighbors):
+                grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
+                           neighbors=out_pre_neighbors, gpt_args=gpt_args,
+                           buffer=10 * spacing)
         out_pre = out_buffer
     ############################################################################
     # range look direction angle
