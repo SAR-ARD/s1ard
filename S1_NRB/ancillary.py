@@ -1,8 +1,10 @@
 import os
 import sys
+import time
 import logging
 import binascii
 from lxml import etree
+from pathlib import Path
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
@@ -302,6 +304,74 @@ def log(handler, mode, proc_step, scenes, msg):
         handler.exception(message)
     else:
         raise RuntimeError('log mode {} is not supported'.format(mode))
+
+
+class Lock(object):
+    def __init__(self, target, soft=False, timeout=7200):
+        if os.path.isdir(target) and not os.path.exists(target):
+            raise OSError('target does not exist: {}'.format(target))
+        self.target = target
+        used_id = generate_unique_id(str(time.time()).encode())
+        if os.path.isdir(target):
+            self.lock = os.path.join(self.target, 'LOCK')
+            self.error = os.path.join(self.target, 'ERROR')
+            self.used = os.path.join(self.target, f'USED_{used_id}')
+        else:
+            self.lock = self.target + '.lock'
+            self.error = self.target + '.error'
+            self.used = self.target + f'.used_{used_id}'
+        self.soft = soft
+        if os.path.isfile(self.error):
+            msg = 'cannot acquire lock on damaged target: {}'
+            raise RuntimeError(msg.format(self.target))
+        end = time.time() + timeout
+        while True:
+            if time.time() > end:
+                msg = 'could not acquire lock due to timeout: {}'
+                raise RuntimeError(msg.format(self.target))
+            try:
+                if self.soft and not os.path.isfile(self.lock):
+                    Path(self.used, exist_ok=True).touch()
+                    break
+                if not self.soft and not self.is_used():
+                    Path(self.lock, exist_ok=False).touch()
+                    break
+            except FileExistsError:
+                pass
+            time.sleep(1)
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.soft and exc_type is not None:
+            os.rename(self.lock, self.error)
+        else:
+            self.remove()
+    
+    def is_used(self):
+        base = os.path.basename(self.used)
+        folder = os.path.dirname(self.used)
+        files = list(Path(folder).glob(base[:-4] + '*'))
+        return len(files) > 0
+    
+    def remove(self):
+        if self.soft:
+            os.remove(self.used)
+        else:
+            os.remove(self.lock)
+
+
+class LockCollection(object):
+    def __init__(self, targets, timeout=7200):
+        self.locks = [Lock(x, soft=True, timeout=timeout) for x in targets]
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        for lock in self.locks:
+            lock.remove()
 
 
 def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
