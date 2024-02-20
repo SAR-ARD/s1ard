@@ -82,8 +82,9 @@ class STACArchive(object):
         the catalog collection(s) to be searched
     """
     
-    def __init__(self, url, collections):
+    def __init__(self, url, collections, timeout=20):
         self.url = url
+        self.timeout = timeout
         self.max_tries = 300
         self._open_catalog()
         if isinstance(collections, str):
@@ -137,7 +138,8 @@ class STACArchive(object):
         i = 1
         while True:
             try:
-                self.catalog = Client.open(self.url)
+                self.catalog = Client.open(url=self.url,
+                                           timeout=self.timeout)
                 # print('catalog opened successfully')
                 break
             except pystac_client.exceptions.APIError:
