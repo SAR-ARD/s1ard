@@ -214,44 +214,42 @@ class STACArchive(object):
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
         
+        args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
-        
+        dt_pattern = '%Y-%m-%dT%H:%M:%SZ'
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
-            if key == 'mindate':
+            if key in ['mindate', 'maxdate']:
+                if isinstance(val, str):
+                    val = dateutil.parser.parse(val)
                 if isinstance(val, datetime):
-                    val = datetime.strftime(val, '%Y%m%dT%H%M%S')
+                    val = datetime.strftime(val, dt_pattern)
+            if key == 'mindate':
+                args['datetime'][0] = val
                 if date_strict:
                     arg = {'op': '>=', 'args': [{'property': 'start_datetime'}, val]}
                 else:
                     arg = {'op': '>=', 'args': [{'property': 'end_datetime'}, val]}
+                flt['args'].append(arg)
             elif key == 'maxdate':
-                if isinstance(val, datetime):
-                    val = datetime.strftime(val, '%Y%m%dT%H%M%S')
+                args['datetime'][1] = val
                 if date_strict:
                     arg = {'op': '<=', 'args': [{'property': 'end_datetime'}, val]}
                 else:
                     arg = {'op': '<=', 'args': [{'property': 'start_datetime'}, val]}
+                flt['args'].append(arg)
             elif key == 'vectorobject':
                 if isinstance(val, Vector):
                     with val.clone() as vec:
                         vec.reproject(4326)
                         ext = vec.extent
-                        arg = {'op': 's_intersects',
-                               'args': [{'property': 'geometry'},
-                                        {'type': 'Polygon',
-                                         'coordinates': [[[ext['xmin'], ext['ymin']],
-                                                          [ext['xmin'], ext['ymax']],
-                                                          [ext['xmax'], ext['ymax']],
-                                                          [ext['xmax'], ext['ymin']],
-                                                          [ext['xmin'], ext['ymin']]]]}],
-                               }
+                        args['bbox'] = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
                 else:
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
-                args = []
+                args2 = []
                 if isinstance(val, (str, int)):
                     val = [val]
                 for v in val:
@@ -262,14 +260,17 @@ class STACArchive(object):
                     else:
                         value = v
                     a = {'op': '=', 'args': [{'property': lookup[key]}, value]}
-                    args.append(a)
-                if len(args) == 1:
-                    arg = args[0]
+                    args2.append(a)
+                if len(args2) == 1:
+                    arg = args2[0]
                 else:
-                    arg = {'op': 'or', 'args': args}
-            flt['args'].append(arg)
+                    arg = {'op': 'or', 'args': args2}
+                flt['args'].append(arg)
+        if len(flt['args']) == 0:
+            flt = None
         result = self.catalog.search(collections=self.collections,
-                                     filter=flt, max_items=None)
+                                     filter=flt, max_items=None,
+                                     **args)
         result = list(result.items())
         out = []
         for item in result:
