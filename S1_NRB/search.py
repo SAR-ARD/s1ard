@@ -1,12 +1,11 @@
 import os
 import re
-import time
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
 from datetime import datetime, timedelta
 from pystac_client import Client
-import pystac_client.exceptions
+from pystac_client.stac_api_io import StacApiIO
 from spatialist import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
@@ -72,20 +71,30 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive` and :class:`pyroSAR.drivers.Archive`.
-
+    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive`
+    and :class:`pyroSAR.drivers.Archive`.
+    
     Parameters
     ----------
     url: str
         the catalog URL
     collections: str or list[str]
         the catalog collection(s) to be searched
+    timeout: int
+        the allowed timeout in seconds
+    max_retries: int or None
+        the number of times to retry requests. Set to None to disable retries.
+    
+    See Also
+    --------
+    pystac_client.Client.open
+    pystac_client.stac_api_io.StacApiIO
     """
     
-    def __init__(self, url, collections, timeout=20):
+    def __init__(self, url, collections, timeout=20, max_retries=20):
         self.url = url
         self.timeout = timeout
-        self.max_tries = 300
+        self.max_tries = max_retries
         self._open_catalog()
         if isinstance(collections, str):
             self.collections = [collections]
@@ -135,20 +144,10 @@ class STACArchive(object):
         return keep
     
     def _open_catalog(self):
-        i = 1
-        while True:
-            try:
-                self.catalog = Client.open(url=self.url,
-                                           timeout=self.timeout)
-                # print('catalog opened successfully')
-                break
-            except pystac_client.exceptions.APIError:
-                # print(f'failed opening the catalog at try {i:03d}/{self.max_tries}')
-                if i < self.max_tries:
-                    i += 1
-                    time.sleep(1)
-                else:
-                    raise
+        stac_api_io = StacApiIO(max_retries=self.max_tries)
+        self.catalog = Client.open(url=self.url,
+                                   stac_io=stac_api_io,
+                                   timeout=self.timeout)
     
     def close(self):
         del self.catalog
@@ -165,7 +164,7 @@ class STACArchive(object):
         - sar:instrument_mode
         - sar:product_type
         - s1:datatake (custom)
-
+        
         Parameters
         ----------
         sensor: str or list[str] or None
@@ -191,7 +190,7 @@ class STACArchive(object):
             - not strict: stop >= mindate & start <= maxdate
         check_exist: bool
             check whether found files exist locally?
-
+        
         Returns
         -------
         list[str]
@@ -269,21 +268,9 @@ class STACArchive(object):
                 else:
                     arg = {'op': 'or', 'args': args}
             flt['args'].append(arg)
-        t = 1
-        while True:
-            try:
-                result = self.catalog.search(collections=self.collections,
-                                             filter=flt, max_items=None)
-                result = list(result.items())
-                # print('catalog search successful')
-                break
-            except pystac_client.exceptions.APIError:
-                # print(f'failed searching the catalog at try {t:03d}/{self.max_tries}')
-                if t < self.max_tries:
-                    t += 1
-                    time.sleep(1)
-                else:
-                    raise
+        result = self.catalog.search(collections=self.collections,
+                                     filter=flt, max_items=None)
+        result = list(result.items())
         out = []
         for item in result:
             assets = item.assets
