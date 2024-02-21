@@ -26,7 +26,7 @@ setup(
                       'scipy',
                       's1etad>=0.5.3',
                       's1etad_tools>=0.8.1',
-                      'pystac-client',
+                      'pystac-client>=0.7.0',
                       'numpy',
                       'asf_search',
                       'pyproj'],
