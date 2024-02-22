@@ -91,7 +91,7 @@ class STACArchive(object):
     pystac_client.stac_api_io.StacApiIO
     """
     
-    def __init__(self, url, collections, timeout=20, max_retries=20):
+    def __init__(self, url, collections, timeout=60, max_retries=20):
         self.url = url
         self.timeout = timeout
         self.max_tries = max_retries
