@@ -91,7 +91,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.
-    neighbors = None
+    neighbors = [None]
     if config['product'] == 'GRD':
         print('###### [    SAR] collecting GRD neighbors')
         neighbors = []
