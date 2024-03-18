@@ -363,8 +363,8 @@ class Lock(object):
 
 
 class LockCollection(object):
-    def __init__(self, targets, timeout=7200):
-        self.locks = [Lock(x, soft=True, timeout=timeout) for x in targets]
+    def __init__(self, targets, soft=False, timeout=7200):
+        self.locks = [Lock(x, soft=soft, timeout=timeout) for x in targets]
     
     def __enter__(self):
         return self
