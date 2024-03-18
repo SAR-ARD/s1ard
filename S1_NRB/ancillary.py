@@ -331,10 +331,10 @@ class Lock(object):
                 raise RuntimeError(msg.format(self.target))
             try:
                 if self.soft and not os.path.isfile(self.lock):
-                    Path(self.used, exist_ok=True).touch()
+                    Path(self.used).touch(exist_ok=False)
                     break
                 if not self.soft and not self.is_used():
-                    Path(self.lock, exist_ok=False).touch()
+                    Path(self.lock).touch(exist_ok=False)
                     break
             except FileExistsError:
                 pass
