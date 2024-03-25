@@ -18,7 +18,7 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
 from S1_NRB.tile_extraction import aoi_from_scene
-from S1_NRB.ancillary import Lock, LockCollection
+from pyroSAR.ancillary import Lock, LockCollection
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
