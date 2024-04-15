@@ -229,6 +229,7 @@ def _log_process_config(logger, config):
     mode                {config['mode']}
     aoi_tiles           {config['aoi_tiles']}
     aoi_geometry        {config['aoi_geometry']}
+    scene               {config['scene']}
     mindate             {config['mindate'].isoformat()}
     maxdate             {config['maxdate'].isoformat()}
     date_strict         {config['date_strict']}

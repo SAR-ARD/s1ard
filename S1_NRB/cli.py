@@ -33,7 +33,7 @@ def cli(ctx, config_file, section, debug, version):
     \b
     The following defaults are set:
     (processing section)
-    - annotation: dm,ei,id,lc,li,np,ratio
+    - annotation:        dm,ei,id,lc,li,np,ratio
     - dem_type:          Copernicus 30m Global DEM
     - date_strict:       True
     - etad:              False
