@@ -268,6 +268,8 @@ class STACArchive(object):
                 flt['args'].append(arg)
         if len(flt['args']) == 0:
             flt = None
+        if args['datetime'] == [None, None]:
+            args['datetime'] = None
         result = self.catalog.search(collections=self.collections,
                                      filter=flt, max_items=None,
                                      **args)
