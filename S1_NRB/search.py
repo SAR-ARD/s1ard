@@ -462,9 +462,10 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
     The list of MGRS tile names is either identical to the list provided with `aoi_tiles`,
-    the list of all tiles overlapping with `aoi_geometry`, or the list of all tiles overlapping
-    with an initial scene search result if no geometry has been defined via `aoi_tiles` or
-    `aoi_geometry`. In the latter (most complex) case, the search procedure is as follows:
+    the list of all tiles overlapping with `aoi_geometry` or `vectorobject` (via `kwargs`),
+    or the list of all tiles overlapping with an initial scene search result if no geometry
+    has been defined via `aoi_tiles` or `aoi_geometry`. In the latter (most complex) case,
+    the search procedure is as follows:
     
      - perform a first search matching all other search parameters
      - derive all MGRS tile geometries overlapping with the selection
@@ -480,7 +481,9 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     full coverage of all MGRS tiles, the neighbors of the scene in focus have to be processed too.
     
     This function has three ways to define search geometries. In order of priority overriding others:
-    `aoi_tiles` > `aoi_geometry` > `vectorobject` (via `kwargs`).
+    `aoi_tiles` > `aoi_geometry` > `vectorobject` (via `kwargs`). In the latter two cases, the search
+    geometry is extended to the bounding box of all MGRS tiles overlapping with the initial geometry
+    to ensure full coverage of all tiles.
     
     Parameters
     ----------
@@ -520,13 +523,18 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     if aoi_tiles is not None:
         vec = aoi_from_tile(kml=kml_file, tile=aoi_tiles)
     elif aoi_geometry is not None:
-        vec = [Vector(aoi_geometry)]
-        aoi_tiles = tile_from_aoi(vector=vec[0], kml=kml_file)
+        with Vector(aoi_geometry) as geom:
+            vec = tile_from_aoi(vector=geom, kml=kml_file,
+                                return_geometries=True)
     elif 'vectorobject' in args.keys() and args['vectorobject'] is not None:
-        vec = args['vectorobject']
-        aoi_tiles = tile_from_aoi(vector=vec, kml=kml_file)
-    if not isinstance(vec, list):
-        vec = [vec]
+        vec = tile_from_aoi(vector=args['vectorobject'], kml=kml_file,
+                            return_geometries=True)
+    if vec is not None:
+        if not isinstance(vec, list):
+            vec = [vec]
+        
+        if aoi_tiles is None:
+            aoi_tiles = [x.mgrs for x in vec]
     
     # derive geometries and tiles from scene footprints
     if vec is None:
@@ -539,6 +547,8 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         # select all tiles overlapping with the scenes for further processing
         vec = tile_from_aoi(vector=scenes_geom, kml=kml_file,
                             return_geometries=True)
+        if not isinstance(vec, list):
+            vec = [vec]
         aoi_tiles = [x.mgrs for x in vec]
         del scenes_geom
         
