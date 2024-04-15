@@ -1,12 +1,11 @@
 import os
 import re
-import time
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
 from datetime import datetime, timedelta
 from pystac_client import Client
-import pystac_client.exceptions
+from pystac_client.stac_api_io import StacApiIO
 from spatialist import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
@@ -72,19 +71,30 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive` and :class:`pyroSAR.drivers.Archive`.
-
+    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive`
+    and :class:`pyroSAR.drivers.Archive`.
+    
     Parameters
     ----------
     url: str
         the catalog URL
     collections: str or list[str]
         the catalog collection(s) to be searched
+    timeout: int
+        the allowed timeout in seconds
+    max_retries: int or None
+        the number of times to retry requests. Set to None to disable retries.
+    
+    See Also
+    --------
+    pystac_client.Client.open
+    pystac_client.stac_api_io.StacApiIO
     """
     
-    def __init__(self, url, collections):
+    def __init__(self, url, collections, timeout=60, max_retries=20):
         self.url = url
-        self.max_tries = 300
+        self.timeout = timeout
+        self.max_tries = max_retries
         self._open_catalog()
         if isinstance(collections, str):
             self.collections = [collections]
@@ -134,19 +144,10 @@ class STACArchive(object):
         return keep
     
     def _open_catalog(self):
-        i = 1
-        while True:
-            try:
-                self.catalog = Client.open(self.url)
-                # print('catalog opened successfully')
-                break
-            except pystac_client.exceptions.APIError:
-                # print(f'failed opening the catalog at try {i:03d}/{self.max_tries}')
-                if i < self.max_tries:
-                    i += 1
-                    time.sleep(1)
-                else:
-                    raise
+        stac_api_io = StacApiIO(max_retries=self.max_tries)
+        self.catalog = Client.open(url=self.url,
+                                   stac_io=stac_api_io,
+                                   timeout=self.timeout)
     
     def close(self):
         del self.catalog
@@ -163,7 +164,7 @@ class STACArchive(object):
         - sar:instrument_mode
         - sar:product_type
         - s1:datatake (custom)
-
+        
         Parameters
         ----------
         sensor: str or list[str] or None
@@ -189,7 +190,7 @@ class STACArchive(object):
             - not strict: stop >= mindate & start <= maxdate
         check_exist: bool
             check whether found files exist locally?
-
+        
         Returns
         -------
         list[str]
@@ -213,44 +214,42 @@ class STACArchive(object):
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
         
+        args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
-        
+        dt_pattern = '%Y-%m-%dT%H:%M:%SZ'
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
-            if key == 'mindate':
+            if key in ['mindate', 'maxdate']:
+                if isinstance(val, str):
+                    val = dateutil.parser.parse(val)
                 if isinstance(val, datetime):
-                    val = datetime.strftime(val, '%Y%m%dT%H%M%S')
+                    val = datetime.strftime(val, dt_pattern)
+            if key == 'mindate':
+                args['datetime'][0] = val
                 if date_strict:
                     arg = {'op': '>=', 'args': [{'property': 'start_datetime'}, val]}
                 else:
                     arg = {'op': '>=', 'args': [{'property': 'end_datetime'}, val]}
+                flt['args'].append(arg)
             elif key == 'maxdate':
-                if isinstance(val, datetime):
-                    val = datetime.strftime(val, '%Y%m%dT%H%M%S')
+                args['datetime'][1] = val
                 if date_strict:
                     arg = {'op': '<=', 'args': [{'property': 'end_datetime'}, val]}
                 else:
                     arg = {'op': '<=', 'args': [{'property': 'start_datetime'}, val]}
+                flt['args'].append(arg)
             elif key == 'vectorobject':
                 if isinstance(val, Vector):
                     with val.clone() as vec:
                         vec.reproject(4326)
                         ext = vec.extent
-                        arg = {'op': 's_intersects',
-                               'args': [{'property': 'geometry'},
-                                        {'type': 'Polygon',
-                                         'coordinates': [[[ext['xmin'], ext['ymin']],
-                                                          [ext['xmin'], ext['ymax']],
-                                                          [ext['xmax'], ext['ymax']],
-                                                          [ext['xmax'], ext['ymin']],
-                                                          [ext['xmin'], ext['ymin']]]]}],
-                               }
+                        args['bbox'] = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
                 else:
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
-                args = []
+                args2 = []
                 if isinstance(val, (str, int)):
                     val = [val]
                 for v in val:
@@ -261,27 +260,18 @@ class STACArchive(object):
                     else:
                         value = v
                     a = {'op': '=', 'args': [{'property': lookup[key]}, value]}
-                    args.append(a)
-                if len(args) == 1:
-                    arg = args[0]
+                    args2.append(a)
+                if len(args2) == 1:
+                    arg = args2[0]
                 else:
-                    arg = {'op': 'or', 'args': args}
-            flt['args'].append(arg)
-        t = 1
-        while True:
-            try:
-                result = self.catalog.search(collections=self.collections,
-                                             filter=flt, max_items=None)
-                result = list(result.items())
-                # print('catalog search successful')
-                break
-            except pystac_client.exceptions.APIError:
-                # print(f'failed searching the catalog at try {t:03d}/{self.max_tries}')
-                if t < self.max_tries:
-                    t += 1
-                    time.sleep(1)
-                else:
-                    raise
+                    arg = {'op': 'or', 'args': args2}
+                flt['args'].append(arg)
+        if len(flt['args']) == 0:
+            flt = None
+        result = self.catalog.search(collections=self.collections,
+                                     filter=flt, max_items=None,
+                                     **args)
+        result = list(result.items())
         out = []
         for item in result:
             assets = item.assets
