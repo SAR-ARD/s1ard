@@ -77,13 +77,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             msg = "No scenes could be found for the following search query:\n" \
                   " sensor:       '{sensor}'\n" \
                   " product:      '{product}'\n" \
-                  " acq. mode:    '{acq_mode}'\n" \
+                  " acq_mode:     '{acquisition_mode}'\n" \
                   " aoi_tiles:    '{aoi_tiles}'\n" \
                   " aoi_geometry: '{aoi_geometry}'\n" \
                   " mindate:      '{mindate}'\n" \
                   " maxdate:      '{maxdate}'\n" \
                   " date_strict:  '{date_strict}'\n" \
-                  " datatake:     '{datatake}'\n"
+                  " datatake:     '{frameNumber}'\n"
             print(msg.format(**dict_search))
             archive.close()
             return
@@ -99,12 +99,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.
-    neighbors = None
     if config['product'] == 'GRD':
         print('###### [    SAR] collecting GRD neighbors')
         neighbors = []
         for scene in scenes:
             neighbors.append(search.collect_neighbors(archive=archive, scene=scene))
+    else:
+        neighbors = [None for scene in scenes]
     ####################################################################################################################
     # OCN scene selection
     if 'wm' in config['annotation']:

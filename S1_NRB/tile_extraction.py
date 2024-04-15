@@ -200,8 +200,12 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
         # extract all overlapping tiles
         with scene.geometry() as geom:
             tiles = tile_from_aoi(vector=geom, kml=kml, return_geometries=True)
+        
         # group tiles by UTM zone
-        for zone, group in itertools.groupby(tiles, lambda x: x.mgrs[:2]):
+        def fn(x):
+            return x.getProjection(type='epsg')
+        
+        for zone, group in itertools.groupby(tiles, lambda x: fn(x)):
             geometries = list(group)
             # get UTM EPSG code
             epsg = geometries[0].getProjection(type='epsg')
