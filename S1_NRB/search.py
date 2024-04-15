@@ -530,7 +530,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     
     # derive geometries and tiles from scene footprints
     if vec is None:
-        selection_tmp = archive.select(vectorobject=vec, **args)
+        selection_tmp = archive.select(**args)
         if not isinstance(selection_tmp[0], ID):
             scenes = identify_many(scenes=selection_tmp, sortkey='start')
         else:
