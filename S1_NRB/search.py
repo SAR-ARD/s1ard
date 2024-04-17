@@ -268,6 +268,8 @@ class STACArchive(object):
                 flt['args'].append(arg)
         if len(flt['args']) == 0:
             flt = None
+        if args['datetime'] == [None, None]:
+            args['datetime'] = None
         result = self.catalog.search(collections=self.collections,
                                      filter=flt, max_items=None,
                                      **args)
@@ -528,7 +530,9 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     
     # derive geometries and tiles from scene footprints
     if vec is None:
-        selection_tmp = archive.select(vectorobject=vec, **args)
+        selection_tmp = archive.select(**args)
+        if len(selection_tmp) == 0:
+            return [], []
         if not isinstance(selection_tmp[0], ID):
             scenes = identify_many(scenes=selection_tmp, sortkey='start')
         else:
