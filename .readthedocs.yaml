@@ -1,24 +1,22 @@
-# .readthedocs.yaml
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
-
 version: 2
-
-formats:
-  - epub
-  - pdf
-
-conda:
-  environment: environment-dev.yml
 
 build:
   os: "ubuntu-22.04"
   tools:
     python: "mambaforge-22.9"
-  jobs:
-    post_create_environment:
-      - pip install git+https://github.com/SAR-ARD/S1_NRB.git
+
+conda:
+  environment: environment-dev.yml
+
+python:
+  install:
+    - method: pip
+      path: .
+
+formats:
+  - epub
+  - pdf
 
 sphinx:
   builder: html
-  configuration: docs/conf.py
+  configuration: docs/source/conf.py
