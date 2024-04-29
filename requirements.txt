@@ -1,0 +1,14 @@
+asf_search
+click>=7.1.0
+gdal>=3.5.0
+lxml
+numpy
+pyproj
+pyroSAR>=0.25.0
+pystac>=1.8.0
+pystac-client>=0.7.0
+python-dateutil
+s1etad>=0.5.3
+s1etad_tools>=0.8.1
+scipy
+spatialist>=0.12.0
