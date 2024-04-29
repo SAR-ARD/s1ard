@@ -214,13 +214,14 @@ def _log_process_config(logger, config):
         Dictionary of the parsed config parameters for the current process.
     """
     try:
-        core = examine.ExamineSnap().get_version('core')
-        s1tbx = examine.ExamineSnap().get_version('s1tbx')
+        snap_config = examine.ExamineSnap()
+        core = snap_config.get_version('core')
+        microwavetbx = snap_config.get_version('microwavetbx')
         snap_core = f"{core['version']} | {core['date']}"
-        snap_s1tbx = f"{s1tbx['version']} | {s1tbx['date']}"
+        snap_microwavetbx = f"{microwavetbx['version']} | {microwavetbx['date']}"
     except RuntimeError:
         snap_core = 'unknown'
-        snap_s1tbx = 'unknown'
+        snap_microwavetbx = 'unknown'
     
     header = f"""
     ====================================================================================================================
@@ -262,7 +263,7 @@ def _log_process_config(logger, config):
     
     S1_NRB              {S1_NRB.__version__}
     snap-core           {snap_core}
-    snap-s1tbx          {snap_s1tbx}
+    snap-microwavetbx   {snap_microwavetbx}
     python              {sys.version}
     python-pyroSAR      {pyroSAR.__version__}
     python-spatialist   {spatialist.__version__}
