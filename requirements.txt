@@ -4,7 +4,7 @@ gdal>=3.5.0
 lxml
 numpy
 pyproj
-pyroSAR>=0.25.0
+pyroSAR>=0.26.0
 pystac>=1.8.0
 pystac-client>=0.7.0
 python-dateutil
