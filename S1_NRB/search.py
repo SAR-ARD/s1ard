@@ -3,7 +3,7 @@ import re
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist import Vector, crsConvert
@@ -411,11 +411,15 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
         start = dateutil.parser.parse(mindate)
     else:
         start = mindate
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
     
     if isinstance(maxdate, str):
         stop = dateutil.parser.parse(maxdate)
     else:
         stop = maxdate
+    if stop.tzinfo is None:
+        stop = stop.replace(tzinfo=timezone.utc)
     
     result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
                         processingLevel=processing_level,
@@ -427,7 +431,9 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     
     def date_extract(item, key):
         value = item['properties'][key]
-        out = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ')
+        out = dateutil.parser.parse(value)
+        if out.tzinfo is None:
+            out = out.replace(tzinfo=timezone.utc)
         return out
     
     if date_strict:
