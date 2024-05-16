@@ -11,12 +11,12 @@ RUN apt-get install -y git python3-pip wget libpq-dev
 
 # download SNAP installer
 WORKDIR /tmp/
-RUN wget https://download.esa.int/step/snap/9.0/installers/esa-snap_sentinel_unix_9_0_0.sh
+RUN wget https://download.esa.int/step/snap/10_0/installers/esa-snap_sentinel_linux-10.0.0.sh
 COPY docker/esa-snap.varfile /tmp/esa-snap.varfile
-RUN chmod +x esa-snap_sentinel_unix_9_0_0.sh
+RUN chmod +x esa-snap_sentinel_linux-10.0.0.sh
 
 # install and update SNAP
-RUN /tmp/esa-snap_sentinel_unix_9_0_0.sh -q /tmp/varfile esa-snap.varfile
+RUN /tmp/esa-snap_sentinel_linux-10.0.0.sh -q /tmp/varfile esa-snap.varfile
 RUN apt install -y fonts-dejavu fontconfig
 COPY docker/update_snap.sh /tmp/update_snap.sh
 RUN chmod +x update_snap.sh
@@ -31,7 +31,7 @@ COPY environment.yaml environment.yaml
 RUN conda update conda
 RUN conda env create --yes --file environment.yaml
 
-RUN echo "export PROJ_LIB=/usr/local/envs/nrb_env/share/proj" >> ~/.bashrc
+RUN echo "export PROJ_DATA=/usr/local/envs/nrb_env/share/proj" >> ~/.bashrc
 
 RUN echo "conda init bash" >> ~/.bashrc
 RUN source ~/.bashrc
