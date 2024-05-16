@@ -21,6 +21,7 @@ Scene Management
 ----------------
 
 The S1 images are managed in a local SQLite database to select scenes for processing (see pyroSAR's section on `Database Handling`_) or are directly queried from a STAC catalog (see :class:`S1_NRB.archive.STACArchive`).
+See documentation section :doc:`/general/search` for details.
 
 After loading an MGRS tile as an :class:`spatialist.vector.Vector` object and selecting all relevant overlapping scenes
 from the database, processing can commence.
