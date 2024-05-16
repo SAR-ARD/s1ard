@@ -572,7 +572,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
 
 def collect_neighbors(archive, scene):
     """
-    Collect a scene's neighboring acquisitions in a data take
+    Collect a scene's neighboring acquisitions in a data take.
     
     Parameters
     ----------
