@@ -31,11 +31,11 @@ COPY environment.yaml environment.yaml
 RUN conda update conda
 RUN conda env create --yes --file environment.yaml
 
-RUN echo "export PROJ_DATA=/usr/local/envs/nrb_env/share/proj" >> ~/.bashrc
+RUN echo "export PROJ_DATA=/usr/local/envs/s1ard/share/proj" >> ~/.bashrc
 
 RUN echo "conda init bash" >> ~/.bashrc
 RUN source ~/.bashrc
-RUN echo "conda activate nrb_env" >> ~/.bashrc
+RUN echo "conda activate s1ard" >> ~/.bashrc
 
 WORKDIR /app/
 COPY . /app/

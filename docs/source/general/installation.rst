@@ -43,7 +43,7 @@ Latest State on Github
 ::
 
     conda env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/main/environment.yaml
-    conda activate nrb_env
+    conda activate s1ard
 
 2. Install the s1ard package into the environment
 
@@ -60,7 +60,7 @@ repository for available versions.
 ::
 
     conda env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/v1.0.0/environment.yaml
-    conda activate nrb_env
+    conda activate s1ard
     pip install git+https://github.com/SAR-ARD/s1ard.git@v1.0.0
 
 Docker
