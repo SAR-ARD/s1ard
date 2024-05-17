@@ -1,4 +1,4 @@
-from S1_NRB.search import STACArchive, ASFArchive, collect_neighbors, scene_select
+from s1ard.search import STACArchive, ASFArchive, collect_neighbors, scene_select
 
 
 def test_stac(stac):

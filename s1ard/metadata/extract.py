@@ -16,10 +16,10 @@ from spatialist.ancillary import finder, dissolve
 from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
 from osgeo import gdal
-import S1_NRB
-from S1_NRB.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
-                                     DEM_MAP, SLC_ACC_MAP)
-from S1_NRB import snap
+import s1ard
+from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
+                                    DEM_MAP, SLC_ACC_MAP)
+from s1ard import snap
 
 gdal.UseExceptions()
 
@@ -28,7 +28,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
               wm_ref_files=None):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by :func:`~S1_NRB.metadata.xml.parse` and :func:`~S1_NRB.metadata.stac.parse` to generate OGC XML and
+    be utilized by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse` to generate OGC XML and
     STAC JSON metadata files, respectively.
     
     Parameters
@@ -151,7 +151,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
     meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
-                                               ''.format(S1_NRB.__version__) if geo_corr_accuracy is not None else None
+                                               ''.format(s1ard.__version__) if geo_corr_accuracy is not None else None
     meta['prod']['geoCorrAccuracyType'] = 'slant-range' if geo_corr_accuracy is not None else None
     meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
     meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
@@ -177,8 +177,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     meta['prod']['processingCenter'] = config['meta']['processing_center']
     meta['prod']['processingMode'] = 'PROTOTYPE'
-    meta['prod']['processorName'] = 'S1_NRB'
-    meta['prod']['processorVersion'] = S1_NRB.__version__
+    meta['prod']['processorName'] = 's1ard'
+    meta['prod']['processorVersion'] = s1ard.__version__
     meta['prod']['productName'] = 'Ocean Radar Backscatter' if product_type == 'ORB' else 'Normalised Radar Backscatter'
     meta['prod']['productName-short'] = product_type
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])

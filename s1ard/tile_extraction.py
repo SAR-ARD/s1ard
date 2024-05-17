@@ -3,7 +3,7 @@ import itertools
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
-from S1_NRB.ancillary import get_max_ext, buffer_min_overlap
+from s1ard.ancillary import get_max_ext, buffer_min_overlap
 
 
 def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, tilenames=None):
@@ -188,7 +188,7 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
         (using function :func:`spatialist.auxil.utm_autodetect`).
     percent: int or float
         the minimum overlap in percent of each AOI with the SAR scene.
-        See function :func:`S1_NRB.ancillary.buffer_min_overlap`.
+        See function :func:`s1ard.ancillary.buffer_min_overlap`.
 
     Returns
     -------

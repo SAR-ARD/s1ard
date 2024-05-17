@@ -37,7 +37,7 @@ Folders are highlighted in bold.
                     .. note::
 
                         The final NRB/ORB tiles sorted into subfolders by MGRS tile.
-                        Additional STAC files can be generated using function :func:`S1_NRB.metadata.stac.make_catalog`:
+                        Additional STAC files can be generated using function :func:`s1ard.metadata.stac.make_catalog`:
 
                         - `collection.json`: a STAC collection file referencing the product-specific STAC item files per MGRS tile
                         - `catalog.json`: a STAC catalog referencing all collections

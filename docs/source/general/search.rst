@@ -4,7 +4,7 @@ Scene Search
 Intro
 -----
 
-Scene search is a central component of the S1_NRB package.
+Scene search is a central component of the s1ard package.
 The Level-1 SLC/GRD source scenes and the ARD products are in a many-to-many relationship.
 One source scene is covered by multiple ARD products and an individual ARD product will in most cases be covered by two source scenes (see `Figure 1`).
 
@@ -19,7 +19,7 @@ Hence, the processor must ensure that all source scenes relevant for a number of
 First, all locally available scenes are searched (see `config.ini` search options).
 Then, a check is performed to ensure all scenes were actually found by checking the data take ID.
 If the processor suspects a missing scene, it will cross-check with the ASF portal whether the scene is indeed missing.
-See :func:`S1_NRB.search.check_acquisition_completeness`.
+See :func:`s1ard.search.check_acquisition_completeness`.
 
 Just providing a single scene to the processor is possible with the ``scene`` parameter, but this is only supported for ``mode=sar``.
 For the ARD modes, multiple scenes are needed and the processor will need to collect them via the defined search method and parameters.
@@ -46,17 +46,17 @@ With ``date_strict`` we ensure that only scenes that were completely acquired in
     scene_dir = path/to/scenes
     db_file = scenes.db
 
-Search with S1_NRB.search
--------------------------
+Search with s1ard.search
+------------------------
 
-In the background the :py:mod:`S1_NRB.search` module is used to do the scene search.
+In the background the :py:mod:`s1ard.search` module is used to do the scene search.
 This module contains various tools for searching Sentinel-1 scenes from multiple sources.
 
-For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`S1_NRB.search.scene_select` and class :class:`pyroSAR.drivers.Archive` are used for finding this scene and its neighbors:
+For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`s1ard.search.scene_select` and class :class:`pyroSAR.drivers.Archive` are used for finding this scene and its neighbors:
 
 .. code-block:: python
 
-    from S1_NRB.search import scene_select
+    from s1ard.search import scene_select
     from pyroSAR.drivers import Archive
     from spatialist.ancillary import finder
 
@@ -109,11 +109,11 @@ In the `config.ini`, the parameters ``scene_dir`` and ``db_file`` need to be rep
     stac_catalog = https://stac.terrabyte.lrz.de/public/api
     stac_collections = sentinel-1-grd
 
-Internally, the search interface class :class:`S1_NRB.search.STACArchive` is used instead of :class:`pyroSAR.drivers.Archive` as in the example above:
+Internally, the search interface class :class:`s1ard.search.STACArchive` is used instead of :class:`pyroSAR.drivers.Archive` as in the example above:
 
 .. code-block:: python
 
-    from S1_NRB.search import STACArchive
+    from s1ard.search import STACArchive
 
     stac_catalog = 'https://stac.terrabyte.lrz.de/public/api'
     stac_collection = 'sentinel-1-grd'
@@ -147,7 +147,7 @@ See :meth:`pyroSAR.drivers.Archive.select`.
 STAC
 ^^^^
 
-See :meth:`S1_NRB.search.STACArchive.select`.
+See :meth:`s1ard.search.STACArchive.select`.
 
 .. note::
 
@@ -156,7 +156,7 @@ See :meth:`S1_NRB.search.STACArchive.select`.
 
 .. code-block:: python
 
-    from S1_NRB.search import STACArchive
+    from s1ard.search import STACArchive
 
     stac_catalog = 'https://stac.terrabyte.lrz.de/public/api'
     stac_collection = 'sentinel-1-grd'
@@ -171,11 +171,11 @@ See :meth:`S1_NRB.search.STACArchive.select`.
 ASF
 ^^^
 
-See :meth:`S1_NRB.search.ASFArchive.select`.
+See :meth:`s1ard.search.ASFArchive.select`.
 
 .. code-block:: python
 
-    from S1_NRB.search import ASFArchive
+    from s1ard.search import ASFArchive
 
     with ASFArchive() as archive:
         selection = archive.select(sensor='S1A', acquisition_mode='IW',

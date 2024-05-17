@@ -9,7 +9,7 @@ import spatialist
 from spatialist.vector import bbox, intersect
 import pyroSAR
 from pyroSAR import examine, identify_many
-import S1_NRB
+import s1ard
 
 
 def check_scene_consistency(scenes):
@@ -143,7 +143,7 @@ def set_logging(config, debug=False):
     sh = logging.StreamHandler(sys.stdout)
     log_pyro.addHandler(sh)
     
-    # S1_NRB logging in logfile
+    # s1ard logging in logfile
     now = datetime.now().strftime('%Y%m%dT%H%M')
     log_local = logging.getLogger(__name__)
     log_local.setLevel(logging.DEBUG)
@@ -261,7 +261,7 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     SOFTWARE
     
-    S1_NRB              {S1_NRB.__version__}
+    s1ard               {s1ard.__version__}
     snap-core           {snap_core}
     snap-microwavetbx   {snap_microwavetbx}
     python              {sys.version}

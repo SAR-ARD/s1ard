@@ -22,20 +22,20 @@ COPY docker/update_snap.sh /tmp/update_snap.sh
 RUN chmod +x update_snap.sh
 RUN /tmp/update_snap.sh
 
-FROM snap as s1_nrb
+FROM snap as s1ard
 
-# install S1_NRB
+# install s1ard
 SHELL [ "/bin/bash", "--login", "-c" ]
 
 COPY environment.yaml environment.yaml
 RUN conda update conda
 RUN conda env create --yes --file environment.yaml
 
-RUN echo "export PROJ_DATA=/usr/local/envs/nrb_env/share/proj" >> ~/.bashrc
+RUN echo "export PROJ_DATA=/usr/local/envs/s1ard/share/proj" >> ~/.bashrc
 
 RUN echo "conda init bash" >> ~/.bashrc
 RUN source ~/.bashrc
-RUN echo "conda activate nrb_env" >> ~/.bashrc
+RUN echo "conda activate s1ard" >> ~/.bashrc
 
 WORKDIR /app/
 COPY . /app/

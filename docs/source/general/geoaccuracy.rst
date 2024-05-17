@@ -40,4 +40,4 @@ of each S1-NRB product:
 
 Development Status
 ------------------
-The development status is tracked and discussed in the following Github issue: https://github.com/SAR-ARD/S1_NRB/issues/33
+The development status is tracked and discussed in the following Github issue: https://github.com/SAR-ARD/s1ard/issues/33

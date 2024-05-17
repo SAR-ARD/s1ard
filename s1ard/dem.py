@@ -4,8 +4,8 @@ import tempfile
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
-import S1_NRB.tile_extraction as tile_ex
-from S1_NRB.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
+import s1ard.tile_extraction as tile_ex
+from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
 from spatialist import Raster, bbox
 
 
@@ -46,7 +46,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     
     Examples
     --------
-    >>> from S1_NRB import dem
+    >>> from s1ard import dem
     >>> from spatialist import bbox
     >>> ext = {'xmin': 12, 'xmax': 13, 'ymin': 50, 'ymax': 51}
     >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
@@ -65,7 +65,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     
     See Also
     --------
-    S1_NRB.tile_extraction.tile_from_aoi
+    s1ard.tile_extraction.tile_from_aoi
     """
     if dem_type == 'GETASSE30':
         geoid_convert = False
@@ -243,7 +243,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
            dem_dir=None, username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
-    Can be created from MGRS-tiled DEMs as created by :func:`S1_NRB.dem.prepare`
+    Can be created from MGRS-tiled DEMs as created by :func:`s1ard.dem.prepare`
     or ad hoc using :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
     In the former case the arguments `username`, `password` and `threads` are ignored and
     all tiles found in `dem_dir` are read.

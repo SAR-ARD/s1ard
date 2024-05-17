@@ -15,18 +15,18 @@ from pystac.extensions.raster import RasterExtension, RasterBand, DataType
 from pystac.extensions.classification import ClassificationExtension, Classification
 from spatialist import Raster
 from spatialist.ancillary import finder
-from S1_NRB.metadata.mapping import ASSET_MAP
-from S1_NRB.metadata.extract import get_header_size
+from s1ard.metadata.mapping import ASSET_MAP
+from s1ard.metadata.extract import get_header_size
 
 
 def parse(meta, target, assets, exist_ok=False):
     """
-    Wrapper for :func:`~S1_NRB.metadata.stac.source_json` and :func:`~S1_NRB.metadata.stac.product_json`.
+    Wrapper for :func:`~s1ard.metadata.stac.source_json` and :func:`~s1ard.metadata.stac.product_json`.
     
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`
+        Metadata dictionary generated with :func:`~s1ard.metadata.extract.meta_dict`
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
@@ -45,7 +45,7 @@ def source_json(meta, target, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+        Metadata dictionary generated with :func:`~s1ard.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     exist_ok: bool
@@ -106,7 +106,7 @@ def source_json(meta, target, exist_ok=False):
                        azimuth=meta['source'][uid]['instrumentAzimuthAngle'])
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
-                                                  meta['source'][uid]['processorVersion']}
+                                                      meta['source'][uid]['processorVersion']}
         item.properties['processing:level'] = meta['common']['processingLevel']
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
@@ -241,7 +241,7 @@ def product_json(meta, target, assets, exist_ok=False):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+        Metadata dictionary generated with :func:`~s1ard.metadata.extract.meta_dict`.
     target: str
         A path pointing to the root directory of a product scene.
     assets: list[str]
@@ -474,7 +474,7 @@ def _asset_get_key_title(meta, asset):
     Parameters
     ----------
     meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+        Metadata dictionary generated with :func:`~s1ard.metadata.extract.meta_dict`.
     asset: str
         Path to a GeoTIFF or VRT asset.
     
@@ -540,7 +540,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
     key: str
         Key identifying the asset. Only necessary for annotation assets.
     meta: dict
-        Metadata dictionary generated with :func:`~S1_NRB.metadata.extract.meta_dict`.
+        Metadata dictionary generated with :func:`~s1ard.metadata.extract.meta_dict`.
         Only necessary for annotation assets.
     asset: str
         Path to a GeoTIFF or VRT asset. Only necessary for annotation assets.
@@ -624,7 +624,7 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     """
     overwrite = False
     product_type = product_type.upper()
-    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_'\
+    pattern = fr'^S1[AB]_(IW|EW|S[1-6])_{product_type}__1S(SH|SV|DH|DV|VV|HH|HV|VH)_[0-9]{{8}}T[0-9]{{6}}_[0-9]{{6}}_' \
               fr'[0-9A-F]{{6}}_[0-9A-Z]{{5}}_[0-9A-Z]{{4}}$'
     products = finder(target=directory, matchlist=[pattern], foldermode=2, regex=True, recursive=recursive)
     directory = os.path.join(directory, product_type)
