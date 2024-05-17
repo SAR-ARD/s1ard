@@ -1,7 +1,7 @@
 import click
 
 
-@click.command(name='s1_nrb',
+@click.command(name='s1ard',
                no_args_is_help=True,
                context_settings=dict(
                    ignore_unknown_options=True,
@@ -14,21 +14,21 @@ import click
 @click.option('--debug', is_flag=True,
               help='Print debugging information for pyroSAR modules.')
 @click.option('--version', is_flag=True,
-              help='Print S1_NRB version information and exit. Overrides all other arguments.')
+              help='Print s1ard version information and exit. Overrides all other arguments.')
 @click.pass_context
 def cli(ctx, config_file, section, debug, version):
     """
-    Central S1_NRB processing command.
+    Central s1ard processing command.
     
     Additional options can be passed to override individual processing parameters
     in the configuration file. For example, to read all values from the configuration
     file except the acquisition mode and the annotation layers:
     
-    s1_nrb -c config.ini --acq_mode IW --annotation dm,id
+    s1ard -c config.ini --acq_mode IW --annotation dm,id
     
     The snap_gpt_args argument can be provided by using a dedicated argument separator and quotes:
     
-    s1_nrb -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
+    s1ard -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
     
     \b
     The following defaults are set:
@@ -52,9 +52,9 @@ def cli(ctx, config_file, section, debug, version):
     - licence:           None
     - processing_center: None
     """
-    import S1_NRB
+    import s1ard
     if version:
-        print(S1_NRB.__version__)
+        print(s1ard.__version__)
     else:
         extra = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)}
-        S1_NRB.process(config_file=config_file, section_name=section, debug=debug, **extra)
+        s1ard.process(config_file=config_file, section_name=section, debug=debug, **extra)

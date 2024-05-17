@@ -2,7 +2,7 @@
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2", "wheel"]
 
 [project]
-name = "S1_NRB"
+name = "s1ard"
 description = "A prototype processor for Sentinel-1 Analysis Ready Data (ARD) backscatter products"
 requires-python = ">=3.8"
 license = { file = "LICENSE.txt" }
@@ -18,7 +18,7 @@ classifiers = [
 dynamic = ["version", "readme", "dependencies"]
 
 [project.urls]
-repository = "https://github.com/SAR-ARD/S1_NRB"
+repository = "https://github.com/SAR-ARD/s1ard"
 documentation = "https://s1-nrb.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
@@ -26,7 +26,7 @@ test = ["pytest", "requests"]
 docs = ["sphinx", "sphinxcontrib-bibtex", "nbsphinx", "sphinx_rtd_theme", "sphinx-toolbox", "ipython"]
 
 [tool.setuptools]
-packages = ["S1_NRB"]
+packages = ["s1ard"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
@@ -35,4 +35,4 @@ readme = { file = ["README.md"], content-type = "text/markdown" }
 [tool.setuptools_scm]
 
 [project.scripts]
-s1_nrb = "S1_NRB.cli:cli"
+s1ard = "s1ard.cli:cli"

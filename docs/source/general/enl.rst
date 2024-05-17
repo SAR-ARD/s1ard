@@ -18,13 +18,13 @@ the distribution is selected.
 Calculate ENL per image
 -----------------------
 While only the median value is currently stored in the metadata of each S1-NRB product, it is possible to calculate ENL
-as described above for entire images using the function :func:`S1_NRB.metadata.extract.calc_enl`. The following code
+as described above for entire images using the function :func:`s1ard.metadata.extract.calc_enl`. The following code
 example shows how to calculate ENL for 25x25 pixel windows and return the result as a numpy array. The visualization of
 the resulting array is shown in Figure 1.
 
 .. code-block:: python
 
-    from S1_NRB.metadata.extract import calc_enl
+    from s1ard.metadata.extract import calc_enl
 
     tif = "s1a-iw-nrb-20220721t051225-044194-05465e-33tuf-vh-s-lin.tif"
     enl_arr = calc_enl(tif=tif, block_size=25, return_arr=True)

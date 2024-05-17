@@ -16,13 +16,13 @@ from spatialist.raster import Raster, rasterize, Dtype
 from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
-import S1_NRB
-from S1_NRB import dem, ocn
-from S1_NRB.metadata import extract, xml, stac
-from S1_NRB.metadata.mapping import LERC_ERR_THRES
-from S1_NRB.ancillary import generate_unique_id, vrt_add_overviews
-from S1_NRB.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
-from S1_NRB.snap import find_datasets
+import s1ard
+from s1ard import dem, ocn
+from s1ard.metadata import extract, xml, stac
+from s1ard.metadata.mapping import LERC_ERR_THRES
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews
+from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
+from s1ard.snap import find_datasets
 
 
 def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None, dem_type=None, multithread=True,
@@ -378,7 +378,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
     
     # copy support files
-    schema_dir = os.path.join(S1_NRB.__path__[0], 'validation', 'schemas')
+    schema_dir = os.path.join(s1ard.__path__[0], 'validation', 'schemas')
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
@@ -412,7 +412,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     with the current MGRS tile geometry. If no output is found for any scene the function will raise an error.
     To obtain the extent of valid data coverage, first a binary
     mask raster file is created with the name `datamask.tif`, which is stored in the same folder as
-    the processing output as found by :func:`~S1_NRB.snap.find_datasets`. Then, the boundary of this
+    the processing output as found by :func:`~s1ard.snap.find_datasets`. Then, the boundary of this
     binary mask is computed and stored as `datamask.gpkg` (see function :func:`spatialist.vector.boundary`).
     If the provided `extent` does not overlap with this boundary, the output is discarded. This scenario
     might occur when the scene's geometry read from its metadata overlaps with the tile but the actual
@@ -436,11 +436,11 @@ def get_datasets(scenes, datadir, extent, epsg):
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
     datasets: list[dict]
         List of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
-        The format is a list of dictionaries per scene with keys as described by e.g. :func:`S1_NRB.snap.find_datasets`.
+        The format is a list of dictionaries per scene with keys as described by e.g. :func:`s1ard.snap.find_datasets`.
     
     See Also
     --------
-    :func:`S1_NRB.snap.find_datasets`
+    :func:`s1ard.snap.find_datasets`
     """
     ids = identify_many(scenes)
     datasets = []
@@ -1060,7 +1060,7 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
     Parameters
     ----------
     src: list[str]
-        A list of OCN products as prepared by :func:`S1_NRB.ocn.extract`
+        A list of OCN products as prepared by :func:`s1ard.ocn.extract`
     dst_wm: str
         The name of the wind model layer in the ARD product
     dst_wn: str or None
@@ -1070,7 +1070,7 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
         The name of the measurement file used for wind normalization in `dst_wn`.
         If None, no wind normalization VRT will be created.
     gapfill: bool
-        Perform additional gap filling (:func:`S1_NRB.ocn.gapfill`)?
+        Perform additional gap filling (:func:`s1ard.ocn.gapfill`)?
         This is recommended if the Level-1 source product of `measurement` is GRD
         in which case gaps are introduced between subsequently acquired scenes.
     bounds: list[float]

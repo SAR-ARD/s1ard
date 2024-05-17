@@ -17,7 +17,7 @@ from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from S1_NRB.tile_extraction import aoi_from_scene
+from s1ard.tile_extraction import aoi_from_scene
 from pyroSAR.ancillary import Lock, LockCollection
 
 
@@ -568,7 +568,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     kml: str
         Path to the Sentinel-2 tiling grid KML file.
     dem: str
-        The DEM filename. Can be created with :func:`S1_NRB.dem.mosaic`.
+        The DEM filename. Can be created with :func:`s1ard.dem.mosaic`.
     dem_resampling_method: str
         The DEM resampling method.
     img_resampling_method: str
@@ -618,7 +618,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
 
     Examples
     --------
-    >>> from S1_NRB import snap
+    >>> from s1ard import snap
     >>> scene = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.zip'
     >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     >>> dem = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif'
@@ -946,7 +946,7 @@ def nrt_slice_num(dim):
     """
     Compute a slice number for a scene acquired NRT Slicing mode.
     In this mode both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
-    `sliceNumber` is however needed in function :func:`~S1_NRB.snap.grd_buffer` for
+    `sliceNumber` is however needed in function :func:`~s1ard.snap.grd_buffer` for
     the SNAP operator `SliceAssembly`.
     The time from `segmentStartTime` to `last_line_time` is divided by
     the acquisition duration (`last_line_time` - `first_line_time`).

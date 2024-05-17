@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a>S1_NRB</a>
+  <a>s1ard</a>
 </h1>
 <h3 align="center">A prototype processor for Sentinel-1 Analysis Ready Data (ARD) backscatter products</h3>
 

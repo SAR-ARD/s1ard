@@ -3,10 +3,10 @@ import os
 import datetime
 from importlib.metadata import version as get_version
 
-project = 'S1_NRB'
-project_latex = r'S1\_NRB'
-authors = 'the S1_NRB Developers'
-authors_latex = r'the S1\_NRB Developers'
+project = 's1ard'
+project_latex = r's1ard'
+authors = 'the s1ard Developers'
+authors_latex = r'the s1ard Developers'
 year = datetime.datetime.now().year
 
 # If extensions (or modules to document with autodoc) are in another directory,

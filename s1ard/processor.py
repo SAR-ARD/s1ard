@@ -4,12 +4,12 @@ from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from S1_NRB import etad, dem, ard, snap
-from S1_NRB.config import get_config, snap_conf, gdal_conf
-import S1_NRB.ancillary as anc
-import S1_NRB.tile_extraction as tile_ex
-from S1_NRB import search
-from S1_NRB import ocn
+from s1ard import etad, dem, ard, snap
+from s1ard.config import get_config, snap_conf, gdal_conf
+import s1ard.ancillary as anc
+import s1ard.tile_extraction as tile_ex
+from s1ard import search
+from s1ard import ocn
 
 gdal.UseExceptions()
 

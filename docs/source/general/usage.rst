@@ -36,14 +36,14 @@ See below for further details.
 
 Configuration
 -------------
-Usage of the S1_NRB package relies on a configuration file that needs to be set up by the user. The configuration
+Usage of the s1ard package relies on a configuration file that needs to be set up by the user. The configuration
 file follows the INI format, which uses plain text to store properties as key-value pairs. INI files can be created and
-opened with any text editor. An example ``config.ini`` file for the S1_NRB package can be found here:
+opened with any text editor. An example ``config.ini`` file for the s1ard package can be found here:
 
-https://github.com/SAR-ARD/S1_NRB/blob/main/config.ini
+https://github.com/SAR-ARD/s1ard/blob/main/config.ini
 
 Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
-section name. The ``config.ini`` file used with the S1_NRB package should at least have a dedicated section for processing
+section name. The ``config.ini`` file used with the s1ard package should at least have a dedicated section for processing
 related parameters. This section is by default named ``[PROCESSING]``.
 Users might create several processing sections in the same configuration file with parameter values that correspond to different
 processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
@@ -266,7 +266,7 @@ If you don't see a need for them you can just leave the fields empty, use the de
 Command Line Interface
 ----------------------
 Once a configuration file has been created and all of its parameters have been properly defined, it can be used to start
-the processor using the command line interface (CLI) tool provided with the S1_NRB package.
+the processor using the command line interface (CLI) tool provided with the s1ard package.
 
 The following options are currently available.
 
@@ -274,36 +274,36 @@ Print a help message for the CLI tool:
 
 ::
 
-    s1_nrb --help
+    s1ard --help
 
 Print the processor version:
 
 ::
 
-    s1_nrb --version
+    s1ard --version
 
 Start the processor using parameters defined in the default section of a ``config.ini`` file:
 
 ::
 
-    s1_nrb -c /path/to/config.ini
+    s1ard -c /path/to/config.ini
 
 Start the processor using parameters defined in section ``SECTION_NAME`` of a ``config.ini`` file:
 
 ::
 
-    s1_nrb -c /path/to/config.ini -s SECTION_NAME
+    s1ard -c /path/to/config.ini -s SECTION_NAME
 
 Start the processor using parameters defined in the default section of a ``config.ini`` file but
 override some parameters, e.g. ``acq_mode`` and ``annotation``:
 
 ::
 
-    s1_nrb -c /path/to/config.ini --acq_mode IW --annotation dm,id
+    s1ard -c /path/to/config.ini --acq_mode IW --annotation dm,id
 
 The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
 In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
 
 ::
 
-    s1_nrb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
+    s1ard -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"

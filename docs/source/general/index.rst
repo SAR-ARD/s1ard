@@ -6,7 +6,7 @@ General Topics
 
     installation.rst
     usage.rst
-    S1_NRB.rst
+    s1ard.rst
     search.rst
     folderstructure.rst
     geoaccuracy.rst

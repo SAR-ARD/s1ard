@@ -4,7 +4,7 @@ API Documentation
 Configuration
 -------------
 
-.. automodule:: S1_NRB.config
+.. automodule:: s1ard.config
     :members:
     :undoc-members:
     :show-inheritance:
@@ -19,7 +19,7 @@ Configuration
 Processing
 ----------
 
-.. automodule:: S1_NRB.processor
+.. automodule:: s1ard.processor
     :members:
     :undoc-members:
     :show-inheritance:
@@ -32,7 +32,7 @@ Processing
 SNAP
 ^^^^
 
-.. automodule:: S1_NRB.snap
+.. automodule:: s1ard.snap
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,7 +65,7 @@ SNAP
 ARD
 ^^^
 
-.. automodule:: S1_NRB.ard
+.. automodule:: s1ard.ard
     :members:
     :undoc-members:
     :show-inheritance:
@@ -85,7 +85,7 @@ ARD
 ETAD
 ^^^^
 
-.. automodule:: S1_NRB.etad
+.. automodule:: s1ard.etad
     :members:
     :undoc-members:
     :show-inheritance:
@@ -98,7 +98,7 @@ ETAD
 DEM
 ^^^
 
-.. automodule:: S1_NRB.dem
+.. automodule:: s1ard.dem
     :members:
     :undoc-members:
     :show-inheritance:
@@ -112,7 +112,7 @@ DEM
 OCN
 ^^^
 
-.. automodule:: S1_NRB.ocn
+.. automodule:: s1ard.ocn
     :members:
     :undoc-members:
     :show-inheritance:
@@ -126,7 +126,7 @@ OCN
 Tile Extraction
 ---------------
 
-.. automodule:: S1_NRB.tile_extraction
+.. automodule:: s1ard.tile_extraction
     :members:
     :undoc-members:
     :show-inheritance:
@@ -142,7 +142,7 @@ Tile Extraction
 Ancillary Functions
 -------------------
 
-.. automodule:: S1_NRB.ancillary
+.. automodule:: s1ard.ancillary
     :members:
     :undoc-members:
     :show-inheritance:
@@ -163,7 +163,7 @@ Ancillary Functions
 Scene Search
 ------------
 
-.. automodule:: S1_NRB.search
+.. automodule:: s1ard.search
     :members:
     :undoc-members:
     :show-inheritance:
@@ -185,7 +185,7 @@ Metadata
 Extraction
 ^^^^^^^^^^
 
-.. automodule:: S1_NRB.metadata.extract
+.. automodule:: s1ard.metadata.extract
     :members:
     :undoc-members:
     :show-inheritance:
@@ -208,7 +208,7 @@ Extraction
 XML
 ^^^
 
-.. automodule:: S1_NRB.metadata.xml
+.. automodule:: s1ard.metadata.xml
     :members:
     :undoc-members:
     :show-inheritance:
@@ -223,7 +223,7 @@ XML
 STAC
 ^^^^
 
-.. automodule:: S1_NRB.metadata.stac
+.. automodule:: s1ard.metadata.stac
     :members:
     :undoc-members:
     :show-inheritance:

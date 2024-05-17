@@ -9,8 +9,8 @@ from pystac_client.stac_api_io import StacApiIO
 from spatialist import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
-from S1_NRB.ancillary import buffer_time
-from S1_NRB.tile_extraction import aoi_from_tile, tile_from_aoi
+from s1ard.ancillary import buffer_time
+from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
 
 
 class ASF(ID):
@@ -71,7 +71,7 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :func:`~S1_NRB.search.ASFArchive`
+    The interface is kept consistent with :func:`~s1ard.search.ASFArchive`
     and :class:`pyroSAR.drivers.Archive`.
     
     Parameters
@@ -307,8 +307,8 @@ class ASFArchive(object):
                maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
         """
         Select scenes from the ASF catalog. This is a simple wrapper around the function
-        :func:`~S1_NRB.search.asf_select` to be consistent with the interfaces of
-        :func:`~S1_NRB.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
+        :func:`~s1ard.search.asf_select` to be consistent with the interfaces of
+        :func:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
 
         Parameters
         ----------
@@ -331,7 +331,7 @@ class ASFArchive(object):
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
         return_value: str or list[str]
-            the metadata return value; see :func:`~S1_NRB.search.asf_select` for details
+            the metadata return value; see :func:`~s1ard.search.asf_select` for details
         
         See Also
         --------
@@ -341,7 +341,7 @@ class ASFArchive(object):
         -------
         list[str or tuple[str] or ASF]
             the scene metadata attributes as specified with `return_value`;
-            see :func:`~S1_NRB.search.asf_select` for details
+            see :func:`~s1ard.search.asf_select` for details
         """
         return asf_select(sensor, product, acquisition_mode, mindate, maxdate, vectorobject,
                           return_value=return_value, date_strict=date_strict)
@@ -368,7 +368,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap
     return_value: str or list[str]
-        the metadata return value; if `ASF`, an :class:`~S1_NRB.search.ASF` object is returned;
+        the metadata return value; if `ASF`, an :class:`~s1ard.search.ASF` object is returned;
         further string options specify certain properties to return: `beamModeType`, `browse`,
         `bytes`, `centerLat`, `centerLon`, `faradayRotation`, `fileID`, `flightDirection`, `groupID`,
         `granuleType`, `insarStackId`, `md5sum`, `offNadirAngle`, `orbit`, `pathNumber`, `platform`,
@@ -386,7 +386,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     -------
     list[str or tuple[str] or ASF]
         the scene metadata attributes as specified with `return_value`; the return type is a list of strings,
-        tuples or :class:`~S1_NRB.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~S1_NRB.search.ASF`.
+        tuples or :class:`~s1ard.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
     if isinstance(return_value, list) and 'ASF' in return_value:
@@ -627,7 +627,7 @@ def check_acquisition_completeness(archive, scenes):
 
     See Also
     --------
-    S1_NRB.search.asf_select
+    s1ard.search.asf_select
     """
     messages = []
     for scene in scenes:

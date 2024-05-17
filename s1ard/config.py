@@ -285,7 +285,7 @@ def _keyval_check(key, val, allowed_keys):
 
 def snap_conf(config):
     """
-    Returns a dictionary of additional parameters for :func:`S1_NRB.snap.process` based on processing
+    Returns a dictionary of additional parameters for :func:`s1ard.snap.process` based on processing
     configurations provided by the config file.
     
     Parameters
@@ -296,7 +296,7 @@ def snap_conf(config):
     Returns
     -------
     dict
-        Dictionary of parameters that can be passed to :func:`S1_NRB.snap.process`
+        Dictionary of parameters that can be passed to :func:`s1ard.snap.process`
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,

@@ -22,9 +22,9 @@ COPY docker/update_snap.sh /tmp/update_snap.sh
 RUN chmod +x update_snap.sh
 RUN /tmp/update_snap.sh
 
-FROM snap as s1_nrb
+FROM snap as s1ard
 
-# install S1_NRB
+# install s1ard
 SHELL [ "/bin/bash", "--login", "-c" ]
 
 COPY environment.yaml environment.yaml

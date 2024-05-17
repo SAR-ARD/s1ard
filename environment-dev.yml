@@ -1,4 +1,4 @@
-name: nrb_env_dev
+name: s1ard_dev
 channels:
   - conda-forge
   - defaults
