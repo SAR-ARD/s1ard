@@ -54,10 +54,9 @@ class ASF(ID):
         meta['sensor'] = self._meta['properties']['platform'].replace('entinel-', '')
         start = self._meta['properties']['startTime']
         stop = self._meta['properties']['stopTime']
-        p1 = '%Y-%m-%dT%H:%M:%S.%fZ'
-        p2 = '%Y%m%dT%H%M%S'
-        meta['start'] = datetime.strptime(start, p1).strftime(p2)
-        meta['stop'] = datetime.strptime(stop, p1).strftime(p2)
+        pattern = '%Y%m%dT%H%M%S'
+        meta['start'] = dateutil.parser.parse(start).strftime(pattern)
+        meta['stop'] = dateutil.parser.parse(stop).strftime(pattern)
         meta['spacing'] = None
         meta['samples'] = None
         meta['lines'] = None
