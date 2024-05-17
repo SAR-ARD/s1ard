@@ -150,7 +150,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://s1-nrb.readthedocs.io/en/v{}/general/geoaccuracy.html' \
+    meta['prod']['geoCorrAccuracyReference'] = 'https://s1ard.readthedocs.io/en/v{}/general/geoaccuracy.html' \
                                                ''.format(s1ard.__version__) if geo_corr_accuracy is not None else None
     meta['prod']['geoCorrAccuracyType'] = 'slant-range' if geo_corr_accuracy is not None else None
     meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
@@ -646,7 +646,7 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
 def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
     """
     Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
-    (Item 4.3). For more information see: https://s1-nrb.readthedocs.io/en/latest/general/geoaccuracy.html.
+    (Item 4.3). For more information see: https://s1ard.readthedocs.io/en/latest/general/geoaccuracy.html.
     Currently only the Copernicus DEM is supported.
 
     Parameters

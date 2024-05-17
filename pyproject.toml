@@ -19,7 +19,7 @@ dynamic = ["version", "readme", "dependencies"]
 
 [project.urls]
 repository = "https://github.com/SAR-ARD/s1ard"
-documentation = "https://s1-nrb.readthedocs.io/en/latest/"
+documentation = "https://s1ard.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 test = ["pytest", "requests"]
