@@ -33,7 +33,8 @@ def get_keys(section):
 
 
 def get_config(config_file, proc_section='PROCESSING', **kwargs):
-    """Returns the content of a `config.ini` file as a dictionary.
+    """
+    Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
@@ -44,7 +45,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     
     Returns
     -------
-    out_dict: dict
+    dict
         Dictionary of the parsed config parameters.
     """
     parser = configparser.ConfigParser(allow_no_value=True,

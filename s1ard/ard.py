@@ -379,7 +379,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         gapfill = True if src_ids[0].product == 'GRD' else False
         
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
-                           gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver, creation_opt=write_options['wm'],
+                           gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver,
+                           creation_opt=write_options['wm'],
                            dst_nodata=dst_nodata_float, multithread=multithread)
         datasets_ard['wm'] = wm_ard
         datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard

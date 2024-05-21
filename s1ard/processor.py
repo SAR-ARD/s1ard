@@ -14,7 +14,7 @@ from s1ard import ocn
 gdal.UseExceptions()
 
 
-def main(config_file, section_name='PROCESSING', **kwargs):
+def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     """
     Main function that initiates and controls the processing workflow.
     
@@ -25,12 +25,14 @@ def main(config_file, section_name='PROCESSING', **kwargs):
     section_name: str
         Section name of the `config.ini` file that processing parameters
         should be parsed from. Default is 'PROCESSING'.
+    debug: bool
+        Set logging level to DEBUG? Default is False.
     **kwargs
         extra arguments to override parameters in the config file. E.g. `acq_mode`.
     """
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, proc_section=section_name, **kwargs)
-    log = anc.set_logging(config=config)
+    log = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
@@ -261,7 +263,7 @@ def main(config_file, section_name='PROCESSING', **kwargs):
                 dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                log.info(f'creating tile {t + 1}/{t_total}')
+                log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scenes: {scenes_sub_fnames}')
                 try:
                     msg = ard.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,

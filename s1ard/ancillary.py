@@ -119,7 +119,7 @@ def get_max_ext(geometries, buffer=None):
     return max_ext
 
 
-def set_logging(config):
+def set_logging(config, debug=False):
     """
     Set logging for the current process.
     
@@ -127,14 +127,18 @@ def set_logging(config):
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
+    debug: bool
+        Set logging level to DEBUG?
     
     Returns
     -------
     logging.Logger
         The log handler for the current process.
     """
+    level = logging.DEBUG if debug else logging.INFO
+    
     logger = logging.getLogger('s1ard')
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
     
     log_format = "[%(asctime)s] [%(levelname)5s] %(message)s"
     formatter = logging.Formatter(fmt=log_format,
@@ -157,7 +161,7 @@ def set_logging(config):
     
     # add pyroSAR logger
     log_pyro = logging.getLogger('pyroSAR')
-    log_pyro.setLevel(logging.INFO)
+    log_pyro.setLevel(level)
     log_pyro.addHandler(handler)
     
     return logger
