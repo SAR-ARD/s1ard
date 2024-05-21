@@ -17,6 +17,9 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from s1ard.metadata.mapping import ASSET_MAP
 from s1ard.metadata.extract import get_header_size
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 def parse(meta, target, assets, exist_ok=False):
@@ -57,7 +60,7 @@ def source_json(meta, target, exist_ok=False):
         outname = os.path.join(metadir, '{}.json'.format(scene))
         if os.path.isfile(outname) and exist_ok:
             continue
-        print(outname)
+        log.info(f'creating {outname}')
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
         date = start + (stop - start) / 2
@@ -253,7 +256,7 @@ def product_json(meta, target, assets, exist_ok=False):
     outname = os.path.join(target, '{}.json'.format(scene_id))
     if os.path.isfile(outname) and exist_ok:
         return
-    print(outname)
+    log.info(f'creating {outname}')
     start = meta['prod']['timeStart']
     stop = meta['prod']['timeStop']
     date = start + (stop - start) / 2
@@ -641,7 +644,7 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
         if len(diff) == 0:
             # See note in docstring - https://github.com/gjoseph92/stackstac/issues/20
             catalog.make_all_asset_hrefs_absolute()
-            print(f"\n#### Existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
+            log.info(f"existing STAC endpoint found: {os.path.join(directory, 'catalog.json')}")
             return catalog
     
     sp_extent = pystac.SpatialExtent([None, None, None, None])
@@ -690,9 +693,9 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     catalog.make_all_asset_hrefs_absolute()
     
     if overwrite:
-        print(f"\n#### Existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
+        log.info(f"existing STAC endpoint updated: {os.path.join(directory, 'catalog.json')}")
     else:
-        print(f"\n#### New STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
+        log.info(f"new STAC endpoint created: {os.path.join(directory, 'catalog.json')}")
     return catalog
 
 
@@ -749,12 +752,12 @@ def _reorganize_by_tile(directory, product_type, products=None, recursive=True, 
                 if os.path.dirname(old_dir) != tile_dir:
                     shutil.move(old_dir, new_dir)
                     if not silent:
-                        print(f"-> {os.path.basename(old_dir)} moved to {tile_dir}")
+                        log.info(f"-> {os.path.basename(old_dir)} moved to {tile_dir}")
                 else:
                     if not silent:
-                        print(f"xx {os.path.basename(old_dir)} already in {tile_dir} (skip!)")
+                        log.info(f"xx {os.path.basename(old_dir)} already in {tile_dir} (skip!)")
                     continue
         return products_new
     else:
-        print('abort!')
+        log.info('abort!')
         sys.exit(0)

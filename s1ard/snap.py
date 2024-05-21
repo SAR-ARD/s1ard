@@ -19,6 +19,9 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     sub_parametrize, erode_edges
 from s1ard.tile_extraction import aoi_from_scene
 from pyroSAR.ancillary import Lock, LockCollection
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -658,7 +661,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
-    print('### preprocessing main scene')
+    log.info('preprocessing main scene')
     with Lock(out_pre):
         pre(src=scene, dst=out_pre, workflow=out_pre_wf,
             allow_res_osv=allow_res_osv, output_noise=output_noise,
@@ -675,7 +678,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             tmp_base_nb = os.path.join(tmpdir_nb, basename_nb)
             out_pre_nb = tmp_base_nb + '_pre.dim'
             out_pre_nb_wf = out_pre_nb.replace('.dim', '.xml')
-            print('### preprocessing neighbor:', item)
+            log.info(f'preprocessing neighbor: {item}')
             with Lock(out_pre_nb):
                 pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
                     allow_res_osv=allow_res_osv, output_noise=output_noise,
@@ -687,7 +690,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
-            print('### buffering scene with neighboring acquisitions')
+            log.info('buffering scene with neighboring acquisitions')
             with LockCollection(out_pre_neighbors, soft=True):
                 grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                            neighbors=out_pre_neighbors, gpt_args=gpt_args,
@@ -696,14 +699,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     ############################################################################
     # range look direction angle
     if 'lookDirection' in export_extra:
-        print('### look direction computation')
+        log.info('look direction computation')
         look_direction(dim=out_pre)
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
     if not os.path.isfile(out_mli):
-        print('### multi-looking')
+        log.info('multi-looking')
         mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
             spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
     if not os.path.isfile(out_mli):
@@ -719,7 +722,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         workflows.append(out_rtc_wf)
         output_sigma0_rtc = measurement == 'sigma' or 'gammaSigmaRatio' in export_extra
         if not os.path.isfile(out_rtc):
-            print('### radiometric terrain correction')
+            log.info('radiometric terrain correction')
             rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
                 dem_resampling_method=dem_resampling_method,
                 sigma0=output_sigma0_rtc,
@@ -733,6 +736,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_gsr_wf = out_gsr.replace('.dim', '.xml')
             workflows.append(out_gsr_wf)
             if not os.path.isfile(out_gsr):
+                log.info('computing gamma-sigma ratio')
                 gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf,
                     gpt_args=gpt_args)
         ########################################################################
@@ -743,6 +747,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_sgr_wf = out_sgr.replace('.dim', '.xml')
             workflows.append(out_sgr_wf)
             if not os.path.isfile(out_sgr):
+                log.info('computing sigma-gamma ratio')
                 sgr(src=out_rtc, dst=out_sgr, workflow=out_sgr_wf,
                     gpt_args=gpt_args)
     ############################################################################
@@ -778,7 +783,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 dem_resampling_method=dem_resampling_method,
                 img_resampling_method=img_resampling_method,
                 gpt_args=gpt_args)
-            print('### edge cleaning')
+            log.info('edge cleaning')
             postprocess(out_geo, clean_edges=clean_edges,
                         clean_edges_pixels=clean_edges_pixels)
         for wf in workflows:
@@ -786,16 +791,17 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             if wf != wf_dst:
                 shutil.copyfile(src=wf, dst=wf_dst)
     
-    print('### determining UTM zone overlaps')
+    log.info('determining UTM zone overlaps')
     aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
     for aoi in aois:
         ext = aoi['extent']
         epsg = aoi['epsg']
         align_x = aoi['align_x']
         align_y = aoi['align_y']
-        print(f'### geocoding to EPSG:{epsg}')
+        log.info(f'geocoding to EPSG:{epsg}')
         run()
     if cleanup:
+        log.info('cleaning up')
         if id.product == 'GRD':
             # delete everything except *_pre.* products which are reused for buffering
             # this needs to be improved so that these products are also removed if they

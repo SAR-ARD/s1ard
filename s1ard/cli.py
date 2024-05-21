@@ -40,7 +40,6 @@ def cli(ctx, config_file, section, debug, version):
     - etad_dir:          None
     - gdal_threads:      4
     - snap_gpt_args:     None
-    - log_dir:           LOG
     - measurement:       gamma
     - ard_dir:           ARD
     - sar_dir:           SAR

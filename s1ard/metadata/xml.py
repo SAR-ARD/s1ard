@@ -8,6 +8,9 @@ from spatialist.ancillary import finder
 from statistics import mean
 from s1ard.metadata.mapping import ASSET_MAP, NS_MAP
 from s1ard.metadata.extract import get_header_size
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 def parse(meta, target, assets, exist_ok=False):
@@ -61,7 +64,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         outname = os.path.join(metadir, '{}.xml'.format(scene))
         if os.path.isfile(outname) and exist_ok:
             continue
-        print(outname)
+        log.info(f'creating {outname}')
         timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
         timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
         
@@ -253,7 +256,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     outname = os.path.join(target, '{}.xml'.format(scene_id))
     if os.path.isfile(outname) and exist_ok:
         return
-    print(outname)
+    log.info(f'creating {outname}')
     timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
     timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')

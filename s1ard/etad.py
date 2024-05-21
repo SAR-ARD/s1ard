@@ -7,9 +7,12 @@ import zipfile as zf
 from pyroSAR import identify
 from spatialist.ancillary import finder
 from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
+import logging
+
+log = logging.getLogger('s1ard')
 
 
-def process(scene, etad_dir, out_dir, log):
+def process(scene, etad_dir, out_dir):
     """
     Apply ETAD correction to a Sentinel-1 SLC product.
     
@@ -23,8 +26,6 @@ def process(scene, etad_dir, out_dir, log):
         The directory to store results. The ETAD product is unpacked to this directory if necessary.
         Two new sub-directories SLC_original SLC_ETAD and are created, which contain the original unpacked
         scene and the corrected one respectively.
-    log: logging.Logger
-        A logger object to write log info.
 
     Returns
     -------
@@ -67,9 +68,9 @@ def process(scene, etad_dir, out_dir, log):
                                     order=0)  # using the default 1 introduces a bias of about -0.5 dB.
             shutil.rmtree(os.path.join(out_dir, 'SLC_original'))
             t = round((time.time() - start_time), 2)
-            log.info('[   ETAD] -- {scene} -- {time}'.format(scene=scene.scene, time=t))
+            log.info(f'ETAD correction finished in {t} seconds')
         except Exception as e:
-            log.error('[   ETAD] -- {scene} -- {error}'.format(scene=scene.scene, error=e))
+            log.error(e)
             raise
     else:
         msg = 'Already processed - Skip!'

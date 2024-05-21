@@ -156,7 +156,6 @@ Ancillary Functions
         generate_unique_id
         get_max_ext
         group_by_time
-        log
         set_logging
         vrt_add_overviews
 
