@@ -45,6 +45,7 @@ def cli(ctx, config_file, section, debug, version):
     - sar_dir:           SAR
     - tmp_dir:           TMP
     - wbm_dir:           WBM
+    - logfile:           None
     (metadata section)
     - access_url:        None
     - doi:               None

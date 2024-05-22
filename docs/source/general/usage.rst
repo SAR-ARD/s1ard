@@ -146,8 +146,9 @@ subdirectories relative to the directory specified with ``work_dir``. E.g., ``ar
 logfile
 +++++++
 
-The path to a log file. If set to None, all logs will be printed to the console.
+The path to a log file. If set to ``None``, all logs will be printed to the console.
 The file path can be relative to ``work_dir`` or absolute.
+Default if not defined: ``None``.
 
 search option I: scene_dir & db_file
 ++++++++++++++++++++++++++++++++++++

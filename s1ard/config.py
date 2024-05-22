@@ -99,6 +99,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['measurement'] = 'gamma'
     if 'annotation' not in proc_sec.keys():
         proc_sec['annotation'] = 'dm,ei,id,lc,li,np,ratio'
+    if 'logfile' not in proc_sec.keys():
+        proc_sec['logfile'] = 'None'
     
     # check completeness of configuration parameters
     missing = []
