@@ -167,10 +167,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
             fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
             os.makedirs(tmp_dir_scene, exist_ok=True)
-            log.info(f'creating scene-specific DEM mosaic')
-            with scene.bbox() as geom:
-                dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
-                           username=username, password=password)
+            if not os.path.isfile(fname_dem):
+                log.info('creating scene-specific DEM mosaic')
+                with scene.bbox() as geom:
+                    dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
+                               username=username, password=password)
+            else:
+                log.info(f'found scene-specific DEM mosaic: {fname_dem}')
             ############################################################################################################
             # ETAD correction
             if config['etad']:
@@ -209,17 +212,18 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 raise
     ####################################################################################################################
     # OCN preparation
-    log.info('extracting OCN products')
-    for scene in scenes_ocn:
-        if scene.compression is not None:
-            scene.unpack(directory=config['tmp_dir'], exist_ok=True)
-        basename = os.path.basename(scene.scene).replace('.SAFE', '')
-        outdir = os.path.join(config['sar_dir'], basename)
-        os.makedirs(outdir, exist_ok=True)
-        for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
-            out = os.path.join(outdir, f'{v}.tif')
-            if not os.path.isfile(out):
-                ocn.extract(src=scene.scene, dst=out, variable=v)
+    if len(scenes_ocn) > 0:
+        log.info('extracting OCN products')
+        for scene in scenes_ocn:
+            if scene.compression is not None:
+                scene.unpack(directory=config['tmp_dir'], exist_ok=True)
+            basename = os.path.basename(scene.scene).replace('.SAFE', '')
+            outdir = os.path.join(config['sar_dir'], basename)
+            os.makedirs(outdir, exist_ok=True)
+            for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
+                out = os.path.join(outdir, f'{v}.tif')
+                if not os.path.isfile(out):
+                    ocn.extract(src=scene.scene, dst=out, variable=v)
     ####################################################################################################################
     # ARD - final product generation
     if nrb_flag or orb_flag:

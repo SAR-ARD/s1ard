@@ -66,6 +66,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
     ############################################
     ml = mli_parametrize(scene=scene, spacing=spacing, rlks=rlks, azlks=azlks)
     if ml is not None:
+        log.info('multi-looking')
         wf.insert_node(ml, before=read.id)
         ############################################
         write = parse_node('Write')
@@ -451,7 +452,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
     
     Parameters
     ----------
-    src: list[str or None]
+    src: str or None
         variable number of input scene file names
     dst: str
         the file name of the target scene. Format is BEAM-DIMAP.
@@ -661,11 +662,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
-    log.info('preprocessing main scene')
-    with Lock(out_pre):
-        pre(src=scene, dst=out_pre, workflow=out_pre_wf,
-            allow_res_osv=allow_res_osv, output_noise=output_noise,
-            output_beta0=apply_rtc, gpt_args=gpt_args)
+    if not os.path.isfile(out_pre):
+        log.info('preprocessing main scene')
+        with Lock(out_pre):
+            pre(src=scene, dst=out_pre, workflow=out_pre_wf,
+                allow_res_osv=allow_res_osv, output_noise=output_noise,
+                output_beta0=apply_rtc, gpt_args=gpt_args)
+    else:
+        log.info('main scene has already been preprocessed')
     ############################################################################
     # GRD buffering
     if neighbors is not None and len(neighbors) > 0:
@@ -678,11 +682,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             tmp_base_nb = os.path.join(tmpdir_nb, basename_nb)
             out_pre_nb = tmp_base_nb + '_pre.dim'
             out_pre_nb_wf = out_pre_nb.replace('.dim', '.xml')
-            log.info(f'preprocessing neighbor: {item}')
-            with Lock(out_pre_nb):
-                pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
-                    allow_res_osv=allow_res_osv, output_noise=output_noise,
-                    output_beta0=apply_rtc, gpt_args=gpt_args)
+            if not os.path.isfile(out_pre_nb):
+                log.info(f'preprocessing GRD neighbor: {item}')
+                with Lock(out_pre_nb):
+                    pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
+                        allow_res_osv=allow_res_osv, output_noise=output_noise,
+                        output_beta0=apply_rtc, gpt_args=gpt_args)
+            else:
+                log.info(f' GRD neighbor has already been preprocessed: {item}')
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
@@ -690,23 +697,23 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
-            log.info('buffering scene with neighboring acquisitions')
+            log.info('buffering GRD scene with neighboring acquisitions')
             with LockCollection(out_pre_neighbors, soft=True):
                 grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                            neighbors=out_pre_neighbors, gpt_args=gpt_args,
                            buffer=10 * spacing)
+        else:
+            log.info('GRD scene has already been buffered')
         out_pre = out_buffer
     ############################################################################
     # range look direction angle
     if 'lookDirection' in export_extra:
-        log.info('look direction computation')
         look_direction(dim=out_pre)
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
     if not os.path.isfile(out_mli):
-        log.info('multi-looking')
         mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
             spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
     if not os.path.isfile(out_mli):
@@ -761,6 +768,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_geo = out_base + '_geo_{}.dim'.format(epsg)
         out_geo_wf = out_geo.replace('.dim', '.xml')
         if not os.path.isfile(out_geo):
+            log.info(f'geocoding to EPSG:{epsg}')
             scene1 = identify(out_mli)
             pols = scene1.polarizations
             bands0 = ['NESZ_{}'.format(pol) for pol in pols]
@@ -786,9 +794,11 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             log.info('edge cleaning')
             postprocess(out_geo, clean_edges=clean_edges,
                         clean_edges_pixels=clean_edges_pixels)
+        else:
+            log.info(f'geocoding to EPSG:{epsg} has already been performed')
         for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
-            if wf != wf_dst:
+            if wf != wf_dst and not os.path.isfile(wf_dst):
                 shutil.copyfile(src=wf, dst=wf_dst)
     
     log.info('determining UTM zone overlaps')
@@ -798,7 +808,6 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         epsg = aoi['epsg']
         align_x = aoi['align_x']
         align_y = aoi['align_y']
-        log.info(f'geocoding to EPSG:{epsg}')
         run()
     if cleanup:
         log.info('cleaning up')
@@ -1179,7 +1188,10 @@ def look_direction(dim):
     data = dim.replace('.dim', '.data')
     out = os.path.join(data, 'lookDirection.img')
     if not os.path.isfile(out):
+        log.info('look direction computation')
         ref = finder(target=data, matchlist=['*.img'])[0]
         arr = interpolate(infile=dim)
         write(array=arr, out=out, reference=ref)
         metadata(dim=dim)
+    else:
+        log.info('look direction has already been computed')
