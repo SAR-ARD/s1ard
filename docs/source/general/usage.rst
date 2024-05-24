@@ -273,6 +273,7 @@ Command Line Interface
 ----------------------
 Once a configuration file has been created and all of its parameters have been properly defined, it can be used to start
 the processor using the command line interface (CLI) tool provided with the s1ard package.
+The tool `s1rb` can be used to create the two radar backscatter products NRB and ORB.
 
 The following options are currently available.
 
@@ -280,25 +281,25 @@ Print a help message for the CLI tool:
 
 ::
 
-    s1ard --help
+    s1rb --help
 
 Print the processor version:
 
 ::
 
-    s1ard --version
+    s1rb --version
 
 Start the processor using parameters defined in the default section of a ``config.ini`` file:
 
 ::
 
-    s1ard -c /path/to/config.ini
+    s1rb -c /path/to/config.ini
 
 Start the processor using parameters defined in section ``SECTION_NAME`` of a ``config.ini`` file:
 
 ::
 
-    s1ard -c /path/to/config.ini -s SECTION_NAME
+    s1rb -c /path/to/config.ini -s SECTION_NAME
 
 Start the processor using parameters defined in the default section of a ``config.ini`` file but
 override some parameters, e.g. ``acq_mode`` and ``annotation``:

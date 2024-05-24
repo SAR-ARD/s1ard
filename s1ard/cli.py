@@ -1,7 +1,7 @@
 import click
 
 
-@click.command(name='s1ard',
+@click.command(name='s1rb',
                no_args_is_help=True,
                context_settings=dict(
                    ignore_unknown_options=True,
@@ -18,17 +18,17 @@ import click
 @click.pass_context
 def cli(ctx, config_file, section, debug, version):
     """
-    Central s1ard processing command.
+    Central s1ard radar backscatter (rb) processing command.
     
     Additional options can be passed to override individual processing parameters
     in the configuration file. For example, to read all values from the configuration
     file except the acquisition mode and the annotation layers:
     
-    s1ard -c config.ini --acq_mode IW --annotation dm,id
+    s1rb -c config.ini --acq_mode IW --annotation dm,id
     
     The snap_gpt_args argument can be provided by using a dedicated argument separator and quotes:
     
-    s1ard -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
+    s1rb -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
     
     \b
     The following defaults are set:
