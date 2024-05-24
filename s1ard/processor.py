@@ -240,9 +240,10 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        log.info(f'preparing {product_type} products')
+        log.info(f'grouping scenes by time and starting {product_type} production')
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, group in enumerate(selection_grouped):
+            gstr = f'{s + 1}/{len(selection_grouped)}'
             # check that the scenes can really be grouped together
             anc.check_scene_consistency(scenes=group)
             # get the geometries of all tiles that overlap with the current scene group
@@ -267,13 +268,15 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                log.info(f'creating product {t + 1}/{t_total}')
-                log.info(f'selected scenes: {scenes_sub_fnames}')
+                log.info(f'creating product {t + 1}/{t_total} of group {gstr}')
+                log.info(f'selected scene(s): {scenes_sub_fnames}')
                 try:
-                    msg = ard.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
-                                     datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
+                    msg = ard.format(config=config, product_type=product_type,
+                                     scenes=scenes_sub_fnames, datadir=config['sar_dir'],
+                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=annotation, update=update)
+                                     multithread=gdal_prms['multithread'], annotation=annotation,
+                                     update=update)
                     if msg == 'Already processed - Skip!':
                         log.info(msg)
                 except Exception as e:
