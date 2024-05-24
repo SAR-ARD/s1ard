@@ -58,7 +58,6 @@ Processing Section
 mode
 ++++
 
-
 Options: ``sar | nrb | orb``
 
 This parameter determines what steps should be executed.
@@ -74,7 +73,7 @@ scene
 +++++
 
 Define a single SAR scene filename instead of searching for scenes in a database.
-If this parameter is set, the 'mode' must be 'sar'.
+If this parameter is set, the ``mode`` must be ``sar``.
 In case of a GRD, database search is still performed to collect neighbors.
 
 aoi_tiles & aoi_geometry
@@ -101,8 +100,8 @@ date_strict
 Treat dates as strict limits or also allow flexible limits to incorporate scenes
 whose acquisition period overlaps with the defined limit.
 
- + strict: start >= mindate & stop <= maxdate
- + not strict: stop >= mindate & start <= maxdate
+ + strict: ``start >= mindate & stop <= maxdate``
+ + not strict: ``stop >= mindate & start <= maxdate``
 
 sensor
 ++++++
@@ -136,13 +135,20 @@ work_dir
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
 Needs to be provided as full path to an existing directory.
 
-tmp_dir, sar_dir, ard_dir, wbm_dir & log_dir
-++++++++++++++++++++++++++++++++++++++++++++
+tmp_dir, sar_dir, ard_dir, wbm_dir
+++++++++++++++++++++++++++++++++++
 
 Processing creates many intermediate files that are expected to be stored in separate subdirectories. The
 default values provided in the example configuration file linked above are recommended and will automatically create
 subdirectories relative to the directory specified with ``work_dir``. E.g., ``ard_dir = ARD`` will create the subdirectory
 ``/<work_dir>/ARD``. Optionally, full paths to existing directories can be provided for all of these parameters.
+
+logfile
++++++++
+
+The path to a log file. If set to ``None``, all logs will be printed to the console.
+The file path can be relative to ``work_dir`` or absolute.
+Default if not defined: ``None``.
 
 search option I: scene_dir & db_file
 ++++++++++++++++++++++++++++++++++++

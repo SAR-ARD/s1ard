@@ -26,13 +26,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         Section name of the `config.ini` file that processing parameters
         should be parsed from. Default is 'PROCESSING'.
     debug: bool
-        Set pyroSAR logging level to DEBUG? Default is False.
+        Set logging level to DEBUG? Default is False.
     **kwargs
         extra arguments to override parameters in the config file. E.g. `acq_mode`.
     """
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, proc_section=section_name, **kwargs)
-    logger = anc.set_logging(config=config, debug=debug)
+    log = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
     
@@ -47,6 +47,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                           username=None, password=None)
     ####################################################################################################################
     # scene selection
+    log.info('collecting scenes')
     
     if config['db_file'] is not None:
         scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
@@ -74,21 +75,11 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                                    **dict_search)
         
         if len(selection) == 0:
-            msg = "No scenes could be found for the following search query:\n" \
-                  " sensor:       '{sensor}'\n" \
-                  " product:      '{product}'\n" \
-                  " acq_mode:     '{acquisition_mode}'\n" \
-                  " aoi_tiles:    '{aoi_tiles}'\n" \
-                  " aoi_geometry: '{aoi_geometry}'\n" \
-                  " mindate:      '{mindate}'\n" \
-                  " maxdate:      '{maxdate}'\n" \
-                  " date_strict:  '{date_strict}'\n" \
-                  " datatake:     '{frameNumber}'\n"
-            print(msg.format(**dict_search))
+            log.error('could not find any scenes')
             archive.close()
             return
-        print('found the following scene(s):')
-        print('\n'.join(selection))
+        
+        log.info(f'found {len(selection)} scene(s)')
         scenes = identify_many(selection, sortkey='start')
         search.check_acquisition_completeness(scenes=scenes, archive=archive)
     else:
@@ -99,16 +90,17 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.
-    if config['product'] == 'GRD':
-        print('###### [    SAR] collecting GRD neighbors')
+    if config['product'] == 'GRD' and sar_flag:
+        log.info('collecting GRD neighbors')
         neighbors = []
         for scene in scenes:
             neighbors.append(search.collect_neighbors(archive=archive, scene=scene))
     else:
-        neighbors = [None for scene in scenes]
+        neighbors = [None] * len(scenes)
     ####################################################################################################################
     # OCN scene selection
     if 'wm' in config['annotation']:
+        log.info('collecting OCN products')
         scenes_ocn = []
         for scene in scenes:
             start, stop = anc.buffer_time(scene.start, scene.stop, seconds=2)
@@ -118,10 +110,10 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 scenes_ocn.append(result[0])
             else:
                 if len(result) == 0:
-                    print('could not find an OCN product for scene', scene.scene)
+                    log.error(f'could not find an OCN product for scene {scene.scene}')
                 else:
-                    print('found multiple OCN products for scene', scene.scene)
-                    print('\n'.join(result))
+                    msg = f'found multiple OCN products for scene {scene.scene}:\n'
+                    log.error(msg + '\n'.join(result))
                 archive.close()
                 return
         scenes_ocn = identify_many(scenes_ocn)
@@ -158,11 +150,9 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             out_dir_scene = os.path.join(config['sar_dir'], scene_base)
             tmp_dir_scene = os.path.join(config['tmp_dir'], scene_base)
             
-            print(f'###### [    SAR] Scene {i + 1}/{len(scenes)}: {scene.scene}')
+            log.info(f'SAR processing scene {i + 1}/{len(scenes)}: {scene.scene}')
             if os.path.isdir(out_dir_scene) and not update:
-                msg = 'Already processed - Skip!'
-                print('### ' + msg)
-                anc.log(handler=logger, mode='info', proc_step='GEOCODE', scenes=scene.scene, msg=msg)
+                log.info('Already processed - Skip!')
                 continue
             else:
                 os.makedirs(out_dir_scene, exist_ok=True)
@@ -177,17 +167,19 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
             fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
             os.makedirs(tmp_dir_scene, exist_ok=True)
-            print('###### [    DEM] creating scene-specific mosaic:', fname_dem)
-            with scene.bbox() as geom:
-                dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
-                           username=username, password=password)
+            if not os.path.isfile(fname_dem):
+                log.info('creating scene-specific DEM mosaic')
+                with scene.bbox() as geom:
+                    dem.mosaic(geometry=geom, outname=fname_dem, dem_type=config['dem_type'],
+                               username=username, password=password)
+            else:
+                log.info(f'found scene-specific DEM mosaic: {fname_dem}')
             ############################################################################################################
             # ETAD correction
             if config['etad']:
-                msg = '###### [   ETAD] Scene {s}/{s_total}: {scene}'
-                print(msg.format(s=i + 1, s_total=len(scenes), scene=scene.scene))
+                log.info('ETAD correction')
                 scene = etad.process(scene=scene, etad_dir=config['etad_dir'],
-                                     out_dir=tmp_dir_scene, log=logger)
+                                     out_dir=tmp_dir_scene)
             ############################################################################################################
             # determination of look factors
             if scene.product == 'SLC':
@@ -205,6 +197,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # main processing routine
             start_time = time.time()
             try:
+                log.info('starting SNAP processing')
                 snap.process(scene=scene.scene, outdir=config['sar_dir'],
                              measurement=measurement,
                              tmpdir=config['tmp_dir'], kml=config['kml_file'],
@@ -213,28 +206,31 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                              gpt_args=config['snap_gpt_args'],
                              rlks=rlks, azlks=azlks, **geocode_prms)
                 t = round((time.time() - start_time), 2)
-                anc.log(handler=logger, mode='info', proc_step='SAR', scenes=scene.scene, msg=t)
+                log.info(f'SNAP processing finished in {t} seconds')
             except Exception as e:
-                anc.log(handler=logger, mode='exception', proc_step='SAR', scenes=scene.scene, msg=e)
+                log.error(msg=e)
                 raise
     ####################################################################################################################
     # OCN preparation
-    for scene in scenes_ocn:
-        if scene.compression is not None:
-            scene.unpack(directory=config['tmp_dir'], exist_ok=True)
-        basename = os.path.basename(scene.scene).replace('.SAFE', '')
-        outdir = os.path.join(config['sar_dir'], basename)
-        os.makedirs(outdir, exist_ok=True)
-        for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
-            out = os.path.join(outdir, f'{v}.tif')
-            if not os.path.isfile(out):
-                ocn.extract(src=scene.scene, dst=out, variable=v)
+    if len(scenes_ocn) > 0:
+        log.info('extracting OCN products')
+        for scene in scenes_ocn:
+            if scene.compression is not None:
+                scene.unpack(directory=config['tmp_dir'], exist_ok=True)
+            basename = os.path.basename(scene.scene).replace('.SAFE', '')
+            outdir = os.path.join(config['sar_dir'], basename)
+            os.makedirs(outdir, exist_ok=True)
+            for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
+                out = os.path.join(outdir, f'{v}.tif')
+                if not os.path.isfile(out):
+                    ocn.extract(src=scene.scene, dst=out, variable=v)
     ####################################################################################################################
     # ARD - final product generation
     if nrb_flag or orb_flag:
         product_type = 'NRB' if nrb_flag else 'ORB'
         
         # prepare WBM MGRS tiles
+        log.info('preparing WBM tiles')
         vec = [x.geometry() for x in scenes]
         extent = anc.get_max_ext(geometries=vec)
         del vec
@@ -244,9 +240,10 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                         dem_type=config['dem_type'], kml_file=config['kml_file'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
-        print('preparing {} products'.format(product_type))
+        log.info(f'grouping scenes by time and starting {product_type} production')
         selection_grouped = anc.group_by_time(scenes=scenes)
         for s, group in enumerate(selection_grouped):
+            gstr = f'{s + 1}/{len(selection_grouped)}'
             # check that the scenes can really be grouped together
             anc.check_scene_consistency(scenes=group)
             # get the geometries of all tiles that overlap with the current scene group
@@ -257,7 +254,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                                           tilenames=aoi_tiles)
             del vec
             t_total = len(tiles)
-            s_total = len(selection_grouped)
             for t, tile in enumerate(tiles):
                 # select all scenes from the group whose footprint overlaps with the current tile
                 scenes_sub = [x for x in group if intersect(tile, x.geometry())]
@@ -272,20 +268,19 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 dem_type = config['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                msg = '###### [    {product_type}] Tile {t}/{t_total}: {tile} | Scenes: {scenes} '
-                print(msg.format(tile=tile.mgrs, t=t + 1, t_total=t_total,
-                                 scenes=[os.path.basename(s) for s in scenes_sub_fnames],
-                                 product_type=product_type, s=s + 1, s_total=s_total))
+                log.info(f'creating product {t + 1}/{t_total} of group {gstr}')
+                log.info(f'selected scene(s): {scenes_sub_fnames}')
                 try:
-                    msg = ard.format(config=config, product_type=product_type, scenes=scenes_sub_fnames,
-                                     datadir=config['sar_dir'], outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
+                    msg = ard.format(config=config, product_type=product_type,
+                                     scenes=scenes_sub_fnames, datadir=config['sar_dir'],
+                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
                                      wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
-                                     multithread=gdal_prms['multithread'], annotation=annotation, update=update)
+                                     multithread=gdal_prms['multithread'], annotation=annotation,
+                                     update=update)
                     if msg == 'Already processed - Skip!':
-                        print('### ' + msg)
-                    anc.log(handler=logger, mode='info', proc_step=product_type, scenes=scenes_sub_fnames, msg=msg)
+                        log.info(msg)
                 except Exception as e:
-                    anc.log(handler=logger, mode='exception', proc_step=product_type, scenes=scenes_sub_fnames, msg=e)
+                    log.error(msg=e)
                     raise
             del tiles
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])

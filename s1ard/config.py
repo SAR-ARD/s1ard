@@ -23,7 +23,7 @@ def get_keys(section):
     if section == 'processing':
         return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
                 'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'log_dir', 'ard_dir',
+                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'logfile', 'ard_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args', 'scene']
     elif section == 'metadata':
@@ -33,7 +33,8 @@ def get_keys(section):
 
 
 def get_config(config_file, proc_section='PROCESSING', **kwargs):
-    """Returns the content of a `config.ini` file as a dictionary.
+    """
+    Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
@@ -44,7 +45,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     
     Returns
     -------
-    out_dict: dict
+    dict
         Dictionary of the parsed config parameters.
     """
     parser = configparser.ConfigParser(allow_no_value=True,
@@ -80,7 +81,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'etad' not in proc_sec.keys():
         proc_sec['etad'] = 'False'
         proc_sec['etad_dir'] = 'None'
-    for item in ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'log_dir']:
+    for item in ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir']:
         if item not in proc_sec.keys():
             proc_sec[item] = item[:3].upper()
     if 'gdal_threads' not in proc_sec.keys():
@@ -98,6 +99,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         proc_sec['measurement'] = 'gamma'
     if 'annotation' not in proc_sec.keys():
         proc_sec['annotation'] = 'dm,ei,id,lc,li,np,ratio'
+    if 'logfile' not in proc_sec.keys():
+        proc_sec['logfile'] = 'None'
     
     # check completeness of configuration parameters
     missing = []
@@ -149,7 +152,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
                 assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
-        if k == 'db_file' and v is not None:
+        if k in ['db_file', 'logfile'] and v is not None:
             if not any(x in v for x in ['/', '\\']):
                 v = os.path.join(proc_sec['work_dir'], v)
         if k == 'stac_collections':

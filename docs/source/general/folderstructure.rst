@@ -16,20 +16,6 @@ Folders are highlighted in bold.
     .. collapse:: <b>work_dir</b>
         :open:
 
-            .. collapse:: <b>log_dir</b>
-
-                .. pull-quote::
-
-                    .. note::
-
-                        Log files for each processor run containing the full processor configuration (`config.ini`),
-                        the versions of relevant installed software, and details on individual processing steps.
-
-                    | 20220719T1339_process.log
-                    | 20220719T1032_process.log
-                    | 20220708T1118_process.log
-                    | ...
-
             .. collapse:: <b>ard_dir</b>
 
                 .. pull-quote::

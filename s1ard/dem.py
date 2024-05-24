@@ -7,6 +7,9 @@ from pyroSAR.auxdata import dem_autoload, dem_create
 import s1ard.tile_extraction as tile_ex
 from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
 from spatialist import Raster, bbox
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
@@ -96,7 +99,6 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                                   tilenames=tilenames)
     # group the returned tiles by CRS and process them separately
     for epsg, group in itertools.groupby(tiles, lambda x: x.getProjection('epsg')):
-        print(f'###### [    DEM] processing EPSG:{epsg}')
         vectors = list(group)
         
         # In case the DEM tiles are to be prepared as well, create a new list of tiles.
@@ -175,8 +177,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                              crop=False)
         ###############################################
         if len(dem_target) > 0:
-            msg = '### creating DEM MGRS tiles: \n{tiles}'
-            print(msg.format(tiles=[x[0].mgrs for x in dem_target]))
+            tiles = [x[0].mgrs for x in dem_target]
+            log.info(f'creating DEM MGRS tiles: {tiles}')
         for tile, filename in dem_target:
             ext = tile.extent
             bounds = [ext['xmin'], ext['ymin'],
@@ -188,8 +190,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
                        nodata=-32767, creationOptions=create_options)
         ###############################################
         if len(wbm_target) > 0:
-            msg = '### creating WBM MGRS tiles: \n{tiles}'
-            print(msg.format(tiles=[x[0].mgrs for x in wbm_target]))
+            tiles = [x[0].mgrs for x in wbm_target]
+            log.info(f'creating WBM MGRS tiles: {tiles}')
         for tile, filename in wbm_target:
             ext = tile.extent
             bounds = [ext['xmin'], ext['ymin'],

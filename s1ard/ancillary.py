@@ -3,6 +3,7 @@ import sys
 import logging
 import binascii
 from lxml import etree
+from textwrap import dedent
 from datetime import datetime, timedelta
 from osgeo import gdal
 import spatialist
@@ -127,41 +128,43 @@ def set_logging(config, debug=False):
     config: dict
         Dictionary of the parsed config parameters for the current process.
     debug: bool
-        Set pyroSAR logging level to DEBUG?
+        Set logging level to DEBUG?
     
     Returns
     -------
-    log_local: logging.Logger
+    logging.Logger
         The log handler for the current process.
     """
-    # pyroSAR logging as sys.stdout
-    log_pyro = logging.getLogger('pyroSAR')
-    if debug:
-        log_pyro.setLevel(logging.DEBUG)
-    else:
-        log_pyro.setLevel(logging.INFO)
-    sh = logging.StreamHandler(sys.stdout)
-    log_pyro.addHandler(sh)
+    level = logging.DEBUG if debug else logging.INFO
     
-    # s1ard logging in logfile
-    now = datetime.now().strftime('%Y%m%dT%H%M')
-    log_local = logging.getLogger(__name__)
-    log_local.setLevel(logging.DEBUG)
-    log_file = os.path.join(config['log_dir'], f"{now}_process.log")
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    fh = logging.FileHandler(filename=log_file, mode='a')
-    log_local.addHandler(fh)
+    logger = logging.getLogger('s1ard')
+    logger.setLevel(level)
+    
+    log_format = "[%(asctime)s] [%(levelname)5s] %(message)s"
+    formatter = logging.Formatter(fmt=log_format,
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    
+    if config['logfile'] is not None:
+        os.makedirs(os.path.dirname(config['logfile']), exist_ok=True)
+        handler = logging.FileHandler(filename=config['logfile'], mode='a')
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+    logger.addHandler(handler)
     
     # Add header first with simple formatting
-    form_simple = logging.Formatter("%(message)s")
-    fh.setFormatter(form_simple)
-    _log_process_config(logger=log_local, config=config)
+    formatter_simple = logging.Formatter("%(message)s")
+    handler.setFormatter(formatter_simple)
+    _log_process_config(logger=logger, config=config)
     
-    # Use normal formatting from here on out
-    form = logging.Formatter("[%(asctime)s] [%(levelname)8s] %(message)s")
-    fh.setFormatter(form)
+    # Use normal formatting from here on
+    handler.setFormatter(formatter)
     
-    return log_local
+    # add pyroSAR logger
+    log_pyro = logging.getLogger('pyroSAR')
+    log_pyro.setLevel(level)
+    log_pyro.addHandler(handler)
+    
+    return logger
 
 
 def group_by_time(scenes, time=3):
@@ -248,9 +251,9 @@ def _log_process_config(logger, config):
     tmp_dir             {config['tmp_dir']}
     ard_dir             {config['ard_dir']}
     wbm_dir             {config['wbm_dir']}
-    log_dir             {config['log_dir']}
     etad_dir            {config['etad_dir']}
     scene_dir           {config['scene_dir']}
+    logfile             {config['logfile']}
     db_file             {config['db_file']}
     stac_catalog        {config['stac_catalog']}
     stac_collections    {config['stac_collections']}
@@ -271,38 +274,7 @@ def _log_process_config(logger, config):
     
     ====================================================================================================================
     """
-    print(header)
-    logger.info(header)
-
-
-def log(handler, mode, proc_step, scenes, msg):
-    """
-    Format and handle log messages during processing.
-    
-    Parameters
-    ----------
-    handler: logging.Logger
-        The log handler for the current process.
-    mode: {'info', 'warning', 'exception'}
-        Calls the respective logging helper function. E.g., ``handler.info()``.
-    proc_step: str
-        The processing step for which the message is logged.
-    scenes: str or list[str]
-        Scenes that are currently being processed.
-    msg: Any
-        The message that should be logged.
-    """
-    proc_step = proc_step.zfill(7).replace('0', ' ')
-    message = '[{proc_step}] -- {scenes} -- {msg}'
-    message = message.format(proc_step=proc_step, scenes=scenes, msg=msg)
-    if mode == 'info':
-        handler.info(message)
-    elif mode == 'warning':
-        handler.warning(message)
-    elif mode == 'exception':
-        handler.exception(message)
-    else:
-        raise RuntimeError('log mode {} is not supported'.format(mode))
+    logger.info(dedent(header))
 
 
 def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
