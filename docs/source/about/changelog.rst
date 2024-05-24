@@ -1,6 +1,37 @@
 Changelog
 =========
 
+2.0.0 | 2024-05-24
+------------------
+
+* avoid permission error when passing tempfile to gdalwarp (`#171 <https://github.com/SAR-ARD/s1ard/pull/171>`_)
+* layover-shadow mask: handle value 3 (layover and shadow) (`#177 <https://github.com/SAR-ARD/s1ard/pull/177>`_)
+* new dedicated search module (`#172 <https://github.com/SAR-ARD/s1ard/pull/172>`_)
+* ard.create_vrt: new argument 'dtype' (`#179 <https://github.com/SAR-ARD/s1ard/pull/179>`_)
+* [search.scene_select] parse date only if necessary (`#180 <https://github.com/SAR-ARD/s1ard/pull/180>`_)
+* [search.scene_select] compare strings with '==' instead of 'is' (`#181 <https://github.com/SAR-ARD/s1ard/pull/181>`_)
+* [search.scene_select] avoid multiple geometry definitions (`#183 <https://github.com/SAR-ARD/s1ard/pull/183>`_)
+* fixed handling of empty list of neighbors during SLC processing (`#186 <https://github.com/SAR-ARD/s1ard/pull/186>`_)
+* [search.scene_select] fixed incomplete result for 'aoi_geometry' and 'vectorobject' (`#188 <https://github.com/SAR-ARD/s1ard/pull/188>`_)
+* [aoi_from_scene] fixed bug in handling scenes crossing the equator (`#187 <https://github.com/SAR-ARD/s1ard/pull/187>`_)
+* STAC query optimizations (`#185 <https://github.com/SAR-ARD/s1ard/pull/185>`_)
+* [processor] fixed 'empty selection' message (`#190 <https://github.com/SAR-ARD/s1ard/pull/190>`_)
+* new configuration parameter 'scene' (`#184 <https://github.com/SAR-ARD/s1ard/pull/184>`_)
+* scene search bug fixes (`#191 <https://github.com/SAR-ARD/s1ard/pull/191>`_)
+* use file locking for SNAP processing (`#192 <https://github.com/SAR-ARD/s1ard/pull/192>`_)
+* modernize build process (`#194 <https://github.com/SAR-ARD/s1ard/pull/194>`_)
+* fix deprecated conda --force in docker (`#193 <https://github.com/SAR-ARD/s1ard/pull/193>`_)
+* support for SNAP 10 (`#195 <https://github.com/SAR-ARD/s1ard/pull/195>`_)
+* added dedicated documentation section on scene search (`#196 <https://github.com/SAR-ARD/s1ard/pull/196>`_)
+* [search.asf_select] ensure naive datetime objects are defined as UTC (`#197 <https://github.com/SAR-ARD/s1ard/pull/197>`_)
+* [search.ASF.scanMetadata] date formatting bug fix (`#198 <https://github.com/SAR-ARD/s1ard/pull/198>`_)
+* rename package (`#199 <https://github.com/SAR-ARD/s1ard/pull/199>`_)
+* update documentation links (`#200 <https://github.com/SAR-ARD/s1ard/pull/200>`_)
+* replaced configuration `log_dir` with `logfile`, cleaned up logging (`#201 <https://github.com/SAR-ARD/s1ard/pull/201>`_)
+* renamed the command line tool from s1ard to s1rb (`#202 <https://github.com/SAR-ARD/s1ard/pull/202>`_)
+
+`Full v2.0.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v1.6.2...v2.0.0>`_
+
 1.6.2 | 2023-11-23
 ------------------
 
