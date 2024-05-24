@@ -90,13 +90,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.
-    if config['product'] == 'GRD':
+    if config['product'] == 'GRD' and sar_flag:
         log.info('collecting GRD neighbors')
         neighbors = []
         for scene in scenes:
             neighbors.append(search.collect_neighbors(archive=archive, scene=scene))
     else:
-        neighbors = [None for scene in scenes]
+        neighbors = [None] * len(scenes)
     ####################################################################################################################
     # OCN scene selection
     if 'wm' in config['annotation']:
