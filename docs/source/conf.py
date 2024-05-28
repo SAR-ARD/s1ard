@@ -4,9 +4,7 @@ import datetime
 from importlib.metadata import version as get_version
 
 project = 's1ard'
-project_latex = r's1ard'
-authors = 'the s1ard Developers'
-authors_latex = r'the s1ard Developers'
+authors = 'the s1ard developers'
 year = datetime.datetime.now().year
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -46,14 +44,15 @@ bibtex_bibfiles = ['references.bib']
 # autodoc_default_flags = ['members']
 autosummary_generate = True
 
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),
-                       'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
-                       'pystac': ('https://pystac.readthedocs.io/en/stable', None),
-                       'pystac-client': ('https://pystac-client.readthedocs.io/en/stable', None),
-                       'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
-                       'osgeo': ('https://gdal.org', None)
-                       }
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),
+    'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
+    'pystac': ('https://pystac.readthedocs.io/en/stable', None),
+    'pystac-client': ('https://pystac-client.readthedocs.io/en/stable', None),
+    'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
+    'osgeo': ('https://gdal.org', None)
+}
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -233,8 +232,8 @@ latex_elements = {
 latex_documents = [
     ('index',
      '{}.tex'.format(project),
-     r'{} Documentation'.format(project_latex),
-     authors_latex,
+     r'{} Documentation'.format(project),
+     authors,
      'manual'),
 ]
 
@@ -266,8 +265,8 @@ latex_documents = [
 man_pages = [
     ('index',
      project,
-     '{} Documentation'.format(project_latex),
-     [authors_latex],
+     '{} Documentation'.format(project),
+     [authors],
      1)
 ]
 
@@ -283,10 +282,10 @@ man_pages = [
 texinfo_documents = [
     ('index',
      project,
-     '{} Documentation'.format(project_latex),
-     authors_latex,
+     '{} Documentation'.format(project),
+     authors,
      project,
-     'One line description of project.',
+     'A prototype processor for Sentinel-1 Analysis Ready Data (ARD) backscatter products.',
      'Miscellaneous'),
 ]
 
