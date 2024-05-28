@@ -306,11 +306,11 @@ override some parameters, e.g. ``acq_mode`` and ``annotation``:
 
 ::
 
-    s1ard -c /path/to/config.ini --acq_mode IW --annotation dm,id
+    s1rb -c /path/to/config.ini --acq_mode IW --annotation dm,id
 
 The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
 In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
 
 ::
 
-    s1ard -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
+    s1rb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
