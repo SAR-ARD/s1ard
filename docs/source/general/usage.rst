@@ -207,33 +207,54 @@ annotation
 A comma-separated list to define the annotation layers to be created for each ARD product.
 Supported options:
 
- + dm: data mask (six masks: not layover not shadow, layover, shadow, ocean, lakes, rivers)
- + ei: ellipsoidal incident angle (needed for computing geolocation accuracy)
- + em: digital elevation model
- + id: acquisition ID image (source scene ID per pixel)
- + lc: RTC local contributing area
- + ld: range look direction angle
- + li: local incident angle
- + np: noise power (NESZ, per polarization)
- + ratio: will automatically be replaced with the following, depending on selected ``measurement``:
+ + **dm: data mask**. This contains six binary masks: not layover not shadow, layover, shadow, ocean, lakes, rivers.
+   The ocean, lakes and rivers masks are extracted from the DEM ancillary layers if present.
+ + **ei: ellipsoidal incident angle**. Unit: degrees.
+   Needed for computing geolocation accuracy.
+   This information might be used to differentiate between near range and far range and apply further incident angle corrections.
+ + **em: digital elevation model**. The DEM as selected per ``dem_type`` resampled and reprojected to the match the tile size.
+ + **id: acquisition ID image**. A numerical source scene ID per pixel, e.g. 1, 2.
+   The scene corresponding to an index can be obtained from the metadata files.
+ + **lc: RTC local contributing area**. Unit: :math:`m^2 / m^2`.
+   This dataset was used during processing to convert the measurement datasets in beta nought to gamma0 RTC in radar geometry.
+   See for :cite:`small_2011` details.
+   It is expressed as the ratio between the two or a ratio of the gamma and beta reference areas:
 
-   + gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC (if ``measurement = gamma``)
-   + sg: sigma-gamma ratio: gamma0 RTC / sigma0 RTC (if ``measurement = sigma``)
+   .. math::
+      \hat{A}_\gamma = \frac{A_\gamma}{A_\beta} = \frac{\beta^0}{\gamma^0_T}
 
- + wm: wind-modelled backscatter extracted from a Sentinel-1 OCN (ocean) product.
-   The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised
-   Radar Cross Section (NRCS) predicted using a CMOD model and ECMWF wind model data.
+   This variable can be used to estimate regions of layover, foreshortening and shadow.
+   A higher value defines a larger area covered by one pixel and thus an increasing amount of foreshortening or layover as well as reduced local resolution.
+   This layer may be used to further reduce acquisition geometry effects by weighted averaging of the backscatter. See :cite:`small.etal_2021`.
+   Shadow is indicated by a value of 0.
+
+ + **ld: range look direction angle**. Unit: degrees.
+   In the words of the CEOS ARD Ocean Radar Backscatter specification :cite:`ceos_2022` this is "representing the planar angle between north and each range direction. It is not constant in range, especially near poles".
+   This might be useful for better understanding the appearance of ocean features relative to the sensor's viewing geometry.
+ + **li: local incident angle**. Unit: degrees.
+   This angle best describes the actual incidence of the radar beam on the Earth’s surface as described by the used DEM.
+   Details can be obtained from :cite:`small_2011` and :cite:`meier.etal_1993`.
+   Differences between software implementations were investigated in :cite:`truckenbrodt_2019`.
+ + **np: noise power**. Noise Equivalent Sigma Zero (NESZ) subtracted from the backscatter per polarization.
+ + **ratio**: will automatically be replaced with the following, depending on selected ``measurement``:
+
+   + gs: gamma-sigma ratio: :math:`\sigma^0_T / \gamma^0_T` (if ``measurement = gamma``)
+   + sg: sigma-gamma ratio: :math:`\gamma^0_T / \sigma^0_T` (if ``measurement = sigma``)
+
+   This data layer can be used to convert the provided measurement datasets in :math:`\gamma^0_T` to :math:`\sigma^0_T`.
+   According to the CARD4L NRB specification :cite:`ceos_2021`, the gamma-sigma ratio is the "Ratio of the integrated area in the Gamma projection over the integrated area in the Sigma projection (ground)".
+   Furthermore, it is stated, that "Multiplying RTC :math:`\gamma^0` by this ratio results in an estimate of RTC :math:`\sigma^0`".
+   Aligned to the formula for the local contributing area, it can be expressed as:
+
+   .. math::
+      gs = \frac{\hat{A}_\gamma}{\hat{A}_\sigma} = \frac{A_\gamma}{A_\sigma} = \frac{\sigma^0_T}{\gamma^0_T}
+
+ + **wm: wind-modelled backscatter**. Obtained from Sentinel-1 OCN (ocean) data.
+   The sub-product `owiNrcsCmod` is extracted, which is Ocean Wind (OWI) Normalised Radar Cross Section (NRCS) predicted using a CMOD model and ECMWF wind model data.
    For each OCN product, a Level-1 counterpart (SLC/GRD) exists.
-   The OCN products and corresponding Level-1 products must be searchable in the same way
-   via the two search options described above.
-   If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`),
-   a co-polarization wind normalization ratio VRT is created by dividing the measurement by the
-   wind-modelled backscatter.
-
-Use one of the following to create no annotation layer:
-
- + ``annotation =``
- + ``annotation = None``
+   See :cite:`hajduch.etal_2023`.
+   The OCN products and corresponding Level-1 products must be searchable in the same way via the two search options described above.
+   If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`), a co-polarization wind normalization ratio VRT is created by dividing the measurement by the wind-modelled backscatter.
 
 etad & etad_dir
 +++++++++++++++
@@ -306,11 +327,11 @@ override some parameters, e.g. ``acq_mode`` and ``annotation``:
 
 ::
 
-    s1ard -c /path/to/config.ini --acq_mode IW --annotation dm,id
+    s1rb -c /path/to/config.ini --acq_mode IW --annotation dm,id
 
 The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
 In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
 
 ::
 
-    s1ard -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
+    s1rb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
