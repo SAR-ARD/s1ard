@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import hashlib
 import binascii
 from lxml import etree
 from textwrap import dedent
@@ -373,3 +374,32 @@ def buffer_time(start, stop, **kwargs):
     stop = datetime.strptime(stop, f) + td
     stop = datetime.strftime(stop, f)
     return start, stop
+
+
+def compute_hash(file_path, algorithm='sha256', chunk_size=8192):
+    """
+    Compute the hash of a file using the specified algorithm.
+    
+    Parameters
+    ----------
+    file_path: str
+        Path to the file.
+    algorithm: str
+        Hash algorithm to use (default is 'sha256').
+    chunk_size: int
+        Size of chunks to read from the file in bytes (default is 8192).
+    
+    Returns
+    -------
+    str
+        the hexadecimal hash string of the file.
+    
+    See Also
+    --------
+    :mod:`hashlib`
+    """
+    hash_func = getattr(hashlib, algorithm)()
+    with open(file_path, 'rb') as f:
+        while chunk := f.read(chunk_size):
+            hash_func.update(chunk)
+    return hash_func.hexdigest()
