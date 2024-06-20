@@ -151,8 +151,10 @@ Ancillary Functions
         :nosignatures:
 
         buffer_min_overlap
+        buffer_time
         check_scene_consistency
         check_spacing
+        compute_hash
         generate_unique_id
         get_max_ext
         group_by_time
