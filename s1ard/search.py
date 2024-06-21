@@ -70,7 +70,7 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :func:`~s1ard.search.ASFArchive`
+    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`
     and :class:`pyroSAR.drivers.Archive`.
     
     Parameters
@@ -288,6 +288,136 @@ class STACArchive(object):
             out.append(path)
         out = self._filter_duplicates(out)
         return out
+
+
+class STACParquetArchive(object):
+    """
+    Search for scenes in a SpatioTemporal Asset Catalog's geoparquet dump.
+    Scenes are expected to be unpacked with a folder suffix .SAFE.
+    The interface is kept consistent with :class:`~s1ard.search.STACArchive`
+    and :class:`pyroSAR.drivers.Archive`.
+
+    Parameters
+    ----------
+    url: str
+        the catalog URL
+    """
+    
+    def __init__(self, files):
+        self.files = files
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return
+    
+    def select(self, sensor=None, product=None, acquisition_mode=None,
+               mindate=None, maxdate=None, frameNumber=None,
+               vectorobject=None, date_strict=True):
+        """
+        Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
+
+        - platform
+        - start_datetime
+        - end_datetime
+        - sar:instrument_mode
+        - sar:product_type
+        - s1:datatake (custom)
+
+        Parameters
+        ----------
+        sensor: str or list[str] or None
+            S1A or S1B
+        product: str or list[str] or None
+            GRD or SLC
+        acquisition_mode: str or list[str] or None
+            IW, EW or SM
+        mindate: str or datetime.datetime or None
+            the minimum acquisition date
+        maxdate: str or datetime.datetime or None
+            the maximum acquisition date
+        frameNumber: int or list[int] or None
+            the data take ID in decimal representation.
+            Requires custom STAC key `s1:datatake`.
+        vectorobject: spatialist.vector.Vector or None
+            a geometry with which the scenes need to overlap
+        date_strict: bool
+            treat dates as strict limits or also allow flexible limits to incorporate scenes
+            whose acquisition period overlaps with the defined limit?
+
+            - strict: start >= mindate & stop <= maxdate
+            - not strict: stop >= mindate & start <= maxdate
+        check_exist: bool
+            check whether found files exist locally?
+
+        Returns
+        -------
+        list[str]
+            the locations of the scene directories with suffix .SAFE
+        """
+        try:
+            import duckdb
+        except ImportError:
+            raise ImportError("this method requires 'duckdb' to be installed")
+        
+        pars = locals()
+        del pars['date_strict']
+        del pars['self']
+        lookup = {'product': 'sar:product_type',
+                  'acquisition_mode': 'sar:instrument_mode',
+                  'mindate': 'start_datetime',
+                  'maxdate': 'end_datetime',
+                  'sensor': 'platform',
+                  'frameNumber': 's1:datatake'}
+        lookup_platform = {'S1A': 'sentinel-1a',
+                           'S1B': 'sentinel-1b'}
+        terms = []
+        dt_pattern = '%Y-%m-%dT%H:%M:%S'
+        for key in pars.keys():
+            val = pars[key]
+            if val is None:
+                continue
+            if key in ['mindate', 'maxdate']:
+                if isinstance(val, str):
+                    val = dateutil.parser.parse(val)
+                if isinstance(val, datetime):
+                    val = datetime.strftime(val, dt_pattern)
+            if key == 'mindate':
+                if date_strict:
+                    terms.append(f'"start_datetime" >= \'{val}\'')
+                else:
+                    terms.append(f'"end_datetime" >= \'{val}\'')
+            elif key == 'maxdate':
+                if date_strict:
+                    terms.append(f'"end_datetime" <= \'{val}\'')
+                else:
+                    terms.append(f'"start_datetime" <= \'{val}\'')
+            elif key == 'vectorobject':
+                wkt = val.convert2wkt(set3D=False)
+                if len(wkt) > 1:
+                    RuntimeError("'vectorobject' may only contain one feature")
+                terms.append(f'ST_Intersects(ST_GeomFromWKB(geometry), '
+                             f'ST_GeomFromText(\'{wkt[0]}\'))')
+            else:
+                if isinstance(val, (str, int)):
+                    val = [val]
+                subterms = []
+                for v in val:
+                    if key == 'sensor':
+                        v = lookup_platform[v]
+                    if key == 'frameNumber' and isinstance(v, str):
+                        v = int(v, 16)  # convert to decimal
+                    subterms.append(f'"{lookup[key]}" = \'{v}\'')
+                if len(subterms) > 1:
+                    terms.append('(' + ' OR '.join(subterms) + ')')
+                else:
+                    terms.append(subterms[0])
+        sql_where = ' AND '.join(terms)
+        sql_query = f"SELECT assets FROM '{self.files}' WHERE %s" % sql_where
+        result = duckdb.query(sql_query).fetchall()
+        out = [x[0]['folder']['href'] for x in result]
+        return sorted(out)
 
 
 class ASFArchive(object):
