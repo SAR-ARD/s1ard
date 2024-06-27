@@ -1,6 +1,7 @@
 import re
 import itertools
 from lxml import html
+from osgeo import ogr
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
 from s1ard.ancillary import get_max_ext, buffer_min_overlap
@@ -251,6 +252,13 @@ def wkt_to_geom(wkt, epsg_in, epsg_out=None):
     spatialist.vector.Vector
         the geometry object
     """
+    geom = ogr.CreateGeometryFromWkt(wkt)
+    if geom.GetGeometryType() == ogr.wkbMultiPolygon:
+        wkt = geom.GetGeometryRef(0).ExportToWkt()
+    else:
+        wkt = geom.ExportToWkt()
+    geom = None
+    
     if epsg_out is None:
         return wkt2vector(wkt, epsg_in)
     else:
