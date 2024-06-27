@@ -394,11 +394,13 @@ class STACParquetArchive(object):
                 else:
                     terms.append(f'"start_datetime" <= \'{val}\'')
             elif key == 'vectorobject':
-                wkt = val.convert2wkt(set3D=False)
+                with val.clone() as tmp:
+                    tmp.reproject(4326)
+                    wkt = tmp.convert2wkt(set3D=False)[0]
                 if len(wkt) > 1:
                     RuntimeError("'vectorobject' may only contain one feature")
                 terms.append(f'ST_Intersects(ST_GeomFromWKB(geometry), '
-                             f'ST_GeomFromText(\'{wkt[0]}\'))')
+                             f'ST_GeomFromText(\'{wkt}\'))')
             else:
                 if isinstance(val, (str, int)):
                     val = [val]
