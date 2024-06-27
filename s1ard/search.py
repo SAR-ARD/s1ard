@@ -419,9 +419,9 @@ class STACParquetArchive(object):
                 else:
                     terms.append(subterms[0])
         sql_where = ' AND '.join(terms)
-        sql_query = f"SELECT assets FROM '{self.files}' WHERE %s" % sql_where
+        sql_query = f"SELECT assets.folder.href FROM '{self.files}' WHERE %s" % sql_where
         result = duckdb.query(sql_query).fetchall()
-        out = [x[0]['folder']['href'] for x in result]
+        out = [x[0].replace('file://', '') for x in result]
         return sorted(out)
 
 
