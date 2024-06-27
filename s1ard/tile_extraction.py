@@ -67,24 +67,17 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, 
                     if c1 and c2:
                         tilenames_src.append(tilename)
                         attrib = description2dict(tile.GetField('Description'))
-                        reproject = False
+                        epsg_target = None
                         if epsg is not None and attrib['EPSG'] not in epsg:
                             if len(epsg) == 1 and not strict:
                                 epsg_target = int(epsg[0])
                                 tilename += '_{}'.format(epsg_target)
-                                reproject = True
                             else:
                                 continue
                         if return_geometries:
-                            if reproject:
-                                with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
-                                    tmp.reproject(epsg_target)
-                                    ext = tmp.extent
-                                    for k, v in ext.items():
-                                        ext[k] = round(v / 10) * 10
-                                geom = bbox(ext, crs=epsg_target)
-                            else:
-                                geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                            geom = wkt_to_geom(wkt=attrib['UTM_WKT'],
+                                               epsg_in=attrib['EPSG'],
+                                               epsg_out=epsg_target)
                             geom.mgrs = tilename
                             tiles.append(geom)
                         else:
@@ -125,19 +118,14 @@ def aoi_from_tile(kml, tile):
         return [aoi_from_tile(kml=kml, tile=x) for x in tile]
     else:
         tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
+        epsg = None if epsg is None else int(epsg)
         with Vector(kml, driver='KML') as vec:
             feat = vec.getFeatureByAttribute('Name', tilename)
             attrib = description2dict(feat.GetField('Description'))
             feat = None
-        if epsg is None:
-            return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
-        else:
-            with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
-                tmp.reproject(int(epsg))
-                ext = tmp.extent
-                for k, v in ext.items():
-                    ext[k] = round(v / 10) * 10
-            return bbox(ext, crs=int(epsg))
+        geom = wkt_to_geom(wkt=attrib['UTM_WKT'], epsg_in=attrib['EPSG'],
+                           epsg_out=epsg)
+        return geom
 
 
 def description2dict(description):
@@ -243,3 +231,32 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
         out.append({'extent': ext, 'epsg': epsg,
                     'align_x': align_x, 'align_y': align_y})
     return out
+
+
+def wkt_to_geom(wkt, epsg_in, epsg_out=None):
+    """
+    Convert a WKT geometry to a :class:`spatialist.vector.Vector` object.
+    
+    Parameters
+    ----------
+    wkt: str
+        the WKT string
+    epsg_in: int
+        the EPSG code for the CRS of `wkt`
+    epsg_out: int or None
+        and optional target CRS to reproject the geometry
+
+    Returns
+    -------
+    spatialist.vector.Vector
+        the geometry object
+    """
+    if epsg_out is None:
+        return wkt2vector(wkt, epsg_in)
+    else:
+        with wkt2vector(wkt, epsg_in) as tmp:
+            tmp.reproject(epsg_out)
+            ext = tmp.extent
+            for k, v in ext.items():
+                ext[k] = round(v / 10) * 10
+        return bbox(ext, crs=epsg_out)
