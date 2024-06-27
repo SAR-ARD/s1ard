@@ -360,6 +360,8 @@ class STACParquetArchive(object):
             import duckdb
         except ImportError:
             raise ImportError("this method requires 'duckdb' to be installed")
+        duckdb.install_extension('spatial')
+        duckdb.load_extension('spatial')
         
         pars = locals()
         del pars['date_strict']
