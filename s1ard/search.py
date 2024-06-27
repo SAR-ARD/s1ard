@@ -70,8 +70,8 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`
-    and :class:`pyroSAR.drivers.Archive`.
+    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
+    :class:`~s1ard.search.STACParquetArchive` and :class:`pyroSAR.drivers.Archive`.
     
     Parameters
     ----------
@@ -294,8 +294,8 @@ class STACParquetArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog's geoparquet dump.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :class:`~s1ard.search.STACArchive`
-    and :class:`pyroSAR.drivers.Archive`.
+    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
+    :class:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
 
     Parameters
     ----------
@@ -428,6 +428,8 @@ class STACParquetArchive(object):
 class ASFArchive(object):
     """
     Search for scenes in the Alaska Satellite Facility (ASF) catalog.
+    The interface is kept consistent with :class:`~s1ard.search.STACArchive`,
+    :class:`~s1ard.search.STACParquetArchive` and :class:`pyroSAR.drivers.Archive`.
     """
     
     def __enter__(self):
@@ -441,8 +443,8 @@ class ASFArchive(object):
                maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
         """
         Select scenes from the ASF catalog. This is a simple wrapper around the function
-        :func:`~s1ard.search.asf_select` to be consistent with the interfaces of
-        :func:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
+        :func:`~s1ard.search.asf_select` to be consistent with the interfaces of the
+        other search classes.
 
         Parameters
         ----------
@@ -619,7 +621,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or STACParquetArchive or ASFArchive
         an open scene archive connection
     kml_file: str
         the KML file containing the MGRS tile geometries.
