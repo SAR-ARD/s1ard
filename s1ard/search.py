@@ -366,6 +366,7 @@ class STACParquetArchive(object):
         pars = locals()
         del pars['date_strict']
         del pars['self']
+        del pars['duckdb']
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
