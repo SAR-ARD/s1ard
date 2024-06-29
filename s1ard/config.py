@@ -25,7 +25,7 @@ def get_keys(section):
                 'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
                 'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'logfile', 'ard_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
-                'sensor', 'date_strict', 'snap_gpt_args', 'scene']
+                'sensor', 'date_strict', 'snap_gpt_args', 'scene', 'parquet']
     elif section == 'metadata':
         return ['format', 'copy_original', 'access_url', 'licence', 'doi', 'processing_center']
     else:
@@ -100,6 +100,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'annotation' not in proc_sec.keys():
         proc_sec['annotation'] = 'dm,ei,id,lc,li,np,ratio'
     if 'logfile' not in proc_sec.keys():
+        proc_sec['logfile'] = 'None'
+    if 'parquet' not in proc_sec.keys():
         proc_sec['logfile'] = 'None'
     
     # check completeness of configuration parameters
