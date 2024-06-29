@@ -55,9 +55,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
                             regex=True, recursive=True, foldermode=1)
             archive.insert(scenes)
-    else:
+    elif config['stac_catalog'] is not None and config['stac_collections'] is not None:
         archive = search.STACArchive(url=config['stac_catalog'],
                                      collections=config['stac_collections'])
+    elif config['parquet'] is not None:
+        archive = search.STACParquetArchive(files=config['parquet'])
+    else:
+        raise RuntimeError('could not select a search option. Please check your configuration.')
     
     if config['scene'] is None:
         attr_search = ['sensor', 'product', 'mindate', 'maxdate',
