@@ -50,10 +50,11 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     log.info('collecting scenes')
     
     if config['db_file'] is not None:
-        scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
-                        regex=True, recursive=True, foldermode=1)
         archive = Archive(dbfile=config['db_file'])
-        archive.insert(scenes)
+        if config['scene_dir'] is not None:
+            scenes = finder(config['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
+                            regex=True, recursive=True, foldermode=1)
+            archive.insert(scenes)
     else:
         archive = search.STACArchive(url=config['stac_catalog'],
                                      collections=config['stac_collections'])
