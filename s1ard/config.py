@@ -181,17 +181,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             v = proc_sec.get_list(k)
         out_dict[k] = v
     
-    if out_dict['db_file'] is None and out_dict['stac_catalog'] is None:
-        raise RuntimeError("Either 'db_file' or 'stac_catalog' has to be defined.")
-    if out_dict['db_file'] is not None and out_dict['stac_catalog'] is not None:
-        raise RuntimeError("both 'db_file' and 'stac_catalog' have been defined. Please choose only one.")
-    if out_dict['stac_catalog'] is not None:
-        if out_dict['stac_collections'] is None:
-            raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
-    if out_dict['db_file'] is not None:
-        if out_dict['scene_dir'] is None:
-            raise RuntimeError("'scene_dir' must be defined if data is to be searched via an SQLite database.")
-    
     # METADATA section
     allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
