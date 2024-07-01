@@ -10,6 +10,7 @@ from osgeo import gdal
 import spatialist
 from spatialist.vector import bbox, intersect
 import pyroSAR
+from pyroSAR.ancillary import Lock
 from pyroSAR import examine, identify_many
 import s1ard
 
@@ -393,7 +394,13 @@ def get_kml():
     local = os.path.join(local_path, os.path.basename(remote))
     if not os.path.isfile(local):
         log.info(f'downloading KML file to {local_path}')
-        r = requests.get(remote)
-        with open(local, 'wb') as out:
-            out.write(r.content)
+        with Lock(local_path):
+            r = requests.get(remote)
+            with open(local, 'wb') as out:
+                out.write(r.content)
+    try:
+        lock = Lock(local_path, soft=True)
+        lock.remove()
+    except Exception as e:
+        raise e
     return local
