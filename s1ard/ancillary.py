@@ -126,7 +126,7 @@ def get_max_ext(geometries, buffer=None, crs=None):
         max_ext['ymax'] += buffer
     if crs is not None:
         with bbox(coordinates=max_ext, crs=crs_list[0]) as geo:
-            geo.reproject(crs=crs)
+            geo.reproject(projection=crs)
             max_ext = geo.extent
     return max_ext
 
