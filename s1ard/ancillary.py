@@ -82,7 +82,7 @@ def generate_unique_id(encoded_str):
     return p_id
 
 
-def get_max_ext(geometries, buffer=None):
+def get_max_ext(geometries, buffer=None, crs=None):
     """
     Gets the maximum extent from a list of geometries.
     
@@ -92,6 +92,9 @@ def get_max_ext(geometries, buffer=None):
         List of :class:`~spatialist.vector.Vector` geometries.
     buffer: float or None
         The buffer in units of the geometries' CRS to add to the extent.
+    crs: str or int or None
+        The target CRS of the extent. If None (default) the extent is
+        expressed in the CRS of the input geometries.
     
     Returns
     -------
@@ -121,6 +124,10 @@ def get_max_ext(geometries, buffer=None):
         max_ext['xmax'] += buffer
         max_ext['ymin'] -= buffer
         max_ext['ymax'] += buffer
+    if crs is not None:
+        with bbox(coordinates=max_ext, crs=crs_list[0]) as geo:
+            geo.reproject(crs=crs)
+            max_ext = geo.extent
     return max_ext
 
 
