@@ -20,6 +20,7 @@ dependencies:
   - numpy
   - asf_search
   - pyproj
+  - requests
   - sphinx
   - sphinxcontrib-bibtex>=2.2
   - nbsphinx
@@ -28,4 +29,3 @@ dependencies:
   - ipython  # for notebook code highlighting
   - filelock  # needed for sphinx_toolbox.collapse
   - pytest  # for unit tests
-  - requests # for test data download

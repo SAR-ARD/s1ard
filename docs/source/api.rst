@@ -154,6 +154,7 @@ Ancillary Functions
         check_scene_consistency
         check_spacing
         generate_unique_id
+        get_kml
         get_max_ext
         group_by_time
         set_logging
