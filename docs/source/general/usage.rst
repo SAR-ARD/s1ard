@@ -166,16 +166,6 @@ Alternative to searching scenes in a directory and storing their metadata in an 
 For this, a STAC URL and one or many collections can be defined with ``stac_catalog`` and ``stac_collections`` respectively.
 The scenes are expected to be locally accessible in unpacked folders with the `.SAFE` extension.
 
-kml_file
-++++++++
-
-The Sentinel-2 Military Grid Reference System (MGRS) tiling system establishes the basis of the processing chain and a
-local reference file containing the respective tile information for processing ARD products is needed. The official
-KML file defined for the Sentinel-2 mission provided by ESA can be retrieved `here <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_.
-With the ``kml_file`` parameter either a full path to this reference file can be provided or it is expected to be located
-in the directory provided with ``work_dir`` if only a filename is provided. E.g., the processor expects to find
-``/<work_dir>/s2_grid.kml`` if ``kml_file = s2_grid.kml``.
-
 dem_type
 ++++++++
 

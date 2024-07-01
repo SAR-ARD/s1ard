@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import requests
 import binascii
 from lxml import etree
 from textwrap import dedent
@@ -11,6 +12,8 @@ from spatialist.vector import bbox, intersect
 import pyroSAR
 from pyroSAR import examine, identify_many
 import s1ard
+
+log = logging.getLogger('s1ard')
 
 
 def check_scene_consistency(scenes):
@@ -257,7 +260,6 @@ def _log_process_config(logger, config):
     db_file             {config['db_file']}
     stac_catalog        {config['stac_catalog']}
     stac_collections    {config['stac_collections']}
-    kml_file            {config['kml_file']}
     gdal_threads        {config.get('gdal_threads')}
     snap_gpt_args       {config['snap_gpt_args']}
     
@@ -373,3 +375,25 @@ def buffer_time(start, stop, **kwargs):
     stop = datetime.strptime(stop, f) + td
     stop = datetime.strftime(stop, f)
     return start, stop
+
+
+def get_kml():
+    """
+    Download the S2 grid KML file to ~/s1ard and return the file path.
+    
+    Returns
+    -------
+    str
+        the path to the KML file
+    """
+    remote = ('https://sentinel.esa.int/documents/247904/1955685/'
+              'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml')
+    local_path = os.path.join(os.path.expanduser('~'), 's1ard')
+    os.makedirs(local_path, exist_ok=True)
+    local = os.path.join(local_path, os.path.basename(remote))
+    if not os.path.isfile(local):
+        log.info(f'downloading KML file to {local_path}')
+        r = requests.get(remote)
+        with open(local, 'wb') as out:
+            out.write(r.content)
+    return local

@@ -3,10 +3,10 @@ import itertools
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
-from s1ard.ancillary import get_max_ext, buffer_min_overlap
+from s1ard.ancillary import get_max_ext, buffer_min_overlap, get_kml
 
 
-def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, tilenames=None):
+def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilenames=None):
     """
     Return a list of MGRS tile IDs or vector objects overlapping one or multiple areas of interest.
     
@@ -14,8 +14,6 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, 
     -------
     vector: spatialist.vector.Vector or list[spatialist.vector.Vector]
         The vector object(s) to read. CRS must be EPSG:4236.
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
     epsg: int or list[int] or None
         Define which EPSG code(s) are allowed for the tile selection.
         If None, all tile IDs are returned regardless of projection.
@@ -34,11 +32,6 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, 
     tiles: list[str or spatialist.vector.Vector]
         A list of unique MGRS tile IDs or :class:`spatialist.vector.Vector`
         objects with an attribute `mgrs` containing the tile ID.
-    
-    Notes
-    -----
-    The global Sentinel-2 tiling grid can be retrieved from:
-    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
     if isinstance(epsg, int):
         epsg = [epsg]
@@ -52,6 +45,7 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, 
     sortkey = None
     if return_geometries:
         sortkey = lambda x: x.mgrs
+    kml = get_kml()
     with Vector(kml, driver='KML') as vec:
         tilenames_src = []
         tiles = []
@@ -96,15 +90,13 @@ def tile_from_aoi(vector, kml, epsg=None, strict=True, return_geometries=False, 
         return sorted(tiles, key=sortkey)
 
 
-def aoi_from_tile(kml, tile):
+def aoi_from_tile(tile):
     """
     Extract one or multiple MGRS tiles from the global Sentinel-2 tiling grid and return it as a :class:`~spatialist.vector.Vector`
     object.
     
     Parameters
     ----------
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
     tile: str or list[str]
         The MGRS tile ID(s) that should be extracted and returned as a vector object.
         Can also be expressed as <tile ID>_<EPSG code> (e.g. `33TUN_32632`). In this case the geometry
@@ -115,14 +107,10 @@ def aoi_from_tile(kml, tile):
     -------
     spatialist.vector.Vector or list[spatialist.vector.Vector]
         either a single object or a list depending on `tile`
-    
-    Notes
-    -----
-    The global Sentinel-2 tiling grid can be retrieved from:
-    https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml
     """
+    kml = get_kml()
     if isinstance(tile, list):
-        return [aoi_from_tile(kml=kml, tile=x) for x in tile]
+        return [aoi_from_tile(tile=x) for x in tile]
     else:
         tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
         with Vector(kml, driver='KML') as vec:
@@ -162,7 +150,7 @@ def description2dict(description):
     return attrib
 
 
-def aoi_from_scene(scene, kml, multi=True, percent=1):
+def aoi_from_scene(scene, multi=True, percent=1):
     """
     Get processing AOIs for a SAR scene. The MGRS grid requires a SAR scene to be geocoded to multiple UTM zones
     depending on the overlapping MGRS tiles and their projection. This function returns the following for each
@@ -180,8 +168,6 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
     ----------
     scene: pyroSAR.drivers.ID
         the SAR scene object
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
     multi: bool
         split into multiple AOIs per overlapping UTM zone or just one AOI covering the whole scene.
         In the latter case the best matching UTM zone is auto-detected
@@ -195,11 +181,12 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
     list[dict]
         a list of dictionaries with keys `extent`, `epsg`, `align_x`, `align_y`
     """
+    kml = get_kml()
     out = []
     if multi:
         # extract all overlapping tiles
         with scene.geometry() as geom:
-            tiles = tile_from_aoi(vector=geom, kml=kml, return_geometries=True)
+            tiles = tile_from_aoi(vector=geom, return_geometries=True)
         
         # group tiles by UTM zone
         def fn(x):
@@ -233,7 +220,7 @@ def aoi_from_scene(scene, kml, multi=True, percent=1):
             # auto-detect UTM zone
             epsg = utm_autodetect(geom, 'epsg')
             # get all tiles, reprojected to the target UTM zone if necessary
-            tiles = tile_from_aoi(vector=geom, kml=kml, epsg=epsg,
+            tiles = tile_from_aoi(vector=geom, epsg=epsg,
                                   return_geometries=True, strict=False)
         # determine corner coordinate for alignment
         ext_utm = tiles[0].extent

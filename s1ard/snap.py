@@ -547,7 +547,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         gpt_args=gpt_args)
 
 
-def process(scene, outdir, measurement, spacing, kml, dem,
+def process(scene, outdir, measurement, spacing, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
@@ -569,8 +569,6 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         - sigma: RTC sigma nought (:math:`\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
     dem: str
         The DEM filename. Can be created with :func:`s1ard.dem.mosaic`.
     dem_resampling_method: str
@@ -624,7 +622,6 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     --------
     >>> from s1ard import snap
     >>> scene = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.zip'
-    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     >>> dem = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif'
     >>> outdir = '.'
     >>> spacing = 10
@@ -632,7 +629,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     >>> azlks = 1
     >>> export_extra = ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
     >>>                 'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio']
-    >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, kml=kml, dem=dem,
+    >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, dem=dem,
     >>>              rlks=rlks, azlks=azlks, export_extra=export_extra)
     """
     if measurement not in ['gamma', 'sigma']:
@@ -802,7 +799,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
                 shutil.copyfile(src=wf, dst=wf_dst)
     
     log.info('determining UTM zone overlaps')
-    aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
+    aois = aoi_from_scene(scene=id, multi=utm_multi)
     for aoi in aois:
         ext = aoi['extent']
         epsg = aoi['epsg']

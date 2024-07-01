@@ -454,7 +454,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     return sorted(out)
 
 
-def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs):
+def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     """
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
@@ -486,8 +486,6 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     ----------
     archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
         an open scene archive connection
-    kml_file: str
-        the KML file containing the MGRS tile geometries.
     aoi_tiles: list[str] or None
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
@@ -518,13 +516,13 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     vec = None
     selection = []
     if aoi_tiles is not None:
-        vec = aoi_from_tile(kml=kml_file, tile=aoi_tiles)
+        vec = aoi_from_tile(tile=aoi_tiles)
     elif aoi_geometry is not None:
         with Vector(aoi_geometry) as geom:
-            vec = tile_from_aoi(vector=geom, kml=kml_file,
+            vec = tile_from_aoi(vector=geom,
                                 return_geometries=True)
     elif 'vectorobject' in args.keys() and args['vectorobject'] is not None:
-        vec = tile_from_aoi(vector=args['vectorobject'], kml=kml_file,
+        vec = tile_from_aoi(vector=args['vectorobject'],
                             return_geometries=True)
     if vec is not None:
         if not isinstance(vec, list):
@@ -544,7 +542,7 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
             scenes = selection_tmp
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
-        vec = tile_from_aoi(vector=scenes_geom, kml=kml_file,
+        vec = tile_from_aoi(vector=scenes_geom,
                             return_geometries=True)
         if not isinstance(vec, list):
             vec = [vec]

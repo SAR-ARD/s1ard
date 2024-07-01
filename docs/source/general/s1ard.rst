@@ -15,6 +15,7 @@ A KML file is available online that will be used in the following steps:
 `S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_
 
 This file contains all relevant information about individual tiles, in particular the EPSG code of the respective UTM zone and the geometry of the tile in UTM coordinates.
+This file is automatically downloaded to `~/s1ard` by the function :func:`s1ard.ancillary.get_kml`.
 The function :func:`s1ard.tile_extraction.aoi_from_tile` can be used to extract one or multiple tiles as :class:`spatialist.vector.Vector` object.
 
 Scene Management
