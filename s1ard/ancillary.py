@@ -99,7 +99,9 @@ def get_max_ext(geometries, buffer=None):
         The maximum extent of the selected :class:`~spatialist.vector.Vector` geometries including the chosen buffer.
     """
     max_ext = {}
+    crs_list = []
     for geo in geometries:
+        crs_list.append(f"EPSG:{geo.getProjection('epsg')}")
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:
@@ -110,6 +112,9 @@ def get_max_ext(geometries, buffer=None):
             for key in ['xmax', 'ymax']:
                 if ext[key] > max_ext[key]:
                     max_ext[key] = ext[key]
+    crs_list = list(set(crs_list))
+    if len(crs_list) > 1:
+        raise RuntimeError(f'The input geometries are in different CRSs: {crs_list}')
     max_ext = dict(max_ext)
     if buffer is not None:
         max_ext['xmin'] -= buffer
