@@ -272,7 +272,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                     msg = ard.format(config=config, product_type=product_type,
                                      scenes=scenes_sub_fnames, datadir=config['sar_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
+                                     wbm=fname_wbm, dem_type=dem_type,
                                      multithread=gdal_prms['multithread'], annotation=annotation,
                                      update=update)
                     if msg == 'Already processed - Skip!':
