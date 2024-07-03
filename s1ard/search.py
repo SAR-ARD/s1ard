@@ -419,7 +419,11 @@ class STACParquetArchive(object):
                 else:
                     terms.append(subterms[0])
         sql_where = ' AND '.join(terms)
-        sql_query = f"SELECT location FROM '{self.files}' WHERE %s" % sql_where
+        sql_query = f"""
+        SELECT
+        replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')
+        FROM '{self.files}' WHERE {sql_where}
+        """
         result = duckdb.query(sql_query).fetchall()
         out = [x[0] for x in result]
         return sorted(out)
