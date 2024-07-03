@@ -237,7 +237,7 @@ def authenticate(dem_type, username=None, password=None):
     return username, password
 
 
-def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
+def mosaic(geometry, dem_type, outname, epsg=None,
            dem_dir=None, username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
@@ -245,7 +245,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
     or ad hoc using :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
     In the former case the arguments `username`, `password` and `threads` are ignored and
     all tiles found in `dem_dir` are read.
-    In the latter case the arguments `epsg`, `kml_file` and `dem_dir` are ignored and the DEM is
+    In the latter case the arguments `epsg` and `dem_dir` are ignored and the DEM is
     only mosaiced and geoid-corrected.
     
     Parameters
@@ -258,8 +258,6 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
         The name of the mosaic.
     epsg: int or None
         The coordinate reference system as an EPSG code.
-    kml_file: str or None
-        The KML file containing the MGRS tile geometries.
     dem_dir: str or None
         The directory containing the DEM MGRS tiles.
     username: str or None
@@ -283,7 +281,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
                 extent['xmax'] += dem_buffer
                 extent['ymax'] += dem_buffer
                 with bbox(extent, epsg) as dem_box:
-                    tiles = tile_ex.tile_from_aoi(vector=geometry, kml=kml_file,
+                    tiles = tile_ex.tile_from_aoi(vector=geometry,
                                                   epsg=epsg, strict=False)
                     dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
                     with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
