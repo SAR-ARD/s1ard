@@ -66,9 +66,6 @@ For the scene search option above (via ``scene_dir`` and ``db_file``), the funct
     # a folder containing Sentinel-1 scenes
     scene_dir = '/path/to/scenes'
 
-    # KML file from the Sentinel-2 mission containing the MGRS tile geometries
-    kml_file = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-
     # find the Sentinel-1 scenes in the defined folder
     scenes = finder(target=scene_dir, matchlist=['S1*.zip'])
 
@@ -77,7 +74,7 @@ For the scene search option above (via ``scene_dir`` and ``db_file``), the funct
         # insert the found scenes into the database
         archive.insert(scenes)
         # search for scenes and overlapping MGRS tiles matching the defined parameters
-        selection, aoi_tiles = scene_select(archive=archive, kml_file=kml_file,
+        selection, aoi_tiles = scene_select(archive=archive,
                                             sensor='S1A', acquisition_mode='IW',
                                             product='GRD', mindate='20180829T170656',
                                             maxdate='20180829T170721', date_strict=True)

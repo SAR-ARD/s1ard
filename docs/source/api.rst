@@ -156,6 +156,7 @@ Ancillary Functions
         check_spacing
         compute_hash
         generate_unique_id
+        get_kml
         get_max_ext
         group_by_time
         set_logging
