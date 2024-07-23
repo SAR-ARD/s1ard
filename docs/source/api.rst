@@ -137,6 +137,7 @@ Tile Extraction
         aoi_from_scene
         aoi_from_tile
         description2dict
+        multipolygon2polygon
         tile_from_aoi
 
 Ancillary Functions
