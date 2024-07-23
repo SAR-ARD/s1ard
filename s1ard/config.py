@@ -23,7 +23,7 @@ def get_keys(section):
     if section == 'processing':
         return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
                 'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                'db_file', 'kml_file', 'dem_type', 'gdal_threads', 'logfile', 'ard_dir',
+                'db_file', 'dem_type', 'gdal_threads', 'logfile', 'ard_dir',
                 'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
                 'sensor', 'date_strict', 'snap_gpt_args', 'scene']
     elif section == 'metadata':
