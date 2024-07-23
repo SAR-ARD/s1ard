@@ -19,9 +19,9 @@ def test_asf():
         assert len(neighbors) == 2
 
 
-def test_scene_select(kml):
+def test_scene_select():
     with ASFArchive() as archive:
-        scenes, tiles = scene_select(archive=archive, kml_file=kml,
+        scenes, tiles = scene_select(archive=archive,
                                      sensor='S1A', product='GRD',
                                      mindate='20200708T182600', maxdate='20200708T182800')
     
@@ -42,13 +42,13 @@ def test_scene_select(kml):
     assert len(tiles) == 31
 
 
-def test_aoi_date(kml):
+def test_aoi_date():
     """
     make sure the combination of aoi_tiles and a date range does not return incomplete results
     """
     #
     with ASFArchive() as archive:
-        scenes, tiles = scene_select(archive=archive, kml_file=kml,
+        scenes, tiles = scene_select(archive=archive,
                                      sensor='S1A', product='GRD',
                                      mindate='20200207T051836', maxdate='20200207T051902',
                                      aoi_tiles=['33TUM'])

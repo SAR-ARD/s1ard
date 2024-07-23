@@ -17,6 +17,7 @@ from spatialist import Raster
 from spatialist.ancillary import finder
 from s1ard.metadata.mapping import ASSET_MAP
 from s1ard.metadata.extract import get_header_size
+from s1ard.ancillary import compute_hash
 import logging
 
 log = logging.getLogger('s1ard')
@@ -396,19 +397,17 @@ def product_json(meta, target, assets, exist_ok=False):
                                    title='Reference describing the gridding convention used.'))
     
     # Add assets
-    xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), target).replace('\\', '/')
-    item.add_asset(key='card4l',
-                   asset=pystac.Asset(href=xml_relpath,
-                                      title='Metadata in XML format.',
-                                      media_type=pystac.MediaType.XML,
-                                      roles=['metadata', 'card4l']))
+    assets = assets.copy()
+    assets.append(outname.replace('.json', '.xml'))
     
     assets_dict = {'measurement': {},
-                   'annotation': {}}
+                   'annotation': {},
+                   'metadata': {}}
     for asset in assets:
         relpath = './' + os.path.relpath(asset, target).replace('\\', '/')
         
         size = os.path.getsize(asset)
+        hash = compute_hash(asset)
         created = None
         header_size = None
         media_type = pystac.MediaType.XML  # VRT
@@ -433,7 +432,8 @@ def product_json(meta, target, assets, exist_ok=False):
                                            'card4l:border_pixels': meta['prod']['numBorderPixels']}
                 _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata)
             file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
+            file_ext.apply(byte_order=byte_order, size=size,
+                           header_size=header_size, checksum=hash)
             assets_dict['measurement'][key] = stac_asset
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
@@ -455,11 +455,21 @@ def product_json(meta, target, assets, exist_ok=False):
             if key == '-ei.tif':
                 stac_asset.extra_fields = {'card4l:ellipsoidal_height': meta['prod']['ellipsoidalHeight']}
             file_ext = FileExtension.ext(stac_asset)
-            file_ext.apply(byte_order=byte_order, size=size, header_size=header_size)
+            file_ext.apply(byte_order=byte_order, size=size,
+                           header_size=header_size, checksum=hash)
             _asset_handle_raster_ext(stac_asset=stac_asset, nodata=nodata, key=key, meta=meta, asset=asset)
             assets_dict['annotation'][asset_key] = stac_asset
+        else:
+            stac_asset = pystac.Asset(href=relpath,
+                                      title='Metadata in XML format.',
+                                      media_type=pystac.MediaType.XML,
+                                      roles=['metadata', 'card4l'])
+            file_ext = FileExtension.ext(stac_asset)
+            file_ext.apply(byte_order=byte_order, size=size,
+                           header_size=header_size, checksum=hash)
+            assets_dict['metadata']['card4l'] = stac_asset
     
-    for category in ['measurement', 'annotation']:
+    for category in ['measurement', 'annotation', 'metadata']:
         for key in sorted(assets_dict[category].keys()):
             item.add_asset(key=key, asset=assets_dict[category][key])
     

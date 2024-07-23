@@ -28,7 +28,7 @@ log = logging.getLogger('s1ard')
 
 
 def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           dem_type=None, multithread=True, compress=None, overviews=None, kml=None,
+           dem_type=None, multithread=True, compress=None, overviews=None,
            annotation=None, update=False):
     """
     Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
@@ -72,8 +72,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int] or None
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
-    kml: str or None
-        The KML file containing the MGRS tile geometries. Only needs to be defined if `dem_type!=None`.
     annotation: list[str] or None
         an optional list to select the annotation layers. Default `None`: create all layers if the
         source products contain the required input layers. Options:
@@ -258,8 +256,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     
     # create DEM (-em.tif)
     if dem_type is not None and 'em' in allowed:
-        if kml is None:
-            raise RuntimeError("If 'dem_type' is not None, `kml` needs to be defined.")
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
             log.info(f'creating {em_path}')
@@ -268,7 +264,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             log_pyro = logging.getLogger('pyroSAR')
             level = log_pyro.level
             log_pyro.setLevel('NOTSET')
-            dem.to_mgrs(dem_type=dem_type, dst=em_path, kml=kml,
+            dem.to_mgrs(dem_type=dem_type, dst=em_path,
                         overviews=overviews, tile=tile, tr=tr,
                         create_options=write_options['em'],
                         pbar=False)
