@@ -246,8 +246,10 @@ class STACArchive(object):
                         raise RuntimeError("'vectorobject' contains more than one feature.")
                     with val.clone() as vec:
                         vec.reproject(4326)
-                        ext = vec.extent
-                        args['bbox'] = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
+                        feat = vec.getFeatureByIndex(0)
+                        json = feat.ExportToJson(as_object=True)
+                        feat = None
+                        args['intersects'] = json
                 else:
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
