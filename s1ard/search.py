@@ -569,7 +569,8 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['return_value'] = 'url'
     
     with combine_polygons(vec, multipolygon=True) as combined:
-        selection = archive.select(**args, vectorobject=combined)
+        args['vectorobject'] = combined
+        selection = archive.select(**args)
     del vec, args
     return sorted(list(set(selection))), aoi_tiles
 
