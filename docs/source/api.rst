@@ -177,6 +177,7 @@ Scene Search
         check_acquisition_completeness
         collect_neighbors
         scene_select
+        combine_polygons
 
 Metadata
 --------

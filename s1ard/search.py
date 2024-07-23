@@ -6,11 +6,12 @@ import dateutil.parser
 from datetime import datetime, timedelta, timezone
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
-from spatialist import Vector, crsConvert
+from spatialist.vector import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
 from s1ard.ancillary import buffer_time
 from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
+from osgeo import ogr, osr
 
 
 class ASF(ID):
@@ -698,3 +699,70 @@ def check_acquisition_completeness(archive, scenes):
     if len(messages) != 0:
         text = '\n - '.join(messages)
         raise RuntimeError(f'missing the following scenes:\n - {text}')
+
+
+def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'):
+    """
+    Combine polygon vector objects into one.
+    The output is a single vector object with the polygons either stored in
+    separate features or combined into a single multipolygon geometry.
+
+    Parameters
+    ----------
+    vector: list[spatialist.vector.Vector]
+    crs: int or str
+        the target CRS. Default: EPSG:4326
+    multipolygon: bool
+        combine all polygons into one multipolygon?
+        Default False: write each polygon into a separate feature.
+    layer_name: str
+        the layer name of the output vector object.
+
+    Returns
+    -------
+    spatialist.vector.Vector
+    """
+    if not isinstance(vector, list):
+        raise TypeError("'vectorobject' must be a list")
+    geometry_names = []
+    for item in vector:
+        for feature in item.layer:
+            geom = feature.GetGeometryRef()
+            geometry_names.append(geom.GetGeometryName())
+        item.layer.ResetReading()
+    geom = None
+    geometry_names = list(set(geometry_names))
+    if not all(x == 'POLYGON' for x in geometry_names):
+        raise RuntimeError('All geometries must be of type POLYGON')
+    
+    vec = Vector(driver='Memory')
+    srs_out = crsConvert(crs, 'osr')
+    if multipolygon:
+        geom_type = ogr.wkbMultiPolygon
+        geom_out = ogr.Geometry(geom_type)
+    else:
+        geom_type = ogr.wkbPolygon
+        geom_out = []
+    vec.addlayer(name=layer_name, srs=srs_out, geomType=geom_type)
+    for item in vector:
+        if item.srs.IsSame(srs_out):
+            coord_trans = None
+        else:
+            coord_trans = osr.CoordinateTransformation(item.srs, srs_out)
+        for feature in item.layer:
+            geom = feature.GetGeometryRef()
+            if coord_trans is not None:
+                geom.Transform(coord_trans)
+            if multipolygon:
+                geom_out.AddGeometry(geom.Clone())
+            else:
+                geom_out.append(geom.Clone())
+        item.layer.ResetReading()
+    geom = None
+    if multipolygon:
+        vec.addfeature(geom_out)
+    else:
+        for geom in geom_out:
+            vec.addfeature(geom)
+    geom_out = None
+    return vec
