@@ -517,7 +517,6 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
         args['return_value'] = 'ASF'
     
     vec = None
-    selection = []
     if aoi_tiles is not None:
         vec = aoi_from_tile(kml=kml_file, tile=aoi_tiles)
     elif aoi_geometry is not None:
@@ -569,9 +568,8 @@ def scene_select(archive, kml_file, aoi_tiles=None, aoi_geometry=None, **kwargs)
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
     
-    for item in vec:
-        args['vectorobject'] = item
-        selection.extend(archive.select(**args))
+    with combine_polygons(vec, multipolygon=True) as combined:
+        selection = archive.select(**args, vectorobject=combined)
     del vec, args
     return sorted(list(set(selection))), aoi_tiles
 
