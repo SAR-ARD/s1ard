@@ -325,7 +325,7 @@ class ASFArchive(object):
         maxdate: str or datetime.datetime or None
             the maximum acquisition date
         vectorobject: spatialist.vector.Vector or None
-            a geometry with which the scenes need to overlap
+            a geometry with which the scenes need to overlap. The object may only contain one feature.
         date_strict: bool
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
@@ -368,7 +368,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     maxdate: str or datetime.datetime
         the maximum acquisition date
     vectorobject: spatialist.vector.Vector or None
-        a geometry with which the scenes need to overlap
+        a geometry with which the scenes need to overlap. The object may only contain one feature.
     return_value: str or list[str]
         the metadata return value; if `ASF`, an :class:`~s1ard.search.ASF` object is returned;
         further string options specify certain properties to return: `beamModeType`, `browse`,
@@ -403,6 +403,8 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     else:
         beam_mode = acquisition_mode
     if vectorobject is not None:
+        if vectorobject.nfeatures > 1:
+            raise RuntimeError("'vectorobject' contains more than one feature.")
         with vectorobject.clone() as geom:
             geom.reproject(4326)
             geometry = geom.convert2wkt(set3D=False)[0]
