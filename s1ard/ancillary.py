@@ -88,7 +88,7 @@ def generate_unique_id(encoded_str):
     return p_id
 
 
-def get_max_ext(geometries, buffer=None):
+def get_max_ext(geometries, buffer=None, crs=None):
     """
     Gets the maximum extent from a list of geometries.
     
@@ -98,6 +98,9 @@ def get_max_ext(geometries, buffer=None):
         List of :class:`~spatialist.vector.Vector` geometries.
     buffer: float or None
         The buffer in units of the geometries' CRS to add to the extent.
+    crs: str or int or None
+        The target CRS of the extent. If None (default) the extent is
+        expressed in the CRS of the input geometries.
     
     Returns
     -------
@@ -105,7 +108,9 @@ def get_max_ext(geometries, buffer=None):
         The maximum extent of the selected :class:`~spatialist.vector.Vector` geometries including the chosen buffer.
     """
     max_ext = {}
+    crs_list = []
     for geo in geometries:
+        crs_list.append(f"EPSG:{geo.getProjection('epsg')}")
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:
@@ -116,12 +121,19 @@ def get_max_ext(geometries, buffer=None):
             for key in ['xmax', 'ymax']:
                 if ext[key] > max_ext[key]:
                     max_ext[key] = ext[key]
+    crs_list = list(set(crs_list))
+    if len(crs_list) > 1:
+        raise RuntimeError(f'The input geometries are in different CRSs: {crs_list}')
     max_ext = dict(max_ext)
     if buffer is not None:
         max_ext['xmin'] -= buffer
         max_ext['xmax'] += buffer
         max_ext['ymin'] -= buffer
         max_ext['ymax'] += buffer
+    if crs is not None:
+        with bbox(coordinates=max_ext, crs=crs_list[0]) as geo:
+            geo.reproject(projection=crs)
+            max_ext = geo.extent
     return max_ext
 
 
