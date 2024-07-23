@@ -181,7 +181,7 @@ class STACArchive(object):
             the data take ID in decimal representation.
             Requires custom STAC key `s1:datatake`.
         vectorobject: spatialist.vector.Vector or None
-            a geometry with which the scenes need to overlap
+            a geometry with which the scenes need to overlap. The object may only contain one feature.
         date_strict: bool
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
@@ -242,6 +242,8 @@ class STACArchive(object):
                 flt['args'].append(arg)
             elif key == 'vectorobject':
                 if isinstance(val, Vector):
+                    if val.nfeatures > 1:
+                        raise RuntimeError("'vectorobject' contains more than one feature.")
                     with val.clone() as vec:
                         vec.reproject(4326)
                         ext = vec.extent
