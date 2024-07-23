@@ -2,6 +2,7 @@ asf_search
 click>=7.1.0
 gdal>=3.5.0
 lxml
+multiformats>=0.3.1
 numpy
 pyproj
 pyroSAR>=0.26.0
