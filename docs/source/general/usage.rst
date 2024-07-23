@@ -150,14 +150,15 @@ The path to a log file. If set to ``None``, all logs will be printed to the cons
 The file path can be relative to ``work_dir`` or absolute.
 Default if not defined: ``None``.
 
-search option I: scene_dir & db_file
+search option I: db_file & scene_dir
 ++++++++++++++++++++++++++++++++++++
 
-Metadata of any Sentinel-1 scene found in ``scene_dir`` will be stored in an SQLite database file created by :class:`pyrosar.drivers.Archive`.
+Metadata is queried from an SQLite database created by :class:`pyrosar.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
-``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1
-scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
+``scene_dir`` can optionally be provided as full path to an existing directory.
+It will be searched recursively for any Sentinel-1 scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
+All scenes found are then inserted into ``db_file`` using method :meth:`pyrosar.drivers.Archive.insert`.
 
 search option II: stac_catalog & stac_collections
 +++++++++++++++++++++++++++++++++++++++++++++++++
