@@ -71,7 +71,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         dict_search['frameNumber'] = frame_number
         
         selection, aoi_tiles = search.scene_select(archive=archive,
-                                                   kml_file=config['kml_file'],
                                                    **dict_search)
         
         if len(selection) == 0:
@@ -200,7 +199,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                 log.info('starting SNAP processing')
                 snap.process(scene=scene.scene, outdir=config['sar_dir'],
                              measurement=measurement,
-                             tmpdir=config['tmp_dir'], kml=config['kml_file'],
+                             tmpdir=config['tmp_dir'],
                              dem=fname_dem, neighbors=neighbors[i],
                              export_extra=export_extra,
                              gpt_args=config['snap_gpt_args'],
@@ -237,7 +236,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
         with bbox(coordinates=extent, crs=4326) as box:
             dem.prepare(vector=box, threads=gdal_prms['threads'],
                         dem_dir=None, wbm_dir=config['wbm_dir'],
-                        dem_type=config['dem_type'], kml_file=config['kml_file'],
+                        dem_type=config['dem_type'],
                         tilenames=aoi_tiles, username=username, password=password,
                         dem_strict=True)
         log.info(f'grouping scenes by time and starting {product_type} production')
@@ -249,7 +248,6 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
             # get the geometries of all tiles that overlap with the current scene group
             vec = [x.geometry() for x in group]
             tiles = tile_ex.tile_from_aoi(vector=vec,
-                                          kml=config['kml_file'],
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
             del vec
@@ -274,7 +272,7 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
                     msg = ard.format(config=config, product_type=product_type,
                                      scenes=scenes_sub_fnames, datadir=config['sar_dir'],
                                      outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=dem_type, kml=config['kml_file'],
+                                     wbm=fname_wbm, dem_type=dem_type,
                                      multithread=gdal_prms['multithread'], annotation=annotation,
                                      update=update)
                     if msg == 'Already processed - Skip!':
