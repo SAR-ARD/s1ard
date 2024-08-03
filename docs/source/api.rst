@@ -13,8 +13,9 @@ Configuration
         :nosignatures:
 
         gdal_conf
-        snap_conf
         get_config
+        snap_conf
+        write
 
 Processing
 ----------

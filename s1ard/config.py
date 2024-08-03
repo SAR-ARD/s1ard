@@ -1,6 +1,7 @@
 import os
 import re
-from datetime import timedelta
+import copy
+from datetime import datetime, timedelta
 import configparser
 import dateutil.parser
 from osgeo import gdal
@@ -350,3 +351,66 @@ def gdal_conf(config):
     
     return {'threads': threads, 'threads_before': threads_before,
             'multithread': multithread}
+
+
+def write(config, target, overwrite=False, **kwargs):
+    """
+    Write configuration options to a config file.
+    
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config`
+    target: str
+        the name of the output file
+    overwrite: bool
+        overwrite existing file if it exists?
+    kwargs
+        further keyword arguments overriding configuration found in the config file.
+
+    Returns
+    -------
+
+    """
+    if os.path.isfile(target) and not overwrite:
+        raise RuntimeError("target already exists")
+    
+    def to_string(item):
+        """
+        
+        Parameters
+        ----------
+        item: dict or List or str
+
+        Returns
+        -------
+        str
+        """
+        if isinstance(item, dict):
+            return {k: to_string(v) for k, v in item.items()}
+        elif isinstance(item, list):
+            return ', '.join([to_string(x) for x in item])
+        elif isinstance(item, datetime):
+            return item.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            return str(item)
+    
+    config = copy.deepcopy(config)
+    keys_processing = get_keys('processing')
+    keys_meta = get_keys('metadata')
+    for k, v in kwargs.items():
+        print(k, v)
+        if k in keys_processing:
+            config[k] = v
+        elif k in keys_meta:
+            config['meta'][k] = v
+        else:
+            raise KeyError("Parameter '{}' is not supported".format(k))
+    for section, content in config.items():
+        config[section] = to_string(content)
+    parser = configparser.ConfigParser()
+    parser['METADATA'] = config['meta']
+    del config['meta']
+    parser['PROCESSING'] = config
+    with open(target, 'w') as configfile:
+        parser.write(configfile)
