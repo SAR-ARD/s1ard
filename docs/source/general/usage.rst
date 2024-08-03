@@ -36,18 +36,16 @@ See below for further details.
 
 Configuration
 -------------
-Usage of the s1ard package relies on a configuration file that needs to be set up by the user. The configuration
-file follows the INI format, which uses plain text to store properties as key-value pairs. INI files can be created and
-opened with any text editor. An example ``config.ini`` file for the s1ard package can be found here:
+Usage of the s1ard package relies on a configuration file that needs to be set up by the user.
+The configuration file follows the INI format, which uses plain text to store properties as key-value pairs.
+INI files can be created and opened with any text editor.
+An example ``config.ini`` file for the s1ard package can be found here:
 
 https://github.com/SAR-ARD/s1ard/blob/main/config.ini
 
-Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
-section name. The ``config.ini`` file used with the s1ard package should at least have a dedicated section for processing
-related parameters. This section is by default named ``[PROCESSING]``.
-Users might create several processing sections in the same configuration file with parameter values that correspond to different
-processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
-configuration parameters even if only a few are varied between the sections.
+Configuration files in INI format can have different sections.
+Each section begins at a section name and ends at the next section name.
+The ``config.ini`` file used with the s1ard package has two sections: ``PROCESSING`` and ``METADATA``.
 
 The following provides an overview of the parameters the ``config.ini`` should contain and anything that should be
 considered when selecting their values:

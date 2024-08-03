@@ -33,7 +33,7 @@ def get_keys(section):
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
 
-def get_config(config_file, proc_section='PROCESSING', **kwargs):
+def get_config(config_file, **kwargs):
     """
     Returns the content of a `config.ini` file as a dictionary.
     
@@ -41,9 +41,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     ----------
     config_file: str
         Full path to the config file that should be parsed to a dictionary.
-    proc_section: str
-        Section of the config file that processing parameters should be parsed from.
-        Default is 'PROCESSING'.
     kwargs
         further keyword arguments overriding configuration found in the config file.
     
@@ -64,7 +61,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             raise FileNotFoundError("Config file {} does not exist.".format(config_file))
         parser.read(config_file)
     elif config_file is None:
-        parser.add_section(proc_section)
+        parser.add_section('PROCESSING')
         parser.add_section('METADATA')
     else:
         raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
@@ -73,10 +70,10 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     # PROCESSING section
     allowed_keys = get_keys(section='processing')
     try:
-        proc_sec = parser[proc_section]
+        proc_sec = parser['PROCESSING']
     except KeyError:
         msg = "Section '{}' does not exist in config file {}"
-        raise KeyError(msg.format(proc_section, config_file))
+        raise KeyError(msg.format('PROCESSING', config_file))
     
     # override config file parameters
     for k, v in kwargs.items():

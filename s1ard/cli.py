@@ -9,14 +9,12 @@ import click
                )
 @click.option('--config-file', '-c', required=False, type=click.Path(),
               help='Full path to an INI-style configuration text file.')
-@click.option('--section', '-s', required=False, type=str, default='PROCESSING', show_default=True,
-              help='Section of the configuration file to read processing related parameters from.')
 @click.option('--debug', is_flag=True,
               help='Print debugging information for pyroSAR modules.')
 @click.option('--version', is_flag=True,
               help='Print s1ard version information and exit. Overrides all other arguments.')
 @click.pass_context
-def cli(ctx, config_file, section, debug, version):
+def cli(ctx, config_file, debug, version):
     """
     Central s1ard radar backscatter (rb) processing command.
     
@@ -32,7 +30,7 @@ def cli(ctx, config_file, section, debug, version):
     
     \b
     The following defaults are set:
-    (processing section)
+    PROCESSING
     - annotation:        dm,ei,id,lc,li,np,ratio
     - dem_type:          Copernicus 30m Global DEM
     - date_strict:       True
@@ -46,7 +44,7 @@ def cli(ctx, config_file, section, debug, version):
     - tmp_dir:           TMP
     - wbm_dir:           WBM
     - logfile:           None
-    (metadata section)
+    METADATA
     - access_url:        None
     - doi:               None
     - licence:           None
@@ -57,4 +55,4 @@ def cli(ctx, config_file, section, debug, version):
         print(s1ard.__version__)
     else:
         extra = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)}
-        s1ard.process(config_file=config_file, section_name=section, debug=debug, **extra)
+        s1ard.process(config_file=config_file, debug=debug, **extra)

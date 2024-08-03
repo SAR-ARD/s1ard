@@ -14,7 +14,7 @@ from s1ard import ocn
 gdal.UseExceptions()
 
 
-def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
+def main(config_file, debug=False, **kwargs):
     """
     Main function that initiates and controls the processing workflow.
     
@@ -22,16 +22,13 @@ def main(config_file, section_name='PROCESSING', debug=False, **kwargs):
     ----------
     config_file: str
         Full path to a `config.ini` file.
-    section_name: str
-        Section name of the `config.ini` file that processing parameters
-        should be parsed from. Default is 'PROCESSING'.
     debug: bool
         Set logging level to DEBUG? Default is False.
     **kwargs
         extra arguments to override parameters in the config file. E.g. `acq_mode`.
     """
     update = False  # update existing products? Internal development flag.
-    config = get_config(config_file=config_file, proc_section=section_name, **kwargs)
+    config = get_config(config_file=config_file, **kwargs)
     log = anc.set_logging(config=config, debug=debug)
     geocode_prms = snap_conf(config=config)
     gdal_prms = gdal_conf(config=config)
