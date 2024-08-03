@@ -41,7 +41,10 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     config_file: str
         Full path to the config file that should be parsed to a dictionary.
     proc_section: str
-        Section of the config file that processing parameters should be parsed from. Default is 'PROCESSING'.
+        Section of the config file that processing parameters should be parsed from.
+        Default is 'PROCESSING'.
+    kwargs
+        further keyword arguments overriding configuration found in the config file.
     
     Returns
     -------
@@ -71,7 +74,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     try:
         proc_sec = parser[proc_section]
     except KeyError:
-        raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+        msg = "Section '{}' does not exist in config file {}"
+        raise KeyError(msg.format(proc_section, config_file))
     
     # override config file parameters
     for k, v in kwargs.items():
@@ -122,7 +126,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                 v = proc_sec.get_tile_list(k)
         if k == 'aoi_geometry':
             if v is not None:
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': File {v} could not be found"
+                assert os.path.isfile(v), msg
         if k == 'mindate':
             v = proc_sec.get_datetime(k)
         if k == 'maxdate':
@@ -135,7 +140,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
-            assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
+            msg = f"Parameter '{k}': '{v}' must be an existing directory"
+            assert v is not None and os.path.isdir(v), msg
         dir_ignore = ['work_dir']
         if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
@@ -143,15 +149,18 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             dir_ignore.append(k)
         if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
-                assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
+                msg = f"Parameter '{k}': '{v}' must be an existing directory"
+                assert v is not None and os.path.isdir(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
         if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': file {v} could not be found"
+                assert os.path.isfile(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': file {v} could not be found"
+                assert os.path.isfile(v), msg
         if k in ['db_file', 'logfile'] and v is not None:
             if not any(x in v for x in ['/', '\\']):
                 v = os.path.join(proc_sec['work_dir'], v)
@@ -162,15 +171,18 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'dem_type':
             allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
                        'Copernicus 30m Global DEM', 'GETASSE30']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
         if k == 'product':
             allowed = ['GRD', 'SLC']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k == 'measurement':
             allowed = ['gamma', 'sigma']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
@@ -186,9 +198,6 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if out_dict['stac_catalog'] is not None:
         if out_dict['stac_collections'] is None:
             raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
-    if out_dict['db_file'] is not None:
-        if out_dict['scene_dir'] is None:
-            raise RuntimeError("'scene_dir' must be defined if data is to be searched via an SQLite database.")
     
     # METADATA section
     allowed_keys = get_keys(section='metadata')
