@@ -8,7 +8,8 @@ import click
                    allow_extra_args=True, )
                )
 @click.option('--config-file', '-c', required=False, type=click.Path(),
-              help='Full path to an INI-style configuration text file.')
+              help="Full path to an INI-style configuration text file. "
+                   "If not defined, the package's default file will be used.")
 @click.option('--debug', is_flag=True,
               help='Print debugging information for pyroSAR modules.')
 @click.option('--version', is_flag=True,
@@ -18,6 +19,8 @@ def cli(ctx, config_file, debug, version):
     """
     Central s1ard radar backscatter (rb) processing command.
     
+    A config file can be defined from which all configuration is read.
+    If not defined, configuration will be read from the package's default file.
     Additional options can be passed to override individual processing parameters
     in the configuration file. For example, to read all values from the configuration
     file except the acquisition mode and the annotation layers:

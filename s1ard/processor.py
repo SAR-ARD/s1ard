@@ -14,14 +14,14 @@ from s1ard import ocn
 gdal.UseExceptions()
 
 
-def main(config_file, debug=False, **kwargs):
+def main(config_file=None, debug=False, **kwargs):
     """
     Main function that initiates and controls the processing workflow.
     
     Parameters
     ----------
-    config_file: str
-        Full path to a `config.ini` file.
+    config_file: str or None
+        Full path to a `config.ini` file or `None` to use the package's default file.
     debug: bool
         Set logging level to DEBUG? Default is False.
     **kwargs

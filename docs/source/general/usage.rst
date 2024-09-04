@@ -41,8 +41,9 @@ The configuration file follows the INI format, which uses plain text to store pr
 INI files can be created and opened with any text editor.
 An example ``config.ini`` file for the s1ard package can be found here:
 
-https://github.com/SAR-ARD/s1ard/blob/main/config.ini
+https://github.com/SAR-ARD/s1ard/blob/main/s1ard/resources/config.ini
 
+This file will also be used as default if no configuration file is defined by the user.
 Configuration files in INI format can have different sections.
 Each section begins at a section name and ends at the next section name.
 The ``config.ini`` file used with the s1ard package has two sections: ``PROCESSING`` and ``METADATA``.

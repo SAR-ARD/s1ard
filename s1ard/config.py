@@ -1,6 +1,7 @@
 import os
 import re
 import copy
+import importlib.resources
 from datetime import datetime, timedelta
 import configparser
 import dateutil.parser
@@ -33,13 +34,13 @@ def get_keys(section):
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
 
-def get_config(config_file, **kwargs):
+def get_config(config_file=None, **kwargs):
     """
     Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
-    config_file: str
+    config_file: str or None
         Full path to the config file that should be parsed to a dictionary.
     kwargs
         further keyword arguments overriding configuration found in the config file.
@@ -62,8 +63,9 @@ def get_config(config_file, **kwargs):
             raise FileNotFoundError("Config file {} does not exist.".format(config_file))
         parser.read(config_file)
     elif config_file is None:
-        parser.add_section('PROCESSING')
-        parser.add_section('METADATA')
+        with importlib.resources.path('s1ard.resources', 'config.ini') as path:
+            config_file = str(path)
+        parser.read(config_file)
     else:
         raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
     out_dict = {'processing': {},
