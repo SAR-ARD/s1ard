@@ -402,13 +402,18 @@ def write(config, target, overwrite=False, **kwargs):
     keys_processing = get_keys('processing')
     keys_meta = get_keys('metadata')
     for k, v in kwargs.items():
-        print(k, v)
         if k in keys_processing:
             config['processing'][k] = v
         elif k in keys_meta:
             config['metadata'][k] = v
         else:
             raise KeyError("Parameter '{}' is not supported".format(k))
+    keys_path_relative = ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'db_file']
+    work_dir = config['processing']['work_dir']
+    for k in keys_path_relative:
+        v = config['processing'][k]
+        if work_dir in v:
+            config['processing'][k] = v.replace(work_dir, '').strip('/\\')
     config = to_string(config)
     parser = configparser.ConfigParser()
     parser['METADATA'] = config['metadata']
