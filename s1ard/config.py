@@ -142,8 +142,8 @@ def get_config(config_file=None, **kwargs):
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
-            msg = f"Parameter '{k}': '{v}' must be an existing directory"
-            assert v is not None and os.path.isdir(v), msg
+            msg = f"Parameter '{k}': '{v}' must be an existing writable directory"
+            assert v is not None and os.path.isdir(v) and os.access(v, os.W_OK), msg
         dir_ignore = ['work_dir']
         if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')

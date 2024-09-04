@@ -132,7 +132,7 @@ work_dir
 ++++++++
 
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
-Needs to be provided as full path to an existing directory.
+Needs to be provided as full path to an existing writable directory.
 
 tmp_dir, sar_dir, ard_dir, wbm_dir
 ++++++++++++++++++++++++++++++++++
