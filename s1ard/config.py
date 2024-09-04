@@ -48,6 +48,7 @@ def get_config(config_file, **kwargs):
     -------
     dict
         Dictionary of the parsed config parameters.
+        The keys correspond to the config sections in lowercase letters.
     """
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_annotation': _parse_annotation,
@@ -65,7 +66,8 @@ def get_config(config_file, **kwargs):
         parser.add_section('METADATA')
     else:
         raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
-    out_dict = {}
+    out_dict = {'processing': {},
+                'metadata': {}}
     
     # PROCESSING section
     allowed_keys = get_keys(section='processing')
@@ -187,22 +189,24 @@ def get_config(config_file, **kwargs):
             v = proc_sec.get_list(k)
         if k == 'datatake':
             v = proc_sec.get_list(k)
-        out_dict[k] = v
+        out_dict['processing'][k] = v
     
-    if out_dict['db_file'] is None and out_dict['stac_catalog'] is None:
+    db_file_set = out_dict['processing']['db_file'] is not None
+    stac_catalog_set = out_dict['processing']['stac_catalog'] is not None
+    stac_collections_set = out_dict['processing']['stac_collections'] is not None
+    
+    if not db_file_set and not stac_catalog_set:
         raise RuntimeError("Either 'db_file' or 'stac_catalog' has to be defined.")
-    if out_dict['db_file'] is not None and out_dict['stac_catalog'] is not None:
+    if db_file_set and stac_catalog_set:
         raise RuntimeError("both 'db_file' and 'stac_catalog' have been defined. Please choose only one.")
-    if out_dict['stac_catalog'] is not None:
-        if out_dict['stac_collections'] is None:
-            raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
+    if stac_catalog_set and not stac_collections_set:
+        raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
     
     # METADATA section
     allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
-    out_dict['meta'] = {}
     
     # set defaults
     if 'format' not in meta_sec.keys():
@@ -216,10 +220,10 @@ def get_config(config_file, **kwargs):
             v = meta_sec.get_list(k)
         if k == 'copy_original':
             v = meta_sec.getboolean(k)
-        out_dict['meta'][k] = v
+        out_dict['metadata'][k] = v
     for key in allowed_keys:
-        if key not in out_dict['meta'].keys():
-            out_dict['meta'][key] = None
+        if key not in out_dict['metadata'].keys():
+            out_dict['metadata'][key] = None
     
     return out_dict
 
@@ -310,7 +314,7 @@ def snap_conf(config):
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
-                        'EW': 40}[config['acq_mode']],
+                        'EW': 40}[config['processing']['acq_mode']],
             'allow_res_osv': True,
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
@@ -334,7 +338,7 @@ def gdal_conf(config):
     dict
         Dictionary containing GDAL configuration options for the current process.
     """
-    threads = config['gdal_threads']
+    threads = config['processing']['gdal_threads']
     threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
     if not isinstance(threads, int):
         raise TypeError("'threads' must be of type int")
@@ -381,7 +385,7 @@ def write(config, target, overwrite=False, **kwargs):
 
         Returns
         -------
-        str
+        str or dict
         """
         if isinstance(item, dict):
             return {k: to_string(v) for k, v in item.items()}
@@ -398,16 +402,14 @@ def write(config, target, overwrite=False, **kwargs):
     for k, v in kwargs.items():
         print(k, v)
         if k in keys_processing:
-            config[k] = v
+            config['processing'][k] = v
         elif k in keys_meta:
-            config['meta'][k] = v
+            config['metadata'][k] = v
         else:
             raise KeyError("Parameter '{}' is not supported".format(k))
-    for section, content in config.items():
-        config[section] = to_string(content)
+    config = to_string(config)
     parser = configparser.ConfigParser()
-    parser['METADATA'] = config['meta']
-    del config['meta']
-    parser['PROCESSING'] = config
+    parser['METADATA'] = config['metadata']
+    parser['PROCESSING'] = config['processing']
     with open(target, 'w') as configfile:
         parser.write(configfile)
