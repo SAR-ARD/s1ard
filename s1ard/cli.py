@@ -21,16 +21,18 @@ def cli(version):
              )
 @click.option('--config-file', '-c', required=True, type=click.Path(),
               help="Full path to an INI-style target configuration text file.")
+@click.option('--overwrite', '-o', is_flag=True, default=False,
+              help='Overwrite an existing file?')
 @click.option('--config-source', '-s', required=False, type=click.Path(),
               help="Full path to an INI-style source configuration text file. "
                    "If not defined, configuration will be read from the package's default file.")
 @click.pass_context
-def init(ctx, config_file, config_source=None):
+def init(ctx, config_file, overwrite=False, config_source=None):
     """
     Initialize configuration for s1ard processing.
 
     This creates a processor configuration file in a user-defined location.
-    The package#s default file or a user-defined source file may serve as base.
+    The package's default file or a user-defined source file may serve as base.
     Additional options can be passed to override individual processing parameters
     in the config file. For example, to read all values from the default
     file except the acquisition mode and the annotation layers:
@@ -75,7 +77,7 @@ def init(ctx, config_file, config_source=None):
                                       resource='config.ini') as path:
             config_source = str(path)
     config = get_config(config_file=config_source, **extra)
-    write(config, config_file)
+    write(config=config, target=config_file, overwrite=overwrite)
 
 
 @cli.command(name='process',
