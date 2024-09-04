@@ -23,10 +23,10 @@ dependencies:
   - pyproj
   - requests
   - multiformats>=0.3.1
-  - sphinx
+  - sphinx<8.0
   - sphinxcontrib-bibtex>=2.2
   - nbsphinx
-  - sphinx_rtd_theme
+  - sphinx_rtd_theme>=2.0
   - sphinx-toolbox
   - ipython  # for notebook code highlighting
   - filelock  # needed for sphinx_toolbox.collapse
