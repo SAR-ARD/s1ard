@@ -219,6 +219,11 @@ def get_config(config_file=None, **kwargs):
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
     
+    # override config file parameters
+    for k, v in kwargs.items():
+        if k in allowed_keys:
+            meta_sec[k] = v.strip()
+    
     # set defaults
     if 'format' not in meta_sec.keys():
         meta_sec['format'] = 'OGC, STAC'
