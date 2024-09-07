@@ -412,7 +412,7 @@ def write(config, target, overwrite=False, **kwargs):
     work_dir = config['processing']['work_dir']
     for k in keys_path_relative:
         v = config['processing'][k]
-        if work_dir in v:
+        if v is not None and work_dir in v:
             config['processing'][k] = v.replace(work_dir, '').strip('/\\')
     config = to_string(config)
     parser = configparser.ConfigParser()
