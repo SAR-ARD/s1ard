@@ -79,9 +79,14 @@ def get_config(config_file=None, **kwargs):
         msg = "Section '{}' does not exist in config file {}"
         raise KeyError(msg.format('PROCESSING', config_file))
     
-    # override config file parameters
+    # override config file parameters with additional keyword arguments
     for k, v in kwargs.items():
         proc_sec[k] = v.strip()
+    
+    # make all relevant paths absolute
+    for k in ['work_dir', 'scene_dir', 'scene', 'logfile', 'etad_dir']:
+        v = proc_sec[k]
+        proc_sec[k] = 'None' if v in ['', 'None'] else os.path.abspath(v)
     
     # set some defaults
     if 'etad' not in proc_sec.keys():
@@ -118,7 +123,9 @@ def get_config(config_file=None, **kwargs):
         missing_str = '\n - ' + '\n - '.join(missing)
         raise RuntimeError(f"missing the following parameters:{missing_str}")
     
+    # convert values to Python objects and validate them
     for k, v in proc_sec.items():
+        # check if key is allowed and convert 'None|none|' strings to None
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
@@ -193,6 +200,7 @@ def get_config(config_file=None, **kwargs):
             v = proc_sec.get_list(k)
         out_dict['processing'][k] = v
     
+    # check that a valid scene search option is set
     db_file_set = out_dict['processing']['db_file'] is not None
     stac_catalog_set = out_dict['processing']['stac_catalog'] is not None
     stac_collections_set = out_dict['processing']['stac_collections'] is not None
