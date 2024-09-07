@@ -102,7 +102,7 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
     if 'logfile' not in proc_sec.keys():
         proc_sec['logfile'] = 'None'
     if 'parquet' not in proc_sec.keys():
-        proc_sec['logfile'] = 'None'
+        proc_sec['parquet'] = 'None'
     
     # check completeness of configuration parameters
     missing = []
