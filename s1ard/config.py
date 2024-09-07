@@ -81,7 +81,8 @@ def get_config(config_file=None, **kwargs):
     
     # override config file parameters with additional keyword arguments
     for k, v in kwargs.items():
-        proc_sec[k] = v.strip()
+        if k in allowed_keys:
+            proc_sec[k] = v.strip()
     
     # make all relevant paths absolute
     for k in ['work_dir', 'scene_dir', 'scene', 'logfile', 'etad_dir']:
