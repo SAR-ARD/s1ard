@@ -24,8 +24,8 @@ from s1ard import snap
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type,
-              wm_ref_files=None):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
+              compression, product_type, wm_ref_files=None):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse` to generate OGC XML and
@@ -110,13 +110,17 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # PRODUCT metadata
-    if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower():
-        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad'])
+    if (len(ei_tif) == 1 and
+            sid0.product == 'SLC' and
+            'copernicus' in config['processing']['dem_type'].lower()):
+        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id,
+                                                      ei_tif=ei_tif[0],
+                                                      etad=config['processing']['etad'])
     else:
         geo_corr_accuracy = None
     
     # (sorted alphabetically)
-    meta['prod']['access'] = config['meta']['access_url']
+    meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
                                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
@@ -135,15 +139,15 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['compression_zerrors'] = z_err_dict
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
-    meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
-    meta['prod']['demEGMReference'] = DEM_MAP[config['dem_type']]['egm']
+    meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
+    meta['prod']['demEGMReference'] = DEM_MAP[config['processing']['dem_type']]['egm']
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
-    meta['prod']['demGSD'] = DEM_MAP[config['dem_type']]['gsd']
-    meta['prod']['demName'] = config['dem_type'].replace(' II', '')
-    meta['prod']['demReference'] = DEM_MAP[config['dem_type']]['ref']
+    meta['prod']['demGSD'] = DEM_MAP[config['processing']['dem_type']]['gsd']
+    meta['prod']['demName'] = config['processing']['dem_type'].replace(' II', '')
+    meta['prod']['demReference'] = DEM_MAP[config['processing']['dem_type']]['ref']
     meta['prod']['demResamplingMethod'] = 'bilinear'
-    meta['prod']['demType'] = DEM_MAP[config['dem_type']]['type']
-    meta['prod']['doi'] = config['meta']['doi']
+    meta['prod']['demType'] = DEM_MAP[config['processing']['dem_type']]['type']
+    meta['prod']['doi'] = config['metadata']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['equivalentNumberLooks'] = calc_enl(tif=ref_tif)
     meta['prod']['geoCorrAccuracyEasternBias'] = None
@@ -164,7 +168,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
-    meta['prod']['licence'] = config['meta']['licence']
+    meta['prod']['licence'] = config['metadata']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['noiseRemovalApplied'] = True
     nr_algo = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-' \
@@ -175,7 +179,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
-    meta['prod']['processingCenter'] = config['meta']['processing_center']
+    meta['prod']['processingCenter'] = config['metadata']['processing_center']
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
     meta['prod']['processorVersion'] = s1ard.__version__

@@ -26,7 +26,13 @@ test = ["pytest", "requests"]
 docs = ["sphinx", "sphinxcontrib-bibtex", "nbsphinx", "sphinx_rtd_theme", "sphinx-toolbox", "ipython"]
 
 [tool.setuptools]
-packages = ["s1ard"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["s1ard"]
+
+[tool.setuptools.package-data]
+"s1ard" = ["resources/*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

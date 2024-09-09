@@ -162,9 +162,10 @@ def set_logging(config, debug=False):
     formatter = logging.Formatter(fmt=log_format,
                                   datefmt='%Y-%m-%d %H:%M:%S')
     
-    if config['logfile'] is not None:
-        os.makedirs(os.path.dirname(config['logfile']), exist_ok=True)
-        handler = logging.FileHandler(filename=config['logfile'], mode='a')
+    logfile = config['processing']['logfile']
+    if logfile is not None:
+        os.makedirs(os.path.dirname(logfile), exist_ok=True)
+        handler = logging.FileHandler(filename=logfile, mode='a')
     else:
         handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
@@ -248,35 +249,35 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     PROCESSING CONFIGURATION
     
-    mode                {config['mode']}
-    aoi_tiles           {config['aoi_tiles']}
-    aoi_geometry        {config['aoi_geometry']}
-    scene               {config['scene']}
-    mindate             {config['mindate'].isoformat()}
-    maxdate             {config['maxdate'].isoformat()}
-    date_strict         {config['date_strict']}
-    sensor              {config['sensor']}
-    acq_mode            {config['acq_mode']}
-    product             {config['product']}
-    datatake            {config['datatake']}
-    measurement         {config.get('measurement')}
-    annotation          {config.get('annotation')}
-    dem_type            {config.get('dem_type')}
-    etad                {config.get('etad')}
+    mode                {config['processing']['mode']}
+    aoi_tiles           {config['processing']['aoi_tiles']}
+    aoi_geometry        {config['processing']['aoi_geometry']}
+    scene               {config['processing']['scene']}
+    mindate             {config['processing']['mindate'].isoformat()}
+    maxdate             {config['processing']['maxdate'].isoformat()}
+    date_strict         {config['processing']['date_strict']}
+    sensor              {config['processing']['sensor']}
+    acq_mode            {config['processing']['acq_mode']}
+    product             {config['processing']['product']}
+    datatake            {config['processing']['datatake']}
+    measurement         {config['processing']['measurement']}
+    annotation          {config['processing']['annotation']}
+    dem_type            {config['processing']['dem_type']}
+    etad                {config['processing']['etad']}
     
-    work_dir            {config['work_dir']}
-    sar_dir             {config['sar_dir']}
-    tmp_dir             {config['tmp_dir']}
-    ard_dir             {config['ard_dir']}
-    wbm_dir             {config['wbm_dir']}
-    etad_dir            {config['etad_dir']}
-    scene_dir           {config['scene_dir']}
-    logfile             {config['logfile']}
-    db_file             {config['db_file']}
-    stac_catalog        {config['stac_catalog']}
-    stac_collections    {config['stac_collections']}
-    gdal_threads        {config.get('gdal_threads')}
-    snap_gpt_args       {config['snap_gpt_args']}
+    work_dir            {config['processing']['work_dir']}
+    sar_dir             {config['processing']['sar_dir']}
+    tmp_dir             {config['processing']['tmp_dir']}
+    ard_dir             {config['processing']['ard_dir']}
+    wbm_dir             {config['processing']['wbm_dir']}
+    etad_dir            {config['processing']['etad_dir']}
+    scene_dir           {config['processing']['scene_dir']}
+    logfile             {config['processing']['logfile']}
+    db_file             {config['processing']['db_file']}
+    stac_catalog        {config['processing']['stac_catalog']}
+    stac_collections    {config['processing']['stac_collections']}
+    gdal_threads        {config['processing']['gdal_threads']}
+    snap_gpt_args       {config['processing']['snap_gpt_args']}
     
     ====================================================================================================================
     SOFTWARE

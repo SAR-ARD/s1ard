@@ -230,7 +230,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     # create data mask raster (-dm.tif)
     if 'dm' in allowed:
         if wbm is not None:
-            if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+            if not config['processing']['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
                 raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
         
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
@@ -399,11 +399,11 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              product_type=product_type, wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
-    if config['meta']['copy_original']:
+    if config['metadata']['copy_original']:
         copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
-    if 'OGC' in config['meta']['format']:
+    if 'OGC' in config['metadata']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
-    if 'STAC' in config['meta']['format']:
+    if 'STAC' in config['metadata']['format']:
         stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     return str(round((time.time() - start_time), 2))
 
