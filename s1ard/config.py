@@ -207,11 +207,15 @@ def get_config(config_file=None, **kwargs):
     db_file_set = out_dict['processing']['db_file'] is not None
     stac_catalog_set = out_dict['processing']['stac_catalog'] is not None
     stac_collections_set = out_dict['processing']['stac_collections'] is not None
+    parquet_set = out_dict['processing']['parquet'] is not None
     
-    if not db_file_set and not stac_catalog_set:
-        raise RuntimeError("Either 'db_file' or 'stac_catalog' has to be defined.")
-    if db_file_set and stac_catalog_set:
-        raise RuntimeError("both 'db_file' and 'stac_catalog' have been defined. Please choose only one.")
+    options_set = sum([db_file_set, stac_catalog_set, parquet_set])
+    
+    if options_set == 0:
+        raise RuntimeError("Please define a scene search option.")
+    elif options_set > 1:
+        raise RuntimeError("Multiple scene search options have been defined. Please choose only one.")
+    
     if stac_catalog_set and not stac_collections_set:
         raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
     
