@@ -1,6 +1,8 @@
 import os
 import re
-from datetime import timedelta
+import copy
+import importlib.resources
+from datetime import datetime, timedelta
 import configparser
 import dateutil.parser
 from osgeo import gdal
@@ -32,21 +34,22 @@ def get_keys(section):
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
 
-def get_config(config_file, proc_section='PROCESSING', **kwargs):
+def get_config(config_file=None, **kwargs):
     """
     Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
-    config_file: str
+    config_file: str or None
         Full path to the config file that should be parsed to a dictionary.
-    proc_section: str
-        Section of the config file that processing parameters should be parsed from. Default is 'PROCESSING'.
+    kwargs
+        further keyword arguments overriding configuration found in the config file.
     
     Returns
     -------
     dict
         Dictionary of the parsed config parameters.
+        The keys correspond to the config sections in lowercase letters.
     """
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_annotation': _parse_annotation,
@@ -60,22 +63,31 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             raise FileNotFoundError("Config file {} does not exist.".format(config_file))
         parser.read(config_file)
     elif config_file is None:
-        parser.add_section(proc_section)
-        parser.add_section('METADATA')
+        with importlib.resources.path('s1ard.resources', 'config.ini') as path:
+            config_file = str(path)
+        parser.read(config_file)
     else:
         raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
-    out_dict = {}
+    out_dict = {'processing': {},
+                'metadata': {}}
     
     # PROCESSING section
     allowed_keys = get_keys(section='processing')
     try:
-        proc_sec = parser[proc_section]
+        proc_sec = parser['PROCESSING']
     except KeyError:
-        raise KeyError("Section '{}' does not exist in config file {}".format(proc_section, config_file))
+        msg = "Section '{}' does not exist in config file {}"
+        raise KeyError(msg.format('PROCESSING', config_file))
     
-    # override config file parameters
+    # override config file parameters with additional keyword arguments
     for k, v in kwargs.items():
-        proc_sec[k] = v.strip()
+        if k in allowed_keys:
+            proc_sec[k] = v.strip()
+    
+    # make all relevant paths absolute
+    for k in ['work_dir', 'scene_dir', 'scene', 'logfile', 'etad_dir']:
+        v = proc_sec[k]
+        proc_sec[k] = 'None' if v in ['', 'None'] else os.path.abspath(v)
     
     # set some defaults
     if 'etad' not in proc_sec.keys():
@@ -114,7 +126,9 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         missing_str = '\n - ' + '\n - '.join(missing)
         raise RuntimeError(f"missing the following parameters:{missing_str}")
     
+    # convert values to Python objects and validate them
     for k, v in proc_sec.items():
+        # check if key is allowed and convert 'None|none|' strings to None
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k == 'mode':
@@ -124,7 +138,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
                 v = proc_sec.get_tile_list(k)
         if k == 'aoi_geometry':
             if v is not None:
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': File {v} could not be found"
+                assert os.path.isfile(v), msg
         if k == 'mindate':
             v = proc_sec.get_datetime(k)
         if k == 'maxdate':
@@ -137,7 +152,8 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
-            assert os.path.isdir(v), "Parameter '{}': '{}' must be an existing directory".format(k, v)
+            msg = f"Parameter '{k}': '{v}' must be an existing writable directory"
+            assert v is not None and os.path.isdir(v) and os.access(v, os.W_OK), msg
         dir_ignore = ['work_dir']
         if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
@@ -145,15 +161,18 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             dir_ignore.append(k)
         if k.endswith('_dir') and k not in dir_ignore:
             if any(x in v for x in ['/', '\\']):
-                assert os.path.isdir(v), "Parameter '{}': {} is a full path to a non-existing directory".format(k, v)
+                msg = f"Parameter '{k}': '{v}' must be an existing directory"
+                assert v is not None and os.path.isdir(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
         if k.endswith('_file') and not k.startswith('db'):
             if any(x in v for x in ['/', '\\']):
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': file {v} could not be found"
+                assert os.path.isfile(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
-                assert os.path.isfile(v), "Parameter '{}': File {} could not be found".format(k, v)
+                msg = f"Parameter '{k}': file {v} could not be found"
+                assert os.path.isfile(v), msg
         if k in ['db_file', 'logfile'] and v is not None:
             if not any(x in v for x in ['/', '\\']):
                 v = os.path.join(proc_sec['work_dir'], v)
@@ -164,29 +183,48 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
         if k == 'dem_type':
             allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
                        'Copernicus 30m Global DEM', 'GETASSE30']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
         if k == 'product':
             allowed = ['GRD', 'SLC']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k == 'measurement':
             allowed = ['gamma', 'sigma']
-            assert v in allowed, "Parameter '{}': expected to be one of {}; got '{}' instead".format(k, allowed, v)
+            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
+            assert v in allowed, msg.format(k, allowed, v)
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
-            v = proc_sec.get_list(k)
+            v = proc_sec['snap_gpt_args'].split(' ')
         if k == 'datatake':
             v = proc_sec.get_list(k)
-        out_dict[k] = v
+        out_dict['processing'][k] = v
+    
+    # check that a valid scene search option is set
+    db_file_set = out_dict['processing']['db_file'] is not None
+    stac_catalog_set = out_dict['processing']['stac_catalog'] is not None
+    stac_collections_set = out_dict['processing']['stac_collections'] is not None
+    
+    if not db_file_set and not stac_catalog_set:
+        raise RuntimeError("Either 'db_file' or 'stac_catalog' has to be defined.")
+    if db_file_set and stac_catalog_set:
+        raise RuntimeError("both 'db_file' and 'stac_catalog' have been defined. Please choose only one.")
+    if stac_catalog_set and not stac_collections_set:
+        raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
     
     # METADATA section
     allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
-    out_dict['meta'] = {}
+    
+    # override config file parameters
+    for k, v in kwargs.items():
+        if k in allowed_keys:
+            meta_sec[k] = v.strip()
     
     # set defaults
     if 'format' not in meta_sec.keys():
@@ -200,10 +238,10 @@ def get_config(config_file, proc_section='PROCESSING', **kwargs):
             v = meta_sec.get_list(k)
         if k == 'copy_original':
             v = meta_sec.getboolean(k)
-        out_dict['meta'][k] = v
+        out_dict['metadata'][k] = v
     for key in allowed_keys:
-        if key not in out_dict['meta'].keys():
-            out_dict['meta'][key] = None
+        if key not in out_dict['metadata'].keys():
+            out_dict['metadata'][key] = None
     
     return out_dict
 
@@ -294,7 +332,7 @@ def snap_conf(config):
     """
     return {'spacing': {'IW': 10,
                         'SM': 10,
-                        'EW': 40}[config['acq_mode']],
+                        'EW': 40}[config['processing']['acq_mode']],
             'allow_res_osv': True,
             'dem_resampling_method': 'BILINEAR_INTERPOLATION',
             'img_resampling_method': 'BILINEAR_INTERPOLATION',
@@ -318,7 +356,7 @@ def gdal_conf(config):
     dict
         Dictionary containing GDAL configuration options for the current process.
     """
-    threads = config['gdal_threads']
+    threads = config['processing']['gdal_threads']
     threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
     if not isinstance(threads, int):
         raise TypeError("'threads' must be of type int")
@@ -332,3 +370,72 @@ def gdal_conf(config):
     
     return {'threads': threads, 'threads_before': threads_before,
             'multithread': multithread}
+
+
+def write(config, target, overwrite=False, **kwargs):
+    """
+    Write configuration options to a config file.
+    
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config`
+    target: str
+        the name of the output file
+    overwrite: bool
+        overwrite existing file if it exists?
+    kwargs
+        further keyword arguments overriding configuration found in the config file.
+
+    Returns
+    -------
+
+    """
+    if os.path.isfile(target) and not overwrite:
+        raise RuntimeError("target already exists")
+    
+    def to_string(item):
+        """
+        
+        Parameters
+        ----------
+        item: dict or List or str
+
+        Returns
+        -------
+        str or dict
+        """
+        if isinstance(item, dict):
+            return {k: to_string(v) for k, v in item.items()}
+        elif isinstance(item, list):
+            return ', '.join([to_string(x) for x in item])
+        elif isinstance(item, datetime):
+            return item.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            return str(item)
+    
+    config = copy.deepcopy(config)
+    keys_processing = get_keys('processing')
+    keys_meta = get_keys('metadata')
+    for k, v in kwargs.items():
+        if k in keys_processing:
+            config['processing'][k] = v
+        elif k in keys_meta:
+            config['metadata'][k] = v
+        else:
+            raise KeyError("Parameter '{}' is not supported".format(k))
+    keys_path_relative = ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'db_file']
+    work_dir = config['processing']['work_dir']
+    for k in keys_path_relative:
+        v = config['processing'][k]
+        if v is not None and work_dir in v:
+            config['processing'][k] = v.replace(work_dir, '').strip('/\\')
+    k = 'snap_gpt_args'
+    v = ' '.join([str(x) for x in config['processing'][k]])
+    config['processing'][k] = v
+    config = to_string(config)
+    parser = configparser.ConfigParser()
+    parser['METADATA'] = config['metadata']
+    parser['PROCESSING'] = config['processing']
+    with open(target, 'w') as configfile:
+        parser.write(configfile)
