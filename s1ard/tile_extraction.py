@@ -4,6 +4,7 @@ from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
 from s1ard.ancillary import get_max_ext, buffer_min_overlap, get_kml
+from osgeo import ogr
 
 
 def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilenames=None):
@@ -70,15 +71,16 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
                             else:
                                 continue
                         if return_geometries:
+                            wkt = multipolygon2polygon(attrib['UTM_WKT'])
                             if reproject:
-                                with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+                                with wkt2vector(wkt, attrib['EPSG']) as tmp:
                                     tmp.reproject(epsg_target)
                                     ext = tmp.extent
                                     for k, v in ext.items():
                                         ext[k] = round(v / 10) * 10
                                 geom = bbox(ext, crs=epsg_target)
                             else:
-                                geom = wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+                                geom = wkt2vector(wkt, attrib['EPSG'])
                             geom.mgrs = tilename
                             tiles.append(geom)
                         else:
@@ -117,10 +119,11 @@ def aoi_from_tile(tile):
             feat = vec.getFeatureByAttribute('Name', tilename)
             attrib = description2dict(feat.GetField('Description'))
             feat = None
+        wkt = multipolygon2polygon(attrib['UTM_WKT'])
         if epsg is None:
-            return wkt2vector(attrib['UTM_WKT'], attrib['EPSG'])
+            return wkt2vector(wkt, attrib['EPSG'])
         else:
-            with wkt2vector(attrib['UTM_WKT'], attrib['EPSG']) as tmp:
+            with wkt2vector(wkt, attrib['EPSG']) as tmp:
                 tmp.reproject(int(epsg))
                 ext = tmp.extent
                 for k, v in ext.items():
@@ -230,3 +233,37 @@ def aoi_from_scene(scene, multi=True, percent=1):
         out.append({'extent': ext, 'epsg': epsg,
                     'align_x': align_x, 'align_y': align_y})
     return out
+
+
+def multipolygon2polygon(wkt):
+    """
+    Convert a MultiPolygon WKT with one Polygon to a simple Polygon WKT.
+    The Sentinel-2 KML grid file stores all geometries as MultiPolygons.
+    This function simply converts the geometries to simple Polygons.
+    Not all geometries in the KML file have been checked. In case there are
+    ever multiple Polygons in one MultiPolygon, an RuntimeError is raised.
+    All other geometries are returned as is.
+    
+    Parameters
+    ----------
+    wkt: str
+        A geometry WKT representation.
+
+    Returns
+    -------
+    str
+        the output WKT geometry. Either the original geometry or
+        a Polygon extracted from a single-Polygon MultiPolygon.
+    """
+    geom1 = ogr.CreateGeometryFromWkt(wkt)
+    poly_type = geom1.GetGeometryType()
+    poly_num = geom1.GetGeometryCount()
+    if poly_type == ogr.wkbMultiPolygon:
+        if poly_num == 1:
+            geom2 = geom1.GetGeometryRef(0).Clone()
+            wkt = geom2.ExportToWkt()
+            geom2 = None
+        else:
+            raise RuntimeError('got a MultiPolygon with multiple Polygons')
+    geom1 = None
+    return wkt

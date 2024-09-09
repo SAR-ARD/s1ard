@@ -138,6 +138,7 @@ Tile Extraction
         aoi_from_scene
         aoi_from_tile
         description2dict
+        multipolygon2polygon
         tile_from_aoi
 
 Ancillary Functions
@@ -181,6 +182,7 @@ Scene Search
         check_acquisition_completeness
         collect_neighbors
         scene_select
+        combine_polygons
 
 Metadata
 --------
