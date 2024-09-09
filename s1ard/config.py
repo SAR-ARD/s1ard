@@ -196,7 +196,7 @@ def get_config(config_file=None, **kwargs):
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
-            v = proc_sec.get_list(k)
+            v = proc_sec['snap_gpt_args'].split(' ')
         if k == 'datatake':
             v = proc_sec.get_list(k)
         out_dict['processing'][k] = v
@@ -428,6 +428,9 @@ def write(config, target, overwrite=False, **kwargs):
         v = config['processing'][k]
         if v is not None and work_dir in v:
             config['processing'][k] = v.replace(work_dir, '').strip('/\\')
+    k = 'snap_gpt_args'
+    v = ' '.join([str(x) for x in config['processing'][k]])
+    config['processing'][k] = v
     config = to_string(config)
     parser = configparser.ConfigParser()
     parser['METADATA'] = config['metadata']
