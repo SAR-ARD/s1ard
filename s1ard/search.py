@@ -312,6 +312,9 @@ class STACParquetArchive(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return
     
+    def close(self):
+        pass
+    
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
                vectorobject=None, date_strict=True):
