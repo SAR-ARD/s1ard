@@ -277,6 +277,7 @@ def _log_process_config(logger, config):
     db_file             {config['processing']['db_file']}
     stac_catalog        {config['processing']['stac_catalog']}
     stac_collections    {config['processing']['stac_collections']}
+    parquet             {config['processing']['parquet']}
     gdal_threads        {config['processing']['gdal_threads']}
     snap_gpt_args       {config['processing']['snap_gpt_args']}
     
