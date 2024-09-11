@@ -710,7 +710,7 @@ def collect_neighbors(archive, scene):
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or STACParquetArchive or ASFArchive
         an open scene archive connection
     scene: pyroSAR.drivers.ID
         the Sentinel-1 scene to be checked
