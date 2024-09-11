@@ -704,7 +704,7 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     return sorted(list(set(selection))), aoi_tiles
 
 
-def collect_neighbors(archive, scene):
+def collect_neighbors(archive, scene, stac_check_exist=True):
     """
     Collect a scene's neighboring acquisitions in a data take.
     
@@ -714,17 +714,23 @@ def collect_neighbors(archive, scene):
         an open scene archive connection
     scene: pyroSAR.drivers.ID
         the Sentinel-1 scene to be checked
+    stac_check_exist: bool
+        if `archive` is of type :class:`STACArchive`, check the local existence of the scenes?
 
     Returns
     -------
     list[str]
-        the file names of the neighboring scenes
+        the filenames/URLs of the neighboring scenes
     """
     start, stop = buffer_time(scene.start, scene.stop, seconds=2)
     
-    neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
-                               sensor=scene.sensor, product=scene.product,
-                               acquisition_mode=scene.acquisition_mode)
+    kwargs = {'mindate': start, 'maxdate': stop, 'date_strict': False,
+              'sensor': scene.sensor, 'product': scene.product,
+              'acquisition_mode': scene.acquisition_mode}
+    if isinstance(archive, STACArchive):
+        kwargs['check_exist'] = stac_check_exist
+    
+    neighbors = archive.select(**kwargs)
     pattern = f'{scene.start}_{scene.stop}'
     return [x for x in neighbors if not re.search(pattern, x)]
 
