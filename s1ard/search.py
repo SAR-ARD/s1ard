@@ -174,9 +174,9 @@ class STACArchive(object):
         acquisition_mode: str or list[str] or None
             IW, EW or SM
         mindate: str or datetime.datetime or None
-            the minimum acquisition date
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
-            the maximum acquisition date
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
         frameNumber: int or list[int] or None
             the data take ID in decimal representation.
             Requires custom STAC key `s1:datatake`.
@@ -216,16 +216,12 @@ class STACArchive(object):
         
         args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
-        dt_pattern = '%Y-%m-%dT%H:%M:%SZ'
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                if isinstance(val, str):
-                    val = dateutil.parser.parse(val)
-                if isinstance(val, datetime):
-                    val = datetime.strftime(val, dt_pattern)
+                val = date_convert(val)
             if key == 'mindate':
                 args['datetime'][0] = val
                 if date_strict:
@@ -342,9 +338,9 @@ class STACParquetArchive(object):
         acquisition_mode: str or list[str] or None
             IW, EW or SM
         mindate: str or datetime.datetime or None
-            the minimum acquisition date
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
-            the maximum acquisition date
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
         frameNumber: int or list[int] or None
             the data take ID in decimal representation.
             Requires custom STAC key `s1:datatake`.
@@ -384,16 +380,12 @@ class STACParquetArchive(object):
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
         terms = []
-        dt_pattern = '%Y-%m-%dT%H:%M:%S'
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                if isinstance(val, str):
-                    val = dateutil.parser.parse(val)
-                if isinstance(val, datetime):
-                    val = datetime.strftime(val, dt_pattern)
+                val = date_convert(val)
             if key == 'mindate':
                 if date_strict:
                     terms.append(f'"start_datetime" >= \'{val}\'')
@@ -467,9 +459,9 @@ class ASFArchive(object):
         acquisition_mode: str or list[str] or None
             IW, EW or SM
         mindate: str or datetime.datetime or None
-            the minimum acquisition date
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
-            the maximum acquisition date
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap. The object may only contain one feature.
         date_strict: bool
@@ -510,9 +502,9 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     acquisition_mode: str
         IW, EW or SM
     mindate: str or datetime.datetime
-        the minimum acquisition date
+        the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
     maxdate: str or datetime.datetime
-        the maximum acquisition date
+        the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap. The object may only contain one feature.
     return_value: str or list[str]
@@ -557,19 +549,8 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     else:
         geometry = None
     
-    if isinstance(mindate, str):
-        start = dateutil.parser.parse(mindate)
-    else:
-        start = mindate
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    
-    if isinstance(maxdate, str):
-        stop = dateutil.parser.parse(maxdate)
-    else:
-        stop = maxdate
-    if stop.tzinfo is None:
-        stop = stop.replace(tzinfo=timezone.utc)
+    start = date_convert(mindate, as_datetime=True)
+    stop = date_convert(maxdate, as_datetime=True)
     
     result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
                         processingLevel=processing_level,
@@ -913,3 +894,37 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
             vec.addfeature(geom)
     geom_out = None
     return vec
+
+
+def date_convert(date, as_datetime=False):
+    """
+    convert a date object to a UTC date string or datetime object.
+    
+    Parameters
+    ----------
+    date: str or datetime or None
+        the date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return a datetime object instead of a string?
+
+    Returns
+    -------
+    str or datetime or None
+        the date string or datetime object in UTC time zone
+    """
+    if date is None:
+        return date
+    elif isinstance(date, str):
+        out = dateutil.parser.parse(date)
+    elif isinstance(date, datetime):
+        out = date
+    else:
+        raise TypeError('date must be a string, datetime object or None')
+    if out.tzinfo is None:
+        out = out.replace(tzinfo=timezone.utc)
+    else:
+        out = out.astimezone(timezone.utc)
+    if as_datetime:
+        return out
+    else:
+        return out.strftime('%Y-%m-%dT%H:%M:%SZ')
