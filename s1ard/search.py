@@ -3,13 +3,13 @@ import re
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
-from s1ard.ancillary import buffer_time
+from s1ard.ancillary import date_to_utc, buffer_time
 from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
 from osgeo import ogr, osr
 
@@ -221,7 +221,7 @@ class STACArchive(object):
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_convert(val)
+                val = date_to_utc(val)
             if key == 'mindate':
                 args['datetime'][0] = val
                 if date_strict:
@@ -385,7 +385,7 @@ class STACParquetArchive(object):
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_convert(val)
+                val = date_to_utc(val)
             if key == 'mindate':
                 if date_strict:
                     terms.append(f'"start_datetime" >= \'{val}\'')
@@ -525,8 +525,9 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     Returns
     -------
     list[str or tuple[str] or ASF]
-        the scene metadata attributes as specified with `return_value`; the return type is a list of strings,
-        tuples or :class:`~s1ard.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
+        the scene metadata attributes as specified with `return_value`; the return type
+        is a list of strings, tuples or :class:`~s1ard.search.ASF` objects depending on
+        whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
     if isinstance(return_value, list) and 'ASF' in return_value:
@@ -549,8 +550,8 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     else:
         geometry = None
     
-    start = date_convert(mindate, as_datetime=True)
-    stop = date_convert(maxdate, as_datetime=True)
+    start = date_to_utc(mindate, as_datetime=True)
+    stop = date_to_utc(maxdate, as_datetime=True)
     
     result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
                         processingLevel=processing_level,
@@ -561,11 +562,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     features = result['features']
     
     def date_extract(item, key):
-        value = item['properties'][key]
-        out = dateutil.parser.parse(value)
-        if out.tzinfo is None:
-            out = out.replace(tzinfo=timezone.utc)
-        return out
+        return date_to_utc(date=item['properties'][key], as_datetime=True)
     
     if date_strict:
         features = [x for x in features
@@ -900,37 +897,3 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
             vec.addfeature(geom)
     geom_out = None
     return vec
-
-
-def date_convert(date, as_datetime=False):
-    """
-    convert a date object to a UTC date string or datetime object.
-    
-    Parameters
-    ----------
-    date: str or datetime or None
-        the date object to convert; timezone-unaware dates are interpreted as UTC.
-    as_datetime: bool
-        return a datetime object instead of a string?
-
-    Returns
-    -------
-    str or datetime or None
-        the date string or datetime object in UTC time zone
-    """
-    if date is None:
-        return date
-    elif isinstance(date, str):
-        out = dateutil.parser.parse(date)
-    elif isinstance(date, datetime):
-        out = date
-    else:
-        raise TypeError('date must be a string, datetime object or None')
-    if out.tzinfo is None:
-        out = out.replace(tzinfo=timezone.utc)
-    else:
-        out = out.astimezone(timezone.utc)
-    if as_datetime:
-        return out
-    else:
-        return out.strftime('%Y-%m-%dT%H:%M:%SZ')

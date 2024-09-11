@@ -3,11 +3,12 @@ import sys
 import logging
 import requests
 import hashlib
+import dateutil.parser
 from multiformats import multihash
 import binascii
 from lxml import etree
 from textwrap import dedent
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from osgeo import gdal
 import spatialist
 from spatialist.vector import bbox, intersect
@@ -365,6 +366,39 @@ def buffer_min_overlap(geom1, geom2, percent=1):
                 overlap = inter_area / geom2_area * 100
         buffer += 1
     return bbox(ext3, 4326)
+
+
+def date_to_utc(date, as_datetime=False):
+    """
+    convert a date object to a UTC date string or datetime object.
+
+    Parameters
+    ----------
+    date: str or datetime or None
+        the date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return a datetime object instead of a string?
+
+    Returns
+    -------
+    str or datetime or None
+        the date string or datetime object in UTC time zone
+    """
+    if date is None:
+        return date
+    elif isinstance(date, str):
+        out = dateutil.parser.parse(date)
+    elif isinstance(date, datetime):
+        out = date
+    else:
+        raise TypeError('date must be a string, datetime object or None')
+    if out.tzinfo is None:
+        out = out.replace(tzinfo=timezone.utc)
+    else:
+        out = out.astimezone(timezone.utc)
+    if not as_datetime:
+        out = out.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return out
 
 
 def buffer_time(start, stop, **kwargs):
