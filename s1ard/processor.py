@@ -94,6 +94,8 @@ def main(config_file=None, debug=False, **kwargs):
         if config_proc['mode'] != ['sar']:
             raise RuntimeError("if argument 'scene' is set, the processing mode must be 'sar'")
         scenes = [identify(config_proc['scene'])]
+        config_proc['acq_mode'] = scenes[0].acquisition_mode
+        config_proc['product'] = scenes[0].product
         aoi_tiles = []
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
