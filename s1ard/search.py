@@ -891,6 +891,7 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
         item.layer.ResetReading()
     geom = None
     if multipolygon:
+        geom_out = geom_out.UnionCascaded()
         vec.addfeature(geom_out)
     else:
         for geom in geom_out:
