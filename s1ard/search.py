@@ -725,8 +725,8 @@ def collect_neighbors(archive, scene):
     neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
                                sensor=scene.sensor, product=scene.product,
                                acquisition_mode=scene.acquisition_mode)
-    del neighbors[neighbors.index(scene.scene)]
-    return neighbors
+    pattern = f'{scene.start}_{scene.stop}'
+    return [x for x in neighbors if not re.search(pattern, x)]
 
 
 def check_acquisition_completeness(archive, scenes):
