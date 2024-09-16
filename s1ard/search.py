@@ -12,6 +12,9 @@ from pyroSAR import identify_many, ID
 from s1ard.ancillary import date_to_utc, buffer_time
 from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
 from osgeo import ogr, osr
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 class ASF(ID):
@@ -644,12 +647,15 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     vec = None
     if aoi_tiles is not None:
+        log.debug("reading geometries of 'aoi_tiles'")
         vec = aoi_from_tile(tile=aoi_tiles)
     elif aoi_geometry is not None:
+        log.debug("extracting tiles overlapping with 'aoi_geometry'")
         with Vector(aoi_geometry) as geom:
             vec = tile_from_aoi(vector=geom,
                                 return_geometries=True)
     elif 'vectorobject' in args.keys() and args['vectorobject'] is not None:
+        log.debug("extracting tiles overlapping with 'vectorobject'")
         vec = tile_from_aoi(vector=args['vectorobject'],
                             return_geometries=True)
     if vec is not None:
@@ -658,9 +664,11 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         
         if aoi_tiles is None:
             aoi_tiles = [x.mgrs for x in vec]
+        log.debug(f"got {len(aoi_tiles)} tiles")
     
     # derive geometries and tiles from scene footprints
     if vec is None:
+        log.debug("performing initial scene search without geometry constraint")
         selection_tmp = archive.select(**args)
         if len(selection_tmp) == 0:
             return [], []
@@ -668,13 +676,16 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
             scenes = identify_many(scenes=selection_tmp, sortkey='start')
         else:
             scenes = selection_tmp
+        log.debug(f"got {len(scenes)} scenes")
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
+        log.debug("extracting all tiles overlapping with initial scene selection")
         vec = tile_from_aoi(vector=scenes_geom,
                             return_geometries=True)
         if not isinstance(vec, list):
             vec = [vec]
         aoi_tiles = [x.mgrs for x in vec]
+        log.debug(f"got {len(aoi_tiles)} tiles")
         del scenes_geom
         
         args['mindate'] = min([datetime.strptime(x.start, '%Y%m%dT%H%M%S') for x in scenes])
@@ -694,11 +705,14 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
     
+    log.debug("performing main scene search")
     with combine_polygons(vec, multipolygon=True) as combined:
         args['vectorobject'] = combined
         selection = archive.select(**args)
     del vec, args
-    return sorted(list(set(selection))), aoi_tiles
+    scenes = sorted(list(set(selection)))
+    log.debug(f"got {len(scenes)} scenes")
+    return scenes, aoi_tiles
 
 
 def collect_neighbors(archive, scene, stac_check_exist=True):
