@@ -635,6 +635,10 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     """
     args = kwargs.copy()
+    if 'mindate' in args.keys():
+        args['mindate'] = date_to_utc(args['mindate'], as_datetime=True)
+    if 'maxdate' in args.keys():
+        args['maxdate'] = date_to_utc(args['maxdate'], as_datetime=True)
     for key in ['acquisition_mode']:
         if key not in args.keys():
             args[key] = None
@@ -688,14 +692,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         log.debug(f"got {len(aoi_tiles)} tiles")
         del scenes_geom
         
-        args['mindate'] = min([datetime.strptime(x.start, '%Y%m%dT%H%M%S') for x in scenes])
-        args['maxdate'] = max([datetime.strptime(x.stop, '%Y%m%dT%H%M%S') for x in scenes])
+        args['mindate'] = min([date_to_utc(x.start, as_datetime=True) for x in scenes])
+        args['maxdate'] = max([date_to_utc(x.stop, as_datetime=True) for x in scenes])
         del scenes
-    else:
-        if isinstance(args['mindate'], str):
-            args['mindate'] = dateutil.parser.parse(args['mindate'])
-        if isinstance(args['maxdate'], str):
-            args['maxdate'] = dateutil.parser.parse(args['maxdate'])
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
