@@ -601,8 +601,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
      - derive the minimum and maximum acquisition times of the selection as search parameters
        `mindate` and `maxdate`
      - extend the `mindate` and `maxdate` search parameters by one minute
-     - perform a second search with the extended acquisition date parameters and the
-       derived MGRS tile geometries
+     - perform a second search with the extended time range and the derived MGRS tile geometries
+     - filter the search result to scenes overlapping with the initial time range (if defined
+       via `mindate` or `maxdate`)
     
     As consequence, if one defines the search parameters to only return one scene, the neighboring
     acquisitions will also be returned. This is because the scene overlaps with a set of MGRS
@@ -611,7 +612,7 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     This function has three ways to define search geometries. In order of priority overriding others:
     `aoi_tiles` > `aoi_geometry` > `vectorobject` (via `kwargs`). In the latter two cases, the search
-    geometry is extended to the bounding box of all MGRS tiles overlapping with the initial geometry
+    geometry is extended to the common footprint of all MGRS tiles overlapping with the initial geometry
     to ensure full coverage of all tiles.
     
     Parameters
@@ -623,8 +624,10 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
     kwargs
-        further search arguments passed to :meth:`pyroSAR.drivers.Archive.select`
-        or :meth:`STACArchive.select` or :meth:`ASFArchive.select`
+        further search arguments passed to the `select` method of `archive`.
+        The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
+        time range cannot be determined by this function, and it thus has to add a time buffer.
+        When `date_strict=True`, more scenes will be filtered out in the last step described above.
 
     Returns
     -------
@@ -637,8 +640,14 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     args = kwargs.copy()
     if 'mindate' in args.keys():
         args['mindate'] = date_to_utc(args['mindate'], as_datetime=True)
+        mindate_init = args['mindate']
+    else:
+        mindate_init = None
     if 'maxdate' in args.keys():
         args['maxdate'] = date_to_utc(args['maxdate'], as_datetime=True)
+        maxdate_init = args['maxdate']
+    else:
+        maxdate_init = None
     for key in ['acquisition_mode']:
         if key not in args.keys():
             args[key] = None
@@ -710,6 +719,25 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         selection = archive.select(**args)
     del vec, args
     scenes = sorted(list(set(selection)))
+    if mindate_init is not None:
+        while True:
+            base = os.path.basename(scenes[0])
+            start, stop = re.findall('[0-9T]{15}', base)
+            stop = date_to_utc(stop, as_datetime=True)
+            if stop < mindate_init:
+                del scenes[0]
+            else:
+                break
+    if maxdate_init is not None:
+        while True:
+            base = os.path.basename(scenes[-1])
+            start, stop = re.findall('[0-9T]{15}', base)
+            start = date_to_utc(start, as_datetime=True)
+            if start > maxdate_init:
+                del scenes[-1]
+            else:
+                break
+    
     log.debug(f"got {len(scenes)} scenes")
     return scenes, aoi_tiles
 
