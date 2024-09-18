@@ -15,6 +15,7 @@ from spatialist.raster import Raster, rasterize, Dtype
 from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
+from pyroSAR.ancillary import Lock
 import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
@@ -484,32 +485,35 @@ def get_datasets(scenes, datadir, extent, epsg):
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         
-        if not os.path.isfile(dm_ras):
-            with Raster(measurements[0]) as ras:
-                arr = ras.array()
-                mask = ~np.isnan(arr)
-                del arr
-                # remove scene if file does not contain valid data
-                if len(mask[mask == 1]) == 0:
-                    del ids[i], datasets[i]
-                    continue
-                with vectorize(target=mask, reference=ras) as vec:
-                    with boundary(vec, expression="value=1") as bounds:
-                        if not os.path.isfile(dm_ras):
-                            rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
-                        if not os.path.isfile(dm_vec):
-                            bounds.write(outfile=dm_vec)
+        with Lock(dm_ras):
+            if not os.path.isfile(dm_ras):
+                with Raster(measurements[0]) as ras:
+                    arr = ras.array()
+                    mask = ~np.isnan(arr)
+                    del arr
+                    # remove scene if file does not contain valid data
+                    if len(mask[mask == 1]) == 0:
+                        del ids[i], datasets[i]
+                        continue
+                    with vectorize(target=mask, reference=ras) as vec:
+                        with boundary(vec, expression="value=1") as bounds:
+                            if not os.path.isfile(dm_ras):
+                                rasterize(vectorobject=bounds, reference=ras,
+                                          outname=dm_ras)
+                            if not os.path.isfile(dm_vec):
+                                bounds.write(outfile=dm_vec)
                 del mask
-        if not os.path.isfile(dm_vec):
-            with Raster(dm_ras) as ras:
-                mask = ras.array().astype('bool')
-                # remove scene if file does not contain valid data
-                if len(mask[mask == 1]) == 0:
-                    del ids[i], datasets[i]
-                    continue
-                with vectorize(target=mask, reference=ras) as vec:
-                    boundary(vec, expression="value=1", outname=dm_vec)
-                del mask
+        with Lock(dm_vec):
+            if not os.path.isfile(dm_vec):
+                with Raster(dm_ras) as ras:
+                    mask = ras.array().astype('bool')
+                    # remove scene if file does not contain valid data
+                    if len(mask[mask == 1]) == 0:
+                        del ids[i], datasets[i]
+                        continue
+                    with vectorize(target=mask, reference=ras) as vec:
+                        boundary(vec, expression="value=1", outname=dm_vec)
+                    del mask
         with Vector(dm_vec) as bounds:
             with bbox(extent, epsg) as tile_geom:
                 inter = intersect(bounds, tile_geom)
