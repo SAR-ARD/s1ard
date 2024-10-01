@@ -5,7 +5,7 @@ lxml
 multiformats>=0.3.1
 numpy<2.0
 pyproj
-pyroSAR>=0.26.0
+pyroSAR>=0.26.1
 pystac>=1.8.0
 pystac-client>=0.7.0
 python-dateutil
