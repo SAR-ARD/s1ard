@@ -1,22 +1,31 @@
+from pyroSAR import identify
 from s1ard.search import STACArchive, ASFArchive, collect_neighbors, scene_select
 
 
-def test_stac(stac):
-    archive = STACArchive(url=stac['url'],
-                          collections=[stac['collection']])
-    scenes = archive.select(sensor='S1A', mindate='20200708T182600',
-                            maxdate='20200708T182800', check_exist=False)
-    assert len(scenes) == 4
+def test_stac(stac, testdata):
+    with STACArchive(url=stac['url'],
+                     collections=[stac['collection']]) as archive:
+        scenes = archive.select(sensor='S1A', mindate='20200708T182600',
+                                maxdate='20200708T182800', check_exist=False)
+        assert len(scenes) == 4
+        scene = identify(testdata['s1'])
+        neighbors = collect_neighbors(archive=archive, scene=scene,
+                                      stac_check_exist=False)
+        suffixes = sorted([x[-9:] for x in neighbors])
+        assert suffixes == ['CEAB.SAFE', 'EBC3.SAFE']
 
 
-def test_asf():
+def test_asf(testdata):
     with ASFArchive() as archive:
         scenes = archive.select(sensor='S1A', product='GRD',
                                 mindate='20200708T182600', maxdate='20200708T182800',
                                 return_value='ASF')
         assert len(scenes) == 4
-        neighbors = collect_neighbors(archive=archive, scene=scenes[0])
-        assert len(neighbors) == 2
+        scene = identify(testdata['s1'])
+        neighbors = collect_neighbors(archive=archive, scene=scene,
+                                      stac_check_exist=False)
+        suffixes = sorted([x[-8:] for x in neighbors])
+        assert suffixes == ['CEAB.zip', 'EBC3.zip']
 
 
 def test_scene_select():

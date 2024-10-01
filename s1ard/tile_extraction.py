@@ -111,24 +111,42 @@ def aoi_from_tile(tile):
         either a single object or a list depending on `tile`
     """
     kml = get_kml()
-    if isinstance(tile, list):
-        return [aoi_from_tile(tile=x) for x in tile]
-    else:
-        tilename, epsg = re.search('([A-Z0-9]{5})_?([0-9]+)?', tile).groups()
-        with Vector(kml, driver='KML') as vec:
-            feat = vec.getFeatureByAttribute('Name', tilename)
+    if isinstance(tile, str):
+        tile = [tile]
+    
+    tilenames = []
+    epsg_codes = []
+    pattern = '([A-Z0-9]{5})_?([0-9]+)?'
+    for i in tile:
+        tilename, epsg = re.search(pattern, i).groups()
+        tilenames.append(tilename)
+        epsg_codes.append(epsg)
+    
+    values = ", ".join([f"'{x}'" for x in tilenames])
+    sql_where = f"Name IN ({values})"
+    out = []
+    with Vector(kml, driver='KML') as vec:
+        layer_name = vec.layer.GetName()
+        query = f"SELECT * FROM {layer_name} WHERE {sql_where}"
+        result_layer = vec.vector.ExecuteSQL(query)
+        for i, feat in enumerate(result_layer):
             attrib = description2dict(feat.GetField('Description'))
-            feat = None
-        wkt = multipolygon2polygon(attrib['UTM_WKT'])
-        if epsg is None:
-            return wkt2vector(wkt, attrib['EPSG'])
-        else:
-            with wkt2vector(wkt, attrib['EPSG']) as tmp:
-                tmp.reproject(int(epsg))
-                ext = tmp.extent
-                for k, v in ext.items():
-                    ext[k] = round(v / 10) * 10
-            return bbox(ext, crs=int(epsg))
+            wkt = multipolygon2polygon(attrib['UTM_WKT'])
+            epsg = epsg_codes[i]
+            if epsg is None:
+                out.append(wkt2vector(wkt, attrib['EPSG']))
+            else:
+                with wkt2vector(wkt, attrib['EPSG']) as tmp:
+                    tmp.reproject(int(epsg))
+                    ext = tmp.extent
+                    for k, v in ext.items():
+                        ext[k] = round(v / 10) * 10
+                out.append(bbox(ext, crs=int(epsg)))
+        vec.vector.ReleaseResultSet(result_layer)
+    if len(out) == 1:
+        return out[0]
+    else:
+        return out
 
 
 def description2dict(description):
