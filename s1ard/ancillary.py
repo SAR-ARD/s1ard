@@ -442,7 +442,7 @@ def get_kml():
     """
     remote = ('https://sentinel.esa.int/documents/247904/1955685/'
               'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml')
-    local_path = os.path.join(os.path.expanduser('~'), 's1ard')
+    local_path = os.path.join(os.path.expanduser('~'), '.s1ard')
     os.makedirs(local_path, exist_ok=True)
     local = os.path.join(local_path, os.path.basename(remote))
     if not os.path.isfile(local):
