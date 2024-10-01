@@ -364,6 +364,7 @@ class STACParquetArchive(object):
         list[str]
             the locations of the scene directories with suffix .SAFE
         """
+        pars = locals()
         try:
             import duckdb
         except ImportError:
@@ -376,10 +377,8 @@ class STACParquetArchive(object):
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
-        pars = locals()
         del pars['date_strict']
         del pars['self']
-        del pars['duckdb']
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
