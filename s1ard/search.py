@@ -3,6 +3,7 @@ import re
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
+from packaging.version import Version
 from datetime import datetime, timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
@@ -367,6 +368,11 @@ class STACParquetArchive(object):
             import duckdb
         except ImportError:
             raise ImportError("this method requires 'duckdb' to be installed")
+        ddb_version = Version(duckdb.__version__)
+        ddb_version_req = Version('1.1.1')
+        if ddb_version < ddb_version_req:
+            raise ImportError("duckdb version must be >= 1.1.1")
+        
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
@@ -405,7 +411,7 @@ class STACParquetArchive(object):
                     wkt = tmp.convert2wkt(set3D=False)[0]
                 if len(wkt) > 1:
                     RuntimeError("'vectorobject' may only contain one feature")
-                terms.append(f'ST_Intersects(ST_GeomFromWKB(geometry), '
+                terms.append(f'ST_Intersects(geometry, '
                              f'ST_GeomFromText(\'{wkt}\'))')
             else:
                 if isinstance(val, (str, int)):
