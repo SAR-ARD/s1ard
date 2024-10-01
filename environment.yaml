@@ -18,7 +18,7 @@ dependencies:
   - spatialist>=0.12.0
   - s1etad>=0.5.3
   - s1etad_tools>=0.8.1
-  - numpy
+  - numpy<2.0
   - asf_search
   - pyproj
   - multiformats>=0.3.1
