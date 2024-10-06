@@ -16,7 +16,7 @@ import spatialist
 from spatialist.raster import Raster, rasterize
 from spatialist.vector import bbox, intersect, boundary, vectorize
 import pyroSAR
-from pyroSAR.ancillary import Lock
+from pyroSAR.ancillary import Lock, LockCollection
 from pyroSAR import examine, identify_many
 import s1ard
 
@@ -536,37 +536,38 @@ def datamask(measurement, dm_ras, dm_vec):
         `dm_vec` if the vector data mask contains a geometry or None otherwise
     """
     out = dm_vec
-    if not os.path.isfile(dm_vec):
-        if not os.path.isfile(dm_ras):
-            with Raster(measurement) as ras:
-                arr = ras.array()
-                # create a nodata mask
-                mask = ~np.isnan(arr)
-                del arr
-                # create a dummy vector mask if the mask only contains 0 values
-                if len(mask[mask == 1]) == 0:
-                    Path(dm_vec).touch(exist_ok=False)
-                    return None
-                # vectorize the nodata mask
-                with vectorize(target=mask, reference=ras) as vec:
-                    # compute a valid data boundary geometry (vector data mask)
-                    with boundary(vec, expression="value=1") as bounds:
-                        # rasterize the vector data mask
-                        rasterize(vectorobject=bounds, reference=ras,
-                                  outname=dm_ras)
-                        # write the vector data mask
-                        bounds.write(outfile=dm_vec)
+    with LockCollection([dm_vec, dm_ras]):
+        if not os.path.isfile(dm_vec):
+            if not os.path.isfile(dm_ras):
+                with Raster(measurement) as ras:
+                    arr = ras.array()
+                    # create a nodata mask
+                    mask = ~np.isnan(arr)
+                    del arr
+                    # create a dummy vector mask if the mask only contains 0 values
+                    if len(mask[mask == 1]) == 0:
+                        Path(dm_vec).touch(exist_ok=False)
+                        return None
+                    # vectorize the nodata mask
+                    with vectorize(target=mask, reference=ras) as vec:
+                        # compute a valid data boundary geometry (vector data mask)
+                        with boundary(vec, expression="value=1") as bounds:
+                            # rasterize the vector data mask
+                            rasterize(vectorobject=bounds, reference=ras,
+                                      outname=dm_ras)
+                            # write the vector data mask
+                            bounds.write(outfile=dm_vec)
+            else:
+                # read the raster data mask
+                with Raster(dm_ras) as ras:
+                    mask = ras.array().astype('bool')
+                    # create a dummy vector mask if the mask only contains 0 values
+                    if len(mask[mask == 1]) == 0:
+                        Path(dm_vec).touch(exist_ok=False)
+                        return None
+                    # vectorize the raster data mask
+                    vectorize(target=mask, reference=ras, outname=dm_vec)
         else:
-            # read the raster data mask
-            with Raster(dm_ras) as ras:
-                mask = ras.array().astype('bool')
-                # create a dummy vector mask if the mask only contains 0 values
-                if len(mask[mask == 1]) == 0:
-                    Path(dm_vec).touch(exist_ok=False)
-                    return None
-                # vectorize the raster data mask
-                vectorize(target=mask, reference=ras, outname=dm_vec)
-    else:
-        if os.path.getsize(dm_vec) == 0:
-            return None
+            if os.path.getsize(dm_vec) == 0:
+                return None
     return out
