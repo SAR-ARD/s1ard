@@ -15,6 +15,7 @@ from spatialist.raster import Raster, Dtype
 from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
+from pyroSAR.ancillary import Lock
 import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
@@ -486,17 +487,18 @@ def get_datasets(scenes, datadir, extent, epsg):
         if dm_vec is None:
             del ids[i], datasets[i]
             continue
-        with Vector(dm_vec) as bounds:
-            with bbox(extent, epsg) as tile_geom:
-                inter = intersect(bounds, tile_geom)
-                if inter is None:
-                    del ids[i]
-                    del datasets[i]
-                else:
-                    # Add dm_ras to the datasets if it overlaps with the current tile
-                    datasets[i]['datamask'] = dm_ras
-                    i += 1
-                    inter.close()
+        with Lock(dm_vec, soft=True):
+            with Vector(dm_vec) as bounds:
+                with bbox(extent, epsg) as tile_geom:
+                    inter = intersect(bounds, tile_geom)
+                    if inter is None:
+                        del ids[i]
+                        del datasets[i]
+                    else:
+                        # Add dm_ras to the datasets if it overlaps with the current tile
+                        datasets[i]['datamask'] = dm_ras
+                        i += 1
+                        inter.close()
     return ids, datasets
 
 
