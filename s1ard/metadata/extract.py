@@ -625,6 +625,9 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
         arr = ras.array()
     arr[np.isinf(arr)] = np.nan
     
+    if len(arr[~np.isnan(arr)]) == 0:
+        raise RuntimeError('cannot compute ENL for an empty array')
+    
     num_blocks_rows = arr.shape[0] // block_size
     num_blocks_cols = arr.shape[1] // block_size
     if num_blocks_rows == 0 or num_blocks_cols == 0:
