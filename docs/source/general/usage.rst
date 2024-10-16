@@ -209,9 +209,16 @@ All scenes found are then inserted into ``db_file`` using method :meth:`pyrosar.
 search option II: stac_catalog & stac_collections
 +++++++++++++++++++++++++++++++++++++++++++++++++
 
-Alternative to searching scenes in a directory and storing their metadata in an SQLite database, scenes can be queried from a STAC catalog.
+Alternative to searching scenes in a directory and storing their metadata in an SQLite database, scenes can be queried from a STAC API catalog.
 For this, a STAC URL and one or many collections can be defined with ``stac_catalog`` and ``stac_collections`` respectively.
 The scenes are expected to be locally accessible in unpacked folders with the `.SAFE` extension.
+
+search option III: parquet
+++++++++++++++++++++++++++
+
+This option expects all STAC metadata queryable over option II to be stored in geoparquet files.
+See `stac-geoparquet <https://github.com/stac-utils/stac-geoparquet>`.
+Multiple geoparquet files may exist, which can be defined with ``parquet=/path/to/*parquet``.
 
 dem_type
 ++++++++

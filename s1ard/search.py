@@ -304,8 +304,8 @@ class STACParquetArchive(object):
 
     Parameters
     ----------
-    url: str
-        the catalog URL
+    files: str
+        the file search pattern, e.g. `/path/to/*parquet`
     """
     
     def __init__(self, files):
