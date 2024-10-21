@@ -11,7 +11,7 @@ dependencies:
   - click>=7.1.0
   - lxml
   - pip
-  - pystac>=1.8.0
+  - pystac>=1.8.0,<1.11.0
   - pystac-client>=0.7.0
   - scipy
   - pyroSAR>=0.26.0

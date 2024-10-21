@@ -6,7 +6,7 @@ multiformats>=0.3.1
 numpy<2.0
 pyproj
 pyroSAR>=0.26.0
-pystac>=1.8.0
+pystac>=1.8.0,<1.11.0
 pystac-client>=0.7.0
 python-dateutil
 s1etad>=0.5.3
