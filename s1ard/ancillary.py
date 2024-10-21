@@ -579,9 +579,10 @@ def datamask(measurement, dm_ras, dm_vec):
             else:
                 # read the raster data mask
                 with Raster(dm_ras) as ras:
-                    mask = ras.array().astype('bool')
+                    mask = ras.array()
                     out = mask_from_array(arr=mask, dm_vec=dm_vec,
                                           dm_ras=dm_ras, ref=ras)
+                    del mask
         else:
             if os.path.getsize(dm_vec) == 0:
                 out = None
