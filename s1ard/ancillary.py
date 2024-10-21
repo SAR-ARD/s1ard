@@ -548,7 +548,7 @@ def datamask(measurement, dm_ras, dm_vec):
                     if len(mask[mask == 1]) == 0:
                         Path(dm_vec).touch(exist_ok=False)
                         return None
-                    # vectorize the nodata mask
+                    # vectorize the raster data mask
                     with vectorize(target=mask, reference=ras) as vec:
                         # compute a valid data boundary geometry (vector data mask)
                         with boundary(vec, expression="value=1") as bounds:
@@ -566,7 +566,11 @@ def datamask(measurement, dm_ras, dm_vec):
                         Path(dm_vec).touch(exist_ok=False)
                         return None
                     # vectorize the raster data mask
-                    vectorize(target=mask, reference=ras, outname=dm_vec)
+                    with vectorize(target=mask, reference=ras) as vec:
+                        # compute a valid data boundary geometry (vector data mask)
+                        with boundary(vec, expression="value=1") as bounds:
+                            # write the vector data mask
+                            bounds.write(outfile=dm_vec)
         else:
             if os.path.getsize(dm_vec) == 0:
                 return None
