@@ -537,6 +537,19 @@ def datamask(measurement, dm_ras, dm_vec):
     """
     
     def mask_from_array(arr, dm_vec, dm_ras, ref):
+        """
+        
+        Parameters
+        ----------
+        arr: np.ndarray
+        dm_vec: str
+        dm_ras: str
+        ref: spatialist.raster.Raster
+
+        Returns
+        -------
+        str or None
+        """
         # create a dummy vector mask if the mask only contains 0 values
         if len(arr[arr == 1]) == 0:
             Path(dm_vec).touch(exist_ok=False)
@@ -572,4 +585,6 @@ def datamask(measurement, dm_ras, dm_vec):
         else:
             if os.path.getsize(dm_vec) == 0:
                 out = None
+            else:
+                out = dm_vec
     return out
