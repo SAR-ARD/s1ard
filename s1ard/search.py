@@ -243,7 +243,7 @@ class STACArchive(object):
             elif key == 'vectorobject':
                 if isinstance(val, Vector):
                     if val.nfeatures > 1:
-                        raise RuntimeError("'vectorobject' contains more than one feature.")
+                        raise RuntimeError("'vectorobject' may only contain one feature")
                     with val.clone() as vec:
                         vec.reproject(4326)
                         feat = vec.getFeatureByIndex(0)
@@ -304,8 +304,8 @@ class STACParquetArchive(object):
 
     Parameters
     ----------
-    url: str
-        the catalog URL
+    files: str
+        the file search pattern, e.g. `/path/to/*parquet`
     """
     
     def __init__(self, files):
@@ -405,13 +405,16 @@ class STACParquetArchive(object):
                 else:
                     terms.append(f'"start_datetime" <= \'{val}\'')
             elif key == 'vectorobject':
-                with val.clone() as tmp:
-                    tmp.reproject(4326)
-                    wkt = tmp.convert2wkt(set3D=False)[0]
-                if len(wkt) > 1:
-                    RuntimeError("'vectorobject' may only contain one feature")
-                terms.append(f'ST_Intersects(geometry, '
-                             f'ST_GeomFromText(\'{wkt}\'))')
+                if isinstance(val, Vector):
+                    if val.nfeatures > 1:
+                        raise RuntimeError("'vectorobject' may only contain one feature")
+                    with val.clone() as tmp:
+                        tmp.reproject(4326)
+                        wkt = tmp.convert2wkt(set3D=False)[0]
+                    terms.append(f'ST_Intersects(geometry, '
+                                 f'ST_GeomFromText(\'{wkt}\'))')
+                else:
+                    raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
                 if isinstance(val, (str, int)):
                     val = [val]

@@ -410,14 +410,13 @@ def product_json(meta, target, assets, exist_ok=False):
         hash = compute_hash(asset)
         created = None
         header_size = None
-        media_type = pystac.MediaType.XML  # VRT
+        media_type = pystac.MediaType.COG  # COG, VRT
         byte_order = None
         if asset.endswith('.tif'):
             with Raster(asset) as ras:
                 nodata = ras.nodata
             created = datetime.fromtimestamp(os.path.getctime(asset), tz=timezone.utc).isoformat()
             header_size = get_header_size(tif=asset)
-            media_type = pystac.MediaType.COG
             byte_order = ByteOrder.LITTLE_ENDIAN
         
         if 'measurement' in asset:
