@@ -174,6 +174,11 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     With this function, a GRD can be buffered using the neighboring acquisitions.
     First, all images are mosaicked using the `SliceAssembly` operator
     and then subsetted to the extent of the main scene including a buffer.
+    The `SliceAssembly` operator needs info about the slice number (i.e., the
+    ID/position inside the data take). If the value in the metadata is 0 (which
+    can be the case in NRT slicing mode), the slice number is determined using
+    function :func:`~s1ard.snap.nrt_slice_num`. If this fails, the function will
+    raise an error.
     
     Parameters
     ----------
@@ -190,7 +195,14 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
-        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size
+          and intermediate clearing
+    
+    Raises
+    ------
+    RuntimeError
+        if the slice number of a scene is 0, and it could not be determined
+        from the acquisition time
     
     Returns
     -------
@@ -202,9 +214,12 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
     ############################################
-    # modify the slice number if it is 0
+    # try to modify the slice number if it is 0
     for scene in scenes:
-        nrt_slice_num(dim=scene.scene)
+        try:
+            nrt_slice_num(dim=scene.scene)
+        except RuntimeError:
+            raise RuntimeError('cannot obtain slice number')
     ############################################
     read_ids = []
     for scene in scenes:
@@ -693,16 +708,21 @@ def process(scene, outdir, measurement, spacing, dem,
         out_buffer = tmp_base + '_buf.dim'
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         workflows.append(out_buffer_wf)
-        with LockCollection(out_pre_neighbors, soft=True):
-            with Lock(out_buffer):
-                if not os.path.isfile(out_buffer):
-                    log.info('buffering GRD scene with neighboring acquisitions')
-                    grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
-                               neighbors=out_pre_neighbors, gpt_args=gpt_args,
-                               buffer=10 * spacing)
-                else:
-                    log.info('GRD scene has already been buffered')
-        out_pre = out_buffer
+        if not os.path.isfile(out_buffer):
+            log.info('buffering GRD scene with neighboring acquisitions')
+            with LockCollection(out_pre_neighbors, soft=True):
+                with Lock(out_buffer):
+                    try:
+                        grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
+                                   neighbors=out_pre_neighbors, gpt_args=gpt_args,
+                                   buffer=10 * spacing)
+                        out_pre = out_buffer
+                    except RuntimeError:
+                        log.info('did not perform buffering because the slice number '
+                                 'could not be determined')
+                        pass
+        else:
+            log.info('GRD scene has already been buffered')
     ############################################################################
     # range look direction angle
     if 'lookDirection' in export_extra:
@@ -981,7 +1001,13 @@ def nrt_slice_num(dim):
     ----------
     dim: str
         the scene in BEAM-DIMAP format
-
+    
+    Raises
+    ------
+    RuntimeError
+        if the slice number is 0, and it cannot be computed because
+        the segment start time cannot be read from the metadata
+    
     Returns
     -------
 
@@ -993,7 +1019,11 @@ def nrt_slice_num(dim):
     if slice_num.text == '0':
         flt = dateparse(abstract.xpath("./MDATTR[@name='first_line_time']")[0].text)
         llt = dateparse(abstract.xpath("./MDATTR[@name='last_line_time']")[0].text)
-        sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        try:
+            sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        except IndexError:
+            raise RuntimeError('could not determine slice number '
+                               'due to missing segment start time')
         aqd = llt - flt
         slice_num_new = str(int(round((llt - sst) / aqd)))
         slice_num.text = slice_num_new
