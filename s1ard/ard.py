@@ -164,7 +164,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             ard_dir = existing[0]
     else:
         ard_dir = os.path.join(outdir, ard_base)
-    os.makedirs(ard_dir, exist_ok=True)
+        try:
+            os.makedirs(ard_dir, exist_ok=False)
+        except OSError:
+            return 'Already processed - Skip!'
     subdirectories = ['measurement', 'annotation', 'source', 'support']
     for subdirectory in subdirectories:
         os.makedirs(os.path.join(ard_dir, subdirectory), exist_ok=True)
