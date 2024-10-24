@@ -7,7 +7,7 @@ numpy<2.0
 packaging
 pyproj
 pyroSAR>=0.26.1
-pystac>=1.8.0
+pystac>=1.8.0,<1.11.0
 pystac-client>=0.7.0
 python-dateutil
 requests
