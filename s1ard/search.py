@@ -3,15 +3,19 @@ import re
 from lxml import etree
 from pathlib import Path
 import dateutil.parser
-from datetime import datetime, timedelta, timezone
+from packaging.version import Version
+from datetime import datetime, timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
-from s1ard.ancillary import buffer_time
+from s1ard.ancillary import date_to_utc, buffer_time
 from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
 from osgeo import ogr, osr
+import logging
+
+log = logging.getLogger('s1ard')
 
 
 class ASF(ID):
@@ -71,8 +75,8 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :func:`~s1ard.search.ASFArchive`
-    and :class:`pyroSAR.drivers.Archive`.
+    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
+    :class:`~s1ard.search.STACParquetArchive` and :class:`pyroSAR.drivers.Archive`.
     
     Parameters
     ----------
@@ -174,9 +178,9 @@ class STACArchive(object):
         acquisition_mode: str or list[str] or None
             IW, EW or SM
         mindate: str or datetime.datetime or None
-            the minimum acquisition date
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
-            the maximum acquisition date
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
         frameNumber: int or list[int] or None
             the data take ID in decimal representation.
             Requires custom STAC key `s1:datatake`.
@@ -216,16 +220,12 @@ class STACArchive(object):
         
         args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
-        dt_pattern = '%Y-%m-%dT%H:%M:%SZ'
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                if isinstance(val, str):
-                    val = dateutil.parser.parse(val)
-                if isinstance(val, datetime):
-                    val = datetime.strftime(val, dt_pattern)
+                val = date_to_utc(val)
             if key == 'mindate':
                 args['datetime'][0] = val
                 if date_strict:
@@ -243,7 +243,7 @@ class STACArchive(object):
             elif key == 'vectorobject':
                 if isinstance(val, Vector):
                     if val.nfeatures > 1:
-                        raise RuntimeError("'vectorobject' contains more than one feature.")
+                        raise RuntimeError("'vectorobject' may only contain one feature")
                     with val.clone() as vec:
                         vec.reproject(4326)
                         feat = vec.getFeatureByIndex(0)
@@ -295,9 +295,156 @@ class STACArchive(object):
         return out
 
 
+class STACParquetArchive(object):
+    """
+    Search for scenes in a SpatioTemporal Asset Catalog's geoparquet dump.
+    Scenes are expected to be unpacked with a folder suffix .SAFE.
+    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
+    :class:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
+
+    Parameters
+    ----------
+    files: str
+        the file search pattern, e.g. `/path/to/*parquet`
+    """
+    
+    def __init__(self, files):
+        self.files = files
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return
+    
+    def close(self):
+        pass
+    
+    def select(self, sensor=None, product=None, acquisition_mode=None,
+               mindate=None, maxdate=None, frameNumber=None,
+               vectorobject=None, date_strict=True):
+        """
+        Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
+
+        - platform
+        - start_datetime
+        - end_datetime
+        - sar:instrument_mode
+        - sar:product_type
+        - s1:datatake (custom)
+
+        Parameters
+        ----------
+        sensor: str or list[str] or None
+            S1A or S1B
+        product: str or list[str] or None
+            GRD or SLC
+        acquisition_mode: str or list[str] or None
+            IW, EW or SM
+        mindate: str or datetime.datetime or None
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
+        maxdate: str or datetime.datetime or None
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
+        frameNumber: int or list[int] or None
+            the data take ID in decimal representation.
+            Requires custom STAC key `s1:datatake`.
+        vectorobject: spatialist.vector.Vector or None
+            a geometry with which the scenes need to overlap
+        date_strict: bool
+            treat dates as strict limits or also allow flexible limits to incorporate scenes
+            whose acquisition period overlaps with the defined limit?
+
+            - strict: start >= mindate & stop <= maxdate
+            - not strict: stop >= mindate & start <= maxdate
+        check_exist: bool
+            check whether found files exist locally?
+
+        Returns
+        -------
+        list[str]
+            the locations of the scene directories with suffix .SAFE
+        """
+        pars = locals()
+        try:
+            import duckdb
+        except ImportError:
+            raise ImportError("this method requires 'duckdb' to be installed")
+        ddb_version = Version(duckdb.__version__)
+        ddb_version_req = Version('1.1.1')
+        if ddb_version < ddb_version_req:
+            raise ImportError("duckdb version must be >= 1.1.1")
+        
+        duckdb.install_extension('spatial')
+        duckdb.load_extension('spatial')
+        
+        del pars['date_strict']
+        del pars['self']
+        lookup = {'product': 'sar:product_type',
+                  'acquisition_mode': 'sar:instrument_mode',
+                  'mindate': 'start_datetime',
+                  'maxdate': 'end_datetime',
+                  'sensor': 'platform',
+                  'frameNumber': 's1:datatake'}
+        lookup_platform = {'S1A': 'sentinel-1a',
+                           'S1B': 'sentinel-1b'}
+        terms = []
+        for key in pars.keys():
+            val = pars[key]
+            if val is None:
+                continue
+            if key in ['mindate', 'maxdate']:
+                val = date_to_utc(val)
+            if key == 'mindate':
+                if date_strict:
+                    terms.append(f'"start_datetime" >= \'{val}\'')
+                else:
+                    terms.append(f'"end_datetime" >= \'{val}\'')
+            elif key == 'maxdate':
+                if date_strict:
+                    terms.append(f'"end_datetime" <= \'{val}\'')
+                else:
+                    terms.append(f'"start_datetime" <= \'{val}\'')
+            elif key == 'vectorobject':
+                if isinstance(val, Vector):
+                    if val.nfeatures > 1:
+                        raise RuntimeError("'vectorobject' may only contain one feature")
+                    with val.clone() as tmp:
+                        tmp.reproject(4326)
+                        wkt = tmp.convert2wkt(set3D=False)[0]
+                    terms.append(f'ST_Intersects(geometry, '
+                                 f'ST_GeomFromText(\'{wkt}\'))')
+                else:
+                    raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
+            else:
+                if isinstance(val, (str, int)):
+                    val = [val]
+                subterms = []
+                for v in val:
+                    if key == 'sensor':
+                        v = lookup_platform[v]
+                    if key == 'frameNumber' and isinstance(v, str):
+                        v = int(v, 16)  # convert to decimal
+                    subterms.append(f'"{lookup[key]}" = \'{v}\'')
+                if len(subterms) > 1:
+                    terms.append('(' + ' OR '.join(subterms) + ')')
+                else:
+                    terms.append(subterms[0])
+        sql_where = ' AND '.join(terms)
+        sql_query = f"""
+        SELECT
+        replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')
+        FROM '{self.files}' WHERE {sql_where}
+        """
+        result = duckdb.query(sql_query).fetchall()
+        out = [x[0] for x in result]
+        return sorted(out)
+
+
 class ASFArchive(object):
     """
     Search for scenes in the Alaska Satellite Facility (ASF) catalog.
+    The interface is kept consistent with :class:`~s1ard.search.STACArchive`,
+    :class:`~s1ard.search.STACParquetArchive` and :class:`pyroSAR.drivers.Archive`.
     """
     
     def __enter__(self):
@@ -311,8 +458,8 @@ class ASFArchive(object):
                maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
         """
         Select scenes from the ASF catalog. This is a simple wrapper around the function
-        :func:`~s1ard.search.asf_select` to be consistent with the interfaces of
-        :func:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
+        :func:`~s1ard.search.asf_select` to be consistent with the interfaces of the
+        other search classes.
 
         Parameters
         ----------
@@ -323,9 +470,9 @@ class ASFArchive(object):
         acquisition_mode: str or list[str] or None
             IW, EW or SM
         mindate: str or datetime.datetime or None
-            the minimum acquisition date
+            the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
-            the maximum acquisition date
+            the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap. The object may only contain one feature.
         date_strict: bool
@@ -366,9 +513,9 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     acquisition_mode: str
         IW, EW or SM
     mindate: str or datetime.datetime
-        the minimum acquisition date
+        the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
     maxdate: str or datetime.datetime
-        the maximum acquisition date
+        the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap. The object may only contain one feature.
     return_value: str or list[str]
@@ -389,8 +536,9 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     Returns
     -------
     list[str or tuple[str] or ASF]
-        the scene metadata attributes as specified with `return_value`; the return type is a list of strings,
-        tuples or :class:`~s1ard.search.ASF` objects depending on whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
+        the scene metadata attributes as specified with `return_value`; the return type
+        is a list of strings, tuples or :class:`~s1ard.search.ASF` objects depending on
+        whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
     if isinstance(return_value, list) and 'ASF' in return_value:
@@ -413,19 +561,8 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     else:
         geometry = None
     
-    if isinstance(mindate, str):
-        start = dateutil.parser.parse(mindate)
-    else:
-        start = mindate
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    
-    if isinstance(maxdate, str):
-        stop = dateutil.parser.parse(maxdate)
-    else:
-        stop = maxdate
-    if stop.tzinfo is None:
-        stop = stop.replace(tzinfo=timezone.utc)
+    start = date_to_utc(mindate, as_datetime=True)
+    stop = date_to_utc(maxdate, as_datetime=True)
     
     result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
                         processingLevel=processing_level,
@@ -436,11 +573,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     features = result['features']
     
     def date_extract(item, key):
-        value = item['properties'][key]
-        out = dateutil.parser.parse(value)
-        if out.tzinfo is None:
-            out = out.replace(tzinfo=timezone.utc)
-        return out
+        return date_to_utc(date=item['properties'][key], as_datetime=True)
     
     if date_strict:
         features = [x for x in features
@@ -476,8 +609,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
      - derive the minimum and maximum acquisition times of the selection as search parameters
        `mindate` and `maxdate`
      - extend the `mindate` and `maxdate` search parameters by one minute
-     - perform a second search with the extended acquisition date parameters and the
-       derived MGRS tile geometries
+     - perform a second search with the extended time range and the derived MGRS tile geometries
+     - filter the search result to scenes overlapping with the initial time range (if defined
+       via `mindate` or `maxdate`)
     
     As consequence, if one defines the search parameters to only return one scene, the neighboring
     acquisitions will also be returned. This is because the scene overlaps with a set of MGRS
@@ -486,20 +620,22 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     This function has three ways to define search geometries. In order of priority overriding others:
     `aoi_tiles` > `aoi_geometry` > `vectorobject` (via `kwargs`). In the latter two cases, the search
-    geometry is extended to the bounding box of all MGRS tiles overlapping with the initial geometry
+    geometry is extended to the common footprint of all MGRS tiles overlapping with the initial geometry
     to ensure full coverage of all tiles.
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or STACParquetArchive or ASFArchive
         an open scene archive connection
     aoi_tiles: list[str] or None
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
     kwargs
-        further search arguments passed to :meth:`pyroSAR.drivers.Archive.select`
-        or :meth:`STACArchive.select` or :meth:`ASFArchive.select`
+        further search arguments passed to the `select` method of `archive`.
+        The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
+        time range cannot be determined by this function, and it thus has to add a time buffer.
+        When `date_strict=True`, more scenes will be filtered out in the last step described above.
 
     Returns
     -------
@@ -510,6 +646,16 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     """
     args = kwargs.copy()
+    if 'mindate' in args.keys():
+        args['mindate'] = date_to_utc(args['mindate'], as_datetime=True)
+        mindate_init = args['mindate']
+    else:
+        mindate_init = None
+    if 'maxdate' in args.keys():
+        args['maxdate'] = date_to_utc(args['maxdate'], as_datetime=True)
+        maxdate_init = args['maxdate']
+    else:
+        maxdate_init = None
     for key in ['acquisition_mode']:
         if key not in args.keys():
             args[key] = None
@@ -522,12 +668,15 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     vec = None
     if aoi_tiles is not None:
+        log.debug("reading geometries of 'aoi_tiles'")
         vec = aoi_from_tile(tile=aoi_tiles)
     elif aoi_geometry is not None:
+        log.debug("extracting tiles overlapping with 'aoi_geometry'")
         with Vector(aoi_geometry) as geom:
             vec = tile_from_aoi(vector=geom,
                                 return_geometries=True)
     elif 'vectorobject' in args.keys() and args['vectorobject'] is not None:
+        log.debug("extracting tiles overlapping with 'vectorobject'")
         vec = tile_from_aoi(vector=args['vectorobject'],
                             return_geometries=True)
     if vec is not None:
@@ -536,9 +685,11 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         
         if aoi_tiles is None:
             aoi_tiles = [x.mgrs for x in vec]
+        log.debug(f"got {len(aoi_tiles)} tiles")
     
     # derive geometries and tiles from scene footprints
     if vec is None:
+        log.debug("performing initial scene search without geometry constraint")
         selection_tmp = archive.select(**args)
         if len(selection_tmp) == 0:
             return [], []
@@ -546,23 +697,21 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
             scenes = identify_many(scenes=selection_tmp, sortkey='start')
         else:
             scenes = selection_tmp
+        log.debug(f"got {len(scenes)} scenes")
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
+        log.debug("extracting all tiles overlapping with initial scene selection")
         vec = tile_from_aoi(vector=scenes_geom,
                             return_geometries=True)
         if not isinstance(vec, list):
             vec = [vec]
         aoi_tiles = [x.mgrs for x in vec]
+        log.debug(f"got {len(aoi_tiles)} tiles")
         del scenes_geom
         
-        args['mindate'] = min([datetime.strptime(x.start, '%Y%m%dT%H%M%S') for x in scenes])
-        args['maxdate'] = max([datetime.strptime(x.stop, '%Y%m%dT%H%M%S') for x in scenes])
+        args['mindate'] = min([date_to_utc(x.start, as_datetime=True) for x in scenes])
+        args['maxdate'] = max([date_to_utc(x.stop, as_datetime=True) for x in scenes])
         del scenes
-    else:
-        if isinstance(args['mindate'], str):
-            args['mindate'] = dateutil.parser.parse(args['mindate'])
-        if isinstance(args['maxdate'], str):
-            args['maxdate'] = dateutil.parser.parse(args['maxdate'])
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
@@ -572,36 +721,64 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
     
+    log.debug("performing main scene search")
     with combine_polygons(vec, multipolygon=True) as combined:
         args['vectorobject'] = combined
         selection = archive.select(**args)
     del vec, args
-    return sorted(list(set(selection))), aoi_tiles
+    scenes = sorted(list(set(selection)))
+    if mindate_init is not None:
+        while True:
+            base = os.path.basename(scenes[0])
+            start, stop = re.findall('[0-9T]{15}', base)
+            stop = date_to_utc(stop, as_datetime=True)
+            if stop < mindate_init:
+                del scenes[0]
+            else:
+                break
+    if maxdate_init is not None:
+        while True:
+            base = os.path.basename(scenes[-1])
+            start, stop = re.findall('[0-9T]{15}', base)
+            start = date_to_utc(start, as_datetime=True)
+            if start > maxdate_init:
+                del scenes[-1]
+            else:
+                break
+    
+    log.debug(f"got {len(scenes)} scenes")
+    return scenes, aoi_tiles
 
 
-def collect_neighbors(archive, scene):
+def collect_neighbors(archive, scene, stac_check_exist=True):
     """
     Collect a scene's neighboring acquisitions in a data take.
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive or ASFArchive
+    archive: pyroSAR.drivers.Archive or STACArchive or STACParquetArchive or ASFArchive
         an open scene archive connection
     scene: pyroSAR.drivers.ID
         the Sentinel-1 scene to be checked
+    stac_check_exist: bool
+        if `archive` is of type :class:`STACArchive`, check the local existence of the scenes?
 
     Returns
     -------
     list[str]
-        the file names of the neighboring scenes
+        the filenames/URLs of the neighboring scenes
     """
     start, stop = buffer_time(scene.start, scene.stop, seconds=2)
     
-    neighbors = archive.select(mindate=start, maxdate=stop, date_strict=False,
-                               sensor=scene.sensor, product=scene.product,
-                               acquisition_mode=scene.acquisition_mode)
-    del neighbors[neighbors.index(scene.scene)]
-    return neighbors
+    kwargs = {'mindate': start, 'maxdate': stop, 'date_strict': False,
+              'sensor': scene.sensor, 'product': scene.product,
+              'acquisition_mode': scene.acquisition_mode}
+    if isinstance(archive, STACArchive):
+        kwargs['check_exist'] = stac_check_exist
+    
+    neighbors = archive.select(**kwargs)
+    pattern = f'{scene.start}_{scene.stop}'
+    return [x for x in neighbors if not re.search(pattern, x)]
 
 
 def check_acquisition_completeness(archive, scenes):
@@ -763,6 +940,7 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
         item.layer.ResetReading()
     geom = None
     if multipolygon:
+        geom_out = geom_out.UnionCascaded()
         vec.addfeature(geom_out)
     else:
         for geom in geom_out:

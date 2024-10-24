@@ -47,15 +47,25 @@ def main(config_file=None, debug=False, **kwargs):
     # scene selection
     log.info('collecting scenes')
     
-    if config_proc['db_file'] is not None:
+    db_file_set = config_proc['db_file'] is not None
+    scene_dir_set = config_proc['scene_dir'] is not None
+    stac_catalog_set = config_proc['stac_catalog'] is not None
+    stac_collections_set = config_proc['stac_collections'] is not None
+    parquet_set = config_proc['parquet'] is not None
+    
+    if db_file_set:
         archive = Archive(dbfile=config_proc['db_file'])
-        if config_proc['scene_dir'] is not None:
+        if scene_dir_set:
             scenes = finder(config_proc['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
                             regex=True, recursive=True, foldermode=1)
             archive.insert(scenes)
-    else:
+    elif stac_catalog_set and stac_collections_set:
         archive = search.STACArchive(url=config_proc['stac_catalog'],
                                      collections=config_proc['stac_collections'])
+    elif parquet_set:
+        archive = search.STACParquetArchive(files=config_proc['parquet'])
+    else:
+        raise RuntimeError('could not select a search option. Please check your configuration.')
     
     if config_proc['scene'] is None:
         attr_search = ['sensor', 'product', 'mindate', 'maxdate',
@@ -84,6 +94,8 @@ def main(config_file=None, debug=False, **kwargs):
         if config_proc['mode'] != ['sar']:
             raise RuntimeError("if argument 'scene' is set, the processing mode must be 'sar'")
         scenes = [identify(config_proc['scene'])]
+        config_proc['acq_mode'] = scenes[0].acquisition_mode
+        config_proc['product'] = scenes[0].product
         aoi_tiles = []
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes

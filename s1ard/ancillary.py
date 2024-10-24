@@ -3,11 +3,12 @@ import sys
 import logging
 import requests
 import hashlib
+import dateutil.parser
 from multiformats import multihash
 import binascii
 from lxml import etree
 from textwrap import dedent
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from osgeo import gdal
 import spatialist
 from spatialist.vector import bbox, intersect
@@ -276,6 +277,7 @@ def _log_process_config(logger, config):
     db_file             {config['processing']['db_file']}
     stac_catalog        {config['processing']['stac_catalog']}
     stac_collections    {config['processing']['stac_collections']}
+    parquet             {config['processing']['parquet']}
     gdal_threads        {config['processing']['gdal_threads']}
     snap_gpt_args       {config['processing']['snap_gpt_args']}
     
@@ -367,29 +369,65 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     return bbox(ext3, 4326)
 
 
-def buffer_time(start, stop, **kwargs):
+def date_to_utc(date, as_datetime=False):
+    """
+    convert a date object to a UTC date string or datetime object.
+
+    Parameters
+    ----------
+    date: str or datetime or None
+        the date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return a datetime object instead of a string?
+
+    Returns
+    -------
+    str or datetime or None
+        the date string or datetime object in UTC time zone
+    """
+    if date is None:
+        return date
+    elif isinstance(date, str):
+        out = dateutil.parser.parse(date)
+    elif isinstance(date, datetime):
+        out = date
+    else:
+        raise TypeError('date must be a string, datetime object or None')
+    if out.tzinfo is None:
+        out = out.replace(tzinfo=timezone.utc)
+    else:
+        out = out.astimezone(timezone.utc)
+    if not as_datetime:
+        out = out.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return out
+
+
+def buffer_time(start, stop, as_datetime=False, **kwargs):
     """
     Time range buffering
     
     Parameters
     ----------
     start: str
-        the start time in format '%Y%m%dT%H%M%S'
+        the start time date object to convert; timezone-unaware dates are interpreted as UTC.
     stop: str
-        the stop time in format '%Y%m%dT%H%M%S'
+        the stop time date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return datetime objects instead of strings?
     kwargs
         time arguments passed to :func:`datetime.timedelta`
 
     Returns
     -------
-
+    tuple[str | datetime]
+        the buffered start and stop time as UTC string or datetime object
     """
-    f = '%Y%m%dT%H%M%S'
     td = timedelta(**kwargs)
-    start = datetime.strptime(start, f) - td
-    start = datetime.strftime(start, f)
-    stop = datetime.strptime(stop, f) + td
-    stop = datetime.strftime(stop, f)
+    start = date_to_utc(start, as_datetime=True) - td
+    stop = date_to_utc(stop, as_datetime=True) + td
+    if not as_datetime:
+        start = start.strftime('%Y-%m-%dT%H:%M:%SZ')
+        stop = stop.strftime('%Y-%m-%dT%H:%M:%SZ')
     return start, stop
 
 
@@ -404,7 +442,7 @@ def get_kml():
     """
     remote = ('https://sentinel.esa.int/documents/247904/1955685/'
               'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml')
-    local_path = os.path.join(os.path.expanduser('~'), 's1ard')
+    local_path = os.path.join(os.path.expanduser('~'), '.s1ard')
     os.makedirs(local_path, exist_ok=True)
     local = os.path.join(local_path, os.path.basename(remote))
     if not os.path.isfile(local):
