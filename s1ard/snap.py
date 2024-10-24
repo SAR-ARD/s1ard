@@ -686,7 +686,7 @@ def process(scene, outdir, measurement, spacing, dem,
                         allow_res_osv=allow_res_osv, output_noise=output_noise,
                         output_beta0=apply_rtc, gpt_args=gpt_args)
             else:
-                log.info(f' GRD neighbor has already been preprocessed: {item}')
+                log.info(f'GRD neighbor has already been preprocessed: {item}')
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
