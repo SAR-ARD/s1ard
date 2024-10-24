@@ -707,7 +707,6 @@ def process(scene, outdir, measurement, spacing, dem,
         # buffering
         out_buffer = tmp_base + '_buf.dim'
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
-        workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
             log.info('buffering GRD scene with neighboring acquisitions')
             with LockCollection(out_pre_neighbors, soft=True):
@@ -715,6 +714,7 @@ def process(scene, outdir, measurement, spacing, dem,
                     grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                                neighbors=out_pre_neighbors, gpt_args=gpt_args,
                                buffer=10 * spacing)
+                    workflows.append(out_buffer_wf)
                     out_pre = out_buffer
                 except RuntimeError:
                     log.info('did not perform buffering because the slice number '
