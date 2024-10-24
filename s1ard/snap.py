@@ -709,7 +709,7 @@ def process(scene, outdir, measurement, spacing, dem,
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
         if not os.path.isfile(out_buffer):
             log.info('buffering GRD scene with neighboring acquisitions')
-            with LockCollection(out_pre_neighbors, soft=True):
+            with LockCollection(out_pre_neighbors + [out_pre] + [out_buffer]):
                 try:
                     grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
                                neighbors=out_pre_neighbors, gpt_args=gpt_args,
