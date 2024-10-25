@@ -597,25 +597,34 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
 
 def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     """
-    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
-    calculation is performed block-wise for the entire image and by default the median ENL value is returned.
+    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter
+    measurement GeoTIFF file. The calculation is performed block-wise for the
+    entire image and by default the median ENL value is returned.
     
     Parameters
     ----------
     tif: str
         The path to a linear-scaled backscatter measurement GeoTIFF file.
     block_size: int, optional
-        The block size to use for the calculation. Remainder pixels are discarded, if the array dimensions are not
-        evenly divisible by the block size. Default is 30, which calculates ENL for 30x30 pixel blocks.
+        The block size to use for the calculation. Remainder pixels are discarded,
+         if the array dimensions are not evenly divisible by the block size.
+         Default is 30, which calculates ENL for 30x30 pixel blocks.
     return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
     decimals: int, optional
         Number of decimal places to round the calculated ENL value to. Default is 2.
     
+    Raises
+    ------
+    RuntimeError
+        if the input array contains only NaN values
+    
     Returns
     -------
-    float or numpy.ndarray
-        The median ENL value or array of ENL values if `return_enl_arr` is True.
+    float or None or numpy.ndarray
+        If `return_enl_arr=True`, an array of ENL values is returned. Otherwise,
+        the median ENL value is returned. If the ENL array contains only NaN and
+        `return_enl_arr=False`, the return value is `None`.
     
     References
     ----------
@@ -633,7 +642,8 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
+             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
+                                                    num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
@@ -641,13 +651,17 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Degrees of freedom <= 0 for slice")
         _std = np.nanstd(blocks, axis=(1, 3))
-    enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
-    
+    enl = np.divide(_mean ** 2, _std ** 2,
+                    out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
     out_arr[:num_blocks_rows, :num_blocks_cols] = enl
-    out_median = np.nanmedian(out_arr)
-    
-    return np.round(out_median, decimals) if not return_arr else out_arr
+    if not return_arr:
+        if len(enl[~np.isnan(enl)]) == 0:
+            return None
+        out_median = np.nanmedian(out_arr)
+        return np.round(out_median, decimals)
+    else:
+        return out_arr
 
 
 def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
