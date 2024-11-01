@@ -467,7 +467,8 @@ def get_datasets(scenes, datadir, extent, epsg):
             ocn_list[47] = f'[{s_stop - s}{s_stop}{s_stop + s}]'
             ocn = ''.join(ocn_list)
             log.debug(f'searching for OCN products with pattern {ocn}')
-            ocn_match = finder(target=datadir, matchlist=[ocn], regex=True, foldermode=2)
+            ocn_match = finder(target=datadir, matchlist=[ocn], regex=True,
+                               foldermode=2, recursive=False)
             if len(ocn_match) > 0:
                 for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
                     ocn_tif = os.path.join(ocn_match[0], f'{v}.tif')
