@@ -453,6 +453,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     ids = identify_many(scenes)
     datasets = []
     for i, _id in enumerate(ids):
+        log.debug(f'collecting processing output for scene {os.path.basename(_id.scene)}')
         files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
             base = os.path.splitext(os.path.basename(_id.scene))[0]
@@ -465,6 +466,7 @@ def get_datasets(scenes, datadir, extent, epsg):
             ocn_list[31] = f'[{s_start - s}{s_start}{s_start + s}]'
             ocn_list[47] = f'[{s_stop - s}{s_stop}{s_stop + s}]'
             ocn = ''.join(ocn_list)
+            log.debug(f'searching for OCN products with pattern {ocn}')
             ocn_match = finder(target=datadir, matchlist=[ocn], regex=True, foldermode=2)
             if len(ocn_match) > 0:
                 for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
@@ -483,6 +485,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     
     i = 0
     while i < len(datasets):
+        log.debug(f'checking tile overlap for scene {os.path.basename(ids[i].scene)}')
         measurements = [datasets[i][x] for x in datasets[i].keys() if re.search('[gs]-lin', x)]
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
@@ -495,9 +498,11 @@ def get_datasets(scenes, datadir, extent, epsg):
                 with bbox(extent, epsg) as tile_geom:
                     inter = intersect(bounds, tile_geom)
                     if inter is None:
+                        log.debug('no overlap, removing scene')
                         del ids[i]
                         del datasets[i]
                     else:
+                        log.debug('overlap detected')
                         # Add dm_ras to the datasets if it overlaps with the current tile
                         datasets[i]['datamask'] = dm_ras
                         i += 1
