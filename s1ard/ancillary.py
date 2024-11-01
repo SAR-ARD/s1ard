@@ -566,6 +566,9 @@ def datamask(measurement, dm_ras, dm_vec):
                 bounds.write(outfile=dm_vec)
         return dm_vec
     
+    if os.path.isfile(dm_vec) and os.path.isfile(dm_ras):
+        return None if os.path.getsize(dm_vec) == 0 else dm_vec
+    
     with LockCollection([dm_vec, dm_ras]):
         if not os.path.isfile(dm_vec):
             if not os.path.isfile(dm_ras):
