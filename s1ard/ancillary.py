@@ -448,17 +448,12 @@ def get_kml():
     local_path = os.path.join(os.path.expanduser('~'), '.s1ard')
     os.makedirs(local_path, exist_ok=True)
     local = os.path.join(local_path, os.path.basename(remote))
-    if not os.path.isfile(local):
-        log.info(f'downloading KML file to {local_path}')
-        with Lock(local_path):
+    with Lock(local):
+        if not os.path.isfile(local):
+            log.info(f'downloading KML file to {local_path}')
             r = requests.get(remote)
             with open(local, 'wb') as out:
                 out.write(r.content)
-    try:
-        lock = Lock(local_path, soft=True)
-        lock.remove()
-    except Exception as e:
-        raise e
     return local
 
 
