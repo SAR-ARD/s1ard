@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 import zipfile
-import tempfile
 import math
 from statistics import mean
 import json
@@ -20,6 +19,7 @@ import s1ard
 from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
                                     DEM_MAP, SLC_ACC_MAP)
 from s1ard import snap
+from s1ard.ancillary import get_tmp_name
 
 gdal.UseExceptions()
 
@@ -820,8 +820,8 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
     files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
     files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
     
-    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
-    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
+    ref_speed = get_tmp_name(suffix='.tif')
+    ref_direction = get_tmp_name(suffix='.tif')
     
     out = []
     for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):

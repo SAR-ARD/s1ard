@@ -2,7 +2,6 @@ import os
 import re
 import time
 import shutil
-import tempfile
 from datetime import datetime, timezone
 import numpy as np
 from lxml import etree
@@ -20,7 +19,7 @@ import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
-from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name
 from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
 from s1ard.snap import find_datasets
 import logging
@@ -211,7 +210,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 ras = Raster(images, list_separate=False)
                 source = ras.filename
             else:
-                source = tempfile.NamedTemporaryFile(suffix='.vrt').name
+                source = get_tmp_name(suffix='.vrt')
                 gdalbuildvrt(src=images[0], dst=source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
@@ -1077,10 +1076,10 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
     
     """
     if len(src) > 1:
-        cmod_mosaic = tempfile.NamedTemporaryFile(suffix='.tif').name
+        cmod_mosaic = get_tmp_name(suffix='.tif')
         gdalwarp(src=src, dst=cmod_mosaic)
         if gapfill:
-            cmod_geo = tempfile.NamedTemporaryFile(suffix='.tif').name
+            cmod_geo = get_tmp_name(suffix='.tif')
             ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=2, si=1)
         else:
             cmod_geo = cmod_mosaic
