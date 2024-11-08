@@ -1081,10 +1081,13 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
         if gapfill:
             cmod_geo = get_tmp_name(suffix='.tif')
             ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=2, si=1)
+            os.remove(cmod_mosaic)
         else:
             cmod_geo = cmod_mosaic
+        cmod_geo_tmp = True
     else:
         cmod_geo = src[0]
+        cmod_geo_tmp = False
     
     if not os.path.isfile(dst_wm):
         log.info(f'creating {dst_wm}')
@@ -1098,6 +1101,9 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
                  dstNodata=dst_nodata,
                  multithread=multithread,
                  creationOptions=creation_opt)
+    
+    if cmod_geo_tmp:
+        os.remove(cmod_geo)
     
     if dst_wn is not None and measurement is not None:
         if not os.path.isfile(dst_wn):

@@ -355,3 +355,4 @@ def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
                geoid_convert=geoid_convert, geoid=geoid, pbar=pbar,
                outputBounds=bounds, threads=threads, format=format,
                creationOptions=create_options)
+    os.remove(vrt)
