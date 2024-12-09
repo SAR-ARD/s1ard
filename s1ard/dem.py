@@ -1,11 +1,10 @@
 import os
 import re
-import tempfile
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import s1ard.tile_extraction as tile_ex
-from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
+from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews, get_tmp_name
 from spatialist import Raster, bbox
 import logging
 
@@ -347,7 +346,7 @@ def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
     ext['ymin'] -= buffer
     ext['xmax'] += buffer
     ext['ymax'] += buffer
-    vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
+    vrt = get_tmp_name(suffix='.vrt')
     with bbox(coordinates=ext, crs=epsg) as vec:
         vec.reproject(4326)
         dem_autoload(geometries=[vec], demType=dem_type, vrt=vrt)
@@ -356,3 +355,4 @@ def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
                geoid_convert=geoid_convert, geoid=geoid, pbar=pbar,
                outputBounds=bounds, threads=threads, format=format,
                creationOptions=create_options)
+    os.remove(vrt)
