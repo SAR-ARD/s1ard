@@ -157,9 +157,12 @@ Ancillary Functions
         check_scene_consistency
         check_spacing
         compute_hash
+        datamask
+        date_to_utc
         generate_unique_id
         get_kml
         get_max_ext
+        get_tmp_name
         group_by_time
         set_logging
         vrt_add_overviews
