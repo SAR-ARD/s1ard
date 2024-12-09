@@ -790,6 +790,8 @@ def check_acquisition_completeness(archive, scenes):
     during processing. In case a scene is suspected to be missing, the Alaska Satellite Facility (ASF)
     online catalog is cross-checked.
     An error will only be raised if the locally missing scene is present in the ASF catalog.
+    It may happen that a neighbor is missing and this error is not raised if the scene is also
+    missing on ASF.
 
     Parameters
     ----------
@@ -828,15 +830,19 @@ def check_acquisition_completeness(archive, scenes):
                              mindate=start,
                              maxdate=stop,
                              return_value='sceneName')
-            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
-            ref_start_min = min([x['start'] for x in match])
-            ref_stop_max = max([x['stop'] for x in match])
-            if ref_start_min == scene.start:
-                groupsize -= 1
-                has_predecessor = False
-            if ref_stop_max == scene.stop:
-                groupsize -= 1
-                has_successor = False
+            if len(ref) > 0:
+                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref_start_min = min([x['start'] for x in match])
+                ref_stop_max = max([x['stop'] for x in match])
+                if ref_start_min == scene.start:
+                    groupsize -= 1
+                    has_predecessor = False
+                if ref_stop_max == scene.stop:
+                    groupsize -= 1
+                    has_successor = False
+            else:
+                # don't assume neighbors if no products could be found of ASF
+                has_successor = has_predecessor = False
         else:
             if slice == 1:  # first slice in the data take
                 groupsize -= 1
@@ -864,19 +870,20 @@ def check_acquisition_completeness(archive, scenes):
                                  mindate=start,
                                  maxdate=stop,
                                  return_value='sceneName')
-            match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
-            ref_start_min = min([x['start'] for x in match])
-            ref_stop_max = max([x['stop'] for x in match])
-            start_min = min([x.start for x in group])
-            stop_max = max([x.stop for x in group])
-            missing = []
-            if ref_start_min < start < start_min and has_predecessor:
-                missing.append('predecessor')
-            if stop_max < stop < ref_stop_max and has_successor:
-                missing.append('successor')
-            if len(missing) > 0:
-                base = os.path.basename(scene.scene)
-                messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
+            if len(ref) > 0:
+                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref_start_min = min([x['start'] for x in match])
+                ref_stop_max = max([x['stop'] for x in match])
+                start_min = min([x.start for x in group])
+                stop_max = max([x.stop for x in group])
+                missing = []
+                if ref_start_min < start < start_min and has_predecessor:
+                    missing.append('predecessor')
+                if stop_max < stop < ref_stop_max and has_successor:
+                    missing.append('successor')
+                if len(missing) > 0:
+                    base = os.path.basename(scene.scene)
+                    messages.append(f'{" and ".join(missing)} acquisition for scene {base}')
     if len(messages) != 0:
         text = '\n - '.join(messages)
         raise RuntimeError(f'missing the following scenes:\n - {text}')

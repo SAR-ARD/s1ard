@@ -3,6 +3,7 @@ import sys
 import logging
 import requests
 import hashlib
+import tempfile
 import dateutil.parser
 from pathlib import Path
 from multiformats import multihash
@@ -587,3 +588,24 @@ def datamask(measurement, dm_ras, dm_vec):
             else:
                 out = dm_vec
     return out
+
+
+def get_tmp_name(suffix):
+    """
+    Get the name of a temporary file with defined suffix.
+    Files are placed in a subdirectory 's1ard' of the regular
+    temporary directory so the latter is not flooded with too
+    many files in case they are not properly deleted.
+    
+    Parameters
+    ----------
+    suffix: str
+        the file suffix/extension, e.g. '.tif'
+
+    Returns
+    -------
+
+    """
+    tmpdir = os.path.join(tempfile.gettempdir(), 's1ard')
+    os.makedirs(tmpdir, exist_ok=True)
+    return tempfile.NamedTemporaryFile(suffix=suffix, dir=tmpdir).name
