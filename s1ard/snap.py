@@ -18,6 +18,7 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
 from s1ard.tile_extraction import aoi_from_scene
+from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
 import logging
 
@@ -822,6 +823,15 @@ def process(scene, outdir, measurement, spacing, dem,
                     log.info('edge cleaning')
                     postprocess(out_geo, clean_edges=clean_edges,
                                 clean_edges_pixels=clean_edges_pixels)
+                    log.info('creating valid data masks')
+                    out_geo_data = out_geo.replace('.dim', '.data')
+                    pattern = r'(?:Gamma0|Sigma0)_[VH]{2}\.img$'
+                    measurements = finder(out_geo_data, [pattern],
+                                          regex=True, recursive=False)
+                    dm_ras = os.path.join(out_geo_data, 'datamask.tif')
+                    dm_vec = dm_ras.replace('.tif', '.gpkg')
+                    dm_vec = datamask(measurement=measurements[0],
+                                      dm_ras=dm_ras, dm_vec=dm_vec)
                 else:
                     log.info(f'geocoding to EPSG:{epsg} has already been performed')
         for wf in workflows:
@@ -837,6 +847,8 @@ def process(scene, outdir, measurement, spacing, dem,
         align_x = aoi['align_x']
         align_y = aoi['align_y']
         run()
+    ############################################################################
+    # delete intermediate files
     if cleanup:
         log.info('cleaning up')
         if id.product == 'GRD':
