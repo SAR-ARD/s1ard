@@ -118,8 +118,8 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     --------
     pyroSAR.snap.auxil.orb_parametrize
     """
+    scene = identify(src)
     if not os.path.isfile(workflow):
-        scene = identify(src)
         polarizations = scene.polarizations
         wf = parse_recipe('blank')
         ############################################
@@ -165,6 +165,11 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     if not os.path.isfile(dst):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
             gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
+        if scene.product == 'GRD':
+            try:
+                nrt_slice_num(dim=scene.scene)
+            except RuntimeError:
+                raise RuntimeError('cannot obtain slice number')
 
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
@@ -213,13 +218,6 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
-    ############################################
-    # try to modify the slice number if it is 0
-    for scene in scenes:
-        try:
-            nrt_slice_num(dim=scene.scene)
-        except RuntimeError:
-            raise RuntimeError('cannot obtain slice number')
     ############################################
     read_ids = []
     for scene in scenes:
@@ -989,8 +987,8 @@ def get_metadata(scene, outdir):
 
 def nrt_slice_num(dim):
     """
-    Compute a slice number for a scene acquired NRT Slicing mode.
-    In this mode both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
+    Check whether a product has a non-zero slice number and add it if not.
+    In NRT Slicing mode, both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
     `sliceNumber` is however needed in function :func:`~s1ard.snap.grd_buffer` for
     the SNAP operator `SliceAssembly`.
     The time from `segmentStartTime` to `last_line_time` is divided by
