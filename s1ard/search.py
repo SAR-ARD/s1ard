@@ -813,6 +813,7 @@ def check_acquisition_completeness(archive, scenes):
     """
     messages = []
     for scene in scenes:
+        log.debug(f'checking acquisition completeness for scene {scene.scene}')
         slice = scene.meta['sliceNumber']
         n_slices = scene.meta['totalSlices']
         groupsize = 3
