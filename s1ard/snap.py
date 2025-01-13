@@ -168,7 +168,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
             gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
         if scene.product == 'GRD':
             try:
-                nrt_slice_num(dim=scene.scene)
+                nrt_slice_num(dim=dst)
             except RuntimeError:
                 raise RuntimeError('cannot obtain slice number')
 
