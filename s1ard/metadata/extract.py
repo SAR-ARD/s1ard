@@ -10,11 +10,11 @@ from datetime import datetime
 import numpy as np
 from statistics import median
 from spatialist import Raster
-from spatialist.auxil import gdalwarp
+from spatialist.auxil import gdalwarp, crsConvert
 from spatialist.ancillary import finder, dissolve
-from spatialist.vector import wkt2vector
 from spatialist.raster import rasterize
-from osgeo import gdal
+from spatialist.vector import Vector
+from osgeo import gdal, ogr
 import s1ard
 from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
                                     DEM_MAP, SLC_ACC_MAP)
@@ -375,21 +375,21 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
-    with _vec_from_srccoords(coord_list=coord_list) as srcvec:
-        with Raster(tif) as ras:
-            vec = ras.bbox()
-            srs = vec.srs
-            out['wkt'] = srs.ExportToWkt()
-            out['epsg'] = vec.getProjection(type='epsg')
-            out['rows'] = ras.rows
-            out['cols'] = ras.cols
-            out['res'] = ras.res
-            geo = ras.geo
-            out['transform'] = [geo['xres'], geo['rotation_x'], geo['xmin'],
-                                geo['rotation_y'], geo['yres'], geo['ymax']]
-            out['geom'] = geometry_from_vec(vectorobject=vec)
-            
-            # Calculate number of nodata border pixels based on source scene(s) footprint
+    with Raster(tif) as ras:
+        vec = ras.bbox()
+        srs = vec.srs
+        out['wkt'] = srs.ExportToWkt()
+        out['epsg'] = vec.getProjection(type='epsg')
+        out['rows'] = ras.rows
+        out['cols'] = ras.cols
+        out['res'] = ras.res
+        geo = ras.geo
+        out['transform'] = [geo['xres'], geo['rotation_x'], geo['xmin'],
+                            geo['rotation_y'], geo['yres'], geo['ymax']]
+        out['geom'] = geometry_from_vec(vectorobject=vec)
+        
+        # Calculate number of nodata border pixels based on source scene(s) footprint
+        with _vec_from_srccoords(coord_list=coord_list, crs=4326) as srcvec:
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
@@ -407,53 +407,40 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     return out
 
 
-def _vec_from_srccoords(coord_list):
+def _vec_from_srccoords(coord_list, crs, layername='polygon'):
     """
-    Creates a single :class:`~spatialist.vector.Vector` object from a list of footprint coordinates of source scenes.
+    Creates a single :class:`~spatialist.vector.Vector` object from a list
+    of footprint coordinates of source scenes.
     
     Parameters
     ----------
     coord_list: list[list[tuple[float]]]
-        List containing for each source scene a list of coordinate pairs as retrieved from the metadata stored in an
-        :class:`~pyroSAR.drivers.ID` object.
+        List containing for each source scene a list of coordinate pairs as
+        retrieved from the metadata stored in an :class:`~pyroSAR.drivers.ID`
+        object.
+    crs: int or str
+        the coordinate reference system of the provided coordinates.
+    layername: str
+        the layer name of the output vector object
     
     Returns
     -------
     spatialist.vector.Vector
     """
-    if len(coord_list) == 2:
-        # determine joined border between footprints
-        if math.isclose(coord_list[0][0][0], coord_list[1][3][0], abs_tol=0.1):
-            c1 = coord_list[1]
-            c2 = coord_list[0]
-        elif math.isclose(coord_list[1][0][0], coord_list[0][3][0], abs_tol=0.1):
-            c1 = coord_list[0]
-            c2 = coord_list[1]
-        else:
-            raise RuntimeError('Not able to find joined border of source scene footprint coordinates:'
-                               '\n{} \n{}'.format(coord_list[0], coord_list[1]))
-        
-        c1_lat = [c1[0][1], c1[1][1], c1[2][1], c1[3][1]]
-        c1_lon = [c1[0][0], c1[1][0], c1[2][0], c1[3][0]]
-        c2_lat = [c2[0][1], c2[1][1], c2[2][1], c2[3][1]]
-        c2_lon = [c2[0][0], c2[1][0], c2[2][0], c2[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(c1_lon[0], c1_lat[0],
-                                                                 c1_lon[1], c1_lat[1],
-                                                                 c2_lon[2], c2_lat[2],
-                                                                 c2_lon[3], c2_lat[3],
-                                                                 c1_lon[0], c1_lat[0])
-    else:  # len(coord_list) == 1
-        c = coord_list[0]
-        lat = [c[0][1], c[1][1], c[2][1], c[3][1]]
-        lon = [c[0][0], c[1][0], c[2][0], c[3][0]]
-        
-        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(lon[0], lat[0],
-                                                                 lon[1], lat[1],
-                                                                 lon[2], lat[2],
-                                                                 lon[3], lat[3],
-                                                                 lon[0], lat[0])
-    return wkt2vector(wkt, srs=4326)
+    srs = crsConvert(crs, 'osr')
+    pts = ogr.Geometry(ogr.wkbMultiPoint)
+    for lon, lat in coord_list:
+        point = ogr.Geometry(ogr.wkbPoint)
+        point.AddPoint(lon, lat)
+        pts.AddGeometry(point)
+    geom = pts.ConvexHull()
+    vec = Vector(driver='Memory')
+    vec.addlayer(layername, srs, geom.GetGeometryType())
+    vec.addfeature(geom)
+    point = None
+    pts = None
+    geom = None
+    return vec
 
 
 def get_src_meta(sid):
