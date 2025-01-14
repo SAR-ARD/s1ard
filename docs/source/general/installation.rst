@@ -22,7 +22,7 @@ The following code can be used to replicate the software installation on a Linux
     $TARGET/bin/snap --nosplash --nogui --modules --update-all
 
     # add SNAP location to the PATH environment variable in the .bashrc file
-    echo PATH=$PATH:$TARGET/snap/bin >> ~/.bashrc
+    echo PATH=$PATH:$TARGET/bin >> ~/.bashrc
 
 See also the web page on how to `update SNAP from the command line <https://senbox.atlassian.net/wiki/spaces/SNAP/pages/30539785/Update+SNAP+from+the+command+line>`_.
 

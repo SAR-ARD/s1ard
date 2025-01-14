@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
   - s1-etad
+  - dharpa
 dependencies:
   - python>=3.8
   - python-dateutil
@@ -10,22 +11,24 @@ dependencies:
   - click>=7.1.0
   - lxml
   - pip
-  - pystac>=1.8.0
+  - pystac>=1.8.0,<1.11.0
   - pystac-client>=0.7.0
   - scipy
-  - pyroSAR>=0.26.0
+  - pyroSAR>=0.26.1
   - spatialist>=0.12.0
   - s1etad>=0.5.3
   - s1etad_tools>=0.8.1
-  - numpy
+  - numpy<2.0
   - asf_search
   - pyproj
-  - sphinx
+  - multiformats>=0.3.1
+  - requests
+  - packaging
+  - sphinx<8.0  # https://github.com/readthedocs/sphinx_rtd_theme/issues/1571
   - sphinxcontrib-bibtex>=2.2
   - nbsphinx
-  - sphinx_rtd_theme
+  - sphinx_rtd_theme>=2.0
   - sphinx-toolbox
   - ipython  # for notebook code highlighting
   - filelock  # needed for sphinx_toolbox.collapse
   - pytest  # for unit tests
-  - requests # for test data download

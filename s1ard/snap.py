@@ -174,6 +174,11 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     With this function, a GRD can be buffered using the neighboring acquisitions.
     First, all images are mosaicked using the `SliceAssembly` operator
     and then subsetted to the extent of the main scene including a buffer.
+    The `SliceAssembly` operator needs info about the slice number (i.e., the
+    ID/position inside the data take). If the value in the metadata is 0 (which
+    can be the case in NRT slicing mode), the slice number is determined using
+    function :func:`~s1ard.snap.nrt_slice_num`. If this fails, the function will
+    raise an error.
     
     Parameters
     ----------
@@ -190,7 +195,14 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
-        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size
+          and intermediate clearing
+    
+    Raises
+    ------
+    RuntimeError
+        if the slice number of a scene is 0, and it could not be determined
+        from the acquisition time
     
     Returns
     -------
@@ -202,9 +214,12 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
     ############################################
-    # modify the slice number if it is 0
+    # try to modify the slice number if it is 0
     for scene in scenes:
-        nrt_slice_num(dim=scene.scene)
+        try:
+            nrt_slice_num(dim=scene.scene)
+        except RuntimeError:
+            raise RuntimeError('cannot obtain slice number')
     ############################################
     read_ids = []
     for scene in scenes:
@@ -547,7 +562,7 @@ def geo(*src, dst, workflow, spacing, crs, geometry=None, buffer=0.01,
         gpt_args=gpt_args)
 
 
-def process(scene, outdir, measurement, spacing, kml, dem,
+def process(scene, outdir, measurement, spacing, dem,
             dem_resampling_method='BILINEAR_INTERPOLATION',
             img_resampling_method='BILINEAR_INTERPOLATION',
             rlks=None, azlks=None, tmpdir=None, export_extra=None,
@@ -569,8 +584,6 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         - sigma: RTC sigma nought (:math:`\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
-    kml: str
-        Path to the Sentinel-2 tiling grid KML file.
     dem: str
         The DEM filename. Can be created with :func:`s1ard.dem.mosaic`.
     dem_resampling_method: str
@@ -624,7 +637,6 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     --------
     >>> from s1ard import snap
     >>> scene = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.zip'
-    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     >>> dem = 'S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_DEM_EEA10.tif'
     >>> outdir = '.'
     >>> spacing = 10
@@ -632,7 +644,7 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     >>> azlks = 1
     >>> export_extra = ['localIncidenceAngle', 'incidenceAngleFromEllipsoid',
     >>>                 'scatteringArea', 'layoverShadowMask', 'gammaSigmaRatio']
-    >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, kml=kml, dem=dem,
+    >>> snap.process(scene=scene, outdir=outdir, spacing=spacing, dem=dem,
     >>>              rlks=rlks, azlks=azlks, export_extra=export_extra)
     """
     if measurement not in ['gamma', 'sigma']:
@@ -662,14 +674,14 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     out_pre_wf = out_pre.replace('.dim', '.xml')
     workflows.append(out_pre_wf)
     output_noise = 'NESZ' in export_extra
-    if not os.path.isfile(out_pre):
-        log.info('preprocessing main scene')
-        with Lock(out_pre):
+    with Lock(out_pre):
+        if not os.path.isfile(out_pre):
+            log.info('preprocessing main scene')
             pre(src=scene, dst=out_pre, workflow=out_pre_wf,
                 allow_res_osv=allow_res_osv, output_noise=output_noise,
                 output_beta0=apply_rtc, gpt_args=gpt_args)
-    else:
-        log.info('main scene has already been preprocessed')
+        else:
+            log.info('main scene has already been preprocessed')
     ############################################################################
     # GRD buffering
     if neighbors is not None and len(neighbors) > 0:
@@ -682,40 +694,48 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             tmp_base_nb = os.path.join(tmpdir_nb, basename_nb)
             out_pre_nb = tmp_base_nb + '_pre.dim'
             out_pre_nb_wf = out_pre_nb.replace('.dim', '.xml')
-            if not os.path.isfile(out_pre_nb):
-                log.info(f'preprocessing GRD neighbor: {item}')
-                with Lock(out_pre_nb):
+            with Lock(out_pre_nb):
+                if not os.path.isfile(out_pre_nb):
+                    log.info(f'preprocessing GRD neighbor: {item}')
                     pre(src=item, dst=out_pre_nb, workflow=out_pre_nb_wf,
                         allow_res_osv=allow_res_osv, output_noise=output_noise,
                         output_beta0=apply_rtc, gpt_args=gpt_args)
-            else:
-                log.info(f' GRD neighbor has already been preprocessed: {item}')
+                else:
+                    log.info(f'GRD neighbor has already been preprocessed: {item}')
             out_pre_neighbors.append(out_pre_nb)
         ########################################################################
         # buffering
         out_buffer = tmp_base + '_buf.dim'
         out_buffer_wf = out_buffer.replace('.dim', '.xml')
-        workflows.append(out_buffer_wf)
         if not os.path.isfile(out_buffer):
             log.info('buffering GRD scene with neighboring acquisitions')
-            with LockCollection(out_pre_neighbors, soft=True):
-                grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
-                           neighbors=out_pre_neighbors, gpt_args=gpt_args,
-                           buffer=10 * spacing)
+            with LockCollection(out_pre_neighbors + [out_pre] + [out_buffer]):
+                try:
+                    grd_buffer(src=out_pre, dst=out_buffer, workflow=out_buffer_wf,
+                               neighbors=out_pre_neighbors, gpt_args=gpt_args,
+                               buffer=10 * spacing)
+                    workflows.append(out_buffer_wf)
+                    out_pre = out_buffer
+                except RuntimeError:
+                    log.info('did not perform buffering because the slice number '
+                             'could not be determined')
+                    pass
         else:
             log.info('GRD scene has already been buffered')
-        out_pre = out_buffer
     ############################################################################
     # range look direction angle
     if 'lookDirection' in export_extra:
-        look_direction(dim=out_pre)
+        with Lock(out_pre):
+            look_direction(dim=out_pre)
     ############################################################################
     # multi-looking
     out_mli = tmp_base + '_mli.dim'
     out_mli_wf = out_mli.replace('.dim', '.xml')
-    if not os.path.isfile(out_mli):
-        mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
-            spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
+    with Lock(out_pre, soft=True):
+        with Lock(out_mli):
+            if not os.path.isfile(out_mli):
+                mli(src=out_pre, dst=out_mli, workflow=out_mli_wf,
+                    spacing=spacing, rlks=rlks, azlks=azlks, gpt_args=gpt_args)
     if not os.path.isfile(out_mli):
         out_mli = out_pre
     else:
@@ -728,13 +748,15 @@ def process(scene, outdir, measurement, spacing, kml, dem,
         out_rtc_wf = out_rtc.replace('.dim', '.xml')
         workflows.append(out_rtc_wf)
         output_sigma0_rtc = measurement == 'sigma' or 'gammaSigmaRatio' in export_extra
-        if not os.path.isfile(out_rtc):
-            log.info('radiometric terrain correction')
-            rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
-                dem_resampling_method=dem_resampling_method,
-                sigma0=output_sigma0_rtc,
-                scattering_area='scatteringArea' in export_extra,
-                gpt_args=gpt_args)
+        with LockCollection([out_mli, dem], soft=True):
+            with Lock(out_rtc):
+                if not os.path.isfile(out_rtc):
+                    log.info('radiometric terrain correction')
+                    rtc(src=out_mli, dst=out_rtc, workflow=out_rtc_wf, dem=dem,
+                        dem_resampling_method=dem_resampling_method,
+                        sigma0=output_sigma0_rtc,
+                        scattering_area='scatteringArea' in export_extra,
+                        gpt_args=gpt_args)
         ########################################################################
         # gamma-sigma ratio computation
         out_gsr = None
@@ -742,10 +764,12 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_gsr = tmp_base + '_gsr.dim'
             out_gsr_wf = out_gsr.replace('.dim', '.xml')
             workflows.append(out_gsr_wf)
-            if not os.path.isfile(out_gsr):
-                log.info('computing gamma-sigma ratio')
-                gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf,
-                    gpt_args=gpt_args)
+            with Lock(out_rtc, soft=True):
+                with Lock(out_gsr):
+                    if not os.path.isfile(out_gsr):
+                        log.info('computing gamma-sigma ratio')
+                        gsr(src=out_rtc, dst=out_gsr, workflow=out_gsr_wf,
+                            gpt_args=gpt_args)
         ########################################################################
         # sigma-gamma ratio computation
         out_sgr = None
@@ -753,10 +777,12 @@ def process(scene, outdir, measurement, spacing, kml, dem,
             out_sgr = tmp_base + '_sgr.dim'
             out_sgr_wf = out_sgr.replace('.dim', '.xml')
             workflows.append(out_sgr_wf)
-            if not os.path.isfile(out_sgr):
-                log.info('computing sigma-gamma ratio')
-                sgr(src=out_rtc, dst=out_sgr, workflow=out_sgr_wf,
-                    gpt_args=gpt_args)
+            with Lock(out_rtc, soft=True):
+                with Lock(out_sgr):
+                    if not os.path.isfile(out_sgr):
+                        log.info('computing sigma-gamma ratio')
+                        sgr(src=out_rtc, dst=out_sgr, workflow=out_sgr_wf,
+                            gpt_args=gpt_args)
     ############################################################################
     # geocoding
     
@@ -767,42 +793,45 @@ def process(scene, outdir, measurement, spacing, kml, dem,
     def run():
         out_geo = out_base + '_geo_{}.dim'.format(epsg)
         out_geo_wf = out_geo.replace('.dim', '.xml')
-        if not os.path.isfile(out_geo):
-            log.info(f'geocoding to EPSG:{epsg}')
-            scene1 = identify(out_mli)
-            pols = scene1.polarizations
-            bands0 = ['NESZ_{}'.format(pol) for pol in pols]
-            if measurement == 'gamma':
-                bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
-            else:
-                bands0.extend(['Sigma0_{}'.format(pol) for pol in pols])
-                bands1 = []
-            if 'scatteringArea' in export_extra:
-                bands1.append('simulatedImage')
-            if 'lookDirection' in export_extra:
-                bands0.append('lookDirection')
-            geo(out_mli, out_rtc, out_gsr, out_sgr,
-                dst=out_geo, workflow=out_geo_wf,
-                spacing=spacing, crs=epsg, geometry=ext,
-                export_extra=export_extra,
-                standard_grid_origin_x=align_x,
-                standard_grid_origin_y=align_y,
-                bands0=bands0, bands1=bands1, dem=dem,
-                dem_resampling_method=dem_resampling_method,
-                img_resampling_method=img_resampling_method,
-                gpt_args=gpt_args)
-            log.info('edge cleaning')
-            postprocess(out_geo, clean_edges=clean_edges,
-                        clean_edges_pixels=clean_edges_pixels)
-        else:
-            log.info(f'geocoding to EPSG:{epsg} has already been performed')
+        sources = list(filter(None, [out_mli, out_rtc, out_gsr, out_sgr]))
+        with LockCollection(sources, soft=True):
+            with Lock(out_geo):
+                if not os.path.isfile(out_geo):
+                    log.info(f'geocoding to EPSG:{epsg}')
+                    scene1 = identify(out_mli)
+                    pols = scene1.polarizations
+                    bands0 = ['NESZ_{}'.format(pol) for pol in pols]
+                    if measurement == 'gamma':
+                        bands1 = ['Gamma0_{}'.format(pol) for pol in pols]
+                    else:
+                        bands0.extend(['Sigma0_{}'.format(pol) for pol in pols])
+                        bands1 = []
+                    if 'scatteringArea' in export_extra:
+                        bands1.append('simulatedImage')
+                    if 'lookDirection' in export_extra:
+                        bands0.append('lookDirection')
+                    geo(*sources,
+                        dst=out_geo, workflow=out_geo_wf,
+                        spacing=spacing, crs=epsg, geometry=ext,
+                        export_extra=export_extra,
+                        standard_grid_origin_x=align_x,
+                        standard_grid_origin_y=align_y,
+                        bands0=bands0, bands1=bands1, dem=dem,
+                        dem_resampling_method=dem_resampling_method,
+                        img_resampling_method=img_resampling_method,
+                        gpt_args=gpt_args)
+                    log.info('edge cleaning')
+                    postprocess(out_geo, clean_edges=clean_edges,
+                                clean_edges_pixels=clean_edges_pixels)
+                else:
+                    log.info(f'geocoding to EPSG:{epsg} has already been performed')
         for wf in workflows:
             wf_dst = os.path.join(outdir_scene, os.path.basename(wf))
             if wf != wf_dst and not os.path.isfile(wf_dst):
                 shutil.copyfile(src=wf, dst=wf_dst)
     
     log.info('determining UTM zone overlaps')
-    aois = aoi_from_scene(scene=id, kml=kml, multi=utm_multi)
+    aois = aoi_from_scene(scene=id, multi=utm_multi)
     for aoi in aois:
         ext = aoi['extent']
         epsg = aoi['epsg']
@@ -971,7 +1000,13 @@ def nrt_slice_num(dim):
     ----------
     dim: str
         the scene in BEAM-DIMAP format
-
+    
+    Raises
+    ------
+    RuntimeError
+        if the slice number is 0, and it cannot be computed because
+        the segment start time cannot be read from the metadata
+    
     Returns
     -------
 
@@ -983,7 +1018,11 @@ def nrt_slice_num(dim):
     if slice_num.text == '0':
         flt = dateparse(abstract.xpath("./MDATTR[@name='first_line_time']")[0].text)
         llt = dateparse(abstract.xpath("./MDATTR[@name='last_line_time']")[0].text)
-        sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        try:
+            sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        except IndexError:
+            raise RuntimeError('could not determine slice number '
+                               'due to missing segment start time')
         aqd = llt - flt
         slice_num_new = str(int(round((llt - sst) / aqd)))
         slice_num.text = slice_num_new

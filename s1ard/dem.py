@@ -1,18 +1,17 @@
 import os
 import re
-import tempfile
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
 import s1ard.tile_extraction as tile_ex
-from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews
+from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews, get_tmp_name
 from spatialist import Raster, bbox
 import logging
 
 log = logging.getLogger('s1ard')
 
 
-def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
+def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
             tilenames=None, threads=None, username=None, password=None):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
@@ -29,8 +28,6 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
         The DEM target directory. DEM preparation can be skipped if set to None.
     wbm_dir: str or None
         The WBM target directory. WBM preparation can be skipped if set to None
-    kml_file: str
-        The KML file containing the MGRS tile geometries.
     dem_strict: bool
         strictly only create DEM tiles in the native CRS of the MGRS tile or
         also allow reprojection to ensure full coverage of the vector object in every CRS.
@@ -52,19 +49,18 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
     >>> from s1ard import dem
     >>> from spatialist import bbox
     >>> ext = {'xmin': 12, 'xmax': 13, 'ymin': 50, 'ymax': 51}
-    >>> kml = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
     # strictly only create overlapping DEM tiles in their native CRS.
     # Will create tiles 32UQA, 32UQB, 33UUR and 33UUS.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
     >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
     >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=True,
-    >>>                 kml_file=kml, threads=4)
+    >>>                 threads=4)
     # Process all overlapping DEM tiles to each CRS.
     # Will additionally create tiles 32UQA_32633, 32UQB_32633, 33UUR_32632 and 33UUS_32632.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
     >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
     >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=False,
-    >>>                 kml_file=kml, threads=4)
+    >>>                 threads=4)
     
     See Also
     --------
@@ -94,7 +90,6 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
         return
     # get the geometries of all tiles overlapping with the AOI
     tiles = tile_ex.tile_from_aoi(vector=vector,
-                                  kml=kml_file,
                                   return_geometries=True,
                                   tilenames=tilenames)
     # group the returned tiles by CRS and process them separately
@@ -110,7 +105,7 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, kml_file, dem_strict=True,
         if dem_dir is not None and not dem_strict:
             vectors = tile_ex.tile_from_aoi(
                 vector=vector.bbox(),
-                kml=kml_file, epsg=epsg,
+                epsg=epsg,
                 strict=False,
                 return_geometries=True,
                 tilenames=tilenames)
@@ -241,7 +236,7 @@ def authenticate(dem_type, username=None, password=None):
     return username, password
 
 
-def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
+def mosaic(geometry, dem_type, outname, epsg=None,
            dem_dir=None, username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
@@ -249,7 +244,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
     or ad hoc using :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
     In the former case the arguments `username`, `password` and `threads` are ignored and
     all tiles found in `dem_dir` are read.
-    In the latter case the arguments `epsg`, `kml_file` and `dem_dir` are ignored and the DEM is
+    In the latter case the arguments `epsg` and `dem_dir` are ignored and the DEM is
     only mosaiced and geoid-corrected.
     
     Parameters
@@ -262,8 +257,6 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
         The name of the mosaic.
     epsg: int or None
         The coordinate reference system as an EPSG code.
-    kml_file: str or None
-        The KML file containing the MGRS tile geometries.
     dem_dir: str or None
         The directory containing the DEM MGRS tiles.
     username: str or None
@@ -287,7 +280,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
                 extent['xmax'] += dem_buffer
                 extent['ymax'] += dem_buffer
                 with bbox(extent, epsg) as dem_box:
-                    tiles = tile_ex.tile_from_aoi(vector=geometry, kml=kml_file,
+                    tiles = tile_ex.tile_from_aoi(vector=geometry,
                                                   epsg=epsg, strict=False)
                     dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
                     with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
@@ -309,7 +302,7 @@ def mosaic(geometry, dem_type, outname, epsg=None, kml_file=None,
                        threads=threads, nodata=-32767)
 
 
-def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
+def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
             create_options=None, threads=None, pbar=False):
     """
     Create an MGRS-tiled DEM file.
@@ -320,8 +313,6 @@ def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
         the MGRS tile ID
     dst: str
         the destination file name
-    kml: str
-        The KML file containing the MGRS tile geometries.
     dem_type: str
         The DEM type.
     overviews: list[int]
@@ -346,7 +337,7 @@ def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
     else:
         geoid_convert = True
     geoid = 'EGM2008'  # applies to all Copernicus DEM options
-    with tile_ex.aoi_from_tile(kml=kml, tile=tile) as vec:
+    with tile_ex.aoi_from_tile(tile=tile) as vec:
         ext = vec.extent
         epsg = vec.getProjection('epsg')
     bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
@@ -355,7 +346,7 @@ def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
     ext['ymin'] -= buffer
     ext['xmax'] += buffer
     ext['ymax'] += buffer
-    vrt = tempfile.NamedTemporaryFile(suffix='.vrt').name
+    vrt = get_tmp_name(suffix='.vrt')
     with bbox(coordinates=ext, crs=epsg) as vec:
         vec.reproject(4326)
         dem_autoload(geometries=[vec], demType=dem_type, vrt=vrt)
@@ -364,3 +355,4 @@ def to_mgrs(tile, dst, kml, dem_type, overviews, tr, format='COG',
                geoid_convert=geoid_convert, geoid=geoid, pbar=pbar,
                outputBounds=bounds, threads=threads, format=format,
                creationOptions=create_options)
+    os.remove(vrt)

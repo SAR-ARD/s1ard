@@ -1,16 +1,27 @@
 import os
 import sys
 import logging
+import requests
+import hashlib
+import tempfile
+import dateutil.parser
+from pathlib import Path
+from multiformats import multihash
 import binascii
 from lxml import etree
 from textwrap import dedent
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from osgeo import gdal
+import numpy as np
 import spatialist
-from spatialist.vector import bbox, intersect
+from spatialist.raster import Raster, rasterize
+from spatialist.vector import bbox, intersect, boundary, vectorize
 import pyroSAR
+from pyroSAR.ancillary import Lock, LockCollection
 from pyroSAR import examine, identify_many
 import s1ard
+
+log = logging.getLogger('s1ard')
 
 
 def check_scene_consistency(scenes):
@@ -82,7 +93,7 @@ def generate_unique_id(encoded_str):
     return p_id
 
 
-def get_max_ext(geometries, buffer=None):
+def get_max_ext(geometries, buffer=None, crs=None):
     """
     Gets the maximum extent from a list of geometries.
     
@@ -92,6 +103,9 @@ def get_max_ext(geometries, buffer=None):
         List of :class:`~spatialist.vector.Vector` geometries.
     buffer: float or None
         The buffer in units of the geometries' CRS to add to the extent.
+    crs: str or int or None
+        The target CRS of the extent. If None (default) the extent is
+        expressed in the CRS of the input geometries.
     
     Returns
     -------
@@ -99,7 +113,9 @@ def get_max_ext(geometries, buffer=None):
         The maximum extent of the selected :class:`~spatialist.vector.Vector` geometries including the chosen buffer.
     """
     max_ext = {}
+    crs_list = []
     for geo in geometries:
+        crs_list.append(f"EPSG:{geo.getProjection('epsg')}")
         if len(max_ext.keys()) == 0:
             max_ext = geo.extent
         else:
@@ -110,12 +126,19 @@ def get_max_ext(geometries, buffer=None):
             for key in ['xmax', 'ymax']:
                 if ext[key] > max_ext[key]:
                     max_ext[key] = ext[key]
+    crs_list = list(set(crs_list))
+    if len(crs_list) > 1:
+        raise RuntimeError(f'The input geometries are in different CRSs: {crs_list}')
     max_ext = dict(max_ext)
     if buffer is not None:
         max_ext['xmin'] -= buffer
         max_ext['xmax'] += buffer
         max_ext['ymin'] -= buffer
         max_ext['ymax'] += buffer
+    if crs is not None:
+        with bbox(coordinates=max_ext, crs=crs_list[0]) as geo:
+            geo.reproject(projection=crs)
+            max_ext = geo.extent
     return max_ext
 
 
@@ -144,9 +167,10 @@ def set_logging(config, debug=False):
     formatter = logging.Formatter(fmt=log_format,
                                   datefmt='%Y-%m-%d %H:%M:%S')
     
-    if config['logfile'] is not None:
-        os.makedirs(os.path.dirname(config['logfile']), exist_ok=True)
-        handler = logging.FileHandler(filename=config['logfile'], mode='a')
+    logfile = config['processing']['logfile']
+    if logfile is not None:
+        os.makedirs(os.path.dirname(logfile), exist_ok=True)
+        handler = logging.FileHandler(filename=logfile, mode='a')
     else:
         handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
@@ -230,36 +254,36 @@ def _log_process_config(logger, config):
     ====================================================================================================================
     PROCESSING CONFIGURATION
     
-    mode                {config['mode']}
-    aoi_tiles           {config['aoi_tiles']}
-    aoi_geometry        {config['aoi_geometry']}
-    scene               {config['scene']}
-    mindate             {config['mindate'].isoformat()}
-    maxdate             {config['maxdate'].isoformat()}
-    date_strict         {config['date_strict']}
-    sensor              {config['sensor']}
-    acq_mode            {config['acq_mode']}
-    product             {config['product']}
-    datatake            {config['datatake']}
-    measurement         {config.get('measurement')}
-    annotation          {config.get('annotation')}
-    dem_type            {config.get('dem_type')}
-    etad                {config.get('etad')}
+    mode                {config['processing']['mode']}
+    aoi_tiles           {config['processing']['aoi_tiles']}
+    aoi_geometry        {config['processing']['aoi_geometry']}
+    scene               {config['processing']['scene']}
+    mindate             {config['processing']['mindate'].isoformat()}
+    maxdate             {config['processing']['maxdate'].isoformat()}
+    date_strict         {config['processing']['date_strict']}
+    sensor              {config['processing']['sensor']}
+    acq_mode            {config['processing']['acq_mode']}
+    product             {config['processing']['product']}
+    datatake            {config['processing']['datatake']}
+    measurement         {config['processing']['measurement']}
+    annotation          {config['processing']['annotation']}
+    dem_type            {config['processing']['dem_type']}
+    etad                {config['processing']['etad']}
     
-    work_dir            {config['work_dir']}
-    sar_dir             {config['sar_dir']}
-    tmp_dir             {config['tmp_dir']}
-    ard_dir             {config['ard_dir']}
-    wbm_dir             {config['wbm_dir']}
-    etad_dir            {config['etad_dir']}
-    scene_dir           {config['scene_dir']}
-    logfile             {config['logfile']}
-    db_file             {config['db_file']}
-    stac_catalog        {config['stac_catalog']}
-    stac_collections    {config['stac_collections']}
-    kml_file            {config['kml_file']}
-    gdal_threads        {config.get('gdal_threads')}
-    snap_gpt_args       {config['snap_gpt_args']}
+    work_dir            {config['processing']['work_dir']}
+    sar_dir             {config['processing']['sar_dir']}
+    tmp_dir             {config['processing']['tmp_dir']}
+    ard_dir             {config['processing']['ard_dir']}
+    wbm_dir             {config['processing']['wbm_dir']}
+    etad_dir            {config['processing']['etad_dir']}
+    scene_dir           {config['processing']['scene_dir']}
+    logfile             {config['processing']['logfile']}
+    db_file             {config['processing']['db_file']}
+    stac_catalog        {config['processing']['stac_catalog']}
+    stac_collections    {config['processing']['stac_collections']}
+    parquet             {config['processing']['parquet']}
+    gdal_threads        {config['processing']['gdal_threads']}
+    snap_gpt_args       {config['processing']['snap_gpt_args']}
     
     ====================================================================================================================
     SOFTWARE
@@ -349,27 +373,241 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     return bbox(ext3, 4326)
 
 
-def buffer_time(start, stop, **kwargs):
+def date_to_utc(date, as_datetime=False):
+    """
+    convert a date object to a UTC date string or datetime object.
+
+    Parameters
+    ----------
+    date: str or datetime or None
+        the date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return a datetime object instead of a string?
+
+    Returns
+    -------
+    str or datetime or None
+        the date string or datetime object in UTC time zone
+    """
+    if date is None:
+        return date
+    elif isinstance(date, str):
+        out = dateutil.parser.parse(date)
+    elif isinstance(date, datetime):
+        out = date
+    else:
+        raise TypeError('date must be a string, datetime object or None')
+    if out.tzinfo is None:
+        out = out.replace(tzinfo=timezone.utc)
+    else:
+        out = out.astimezone(timezone.utc)
+    if not as_datetime:
+        out = out.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return out
+
+
+def buffer_time(start, stop, as_datetime=False, **kwargs):
     """
     Time range buffering
     
     Parameters
     ----------
     start: str
-        the start time in format '%Y%m%dT%H%M%S'
+        the start time date object to convert; timezone-unaware dates are interpreted as UTC.
     stop: str
-        the stop time in format '%Y%m%dT%H%M%S'
+        the stop time date object to convert; timezone-unaware dates are interpreted as UTC.
+    as_datetime: bool
+        return datetime objects instead of strings?
     kwargs
         time arguments passed to :func:`datetime.timedelta`
 
     Returns
     -------
+    tuple[str | datetime]
+        the buffered start and stop time as UTC string or datetime object
+    """
+    td = timedelta(**kwargs)
+    start = date_to_utc(start, as_datetime=True) - td
+    stop = date_to_utc(stop, as_datetime=True) + td
+    if not as_datetime:
+        start = start.strftime('%Y-%m-%dT%H:%M:%SZ')
+        stop = stop.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return start, stop
+
+
+def get_kml():
+    """
+    Download the S2 grid KML file to ~/s1ard and return the file path.
+    
+    Returns
+    -------
+    str
+        the path to the KML file
+    """
+    remote = ('https://sentinel.esa.int/documents/247904/1955685/'
+              'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml')
+    local_path = os.path.join(os.path.expanduser('~'), '.s1ard')
+    os.makedirs(local_path, exist_ok=True)
+    local = os.path.join(local_path, os.path.basename(remote))
+    if not os.path.isfile(local):
+        log.info(f'downloading KML file to {local_path}')
+        with Lock(local_path):
+            r = requests.get(remote)
+            with open(local, 'wb') as out:
+                out.write(r.content)
+    try:
+        lock = Lock(local_path, soft=True)
+        lock.remove()
+    except Exception as e:
+        raise e
+    return local
+
+
+def compute_hash(file_path, algorithm='sha256', chunk_size=8192, multihash_encode=True):
+    """
+    Compute the (multi)hash of a file using the specified algorithm.
+
+    Parameters
+    ----------
+    file_path: str
+        Path to the file.
+    algorithm: str
+        Hash algorithm to use (default is 'sha256').
+    chunk_size: int
+        Size of chunks to read from the file in bytes (default is 8192).
+    multihash_encode: bool
+        Encode the hash according to the
+        `multihash specification <https://github.com/multiformats/multihash>`_
+        (default is True)?
+        The hash generated by `hashlib` will be wrapped using
+        :func:`multiformats.multihash.wrap`.
+
+    Returns
+    -------
+    str
+        the hexadecimal hash string of the file.
+
+    See Also
+    --------
+    :mod:`hashlib`
+    :mod:`multiformats.multihash`
+    """
+    # lookup between hashlib and multihash algorithm names; to be extended if necessary
+    algo_lookup = {'sha1': 'sha1',
+                   'sha256': 'sha2-256',
+                   'sha512': 'sha2-512'}
+    if algorithm not in algo_lookup.keys():
+        raise ValueError(f'Hash algorithm must be one of {algo_lookup.keys()}')
+    hash_func = getattr(hashlib, algorithm)()
+    with open(file_path, 'rb') as f:
+        while chunk := f.read(chunk_size):
+            hash_func.update(chunk)
+    if multihash_encode:
+        digest = hash_func.digest()
+        mh = multihash.wrap(digest, algo_lookup[algorithm])
+        return mh.hex()
+    else:
+        return hash_func.hexdigest()
+
+
+def datamask(measurement, dm_ras, dm_vec):
+    """
+    Create data masks for a given image file.
+    The created raster data mask does not contain a simple mask of nodata values.
+    Rather, a boundary vector geometry containing all valid pixels is created and
+    then rasterized. This boundary geometry (single polygon) is saved as `dm_vec`.
+    In this case `dm_vec` is returned.
+    If the input image only contains nodata values, no raster data mask is created,
+    and an empty dummy vector mask is created. In this case the function will return
+    `None`.
+    
+    
+    Parameters
+    ----------
+    measurement: str
+        the binary image file
+    dm_ras: str
+        the name of the raster data mask
+    dm_vec: str
+        the name of the vector data mask
+
+    Returns
+    -------
+    str or None
+        `dm_vec` if the vector data mask contains a geometry or None otherwise
+    """
+    
+    def mask_from_array(arr, dm_vec, dm_ras, ref):
+        """
+        
+        Parameters
+        ----------
+        arr: np.ndarray
+        dm_vec: str
+        dm_ras: str
+        ref: spatialist.raster.Raster
+
+        Returns
+        -------
+        str or None
+        """
+        # create a dummy vector mask if the mask only contains 0 values
+        if len(arr[arr == 1]) == 0:
+            Path(dm_vec).touch(exist_ok=False)
+            return None
+        # vectorize the raster data mask
+        with vectorize(target=arr, reference=ref) as vec:
+            # compute a valid data boundary geometry (vector data mask)
+            with boundary(vec, expression="value=1") as bounds:
+                # rasterize the vector data mask
+                if not os.path.isfile(dm_ras):
+                    rasterize(vectorobject=bounds, reference=ref,
+                              outname=dm_ras)
+                # write the vector data mask
+                bounds.write(outfile=dm_vec)
+        return dm_vec
+    
+    with LockCollection([dm_vec, dm_ras]):
+        if not os.path.isfile(dm_vec):
+            if not os.path.isfile(dm_ras):
+                with Raster(measurement) as ras:
+                    arr = ras.array()
+                    # create a nodata mask
+                    mask = ~np.isnan(arr)
+                    del arr
+                    out = mask_from_array(arr=mask, dm_vec=dm_vec,
+                                          dm_ras=dm_ras, ref=ras)
+            else:
+                # read the raster data mask
+                with Raster(dm_ras) as ras:
+                    mask = ras.array()
+                    out = mask_from_array(arr=mask, dm_vec=dm_vec,
+                                          dm_ras=dm_ras, ref=ras)
+                    del mask
+        else:
+            if os.path.getsize(dm_vec) == 0:
+                out = None
+            else:
+                out = dm_vec
+    return out
+
+
+def get_tmp_name(suffix):
+    """
+    Get the name of a temporary file with defined suffix.
+    Files are placed in a subdirectory 's1ard' of the regular
+    temporary directory so the latter is not flooded with too
+    many files in case they are not properly deleted.
+    
+    Parameters
+    ----------
+    suffix: str
+        the file suffix/extension, e.g. '.tif'
+
+    Returns
+    -------
 
     """
-    f = '%Y%m%dT%H%M%S'
-    td = timedelta(**kwargs)
-    start = datetime.strptime(start, f) - td
-    start = datetime.strftime(start, f)
-    stop = datetime.strptime(stop, f) + td
-    stop = datetime.strftime(stop, f)
-    return start, stop
+    tmpdir = os.path.join(tempfile.gettempdir(), 's1ard')
+    os.makedirs(tmpdir, exist_ok=True)
+    return tempfile.NamedTemporaryFile(suffix=suffix, dir=tmpdir).name

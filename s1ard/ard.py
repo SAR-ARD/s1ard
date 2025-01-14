@@ -2,7 +2,6 @@ import os
 import re
 import time
 import shutil
-import tempfile
 from datetime import datetime, timezone
 import numpy as np
 from lxml import etree
@@ -10,16 +9,17 @@ from time import gmtime, strftime
 from copy import deepcopy
 from scipy.interpolate import griddata
 from osgeo import gdal
-from spatialist.vector import Vector, vectorize, boundary, bbox, intersect
-from spatialist.raster import Raster, rasterize, Dtype
+from spatialist.vector import Vector, bbox, intersect
+from spatialist.raster import Raster, Dtype
 from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
+from pyroSAR.ancillary import Lock
 import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
-from s1ard.ancillary import generate_unique_id, vrt_add_overviews
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name
 from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
 from s1ard.snap import find_datasets
 import logging
@@ -28,7 +28,7 @@ log = logging.getLogger('s1ard')
 
 
 def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
-           dem_type=None, multithread=True, compress=None, overviews=None, kml=None,
+           dem_type=None, multithread=True, compress=None, overviews=None,
            annotation=None, update=False):
     """
     Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
@@ -72,8 +72,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         Defaults to 'LERC_DEFLATE'.
     overviews: list[int] or None
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
-    kml: str or None
-        The KML file containing the MGRS tile geometries. Only needs to be defined if `dem_type!=None`.
     annotation: list[str] or None
         an optional list to select the annotation layers. Default `None`: create all layers if the
         source products contain the required input layers. Options:
@@ -165,7 +163,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             ard_dir = existing[0]
     else:
         ard_dir = os.path.join(outdir, ard_base)
-    os.makedirs(ard_dir, exist_ok=True)
+        try:
+            os.makedirs(ard_dir, exist_ok=False)
+        except OSError:
+            return 'Already processed - Skip!'
     subdirectories = ['measurement', 'annotation', 'source', 'support']
     for subdirectory in subdirectories:
         os.makedirs(os.path.join(ard_dir, subdirectory), exist_ok=True)
@@ -209,7 +210,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                 ras = Raster(images, list_separate=False)
                 source = ras.filename
             else:
-                source = tempfile.NamedTemporaryFile(suffix='.vrt').name
+                source = get_tmp_name(suffix='.vrt')
                 gdalbuildvrt(src=images[0], dst=source)
             
             # modify temporary VRT to make sure overview levels and resampling are properly applied
@@ -232,7 +233,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     # create data mask raster (-dm.tif)
     if 'dm' in allowed:
         if wbm is not None:
-            if not config['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
+            if not config['processing']['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
                 raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
         
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
@@ -258,8 +259,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     
     # create DEM (-em.tif)
     if dem_type is not None and 'em' in allowed:
-        if kml is None:
-            raise RuntimeError("If 'dem_type' is not None, `kml` needs to be defined.")
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
             log.info(f'creating {em_path}')
@@ -268,7 +267,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             log_pyro = logging.getLogger('pyroSAR')
             level = log_pyro.level
             log_pyro.setLevel('NOTSET')
-            dem.to_mgrs(dem_type=dem_type, dst=em_path, kml=kml,
+            dem.to_mgrs(dem_type=dem_type, dst=em_path,
                         overviews=overviews, tile=tile, tr=tr,
                         create_options=write_options['em'],
                         pbar=False)
@@ -403,11 +402,11 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              product_type=product_type, wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
-    if config['meta']['copy_original']:
+    if config['metadata']['copy_original']:
         copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
-    if 'OGC' in config['meta']['format']:
+    if 'OGC' in config['metadata']['format']:
         xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
-    if 'STAC' in config['meta']['format']:
+    if 'STAC' in config['metadata']['format']:
         stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
     return str(round((time.time() - start_time), 2))
 
@@ -455,7 +454,6 @@ def get_datasets(scenes, datadir, extent, epsg):
     for i, _id in enumerate(ids):
         files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
-            
             base = os.path.splitext(os.path.basename(_id.scene))[0]
             ocn = re.sub('(?:SLC_|GRD[FHM])_1', 'OCN__2', base)[:-5]
             # allow 1 second tolerance
@@ -487,44 +485,22 @@ def get_datasets(scenes, datadir, extent, epsg):
         measurements = [datasets[i][x] for x in datasets[i].keys() if re.search('[gs]-lin', x)]
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
-        
-        if not os.path.isfile(dm_ras):
-            with Raster(measurements[0]) as ras:
-                arr = ras.array()
-                mask = ~np.isnan(arr)
-                del arr
-                # remove scene if file does not contain valid data
-                if len(mask[mask == 1]) == 0:
-                    del ids[i], datasets[i]
-                    continue
-                with vectorize(target=mask, reference=ras) as vec:
-                    with boundary(vec, expression="value=1") as bounds:
-                        if not os.path.isfile(dm_ras):
-                            rasterize(vectorobject=bounds, reference=ras, outname=dm_ras)
-                        if not os.path.isfile(dm_vec):
-                            bounds.write(outfile=dm_vec)
-                del mask
-        if not os.path.isfile(dm_vec):
-            with Raster(dm_ras) as ras:
-                mask = ras.array().astype('bool')
-                # remove scene if file does not contain valid data
-                if len(mask[mask == 1]) == 0:
-                    del ids[i], datasets[i]
-                    continue
-                with vectorize(target=mask, reference=ras) as vec:
-                    boundary(vec, expression="value=1", outname=dm_vec)
-                del mask
-        with Vector(dm_vec) as bounds:
-            with bbox(extent, epsg) as tile_geom:
-                inter = intersect(bounds, tile_geom)
-                if inter is None:
-                    del ids[i]
-                    del datasets[i]
-                else:
-                    # Add dm_ras to the datasets if it overlaps with the current tile
-                    datasets[i]['datamask'] = dm_ras
-                    i += 1
-                    inter.close()
+        dm_vec = datamask(measurement=measurements[0], dm_ras=dm_ras, dm_vec=dm_vec)
+        if dm_vec is None:
+            del ids[i], datasets[i]
+            continue
+        with Lock(dm_vec, soft=True):
+            with Vector(dm_vec) as bounds:
+                with bbox(extent, epsg) as tile_geom:
+                    inter = intersect(bounds, tile_geom)
+                    if inter is None:
+                        del ids[i]
+                        del datasets[i]
+                    else:
+                        # Add dm_ras to the datasets if it overlaps with the current tile
+                        datasets[i]['datamask'] = dm_ras
+                        i += 1
+                        inter.close()
     return ids, datasets
 
 
@@ -1100,15 +1076,18 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
     
     """
     if len(src) > 1:
-        cmod_mosaic = tempfile.NamedTemporaryFile(suffix='.tif').name
+        cmod_mosaic = get_tmp_name(suffix='.tif')
         gdalwarp(src=src, dst=cmod_mosaic)
         if gapfill:
-            cmod_geo = tempfile.NamedTemporaryFile(suffix='.tif').name
+            cmod_geo = get_tmp_name(suffix='.tif')
             ocn.gapfill(src=cmod_mosaic, dst=cmod_geo, md=2, si=1)
+            os.remove(cmod_mosaic)
         else:
             cmod_geo = cmod_mosaic
+        cmod_geo_tmp = True
     else:
         cmod_geo = src[0]
+        cmod_geo_tmp = False
     
     if not os.path.isfile(dst_wm):
         log.info(f'creating {dst_wm}')
@@ -1122,6 +1101,9 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
                  dstNodata=dst_nodata,
                  multithread=multithread,
                  creationOptions=creation_opt)
+    
+    if cmod_geo_tmp:
+        os.remove(cmod_geo)
     
     if dst_wn is not None and measurement is not None:
         if not os.path.isfile(dst_wn):

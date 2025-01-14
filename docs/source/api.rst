@@ -13,8 +13,9 @@ Configuration
         :nosignatures:
 
         gdal_conf
-        snap_conf
         get_config
+        snap_conf
+        write
 
 Processing
 ----------
@@ -137,6 +138,7 @@ Tile Extraction
         aoi_from_scene
         aoi_from_tile
         description2dict
+        multipolygon2polygon
         tile_from_aoi
 
 Ancillary Functions
@@ -151,10 +153,16 @@ Ancillary Functions
         :nosignatures:
 
         buffer_min_overlap
+        buffer_time
         check_scene_consistency
         check_spacing
+        compute_hash
+        datamask
+        date_to_utc
         generate_unique_id
+        get_kml
         get_max_ext
+        get_tmp_name
         group_by_time
         set_logging
         vrt_add_overviews
@@ -177,6 +185,7 @@ Scene Search
         check_acquisition_completeness
         collect_neighbors
         scene_select
+        combine_polygons
 
 Metadata
 --------

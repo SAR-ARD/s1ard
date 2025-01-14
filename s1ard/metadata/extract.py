@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 import zipfile
-import tempfile
 import math
 from statistics import mean
 import json
@@ -20,12 +19,13 @@ import s1ard
 from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
                                     DEM_MAP, SLC_ACC_MAP)
 from s1ard import snap
+from s1ard.ancillary import get_tmp_name
 
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compression, product_type,
-              wm_ref_files=None):
+def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
+              compression, product_type, wm_ref_files=None):
     """
     Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
     be utilized by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse` to generate OGC XML and
@@ -110,13 +110,17 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
     # PRODUCT metadata
-    if len(ei_tif) == 1 and sid0.product == 'SLC' and 'copernicus' in config['dem_type'].lower():
-        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id, ei_tif=ei_tif[0], etad=config['etad'])
+    if (len(ei_tif) == 1 and
+            sid0.product == 'SLC' and
+            'copernicus' in config['processing']['dem_type'].lower()):
+        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id,
+                                                      ei_tif=ei_tif[0],
+                                                      etad=config['processing']['etad'])
     else:
         geo_corr_accuracy = None
     
     # (sorted alphabetically)
-    meta['prod']['access'] = config['meta']['access_url']
+    meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
                                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
@@ -135,15 +139,15 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['compression_zerrors'] = z_err_dict
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
-    meta['prod']['demAccess'] = DEM_MAP[config['dem_type']]['access']
-    meta['prod']['demEGMReference'] = DEM_MAP[config['dem_type']]['egm']
+    meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
+    meta['prod']['demEGMReference'] = DEM_MAP[config['processing']['dem_type']]['egm']
     meta['prod']['demEGMResamplingMethod'] = 'bilinear'
-    meta['prod']['demGSD'] = DEM_MAP[config['dem_type']]['gsd']
-    meta['prod']['demName'] = config['dem_type'].replace(' II', '')
-    meta['prod']['demReference'] = DEM_MAP[config['dem_type']]['ref']
+    meta['prod']['demGSD'] = DEM_MAP[config['processing']['dem_type']]['gsd']
+    meta['prod']['demName'] = config['processing']['dem_type'].replace(' II', '')
+    meta['prod']['demReference'] = DEM_MAP[config['processing']['dem_type']]['ref']
     meta['prod']['demResamplingMethod'] = 'bilinear'
-    meta['prod']['demType'] = DEM_MAP[config['dem_type']]['type']
-    meta['prod']['doi'] = config['meta']['doi']
+    meta['prod']['demType'] = DEM_MAP[config['processing']['dem_type']]['type']
+    meta['prod']['doi'] = config['metadata']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['equivalentNumberLooks'] = calc_enl(tif=ref_tif)
     meta['prod']['geoCorrAccuracyEasternBias'] = None
@@ -164,7 +168,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
-    meta['prod']['licence'] = config['meta']['licence']
+    meta['prod']['licence'] = config['metadata']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['noiseRemovalApplied'] = True
     nr_algo = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-' \
@@ -175,7 +179,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop, compress
     meta['prod']['numLines'] = str(prod_meta['rows'])
     meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
-    meta['prod']['processingCenter'] = config['meta']['processing_center']
+    meta['prod']['processingCenter'] = config['metadata']['processing_center']
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
     meta['prod']['processorVersion'] = s1ard.__version__
@@ -593,25 +597,34 @@ def find_in_annotation(annotation_dict, pattern, single=False, out_type='str'):
 
 def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     """
-    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter measurement GeoTIFF file. The
-    calculation is performed block-wise for the entire image and by default the median ENL value is returned.
+    Calculate the Equivalent Number of Looks (ENL) for a linear-scaled backscatter
+    measurement GeoTIFF file. The calculation is performed block-wise for the
+    entire image and by default the median ENL value is returned.
     
     Parameters
     ----------
     tif: str
         The path to a linear-scaled backscatter measurement GeoTIFF file.
     block_size: int, optional
-        The block size to use for the calculation. Remainder pixels are discarded, if the array dimensions are not
-        evenly divisible by the block size. Default is 30, which calculates ENL for 30x30 pixel blocks.
+        The block size to use for the calculation. Remainder pixels are discarded,
+         if the array dimensions are not evenly divisible by the block size.
+         Default is 30, which calculates ENL for 30x30 pixel blocks.
     return_arr: bool, optional
         If True, the calculated ENL array is returned. Default is False.
     decimals: int, optional
         Number of decimal places to round the calculated ENL value to. Default is 2.
     
+    Raises
+    ------
+    RuntimeError
+        if the input array contains only NaN values
+    
     Returns
     -------
-    float or numpy.ndarray
-        The median ENL value or array of ENL values if `return_enl_arr` is True.
+    float or None or numpy.ndarray
+        If `return_enl_arr=True`, an array of ENL values is returned. Otherwise,
+        the median ENL value is returned. If the ENL array contains only NaN and
+        `return_enl_arr=False`, the return value is `None`.
     
     References
     ----------
@@ -621,12 +634,16 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
         arr = ras.array()
     arr[np.isinf(arr)] = np.nan
     
+    if len(arr[~np.isnan(arr)]) == 0:
+        raise RuntimeError('cannot compute ENL for an empty array')
+    
     num_blocks_rows = arr.shape[0] // block_size
     num_blocks_cols = arr.shape[1] // block_size
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size, num_blocks_cols, block_size)
+             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
+                                                    num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
@@ -634,13 +651,17 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Degrees of freedom <= 0 for slice")
         _std = np.nanstd(blocks, axis=(1, 3))
-    enl = np.divide(_mean ** 2, _std ** 2, out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
-    
+    enl = np.divide(_mean ** 2, _std ** 2,
+                    out=np.full_like(_mean, fill_value=np.nan), where=_std != 0)
     out_arr = np.zeros((num_blocks_rows, num_blocks_cols))
     out_arr[:num_blocks_rows, :num_blocks_cols] = enl
-    out_median = np.nanmedian(out_arr)
-    
-    return np.round(out_median, decimals) if not return_arr else out_arr
+    if not return_arr:
+        if len(enl[~np.isnan(enl)]) == 0:
+            return None
+        out_median = np.nanmedian(out_arr)
+        return np.round(out_median, decimals)
+    else:
+        return out_arr
 
 
 def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
@@ -799,8 +820,8 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
     files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
     files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
     
-    ref_speed = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
-    ref_direction = tempfile.NamedTemporaryFile(suffix='.tif', delete=False).name
+    ref_speed = get_tmp_name(suffix='.tif')
+    ref_direction = get_tmp_name(suffix='.tif')
     
     out = []
     for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):

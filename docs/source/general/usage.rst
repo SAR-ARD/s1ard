@@ -1,8 +1,17 @@
 Usage
 =====
 
-This section outlines how to configure and run the processor. Configuration is most conveniently kept in a ``config.ini``
+This section outlines how to configure and run the processor. Configuration is most conveniently kept in a `config.ini`
 configuration file but can also be modified via the command line.
+
+The configuration file follows the INI format, which uses plain text to store properties as key-value pairs.
+INI files can be created and opened with any text editor.
+The `config.ini` file used with the `s1ard` package has two sections: ``PROCESSING`` and ``METADATA``.
+An example `config.ini` file for the `s1ard` package can be found here:
+
+https://github.com/SAR-ARD/s1ard/blob/main/s1ard/resources/config.ini
+
+The file's configuration will also be used as default if not specified by the user.
 
 Two different types of product were intended when developing the processor, Normalised Radar Backscatter (NRB)
 and Ocean Radar Backscatter (ORB). However, the processor does not strictly separate between them and products can be created that
@@ -30,26 +39,63 @@ For ORB, the following configuration is foreseen:
 Compared to NRB, the backscatter is now sigma nought RTC. The ellipsoidal incident angle is excluded because over ocean
 it is nearly identical to the local incident angle. Furthermore, the elevation model, local contributing area and
 backscatter ratio are excluded as they are not seen as necessary.
-Two new annotation layers are added. A look direction angle and a wind model.
+Two new annotation layers are added: a look direction angle and a wind model.
 
 See below for further details.
 
+Command Line Usage
+------------------
+
+The `s1ard` package comes with a command line interface (CLI) tool ``s1rb`` with two subcommands ``init`` and ``process`` to initialize configuration and run the processing, respectively.
+
+The base command can be used to print documentation and the package version:
+
+::
+
+    s1rb --help
+
+::
+
+    s1rb --version
+
+The ``s1rb init`` command can be used to initialize a configuration file from the package's default file and change some of the defaults.
+
+::
+
+    s1rb init -c config.ini --work_dir /path/to/work_dir
+
+Alternatively, a previously created configuration file can be used as base:
+
+::
+
+    s1rb init -c config.ini -s config_source.ini --work_dir /path/to/work_dir
+
+Just like with ``work_dir``, all configuration parameters can be modified via the CLI:
+
+::
+
+    s1rb init -c config.ini --work_dir /path/to/work_dir --acq_mode IW --annotation dm,id
+
+The argument ``snap_gpt_args`` is known to require an additional modification so that the ``-`` characters in the value are not mistaken for argument key identifiers.
+In the example, SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
+
+::
+
+    s1rb init -c config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
+
+Once a configuration file has been created and all of its parameters have been properly defined,
+it can be used to start the processor using the ``s1rb process`` CLI tool.
+This tool can be used to create the two radar backscatter products NRB and ORB.
+Just like with ``s1rb init``, all configuration in the `config.ini` file can be overridden via the CLI.
+
+::
+
+    s1rb process -c /path/to/config.ini --acq_mode IW --annotation dm,id
+
 Configuration
 -------------
-Usage of the s1ard package relies on a configuration file that needs to be set up by the user. The configuration
-file follows the INI format, which uses plain text to store properties as key-value pairs. INI files can be created and
-opened with any text editor. An example ``config.ini`` file for the s1ard package can be found here:
 
-https://github.com/SAR-ARD/s1ard/blob/main/config.ini
-
-Configuration files in INI format can have different sections. Each section begins at a section name and ends at the next
-section name. The ``config.ini`` file used with the s1ard package should at least have a dedicated section for processing
-related parameters. This section is by default named ``[PROCESSING]``.
-Users might create several processing sections in the same configuration file with parameter values that correspond to different
-processing scenarios (e.g., for different areas of interest). Note that each section must contain all necessary
-configuration parameters even if only a few are varied between the sections.
-
-The following provides an overview of the parameters the ``config.ini`` should contain and anything that should be
+The following provides an overview of the parameters the `config.ini` should contain and anything that should be
 considered when selecting their values:
 
 Processing Section
@@ -133,7 +179,7 @@ work_dir
 ++++++++
 
 ``work_dir`` is the main directory in which any subdirectories and files are stored that are generated during processing.
-Needs to be provided as full path to an existing directory.
+Needs to be provided as full path to an existing writable directory.
 
 tmp_dir, sar_dir, ard_dir, wbm_dir
 ++++++++++++++++++++++++++++++++++
@@ -150,31 +196,29 @@ The path to a log file. If set to ``None``, all logs will be printed to the cons
 The file path can be relative to ``work_dir`` or absolute.
 Default if not defined: ``None``.
 
-search option I: scene_dir & db_file
+search option I: db_file & scene_dir
 ++++++++++++++++++++++++++++++++++++
 
-Metadata of any Sentinel-1 scene found in ``scene_dir`` will be stored in an SQLite database file created by :class:`pyrosar.drivers.Archive`.
+Metadata is queried from an SQLite database created by :class:`pyrosar.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
-``scene_dir`` needs to be provided as full path to an existing directory and will be searched recursively for any Sentinel-1
-scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
+``scene_dir`` can optionally be provided as full path to an existing directory.
+It will be searched recursively for any Sentinel-1 scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
+All scenes found are then inserted into ``db_file`` using method :meth:`pyrosar.drivers.Archive.insert`.
 
 search option II: stac_catalog & stac_collections
 +++++++++++++++++++++++++++++++++++++++++++++++++
 
-Alternative to searching scenes in a directory and storing their metadata in an SQLite database, scenes can be queried from a STAC catalog.
+Alternative to searching scenes in a directory and storing their metadata in an SQLite database, scenes can be queried from a STAC API catalog.
 For this, a STAC URL and one or many collections can be defined with ``stac_catalog`` and ``stac_collections`` respectively.
 The scenes are expected to be locally accessible in unpacked folders with the `.SAFE` extension.
 
-kml_file
-++++++++
+search option III: parquet
+++++++++++++++++++++++++++
 
-The Sentinel-2 Military Grid Reference System (MGRS) tiling system establishes the basis of the processing chain and a
-local reference file containing the respective tile information for processing ARD products is needed. The official
-KML file defined for the Sentinel-2 mission provided by ESA can be retrieved `here <https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml>`_.
-With the ``kml_file`` parameter either a full path to this reference file can be provided or it is expected to be located
-in the directory provided with ``work_dir`` if only a filename is provided. E.g., the processor expects to find
-``/<work_dir>/s2_grid.kml`` if ``kml_file = s2_grid.kml``.
+This option expects all STAC metadata queryable over option II to be stored in geoparquet files.
+See `stac-geoparquet <https://github.com/stac-utils/stac-geoparquet>`.
+Multiple geoparquet files may exist, which can be defined with ``parquet=/path/to/*parquet``.
 
 dem_type
 ++++++++
@@ -289,49 +333,3 @@ The metadata files created for each ARD product contain some fields that should 
 arbitrary values. Instead, they can be accessed here in order to more easily generate a complete set of metadata. These
 fields are mostly relevant if you want to produce ARD products systematically and make them available for others.
 If you don't see a need for them you can just leave the fields empty, use the default 'None' or delete this entire section.
-
-Command Line Interface
-----------------------
-Once a configuration file has been created and all of its parameters have been properly defined, it can be used to start
-the processor using the command line interface (CLI) tool provided with the s1ard package.
-The tool `s1rb` can be used to create the two radar backscatter products NRB and ORB.
-
-The following options are currently available.
-
-Print a help message for the CLI tool:
-
-::
-
-    s1rb --help
-
-Print the processor version:
-
-::
-
-    s1rb --version
-
-Start the processor using parameters defined in the default section of a ``config.ini`` file:
-
-::
-
-    s1rb -c /path/to/config.ini
-
-Start the processor using parameters defined in section ``SECTION_NAME`` of a ``config.ini`` file:
-
-::
-
-    s1rb -c /path/to/config.ini -s SECTION_NAME
-
-Start the processor using parameters defined in the default section of a ``config.ini`` file but
-override some parameters, e.g. ``acq_mode`` and ``annotation``:
-
-::
-
-    s1rb -c /path/to/config.ini --acq_mode IW --annotation dm,id
-
-The argument `snap_gpt_args` is known to require an additional modification so that the `-` characters in the value are not mistaken for argument keys. 
-In the example SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
-
-::
-
-    s1rb -c /path/to/config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"

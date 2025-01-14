@@ -66,9 +66,6 @@ For the scene search option above (via ``scene_dir`` and ``db_file``), the funct
     # a folder containing Sentinel-1 scenes
     scene_dir = '/path/to/scenes'
 
-    # KML file from the Sentinel-2 mission containing the MGRS tile geometries
-    kml_file = 'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-
     # find the Sentinel-1 scenes in the defined folder
     scenes = finder(target=scene_dir, matchlist=['S1*.zip'])
 
@@ -77,7 +74,7 @@ For the scene search option above (via ``scene_dir`` and ``db_file``), the funct
         # insert the found scenes into the database
         archive.insert(scenes)
         # search for scenes and overlapping MGRS tiles matching the defined parameters
-        selection, aoi_tiles = scene_select(archive=archive, kml_file=kml_file,
+        selection, aoi_tiles = scene_select(archive=archive,
                                             sensor='S1A', acquisition_mode='IW',
                                             product='GRD', mindate='20180829T170656',
                                             maxdate='20180829T170721', date_strict=True)
@@ -93,8 +90,8 @@ This will output the three scenes and the 12 tiles displayed above:
     /path/to/scenes/S1A_IW_GRDH_1SDV_20180829T170721_20180829T170746_023464_028DE0_5310.zip
     ['32TNR', '32TNS', '32TNT', '32TPR', '32TPS', '32TPT', '32TQR', '32TQS', '32TQT', '33TUL', '33TUM', '33TUN']
 
-STAC search
------------
+STAC API search
+---------------
 
 .. note::
 
@@ -144,8 +141,8 @@ See :meth:`pyroSAR.drivers.Archive.select`.
                                    maxdate='20180829T170721', date_strict=True)
     print('\n'.join(selection))
 
-STAC
-^^^^
+STAC API
+^^^^^^^^
 
 See :meth:`s1ard.search.STACArchive.select`.
 
@@ -162,6 +159,28 @@ See :meth:`s1ard.search.STACArchive.select`.
     stac_collection = 'sentinel-1-grd'
 
     with STACArchive(url=stac_catalog, collections=stac_collection) as archive:
+        selection = archive.select(sensor='S1A', acquisition_mode='IW',
+                                   product='GRD', mindate='20180829T170656',
+                                   maxdate='20180829T170722', date_strict=True,
+                                   check_exist=False)
+    print('\n'.join(selection))
+
+STAC geoparquet
+^^^^^^^^^^^^^^^
+
+See :meth:`s1ard.search.STACParquetArchive.select`.
+
+.. note::
+
+    The same metadata content as for STAC API search is expected.
+
+.. code-block:: python
+
+    from s1ard.search import STACParquetArchive
+
+    parquet = '/path/to/*parquet'
+
+    with STACParquetArchive(files=parquet) as archive:
         selection = archive.select(sensor='S1A', acquisition_mode='IW',
                                    product='GRD', mindate='20180829T170656',
                                    maxdate='20180829T170722', date_strict=True,
