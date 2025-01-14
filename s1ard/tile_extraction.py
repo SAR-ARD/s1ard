@@ -126,7 +126,7 @@ def aoi_from_tile(tile):
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
             epsg_target = epsg_codes[i]
-            geom = wkt_to_geom(wkt=attrib['UTM_WKT'],
+            geom = wkt_to_geom(wkt=wkt,
                                epsg_in=attrib['EPSG'],
                                epsg_out=epsg_target)
             out.append(geom)
