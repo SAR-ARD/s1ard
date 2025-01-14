@@ -140,6 +140,7 @@ Tile Extraction
         description2dict
         multipolygon2polygon
         tile_from_aoi
+        wkt_to_geom
 
 Ancillary Functions
 -------------------

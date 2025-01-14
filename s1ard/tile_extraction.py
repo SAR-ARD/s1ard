@@ -274,6 +274,7 @@ def multipolygon2polygon(wkt):
     geom1 = None
     return wkt
 
+
 def wkt_to_geom(wkt, epsg_in, epsg_out=None):
     """
     Convert a WKT geometry to a :class:`spatialist.vector.Vector` object.
