@@ -429,10 +429,11 @@ def _vec_from_srccoords(coord_list, crs, layername='polygon'):
     """
     srs = crsConvert(crs, 'osr')
     pts = ogr.Geometry(ogr.wkbMultiPoint)
-    for lon, lat in coord_list:
-        point = ogr.Geometry(ogr.wkbPoint)
-        point.AddPoint(lon, lat)
-        pts.AddGeometry(point)
+    for footprint in coord_list:
+        for lon, lat in footprint:
+            point = ogr.Geometry(ogr.wkbPoint)
+            point.AddPoint(lon, lat)
+            pts.AddGeometry(point)
     geom = pts.ConvexHull()
     vec = Vector(driver='Memory')
     vec.addlayer(layername, srs, geom.GetGeometryType())
