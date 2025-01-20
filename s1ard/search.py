@@ -2,7 +2,7 @@ import os
 import re
 from lxml import etree
 from pathlib import Path
-import dateutil.parser
+from dateutil.parser import parse as dateparse
 from packaging.version import Version
 from datetime import datetime, timedelta
 from pystac_client import Client
@@ -60,8 +60,8 @@ class ASF(ID):
         start = self._meta['properties']['startTime']
         stop = self._meta['properties']['stopTime']
         pattern = '%Y%m%dT%H%M%S'
-        meta['start'] = dateutil.parser.parse(start).strftime(pattern)
-        meta['stop'] = dateutil.parser.parse(stop).strftime(pattern)
+        meta['start'] = dateparse(start).strftime(pattern)
+        meta['stop'] = dateparse(stop).strftime(pattern)
         meta['spacing'] = None
         meta['samples'] = None
         meta['lines'] = None
@@ -776,9 +776,25 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
     if isinstance(archive, STACArchive):
         kwargs['check_exist'] = stac_check_exist
     
-    neighbors = archive.select(**kwargs)
+    selection = archive.select(**kwargs)
     pattern = f'{scene.start}_{scene.stop}'
-    return [x for x in neighbors if not re.search(pattern, x)]
+    neighbors = [x for x in selection if not re.search(pattern, x)]
+    if len(neighbors) > 2:
+        # more than two neighbors can exist if multiple versions of the
+        # datatake with different slicing exist.
+        start_ref = dateparse(scene.start)
+        stop_ref = dateparse(scene.stop)
+        start_diff = []
+        stop_diff = []
+        pattern = '([0-9T]{15})_([0-9T]{15})'
+        for neighbor in neighbors:
+            start, stop = [dateparse(x) for x in re.search(pattern, neighbor).groups()]
+            start_diff.append(abs(start_ref - stop))
+            stop_diff.append(abs(stop_ref - start))
+        predecessor = neighbors[start_diff.index(min(start_diff))]
+        successor = neighbors[stop_diff.index(min(stop_diff))]
+        neighbors = [predecessor, successor]
+    return neighbors
 
 
 def check_acquisition_completeness(archive, scenes):
