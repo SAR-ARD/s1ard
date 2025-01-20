@@ -62,25 +62,18 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
                     if c1 and c2:
                         tilenames_src.append(tilename)
                         attrib = description2dict(tile.GetField('Description'))
-                        reproject = False
+                        epsg_target = None
                         if epsg is not None and attrib['EPSG'] not in epsg:
                             if len(epsg) == 1 and not strict:
                                 epsg_target = int(epsg[0])
                                 tilename += '_{}'.format(epsg_target)
-                                reproject = True
                             else:
                                 continue
                         if return_geometries:
                             wkt = multipolygon2polygon(attrib['UTM_WKT'])
-                            if reproject:
-                                with wkt2vector(wkt, attrib['EPSG']) as tmp:
-                                    tmp.reproject(epsg_target)
-                                    ext = tmp.extent
-                                    for k, v in ext.items():
-                                        ext[k] = round(v / 10) * 10
-                                geom = bbox(ext, crs=epsg_target)
-                            else:
-                                geom = wkt2vector(wkt, attrib['EPSG'])
+                            geom = wkt_to_geom(wkt=wkt,
+                                               epsg_in=attrib['EPSG'],
+                                               epsg_out=epsg_target)
                             geom.mgrs = tilename
                             tiles.append(geom)
                         else:
@@ -132,16 +125,11 @@ def aoi_from_tile(tile):
         for i, feat in enumerate(result_layer):
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
-            epsg = epsg_codes[i]
-            if epsg is None:
-                out.append(wkt2vector(wkt, attrib['EPSG']))
-            else:
-                with wkt2vector(wkt, attrib['EPSG']) as tmp:
-                    tmp.reproject(int(epsg))
-                    ext = tmp.extent
-                    for k, v in ext.items():
-                        ext[k] = round(v / 10) * 10
-                out.append(bbox(ext, crs=int(epsg)))
+            epsg_target = epsg_codes[i]
+            geom = wkt_to_geom(wkt=wkt,
+                               epsg_in=attrib['EPSG'],
+                               epsg_out=epsg_target)
+            out.append(geom)
         vec.vector.ReleaseResultSet(result_layer)
     if len(out) == 1:
         return out[0]
@@ -285,3 +273,32 @@ def multipolygon2polygon(wkt):
             raise RuntimeError('got a MultiPolygon with multiple Polygons')
     geom1 = None
     return wkt
+
+
+def wkt_to_geom(wkt, epsg_in, epsg_out=None):
+    """
+    Convert a WKT geometry to a :class:`spatialist.vector.Vector` object.
+
+    Parameters
+    ----------
+    wkt: str
+        the WKT string
+    epsg_in: int
+        the EPSG code for the CRS of `wkt`
+    epsg_out: int or None
+        and optional target CRS to reproject the geometry
+
+    Returns
+    -------
+    spatialist.vector.Vector
+        the geometry object
+    """
+    if epsg_out is None:
+        return wkt2vector(wkt, epsg_in)
+    else:
+        with wkt2vector(wkt, epsg_in) as tmp:
+            tmp.reproject(epsg_out)
+            ext = tmp.extent
+            for k, v in ext.items():
+                ext[k] = round(v / 10) * 10
+        return bbox(ext, crs=epsg_out)
