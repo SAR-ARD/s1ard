@@ -3,6 +3,7 @@ import re
 import itertools
 from getpass import getpass
 from pyroSAR.auxdata import dem_autoload, dem_create
+from pyroSAR.ancillary import Lock
 import s1ard.tile_extraction as tile_ex
 from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews, get_tmp_name
 from spatialist import Raster, bbox
@@ -12,7 +13,8 @@ log = logging.getLogger('s1ard')
 
 
 def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
-            tilenames=None, threads=None, username=None, password=None):
+            tilenames=None, threads=None, username=None, password=None,
+            lock_timeout=1200):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -43,6 +45,8 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
     password: str or None
         The password for accessing the DEM tiles.
         If None: same behavior as for username but with env. variable 'DEM_PASS'.
+    lock_timeout: int
+        how long to wait to acquire a lock on created files?
     
     Examples
     --------
@@ -157,19 +161,23 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
         # download WBM tiles and combine them in a VRT mosaic
         if c_wbm:
             os.makedirs(wbm_dir, exist_ok=True)
-            with bbox(coordinates=ext_4326, crs=4326) as vec:
-                dem_autoload(geometries=[vec], demType=dem_type,
-                             vrt=fname_wbm_tmp, product='wbm',
-                             username=username, password=password,
-                             crop=False)
+            with Lock(fname_wbm_tmp, timeout=lock_timeout):
+                if not os.path.isfile(fname_wbm_tmp):
+                    with bbox(coordinates=ext_4326, crs=4326) as vec:
+                        dem_autoload(geometries=[vec], demType=dem_type,
+                                     vrt=fname_wbm_tmp, product='wbm',
+                                     username=username, password=password,
+                                     crop=False, lock_timeout=lock_timeout)
         # download DEM tiles and combine them in a VRT mosaic
         if c_dem:
             os.makedirs(dem_dir, exist_ok=True)
-            with bbox(coordinates=ext_4326, crs=4326) as vec:
-                dem_autoload(geometries=[vec], demType=dem_type,
-                             vrt=fname_dem_tmp, product='dem',
-                             username=username, password=password,
-                             crop=False)
+            with Lock(fname_dem_tmp, timeout=lock_timeout):
+                if not os.path.isfile(fname_dem_tmp):
+                    with bbox(coordinates=ext_4326, crs=4326) as vec:
+                        dem_autoload(geometries=[vec], demType=dem_type,
+                                     vrt=fname_dem_tmp, product='dem',
+                                     username=username, password=password,
+                                     crop=False, lock_timeout=lock_timeout)
         ###############################################
         if len(dem_target) > 0:
             tiles = [x[0].mgrs for x in dem_target]
@@ -178,11 +186,13 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
             ext = tile.extent
             bounds = [ext['xmin'], ext['ymin'],
                       ext['xmax'], ext['ymax']]
-            dem_create(src=fname_dem_tmp, dst=filename,
-                       t_srs=epsg, tr=(tr, tr), pbar=False,
-                       geoid_convert=geoid_convert, geoid=geoid,
-                       outputBounds=bounds, threads=threads,
-                       nodata=-32767, creationOptions=create_options)
+            with Lock(filename, timeout=lock_timeout):
+                if not os.path.isfile(filename):
+                    dem_create(src=fname_dem_tmp, dst=filename,
+                               t_srs=epsg, tr=(tr, tr), pbar=False,
+                               geoid_convert=geoid_convert, geoid=geoid,
+                               outputBounds=bounds, threads=threads,
+                               nodata=-32767, creationOptions=create_options)
         ###############################################
         if len(wbm_target) > 0:
             tiles = [x[0].mgrs for x in wbm_target]
@@ -191,11 +201,13 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
             ext = tile.extent
             bounds = [ext['xmin'], ext['ymin'],
                       ext['xmax'], ext['ymax']]
-            dem_create(src=fname_wbm_tmp, dst=filename,
-                       t_srs=epsg, tr=(tr, tr),
-                       resampleAlg='mode', pbar=False,
-                       outputBounds=bounds, threads=threads,
-                       creationOptions=create_options)
+            with Lock(filename):
+                if not os.path.isfile(filename):
+                    dem_create(src=fname_wbm_tmp, dst=filename,
+                               t_srs=epsg, tr=(tr, tr),
+                               resampleAlg='mode', pbar=False,
+                               outputBounds=bounds, threads=threads,
+                               creationOptions=create_options)
 
 
 def authenticate(dem_type, username=None, password=None):

@@ -4,6 +4,7 @@ from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
+from pyroSAR.ancillary import Lock
 from s1ard import etad, dem, ard, snap
 from s1ard.config import get_config, snap_conf, gdal_conf
 import s1ard.ancillary as anc
@@ -177,14 +178,15 @@ def main(config_file=None, debug=False, **kwargs):
             fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
             fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
             os.makedirs(tmp_dir_scene, exist_ok=True)
-            if not os.path.isfile(fname_dem):
-                log.info('creating scene-specific DEM mosaic')
-                with scene.bbox() as geom:
-                    dem.mosaic(geometry=geom, outname=fname_dem,
-                               dem_type=config_proc['dem_type'],
-                               username=username, password=password)
-            else:
-                log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+            with Lock(fname_dem):
+                if not os.path.isfile(fname_dem):
+                    log.info('creating scene-specific DEM mosaic')
+                    with scene.bbox() as geom:
+                        dem.mosaic(geometry=geom, outname=fname_dem,
+                                   dem_type=config_proc['dem_type'],
+                                   username=username, password=password)
+                else:
+                    log.info(f'found scene-specific DEM mosaic: {fname_dem}')
             ############################################################################################################
             # ETAD correction
             if config_proc['etad']:
