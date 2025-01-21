@@ -715,8 +715,10 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
-    args['mindate'] -= timedelta(minutes=1)
-    args['maxdate'] += timedelta(minutes=1)
+    if 'mindate' in args.keys():
+        args['mindate'] -= timedelta(minutes=1)
+    if 'maxdate' in args.keys():
+        args['maxdate'] += timedelta(minutes=1)
     
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
