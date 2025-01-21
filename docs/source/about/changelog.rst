@@ -1,6 +1,37 @@
 Changelog
 =========
 
+2.1.0 | 2025-01-21
+------------------
+
+* documentation: usage description improvements (`#209 <https://github.com/SAR-ARD/s1ard/pull/209>`_)
+* add file hash to STAC metadata (`#210 <https://github.com/SAR-ARD/s1ard/pull/210>`_)
+* remove config `kml_file` and auto-download with `ancillary.get_kml` (`#211 <https://github.com/SAR-ARD/s1ard/pull/211>`_)
+* `ancillary.get_max_ext`: check geometries' CRSs are the same, new arg `crs` (`#212 <https://github.com/SAR-ARD/s1ard/pull/212>`_)
+* make config parameter `scene_dir` optional (`#213 <https://github.com/SAR-ARD/s1ard/pull/213>`_)
+* fix readthedocs build (`#216 <https://github.com/SAR-ARD/s1ard/pull/216>`_)
+* improve geometry handling in search queries (`#214 <https://github.com/SAR-ARD/s1ard/pull/214>`_)
+* start processing with `s1rb process`; new option `s1rb init` to initialize config file (`#215 <https://github.com/SAR-ARD/s1ard/pull/215>`_)
+* require `numpy<2.0` (`#219 <https://github.com/SAR-ARD/s1ard/pull/219>`_)
+* introduce geoparquet scene search (`#217 <https://github.com/SAR-ARD/s1ard/pull/217>`_)
+* `metadata.extract.calc_enl`: raise error when array is empty (`#221 <https://github.com/SAR-ARD/s1ard/pull/221>`_)
+* use COG media type for VRTs (`#222 <https://github.com/SAR-ARD/s1ard/pull/222>`_)
+* `snap`: skip GRD buffering if slice number cannot be determined (`#225 <https://github.com/SAR-ARD/s1ard/pull/225>`_)
+* limit pystac to <1.11.0 (`#223 <https://github.com/SAR-ARD/s1ard/pull/223>`_)
+* valid data mask improvements (`#226 <https://github.com/SAR-ARD/s1ard/pull/226>`_)
+* improved file locking during SNAP processing (`#227 <https://github.com/SAR-ARD/s1ard/pull/227>`_)
+* `metadata.extract.calc_enl`: return None if ENL cannot be computed (`#228 <https://github.com/SAR-ARD/s1ard/pull/228>`_)
+* improved tmp file handling (`#230 <https://github.com/SAR-ARD/s1ard/pull/230>`_)
+* `check_acquisition_completeness`: catch case when ASF result is empty (`#229 <https://github.com/SAR-ARD/s1ard/pull/229>`_)
+* docs: corrected installation path, added missing links (`#232 <https://github.com/SAR-ARD/s1ard/pull/232>`_)
+* file locking improvements (`#234 <https://github.com/SAR-ARD/s1ard/pull/234>`_)
+* new function `tile_extraction.wkt_to_geom` (`#237 <https://github.com/SAR-ARD/s1ard/pull/237>`_)
+* `extract._vec_from_srccoords`: code improvements (`#238 <https://github.com/SAR-ARD/s1ard/pull/238>`_)
+* `search.collect_neighbors`: filter if more than two neighbors are found (`#236 <https://github.com/SAR-ARD/s1ard/pull/236>`_)
+* snap pre modifications (`#239 <https://github.com/SAR-ARD/s1ard/pull/239>`_)
+
+`Full v2.1.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.0.0...v2.1.0>`_
+
 2.0.0 | 2024-05-24
 ------------------
 
