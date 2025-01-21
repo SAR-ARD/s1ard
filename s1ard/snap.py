@@ -18,6 +18,7 @@ from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
 from s1ard.tile_extraction import aoi_from_scene
+from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
 import logging
 
@@ -118,8 +119,8 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     --------
     pyroSAR.snap.auxil.orb_parametrize
     """
+    scene = identify(src)
     if not os.path.isfile(workflow):
-        scene = identify(src)
         polarizations = scene.polarizations
         wf = parse_recipe('blank')
         ############################################
@@ -165,6 +166,11 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     if not os.path.isfile(dst):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
             gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
+        if scene.product == 'GRD':
+            try:
+                nrt_slice_num(dim=dst)
+            except RuntimeError:
+                raise RuntimeError('cannot obtain slice number')
 
 
 def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
@@ -213,13 +219,6 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     
     scenes = identify_many([src] + neighbors, sortkey='start')
     wf = parse_recipe('blank')
-    ############################################
-    # try to modify the slice number if it is 0
-    for scene in scenes:
-        try:
-            nrt_slice_num(dim=scene.scene)
-        except RuntimeError:
-            raise RuntimeError('cannot obtain slice number')
     ############################################
     read_ids = []
     for scene in scenes:
@@ -824,6 +823,15 @@ def process(scene, outdir, measurement, spacing, dem,
                     log.info('edge cleaning')
                     postprocess(out_geo, clean_edges=clean_edges,
                                 clean_edges_pixels=clean_edges_pixels)
+                    log.info('creating valid data masks')
+                    out_geo_data = out_geo.replace('.dim', '.data')
+                    pattern = r'(?:Gamma0|Sigma0)_[VH]{2}\.img$'
+                    measurements = finder(out_geo_data, [pattern],
+                                          regex=True, recursive=False)
+                    dm_ras = os.path.join(out_geo_data, 'datamask.tif')
+                    dm_vec = dm_ras.replace('.tif', '.gpkg')
+                    dm_vec = datamask(measurement=measurements[0],
+                                      dm_ras=dm_ras, dm_vec=dm_vec)
                 else:
                     log.info(f'geocoding to EPSG:{epsg} has already been performed')
         for wf in workflows:
@@ -839,6 +847,8 @@ def process(scene, outdir, measurement, spacing, dem,
         align_x = aoi['align_x']
         align_y = aoi['align_y']
         run()
+    ############################################################################
+    # delete intermediate files
     if cleanup:
         log.info('cleaning up')
         if id.product == 'GRD':
@@ -989,8 +999,8 @@ def get_metadata(scene, outdir):
 
 def nrt_slice_num(dim):
     """
-    Compute a slice number for a scene acquired NRT Slicing mode.
-    In this mode both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
+    Check whether a product has a non-zero slice number and add it if not.
+    In NRT Slicing mode, both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
     `sliceNumber` is however needed in function :func:`~s1ard.snap.grd_buffer` for
     the SNAP operator `SliceAssembly`.
     The time from `segmentStartTime` to `last_line_time` is divided by
