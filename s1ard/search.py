@@ -913,7 +913,8 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
 
     Parameters
     ----------
-    vector: list[spatialist.vector.Vector]
+    vector: spatialist.vector.Vector or list[spatialist.vector.Vector]
+        the input vector object(s). Providing only one object only makes sense when `multipolygon=True`.
     crs: int or str
         the target CRS. Default: EPSG:4326
     multipolygon: bool
@@ -927,7 +928,9 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
     spatialist.vector.Vector
     """
     if not isinstance(vector, list):
-        raise TypeError("'vectorobject' must be a list")
+        vector = [vector]
+    ##############################################################################
+    # check geometry types
     geometry_names = []
     for item in vector:
         for feature in item.layer:
@@ -938,7 +941,7 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
     geometry_names = list(set(geometry_names))
     if not all(x == 'POLYGON' for x in geometry_names):
         raise RuntimeError('All geometries must be of type POLYGON')
-    
+    ##############################################################################
     vec = Vector(driver='Memory')
     srs_out = crsConvert(crs, 'osr')
     if multipolygon:
