@@ -415,17 +415,18 @@ class STACParquetArchive(object):
             else:
                 if isinstance(val, (str, int)):
                     val = [val]
-                subterms = []
+                val_format = []
                 for v in val:
                     if key == 'sensor':
                         v = lookup_platform[v]
-                    elif key == 'frameNumber' and isinstance(v, int):
-                        value = '{:06X}'.format(v)  # convert to hexadecimal
-                    subterms.append(f'"{lookup[key]}" = \'{v}\'')
-                if len(subterms) > 1:
-                    terms.append('(' + ' OR '.join(subterms) + ')')
+                    if key == 'frameNumber' and isinstance(v, int):
+                        v = '{:06X}'.format(v)  # convert to hexadecimal
+                    val_format.append(v)
+                if len(val_format) == 1:
+                    subterm = f'"{lookup[key]}" = \'{val_format[0]}\''
                 else:
-                    terms.append(subterms[0])
+                    subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
+                terms.append(subterm)
         sql_where = ' AND '.join(terms)
         sql_query = f"""
         SELECT
