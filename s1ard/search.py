@@ -345,8 +345,8 @@ class STACParquetArchive(object):
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber: int or list[int] or None
-            the data take ID in decimal representation.
+        frameNumber: int or str or list[int or str] or None
+            the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap
@@ -422,8 +422,8 @@ class STACParquetArchive(object):
                 for v in val:
                     if key == 'sensor':
                         v = lookup_platform[v]
-                    if key == 'frameNumber' and isinstance(v, str):
-                        v = int(v, 16)  # convert to decimal
+                    elif key == 'frameNumber' and isinstance(v, int):
+                        value = '{:06X}'.format(v)  # convert to hexadecimal
                     subterms.append(f'"{lookup[key]}" = \'{v}\'')
                 if len(subterms) > 1:
                     terms.append('(' + ' OR '.join(subterms) + ')')
