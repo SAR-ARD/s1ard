@@ -594,7 +594,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     return sorted(out)
 
 
-def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
+def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     """
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
@@ -631,6 +631,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
+    cores: int
+        the number of cores to parallelize scene identification
+        (see :func:`pyroSAR.drivers.identify_many`)
     kwargs
         further search arguments passed to the `select` method of `archive`.
         The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
@@ -691,13 +694,14 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     if vec is None:
         log.debug("performing initial scene search without geometry constraint")
         selection_tmp = archive.select(**args)
+        log.debug(f'got {len(selection_tmp)} scenes, reading metadata')
         if len(selection_tmp) == 0:
             return [], []
         if not isinstance(selection_tmp[0], ID):
-            scenes = identify_many(scenes=selection_tmp, sortkey='start')
+            scenes = identify_many(scenes=selection_tmp, sortkey='start', cores=cores)
         else:
             scenes = selection_tmp
-        log.debug(f"got {len(scenes)} scenes")
+        log.debug(f"loading geometries")
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
         log.debug("extracting all tiles overlapping with initial scene selection")
