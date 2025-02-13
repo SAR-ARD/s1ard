@@ -253,22 +253,19 @@ class STACArchive(object):
                 else:
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
-                args2 = []
                 if isinstance(val, (str, int)):
                     val = [val]
+                val_format = []
                 for v in val:
                     if key == 'sensor':
-                        value = lookup_platform[v]
-                    elif key == 'frameNumber' and isinstance(v, int):
-                        value = '{:06X}'.format(v)  # convert to hexadecimal
-                    else:
-                        value = v
-                    a = {'op': '=', 'args': [{'property': lookup[key]}, value]}
-                    args2.append(a)
-                if len(args2) == 1:
-                    arg = args2[0]
+                        v = lookup_platform[v]
+                    if key == 'frameNumber' and isinstance(v, int):
+                        v = '{:06X}'.format(v)  # convert to hexadecimal
+                    val_format.append(v)
+                if len(val_format) == 1:
+                    arg = {'op': '=', 'args': [{'property': lookup[key]}, val_format[0]]}
                 else:
-                    arg = {'op': 'or', 'args': args2}
+                    arg = {'op': 'in', 'args': [{'property': lookup[key]}, val_format]}
                 flt['args'].append(arg)
         if len(flt['args']) == 0:
             flt = None
