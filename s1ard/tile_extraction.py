@@ -156,25 +156,28 @@ def description2dict(description):
 
 def aoi_from_scene(scene, multi=True, percent=1):
     """
-    Get processing AOIs for a SAR scene. The MGRS grid requires a SAR scene to be geocoded to multiple UTM zones
-    depending on the overlapping MGRS tiles and their projection. This function returns the following for each
-    UTM zone group:
+    Get processing AOIs for a SAR scene. The MGRS grid requires a SAR
+    scene to be geocoded to multiple UTM zones depending on the overlapping
+    MGRS tiles and their projection. This function returns the following
+    for each UTM zone group:
     
     - the extent in WGS84 coordinates (key `extent`)
     - the EPSG code of the UTM zone (key `epsg`)
     - the Easting coordinate for pixel alignment (key `align_x`)
     - the Northing coordinate for pixel alignment (key `align_y`)
     
-    A minimum overlap of the AOIs with the SAR scene is ensured by buffering the AOIs if necessary.
-    The minimum overlap can be controlled with parameter `percent`.
+    A minimum overlap of the AOIs with the SAR scene is ensured by buffering
+    the AOIs if necessary. The minimum overlap can be controlled with
+    parameter `percent`.
     
     Parameters
     ----------
     scene: pyroSAR.drivers.ID
         the SAR scene object
     multi: bool
-        split into multiple AOIs per overlapping UTM zone or just one AOI covering the whole scene.
-        In the latter case the best matching UTM zone is auto-detected
+        split into multiple AOIs per overlapping UTM zone or just one AOI
+        covering the whole scene. In the latter case the best matching UTM
+        zone is auto-detected
         (using function :func:`spatialist.auxil.utm_autodetect`).
     percent: int or float
         the minimum overlap in percent of each AOI with the SAR scene.
@@ -183,9 +186,9 @@ def aoi_from_scene(scene, multi=True, percent=1):
     Returns
     -------
     list[dict]
-        a list of dictionaries with keys `extent`, `epsg`, `align_x`, `align_y`
+        a list of dictionaries with keys `extent`, `epsg`, `align_x`,
+        `align_y`
     """
-    kml = get_kml()
     out = []
     if multi:
         # extract all overlapping tiles
