@@ -67,9 +67,9 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
                         continue
                 if return_geometries:
                     wkt = multipolygon2polygon(attrib['UTM_WKT'])
-                    geom = wkt_to_geom(wkt=wkt,
-                                       epsg_in=attrib['EPSG'],
-                                       epsg_out=epsg_target)
+                    geom = wkt2vector_regrid(wkt=wkt,
+                                             epsg_in=attrib['EPSG'],
+                                             epsg_out=epsg_target)
                     geom.mgrs = tilename
                     tiles.append(geom)
                 else:
@@ -121,9 +121,9 @@ def aoi_from_tile(tile):
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
             epsg_target = epsg_codes[i]
-            geom = wkt_to_geom(wkt=wkt,
-                               epsg_in=attrib['EPSG'],
-                               epsg_out=epsg_target)
+            geom = wkt2vector_regrid(wkt=wkt,
+                                     epsg_in=attrib['EPSG'],
+                                     epsg_out=epsg_target)
             out.append(geom)
         vec.vector.ReleaseResultSet(result_layer)
     if len(out) == 1:
@@ -270,9 +270,10 @@ def multipolygon2polygon(wkt):
     return wkt
 
 
-def wkt_to_geom(wkt, epsg_in, epsg_out=None):
+def wkt2vector_regrid(wkt, epsg_in, epsg_out=None):
     """
-    Convert a WKT geometry to a :class:`spatialist.vector.Vector` object.
+    Convert a WKT geometry to a :class:`spatialist.vector.Vector` object and
+    optionally reproject and regrid it.
 
     Parameters
     ----------
@@ -287,6 +288,10 @@ def wkt_to_geom(wkt, epsg_in, epsg_out=None):
     -------
     spatialist.vector.Vector
         the geometry object
+    
+    See Also
+    --------
+    spatialist.vector.wkt2vector
     """
     if epsg_out is None:
         return wkt2vector(wkt, epsg_in)
