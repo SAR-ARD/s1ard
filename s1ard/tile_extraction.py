@@ -3,7 +3,7 @@ import itertools
 from lxml import html
 from spatialist.vector import Vector, wkt2vector, bbox
 from spatialist.auxil import utm_autodetect
-from s1ard.ancillary import get_max_ext, buffer_min_overlap, get_kml
+from s1ard.ancillary import get_max_ext, buffer_min_overlap, get_kml, combine_polygons
 from osgeo import ogr
 
 
@@ -36,53 +36,48 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
     """
     if isinstance(epsg, int):
         epsg = [epsg]
-    if not isinstance(vector, list):
-        vectors = [vector]
-    else:
-        vectors = vector
-    for vector in vectors:
-        if vector.getProjection('epsg') != 4326:
-            raise RuntimeError('the CRS of the input vector object(s) must be EPSG:4326')
     sortkey = None
     if return_geometries:
         sortkey = lambda x: x.mgrs
     kml = get_kml()
-    with Vector(kml, driver='KML') as vec:
-        tilenames_src = []
+    with Vector(kml, driver='KML') as vec_kml:
         tiles = []
-        for vector in vectors:
-            vector.layer.ResetReading()
-            for item in vector.layer:
-                geom = item.GetGeometryRef()
-                vec.layer.SetSpatialFilter(geom)
-                for tile in vec.layer:
-                    tilename = tile.GetField('Name')
-                    c1 = tilename not in tilenames_src
-                    c2 = tilenames is None or tilename in tilenames
-                    if c1 and c2:
-                        tilenames_src.append(tilename)
-                        attrib = description2dict(tile.GetField('Description'))
-                        epsg_target = None
-                        if epsg is not None and attrib['EPSG'] not in epsg:
-                            if len(epsg) == 1 and not strict:
-                                epsg_target = int(epsg[0])
-                                tilename += '_{}'.format(epsg_target)
-                            else:
-                                continue
-                        if return_geometries:
-                            wkt = multipolygon2polygon(attrib['UTM_WKT'])
-                            geom = wkt_to_geom(wkt=wkt,
-                                               epsg_in=attrib['EPSG'],
-                                               epsg_out=epsg_target)
-                            geom.mgrs = tilename
-                            tiles.append(geom)
-                        else:
-                            tiles.append(tilename)
-            vector.layer.ResetReading()
-        tile = None
-        geom = None
-        item = None
-        return sorted(tiles, key=sortkey)
+        with combine_polygons(vector, multipolygon=True) as vec_aoi:
+            feature = vec_aoi.getFeatureByIndex(0)
+            geom = feature.GetGeometryRef()
+            vec_kml.layer.SetSpatialFilter(geom)
+            feature = geom = None
+            if tilenames is not None:
+                values = ", ".join([f"'{x}'" for x in tilenames])
+                sql_where = f"Name IN ({values})"
+                layer_name = vec_kml.layer.GetName()
+                query = f"SELECT * FROM {layer_name} WHERE {sql_where}"
+                layer = vec_kml.vector.ExecuteSQL(query)
+            else:
+                layer = vec_kml.layer
+            for tile in layer:
+                tilename = tile.GetField('Name')
+                attrib = description2dict(tile.GetField('Description'))
+                epsg_target = None
+                if epsg is not None and attrib['EPSG'] not in epsg:
+                    if len(epsg) == 1 and not strict:
+                        epsg_target = int(epsg[0])
+                        tilename += '_{}'.format(epsg_target)
+                    else:
+                        continue
+                if return_geometries:
+                    wkt = multipolygon2polygon(attrib['UTM_WKT'])
+                    geom = wkt_to_geom(wkt=wkt,
+                                       epsg_in=attrib['EPSG'],
+                                       epsg_out=epsg_target)
+                    geom.mgrs = tilename
+                    tiles.append(geom)
+                else:
+                    tiles.append(tilename)
+            tile = None
+            geom = None
+            layer = None
+    return sorted(tiles, key=sortkey)
 
 
 def aoi_from_tile(tile):
