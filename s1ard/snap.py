@@ -17,6 +17,7 @@ from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
+from s1ard.config import read_config_file, _keyval_check
 from s1ard.tile_extraction import aoi_from_scene
 from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
@@ -24,8 +25,59 @@ import logging
 
 log = logging.getLogger('s1ard')
 
-config_keys = ['allow_res_osv', 'dem_resampling_method', 'img_resampling_method',
-               'clean_edges', 'clean_edges_pixels', 'cleanup']
+config_keys = ['allow_res_osv', 'cleanup', 'clean_edges', 'clean_edges_pixels',
+               'dem_resampling_method', 'gpt_args', 'img_resampling_method']
+
+
+def get_config(config_file=None, **kwargs):
+    """
+    Get the content of `config.ini` `SNAP` section as a dictionary.
+    
+    Parameters
+    ----------
+    config_file: str or None
+    kwargs: dict[str]
+
+    Returns
+    -------
+    dict
+    """
+    parser = read_config_file(config_file)
+    out_dict = {}
+    defaults = {
+        'allow_res_osv': 'True',
+        'cleanup': 'True',
+        'clean_edges': 'True',
+        'clean_edges_pixels': '4',
+        'dem_resampling_method': 'BILINEAR_INTERPOLATION',
+        'gpt_args': 'None',
+        'img_resampling_method': 'BILINEAR_INTERPOLATION',
+    }
+    try:
+        section = parser['SNAP']
+    except KeyError:
+        section = defaults
+    
+    for k, v in kwargs.items():
+        if k in config_keys:
+            section[k] = v.strip()
+    
+    for k, v in defaults.items():
+        if k not in section:
+            section[k] = v
+    
+    for k, v in section.items():
+        v = _keyval_check(key=k, val=v, allowed_keys=config_keys)
+        if k == 'gpt_args':
+            if v is not None:
+                v = v.split(' ')
+        if k == 'clean_edges_pixels':
+            v = int(v)
+        if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
+            v = section.getboolean(k)
+        out_dict[k] = v
+    
+    return out_dict
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):

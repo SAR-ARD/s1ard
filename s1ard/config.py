@@ -80,7 +80,7 @@ def get_config(config_file=None, **kwargs):
     ----------
     config_file: str or None
         Full path to the config file that should be parsed to a dictionary.
-    kwargs
+    kwargs: dict[str]
         further keyword arguments overriding configuration found in the config file.
     
     Returns
@@ -187,8 +187,6 @@ def get_config(config_file=None, **kwargs):
             v = int(v)
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
-        if k == 'snap_gpt_args':
-            v = proc_sec['snap_gpt_args'].split(' ')
         
         _validate_options(k, v)
         out_dict['processing'][k] = v
