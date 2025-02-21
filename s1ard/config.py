@@ -30,8 +30,7 @@ def get_keys(section):
                 'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
                 'measurement', 'mindate', 'mode', 'parquet', 'processor',
                 'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
-                'snap_gpt_args', 'stac_catalog', 'stac_collections',
-                'tmp_dir', 'wbm_dir', 'work_dir']
+                'stac_catalog', 'stac_collections', 'tmp_dir', 'wbm_dir', 'work_dir']
     elif section == 'metadata':
         return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
     else:
@@ -91,16 +90,23 @@ def get_config(config_file=None, **kwargs):
     """
     parser = read_config_file(config_file)
     
-    out_dict = {'processing': {},
-                'metadata': {}}
+    out = {'processing': _get_config_processing(parser, **kwargs),
+           'metadata': _get_config_metadata(parser, **kwargs)}
     
-    # PROCESSING section
+    processor_name = out['processing']['processor']
+    processor = import_module(f's1ard.{processor_name}')
+    out[processor_name] = processor.get_config_section(parser, **kwargs)
+    
+    return out
+
+
+def _get_config_processing(parser, **kwargs):
     allowed_keys = get_keys(section='processing')
     try:
         proc_sec = parser['PROCESSING']
     except KeyError:
-        msg = "Section '{}' does not exist in config file {}"
-        raise KeyError(msg.format('PROCESSING', config_file))
+        msg = "Section 'PROCESSING' does not exist in the config file"
+        raise KeyError(msg)
     
     # override config file parameters with additional keyword arguments
     for k, v in kwargs.items():
@@ -121,7 +127,6 @@ def get_config(config_file=None, **kwargs):
         'gdal_threads': '4',
         'dem_type': 'Copernicus 30m Global DEM',
         'date_strict': 'True',
-        'snap_gpt_args': 'None',
         'datatake': 'None',
         'measurement': 'gamma',
         'annotation': 'dm,ei,id,lc,li,np,ratio',
@@ -145,7 +150,7 @@ def get_config(config_file=None, **kwargs):
         missing_str = '\n - ' + '\n - '.join(missing)
         raise RuntimeError(f"missing the following parameters:{missing_str}")
     
-    # convert values to Python objects and validate them
+    out = {}
     for k, v in proc_sec.items():
         # check if key is allowed and convert 'None|none|' strings to None
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
@@ -189,13 +194,13 @@ def get_config(config_file=None, **kwargs):
             v = proc_sec.getboolean(k)
         
         _validate_options(k, v)
-        out_dict['processing'][k] = v
+        out[k] = v
     
     # check that a valid scene search option is set
-    db_file_set = out_dict['processing']['db_file'] is not None
-    stac_catalog_set = out_dict['processing']['stac_catalog'] is not None
-    stac_collections_set = out_dict['processing']['stac_collections'] is not None
-    parquet_set = out_dict['processing']['parquet'] is not None
+    db_file_set = out['db_file'] is not None
+    stac_catalog_set = out['stac_catalog'] is not None
+    stac_collections_set = out['stac_collections'] is not None
+    parquet_set = out['parquet'] is not None
     
     options_set = sum([db_file_set, stac_catalog_set, parquet_set])
     
@@ -207,6 +212,10 @@ def get_config(config_file=None, **kwargs):
     if stac_catalog_set and not stac_collections_set:
         raise RuntimeError("'stac_collections' must be defined if data is to be searched in a STAC.")
     
+    return out
+
+
+def _get_config_metadata(parser, **kwargs):
     # METADATA section
     allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.keys():
@@ -224,18 +233,18 @@ def get_config(config_file=None, **kwargs):
     if 'copy_original' not in meta_sec.keys():
         meta_sec['copy_original'] = 'True'
     
+    out = {}
     for k, v in meta_sec.items():
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         if k == 'format':
             v = meta_sec.get_list(k)
         if k == 'copy_original':
             v = meta_sec.getboolean(k)
-        out_dict['metadata'][k] = v
+        out[k] = v
     for key in allowed_keys:
-        if key not in out_dict['metadata'].keys():
-            out_dict['metadata'][key] = None
-    
-    return out_dict
+        if key not in out.keys():
+            out[key] = None
+    return out
 
 
 def _parse_datetime(s):
