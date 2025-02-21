@@ -45,6 +45,37 @@ def get_keys(section):
             raise RuntimeError(f"section '{section}' does not have a 'config_keys' attribute.")
 
 
+def read_config_file(config_file=None):
+    """
+    Reads a configuration file and returns a ConfigParser object
+    
+    Parameters
+    ----------
+    config_file: str or None
+
+    Returns
+    -------
+    configparser.ConfigParser
+    """
+    parser = configparser.ConfigParser(allow_no_value=True,
+                                       converters={'_annotation': _parse_annotation,
+                                                   '_datetime': _parse_datetime,
+                                                   '_modes': _parse_modes,
+                                                   '_stac_collections': _parse_list,
+                                                   '_tile_list': _parse_tile_list,
+                                                   '_list': _parse_list})
+    
+    if config_file:
+        if not os.path.isfile(config_file):
+            raise FileNotFoundError(f"Config file {config_file} does not exist.")
+    else:
+        with importlib.resources.path('s1ard.resources', 'config.ini') as path:
+            config_file = str(path)
+    
+    parser.read(config_file)
+    return parser
+
+
 def get_config(config_file=None, **kwargs):
     """
     Returns the content of a `config.ini` file as a dictionary.
@@ -62,23 +93,8 @@ def get_config(config_file=None, **kwargs):
         Dictionary of the parsed config parameters.
         The keys correspond to the config sections in lowercase letters.
     """
-    parser = configparser.ConfigParser(allow_no_value=True,
-                                       converters={'_annotation': _parse_annotation,
-                                                   '_datetime': _parse_datetime,
-                                                   '_modes': _parse_modes,
-                                                   '_stac_collections': _parse_list,
-                                                   '_tile_list': _parse_tile_list,
-                                                   '_list': _parse_list})
-    if isinstance(config_file, str):
-        if not os.path.isfile(config_file):
-            raise FileNotFoundError("Config file {} does not exist.".format(config_file))
-        parser.read(config_file)
-    elif config_file is None:
-        with importlib.resources.path('s1ard.resources', 'config.ini') as path:
-            config_file = str(path)
-        parser.read(config_file)
-    else:
-        raise TypeError(f"'config_file' must be of type str or None, was {type(config_file)}")
+    parser = read_config_file(config_file)
+    
     out_dict = {'processing': {},
                 'metadata': {}}
     
