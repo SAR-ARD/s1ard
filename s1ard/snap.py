@@ -24,6 +24,9 @@ import logging
 
 log = logging.getLogger('s1ard')
 
+config_keys = ['allow_res_osv', 'dem_resampling_method', 'img_resampling_method',
+               'clean_edges', 'clean_edges_pixels', 'cleanup']
+
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
     """
