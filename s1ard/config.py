@@ -23,13 +23,15 @@ def get_keys(section):
         a list of keys
     """
     if section == 'processing':
-        return ['mode', 'aoi_tiles', 'aoi_geometry', 'mindate', 'maxdate', 'acq_mode', 'datatake',
-                'work_dir', 'scene_dir', 'sar_dir', 'tmp_dir', 'wbm_dir', 'measurement',
-                'db_file', 'dem_type', 'gdal_threads', 'logfile', 'ard_dir',
-                'etad', 'etad_dir', 'product', 'annotation', 'stac_catalog', 'stac_collections',
-                'sensor', 'date_strict', 'snap_gpt_args', 'scene', 'parquet']
+        return ['acq_mode', 'annotation', 'aoi_geometry', 'aoi_tiles',
+                'ard_dir', 'datatake', 'date_strict', 'db_file', 'dem_type',
+                'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
+                'measurement', 'mindate', 'mode', 'parquet', 'processor',
+                'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
+                'snap_gpt_args', 'stac_catalog', 'stac_collections',
+                'tmp_dir', 'wbm_dir', 'work_dir']
     elif section == 'metadata':
-        return ['format', 'copy_original', 'access_url', 'licence', 'doi', 'processing_center']
+        return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
     else:
         raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
 
