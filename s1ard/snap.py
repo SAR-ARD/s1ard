@@ -17,7 +17,7 @@ from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from s1ard.config import read_config_file, _keyval_check
+from s1ard.config import _keyval_check
 from s1ard.tile_extraction import aoi_from_scene
 from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
