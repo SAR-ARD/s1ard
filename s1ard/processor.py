@@ -1,12 +1,13 @@
 import os
 import time
+from importlib import import_module
 from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
 from pyroSAR.ancillary import Lock
-from s1ard import etad, dem, ard, snap
-from s1ard.config import get_config, snap_conf, gdal_conf
+from s1ard import etad, dem, ard
+from s1ard.config import get_config, gdal_conf
 import s1ard.ancillary as anc
 import s1ard.tile_extraction as tile_ex
 from s1ard import search
@@ -30,12 +31,17 @@ def main(config_file=None, debug=False, **kwargs):
     """
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
-    config_proc = config['processing']
     log = anc.set_logging(config=config, debug=debug)
-    geocode_prms = snap_conf(config=config)
+    config_proc = config['processing']
+    processor_name = config_proc['processor']
+    processor = import_module(f's1ard.{processor_name}')
+    config_sar = config['processor_name']
     gdal_prms = gdal_conf(config=config)
     
-    anc.check_spacing(geocode_prms['spacing'])
+    spacings = {'IW': 10, 'SM': 10, 'EW': 40}
+    config_sar['spacing'] = spacings[config_proc['acq_mode']]
+    
+    anc.check_spacing(config_sar['spacing'])
     
     sar_flag = 'sar' in config_proc['mode']
     nrb_flag = 'nrb' in config_proc['mode']
@@ -199,27 +205,26 @@ def main(config_file=None, debug=False, **kwargs):
                 rlks = {'IW': 5,
                         'SM': 6,
                         'EW': 3}[config_proc['acq_mode']]
-                rlks *= int(geocode_prms['spacing'] / 10)
+                rlks *= int(config_sar['spacing'] / 10)
                 azlks = {'IW': 1,
                          'SM': 6,
                          'EW': 1}[config_proc['acq_mode']]
-                azlks *= int(geocode_prms['spacing'] / 10)
+                azlks *= int(config_sar['spacing'] / 10)
             else:
                 rlks = azlks = None
             ############################################################################################################
             # main processing routine
             start_time = time.time()
             try:
-                log.info('starting SNAP processing')
-                snap.process(scene=scene.scene, outdir=config_proc['sar_dir'],
-                             measurement=measurement,
-                             tmpdir=config_proc['tmp_dir'],
-                             dem=fname_dem, neighbors=neighbors[i],
-                             export_extra=export_extra,
-                             gpt_args=config_proc['snap_gpt_args'],
-                             rlks=rlks, azlks=azlks, **geocode_prms)
+                log.info('starting SAR processing')
+                processor.process(scene=scene.scene, outdir=config_proc['sar_dir'],
+                                  measurement=measurement,
+                                  tmpdir=config_proc['tmp_dir'],
+                                  dem=fname_dem, neighbors=neighbors[i],
+                                  export_extra=export_extra,
+                                  rlks=rlks, azlks=azlks, **config_sar)
                 t = round((time.time() - start_time), 2)
-                log.info(f'SNAP processing finished in {t} seconds')
+                log.info(f'SAR processing finished in {t} seconds')
             except Exception as e:
                 log.error(msg=e)
                 raise
