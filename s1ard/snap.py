@@ -29,21 +29,20 @@ config_keys = ['allow_res_osv', 'cleanup', 'clean_edges', 'clean_edges_pixels',
                'dem_resampling_method', 'gpt_args', 'img_resampling_method']
 
 
-def get_config(config_file=None, **kwargs):
+def get_config_section(parser, **kwargs):
     """
     Get the content of `config.ini` `SNAP` section as a dictionary.
     
     Parameters
     ----------
-    config_file: str or None
+    parser: configparser.ConfigParser
     kwargs: dict[str]
 
     Returns
     -------
     dict
     """
-    parser = read_config_file(config_file)
-    out_dict = {}
+    out = {}
     defaults = {
         'allow_res_osv': 'True',
         'cleanup': 'True',
@@ -75,9 +74,9 @@ def get_config(config_file=None, **kwargs):
             v = int(v)
         if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
             v = section.getboolean(k)
-        out_dict[k] = v
+        out[k] = v
     
-    return out_dict
+    return out
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
