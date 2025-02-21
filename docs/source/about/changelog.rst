@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.2.0 | 2025-02-21
+------------------
+
+* scene search optimizations (`#241 <https://github.com/SAR-ARD/s1ard/pull/241>`_)
+
+`Full v2.2.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.1.0...v2.2.0>`_
+
 2.1.0 | 2025-01-21
 ------------------
 
