@@ -58,11 +58,7 @@ def read_config_file(config_file=None):
     configparser.ConfigParser
     """
     parser = configparser.ConfigParser(allow_no_value=True,
-                                       converters={'_annotation': _parse_annotation,
-                                                   '_datetime': _parse_datetime,
-                                                   '_modes': _parse_modes,
-                                                   '_stac_collections': _parse_list,
-                                                   '_tile_list': _parse_tile_list,
+                                       converters={'_datetime': _parse_datetime,
                                                    '_list': _parse_list})
     
     if config_file:
@@ -117,31 +113,27 @@ def get_config(config_file=None, **kwargs):
         proc_sec[k] = 'None' if v in ['', 'None'] else os.path.abspath(v)
     
     # set some defaults
+    processing_defaults = {
+        'sar_dir': 'SAR',
+        'tmp_dir': 'TMP',
+        'ard_dir': 'ARD',
+        'wbm_dir': 'WBM',
+        'gdal_threads': '4',
+        'dem_type': 'Copernicus 30m Global DEM',
+        'date_strict': 'True',
+        'snap_gpt_args': 'None',
+        'datatake': 'None',
+        'measurement': 'gamma',
+        'annotation': 'dm,ei,id,lc,li,np,ratio',
+        'logfile': 'None',
+        'parquet': 'None'
+    }
     if 'etad' not in proc_sec.keys():
         proc_sec['etad'] = 'False'
         proc_sec['etad_dir'] = 'None'
-    for item in ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir']:
-        if item not in proc_sec.keys():
-            proc_sec[item] = item[:3].upper()
-    if 'gdal_threads' not in proc_sec.keys():
-        proc_sec['gdal_threads'] = '4'
-    if 'dem_type' not in proc_sec.keys():
-        proc_sec['dem_type'] = 'Copernicus 30m Global DEM'
-    if 'date_strict' not in proc_sec.keys():
-        proc_sec['date_strict'] = 'True'
-    if 'snap_gpt_args' not in proc_sec.keys():
-        proc_sec['snap_gpt_args'] = 'None'
-    if 'datatake' not in proc_sec.keys():
-        proc_sec['datatake'] = 'None'
-    # use previous defaults for measurement and annotation if they have not been defined
-    if 'measurement' not in proc_sec.keys():
-        proc_sec['measurement'] = 'gamma'
-    if 'annotation' not in proc_sec.keys():
-        proc_sec['annotation'] = 'dm,ei,id,lc,li,np,ratio'
-    if 'logfile' not in proc_sec.keys():
-        proc_sec['logfile'] = 'None'
-    if 'parquet' not in proc_sec.keys():
-        proc_sec['parquet'] = 'None'
+    for k, v in processing_defaults.items():
+        if k not in proc_sec.keys():
+            proc_sec[k] = v
     
     # check completeness of configuration parameters
     missing = []
@@ -158,15 +150,11 @@ def get_config(config_file=None, **kwargs):
         # check if key is allowed and convert 'None|none|' strings to None
         v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
-        if k == 'mode':
-            v = proc_sec.get_modes(k)
-        if k == 'aoi_tiles':
-            if v is not None:
-                v = proc_sec.get_tile_list(k)
-        if k == 'aoi_geometry':
-            if v is not None:
-                msg = f"Parameter '{k}': File {v} could not be found"
-                assert os.path.isfile(v), msg
+        if k in ['annotation', 'aoi_tiles', 'data_take', 'mode', 'stac_collections']:
+            v = proc_sec.get_list(k)
+        
+        _validate_value(k, v)
+        
         if k == 'mindate':
             v = proc_sec.get_datetime(k)
         if k == 'maxdate':
@@ -174,13 +162,6 @@ def get_config(config_file=None, **kwargs):
             v = proc_sec.get_datetime(k)
             if date_short:
                 v += timedelta(days=1, microseconds=-1)
-        if k == 'sensor':
-            assert v in ['S1A', 'S1B']
-        if k == 'acq_mode':
-            assert v in ['IW', 'EW', 'SM']
-        if k == 'work_dir':
-            msg = f"Parameter '{k}': '{v}' must be an existing writable directory"
-            assert v is not None and os.path.isdir(v) and os.access(v, os.W_OK), msg
         dir_ignore = ['work_dir']
         if proc_sec['etad'] == 'False':
             dir_ignore.append('etad_dir')
@@ -193,41 +174,23 @@ def get_config(config_file=None, **kwargs):
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
         if k.endswith('_file') and not k.startswith('db'):
+            msg = f"Parameter '{k}': file {v} could not be found"
             if any(x in v for x in ['/', '\\']):
-                msg = f"Parameter '{k}': file {v} could not be found"
                 assert os.path.isfile(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
-                msg = f"Parameter '{k}': file {v} could not be found"
                 assert os.path.isfile(v), msg
         if k in ['db_file', 'logfile'] and v is not None:
             if not any(x in v for x in ['/', '\\']):
                 v = os.path.join(proc_sec['work_dir'], v)
-        if k == 'stac_collections':
-            v = proc_sec.get_stac_collections(k)
         if k == 'gdal_threads':
             v = int(v)
-        if k == 'dem_type':
-            allowed = ['Copernicus 10m EEA DEM', 'Copernicus 30m Global DEM II',
-                       'Copernicus 30m Global DEM', 'GETASSE30']
-            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
-            assert v in allowed, msg.format(k, allowed, v)
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
-        if k == 'product':
-            allowed = ['GRD', 'SLC']
-            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
-            assert v in allowed, msg.format(k, allowed, v)
-        if k == 'measurement':
-            allowed = ['gamma', 'sigma']
-            msg = "Parameter '{}': expected to be one of {}; got '{}' instead"
-            assert v in allowed, msg.format(k, allowed, v)
-        if k == 'annotation':
-            v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
             v = proc_sec['snap_gpt_args'].split(' ')
-        if k == 'datatake':
-            v = proc_sec.get_list(k)
+        
+        _validate_options(k, v)
         out_dict['processing'][k] = v
     
     # check that a valid scene search option is set
@@ -277,52 +240,10 @@ def get_config(config_file=None, **kwargs):
     return out_dict
 
 
-def _parse_annotation(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    annotation_list = _parse_list(s)
-    if annotation_list is not None:
-        allowed = ['dm', 'ei', 'em', 'id', 'lc', 'ld', 'li', 'np', 'ratio', 'wm']
-        for layer in annotation_list:
-            if layer not in allowed:
-                msg = "Parameter 'annotation': Error while parsing to list; " \
-                      "layer '{}' is not supported. Allowed keys:\n{}"
-                raise ValueError(msg.format(layer, allowed))
-    return annotation_list
-
-
 def _parse_datetime(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
     return dateutil.parser.parse(s)
-
-
-def _parse_modes(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    mode_list = _parse_list(s)
-    allowed = ['sar', 'nrb', 'orb']
-    for mode in mode_list:
-        if mode not in allowed:
-            msg = "Parameter 'annotation': Error while parsing to list; " \
-                  "mode '{}' is not supported. Allowed keys:\n{}"
-            raise ValueError(msg.format(mode, allowed))
-    return mode_list
-
-
-def _parse_tile_list(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    tile_list = _parse_list(s)
-    if tile_list is not None:
-        for tile in tile_list:
-            if len(tile) != 5:
-                raise ValueError("Parameter 'aoi_tiles': Error while parsing "
-                                 "MGRS tile IDs to list; tile '{}' is not 5 "
-                                 "digits long.".format(tile))
-            else:
-                continue
-    return tile_list
 
 
 def _parse_list(s):
@@ -344,6 +265,56 @@ def _keyval_check(key, val, allowed_keys):
         val = None
     
     return val
+
+
+def _validate_options(k, v):
+    options = {'acq_mode': ['IW', 'EW', 'SM'],
+               'annotation': ['dm', 'ei', 'em', 'id', 'lc',
+                              'ld', 'li', 'np', 'ratio', 'wm'],
+               'dem_type': ['Copernicus 10m EEA DEM',
+                            'Copernicus 30m Global DEM',
+                            'Copernicus 30m Global DEM II',
+                            'GETASSE30'],
+               'measurement': ['gamma', 'sigma'],
+               'mode': ['sar', 'nrb', 'orb'],
+               'product': ['GRD', 'SLC'],
+               'sensor': ['S1A', 'S1B', 'S1C']}
+    if k not in options:
+        return
+    if isinstance(v, list):
+        for item in v:
+            _validate_options(k, item)
+    else:
+        msg = "Parameter '{}': expected value(s) to be one of {}; got '{}' instead"
+        assert v in options[k], msg.format(k, options[k], v)
+
+
+def _validate_value(k, v):
+    def val_aoi_geometry(x):
+        return x is None or os.path.isfile(x)
+    
+    def val_aoi_tiles(x):
+        return len(x) == 5
+    
+    def val_work_dir(x):
+        return x is not None and os.path.isdir(v) and os.access(v, os.W_OK)
+    
+    validators = {'aoi_geometry': (val_aoi_geometry,
+                                   'must be None or an existing file'),
+                  'aoi_tiles': (val_aoi_tiles,
+                                'must be of length 5'),
+                  'work_dir': (val_work_dir,
+                               'must be an existing, writable directory')}
+    if k not in validators.keys():
+        return
+    if isinstance(v, list):
+        for item in v:
+            _validate_value(k, item)
+    else:
+        validator, condition = validators[k]
+        if not validator(v):
+            msg = "Parameter '{}': value '{}' did not pass validation ({})."
+            raise ValueError(msg.format(k, v, condition))
 
 
 def gdal_conf(config):
