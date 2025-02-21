@@ -2,6 +2,7 @@ import os
 import re
 import copy
 import importlib.resources
+from importlib import import_module
 from datetime import datetime, timedelta
 import configparser
 import dateutil.parser
@@ -10,12 +11,13 @@ from osgeo import gdal
 
 def get_keys(section):
     """
-    get all allowed configuration keys
+    get all allowed configuration keys for a section
     
     Parameters
     ----------
-    section: {'processing', 'metadata'}
+    section: str
         the configuration section to get the allowed keys for.
+        Either 'processing', 'metadata' or the name of a SAR processor plugin e.g. 'snap'.
 
     Returns
     -------
@@ -33,7 +35,14 @@ def get_keys(section):
     elif section == 'metadata':
         return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
     else:
-        raise RuntimeError(f"unknown section: {section}. Options: 'processing', 'metadata'.")
+        try:
+            module = import_module(f's1ard.{section}')
+        except ModuleNotFoundError:
+            raise RuntimeError(f"unknown section: {section}.")
+        try:
+            return module.config_keys
+        except AttributeError:
+            raise RuntimeError(f"section '{section}' does not have a 'config_keys' attribute.")
 
 
 def get_config(config_file=None, **kwargs):
