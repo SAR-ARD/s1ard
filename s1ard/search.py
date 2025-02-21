@@ -10,9 +10,8 @@ from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector, crsConvert
 import asf_search as asf
 from pyroSAR import identify_many, ID
-from s1ard.ancillary import date_to_utc, buffer_time
+from s1ard.ancillary import date_to_utc, buffer_time, combine_polygons
 from s1ard.tile_extraction import aoi_from_tile, tile_from_aoi
-from osgeo import ogr, osr
 import logging
 
 log = logging.getLogger('s1ard')
@@ -181,8 +180,8 @@ class STACArchive(object):
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber: int or list[int] or None
-            the data take ID in decimal representation.
+        frameNumber: int or str or list[int or str] or None
+            the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap. The object may only contain one feature.
@@ -253,22 +252,19 @@ class STACArchive(object):
                 else:
                     raise TypeError('argument vectorobject must be of type spatialist.vector.Vector')
             else:
-                args2 = []
                 if isinstance(val, (str, int)):
                     val = [val]
+                val_format = []
                 for v in val:
                     if key == 'sensor':
-                        value = lookup_platform[v]
-                    elif key == 'frameNumber':
-                        value = '{:06X}'.format(v)  # convert to hexadecimal
-                    else:
-                        value = v
-                    a = {'op': '=', 'args': [{'property': lookup[key]}, value]}
-                    args2.append(a)
-                if len(args2) == 1:
-                    arg = args2[0]
+                        v = lookup_platform[v]
+                    if key == 'frameNumber' and isinstance(v, int):
+                        v = '{:06X}'.format(v)  # convert to hexadecimal
+                    val_format.append(v)
+                if len(val_format) == 1:
+                    arg = {'op': '=', 'args': [{'property': lookup[key]}, val_format[0]]}
                 else:
-                    arg = {'op': 'or', 'args': args2}
+                    arg = {'op': 'in', 'args': [{'property': lookup[key]}, val_format]}
                 flt['args'].append(arg)
         if len(flt['args']) == 0:
             flt = None
@@ -345,8 +341,8 @@ class STACParquetArchive(object):
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber: int or list[int] or None
-            the data take ID in decimal representation.
+        frameNumber: int or str or list[int or str] or None
+            the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
         vectorobject: spatialist.vector.Vector or None
             a geometry with which the scenes need to overlap
@@ -418,17 +414,18 @@ class STACParquetArchive(object):
             else:
                 if isinstance(val, (str, int)):
                     val = [val]
-                subterms = []
+                val_format = []
                 for v in val:
                     if key == 'sensor':
                         v = lookup_platform[v]
-                    if key == 'frameNumber' and isinstance(v, str):
-                        v = int(v, 16)  # convert to decimal
-                    subterms.append(f'"{lookup[key]}" = \'{v}\'')
-                if len(subterms) > 1:
-                    terms.append('(' + ' OR '.join(subterms) + ')')
+                    if key == 'frameNumber' and isinstance(v, int):
+                        v = '{:06X}'.format(v)  # convert to hexadecimal
+                    val_format.append(v)
+                if len(val_format) == 1:
+                    subterm = f'"{lookup[key]}" = \'{val_format[0]}\''
                 else:
-                    terms.append(subterms[0])
+                    subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
+                terms.append(subterm)
         sql_where = ' AND '.join(terms)
         sql_query = f"""
         SELECT
@@ -594,7 +591,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     return sorted(out)
 
 
-def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
+def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     """
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
@@ -631,6 +628,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
+    cores: int
+        the number of cores to parallelize scene identification
+        (see :func:`pyroSAR.drivers.identify_many`)
     kwargs
         further search arguments passed to the `select` method of `archive`.
         The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
@@ -691,13 +691,14 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     if vec is None:
         log.debug("performing initial scene search without geometry constraint")
         selection_tmp = archive.select(**args)
+        log.debug(f'got {len(selection_tmp)} scenes, reading metadata')
         if len(selection_tmp) == 0:
             return [], []
         if not isinstance(selection_tmp[0], ID):
-            scenes = identify_many(scenes=selection_tmp, sortkey='start')
+            scenes = identify_many(scenes=selection_tmp, sortkey='start', cores=cores)
         else:
             scenes = selection_tmp
-        log.debug(f"got {len(scenes)} scenes")
+        log.debug(f"loading geometries")
         scenes_geom = [x.geometry() for x in scenes]
         # select all tiles overlapping with the scenes for further processing
         log.debug("extracting all tiles overlapping with initial scene selection")
@@ -715,8 +716,10 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, **kwargs):
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
-    args['mindate'] -= timedelta(minutes=1)
-    args['maxdate'] += timedelta(minutes=1)
+    if 'mindate' in args.keys():
+        args['mindate'] -= timedelta(minutes=1)
+    if 'maxdate' in args.keys():
+        args['maxdate'] += timedelta(minutes=1)
     
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'url'
@@ -903,71 +906,3 @@ def check_acquisition_completeness(archive, scenes):
     if len(messages) != 0:
         text = '\n - '.join(messages)
         raise RuntimeError(f'missing the following scenes:\n - {text}')
-
-
-def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'):
-    """
-    Combine polygon vector objects into one.
-    The output is a single vector object with the polygons either stored in
-    separate features or combined into a single multipolygon geometry.
-
-    Parameters
-    ----------
-    vector: list[spatialist.vector.Vector]
-    crs: int or str
-        the target CRS. Default: EPSG:4326
-    multipolygon: bool
-        combine all polygons into one multipolygon?
-        Default False: write each polygon into a separate feature.
-    layer_name: str
-        the layer name of the output vector object.
-
-    Returns
-    -------
-    spatialist.vector.Vector
-    """
-    if not isinstance(vector, list):
-        raise TypeError("'vectorobject' must be a list")
-    geometry_names = []
-    for item in vector:
-        for feature in item.layer:
-            geom = feature.GetGeometryRef()
-            geometry_names.append(geom.GetGeometryName())
-        item.layer.ResetReading()
-    geom = None
-    geometry_names = list(set(geometry_names))
-    if not all(x == 'POLYGON' for x in geometry_names):
-        raise RuntimeError('All geometries must be of type POLYGON')
-    
-    vec = Vector(driver='Memory')
-    srs_out = crsConvert(crs, 'osr')
-    if multipolygon:
-        geom_type = ogr.wkbMultiPolygon
-        geom_out = ogr.Geometry(geom_type)
-    else:
-        geom_type = ogr.wkbPolygon
-        geom_out = []
-    vec.addlayer(name=layer_name, srs=srs_out, geomType=geom_type)
-    for item in vector:
-        if item.srs.IsSame(srs_out):
-            coord_trans = None
-        else:
-            coord_trans = osr.CoordinateTransformation(item.srs, srs_out)
-        for feature in item.layer:
-            geom = feature.GetGeometryRef()
-            if coord_trans is not None:
-                geom.Transform(coord_trans)
-            if multipolygon:
-                geom_out.AddGeometry(geom.Clone())
-            else:
-                geom_out.append(geom.Clone())
-        item.layer.ResetReading()
-    geom = None
-    if multipolygon:
-        geom_out = geom_out.UnionCascaded()
-        vec.addfeature(geom_out)
-    else:
-        for geom in geom_out:
-            vec.addfeature(geom)
-    geom_out = None
-    return vec

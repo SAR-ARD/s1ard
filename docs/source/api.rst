@@ -140,7 +140,7 @@ Tile Extraction
         description2dict
         multipolygon2polygon
         tile_from_aoi
-        wkt_to_geom
+        wkt2vector_regrid
 
 Ancillary Functions
 -------------------
@@ -157,6 +157,7 @@ Ancillary Functions
         buffer_time
         check_scene_consistency
         check_spacing
+        combine_polygons
         compute_hash
         datamask
         date_to_utc
@@ -186,7 +187,6 @@ Scene Search
         check_acquisition_completeness
         collect_neighbors
         scene_select
-        combine_polygons
 
 Metadata
 --------
