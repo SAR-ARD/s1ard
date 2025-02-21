@@ -346,33 +346,6 @@ def _keyval_check(key, val, allowed_keys):
     return val
 
 
-def snap_conf(config):
-    """
-    Returns a dictionary of additional parameters for :func:`s1ard.snap.process` based on processing
-    configurations provided by the config file.
-    
-    Parameters
-    ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
-    
-    Returns
-    -------
-    dict
-        Dictionary of parameters that can be passed to :func:`s1ard.snap.process`
-    """
-    return {'spacing': {'IW': 10,
-                        'SM': 10,
-                        'EW': 40}[config['processing']['acq_mode']],
-            'allow_res_osv': True,
-            'dem_resampling_method': 'BILINEAR_INTERPOLATION',
-            'img_resampling_method': 'BILINEAR_INTERPOLATION',
-            'clean_edges': True,
-            'clean_edges_pixels': 4,
-            'cleanup': True
-            }
-
-
 def gdal_conf(config):
     """
     Stores GDAL configuration options for the current process.
