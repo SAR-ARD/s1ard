@@ -110,10 +110,8 @@ def aoi_from_tile(tile):
     sql_where = f"Name IN ({values})"
     out = []
     with Vector(kml, driver='KML') as vec:
-        layer_name = vec.layer.GetName()
-        query = f"SELECT * FROM {layer_name} WHERE {sql_where}"
-        result_layer = vec.vector.ExecuteSQL(query)
-        for i, feat in enumerate(result_layer):
+        vec.layer.SetAttributeFilter(sql_where)
+        for i, feat in enumerate(vec.layer):
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
             epsg_target = epsg_codes[i]
