@@ -67,6 +67,11 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
                                              epsg_in=attrib['EPSG'],
                                              epsg_out=epsg_target)
                     geom.mgrs = tilename
+                    field_defn = ogr.FieldDefn("mgrs", ogr.OFTString)
+                    geom.layer.CreateField(field_defn)
+                    feature = geom.getFeatureByIndex(0)
+                    feature.SetField("mgrs", tilename)
+                    geom.layer.SetFeature(feature)
                     tiles.append(geom)
                 else:
                     tiles.append(tilename)
