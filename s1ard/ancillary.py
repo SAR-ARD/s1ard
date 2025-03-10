@@ -654,7 +654,7 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
     srs_out = crsConvert(crs, 'osr')
     if multipolygon:
         geom_type = ogr.wkbMultiPolygon
-        geom_out = ogr.Geometry(geom_type)
+        geom_out = [ogr.Geometry(geom_type)]
     else:
         geom_type = ogr.wkbPolygon
         geom_out = []
@@ -671,14 +671,14 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
             if coord_trans is not None:
                 geom.Transform(coord_trans)
             if multipolygon:
-                geom_out.AddGeometry(geom.Clone())
+                geom_out[0].AddGeometry(geom.Clone())
             else:
-                fields.append({x:feature.GetField(x) for x in fieldnames})
+                fields.append({x: feature.GetField(x) for x in fieldnames})
                 geom_out.append(geom.Clone())
         item.layer.ResetReading()
     geom = None
     if multipolygon:
-        geom_out = geom_out.UnionCascaded()
+        geom_out = geom_out[0].UnionCascaded()
         vec.addfeature(geom_out)
     else:
         for field_def in field_defs:
