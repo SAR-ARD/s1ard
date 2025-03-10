@@ -739,9 +739,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, return_value='scene
         # Since the processor is currently not able to process these scenes, they are
         # removed in this step.
         geometries = [x for x in geometries_init if x.startswith('POLYGON')]
-        if len(geometries) > len(geometries_init):
-            log.info(f'removed {len(geometries_init) - len(geometries)} '
-                     f'scenes crossing the antimeridian')
+        if len(geometries) < len(geometries_init):
+            log.debug(f'removed {len(geometries_init) - len(geometries)} '
+                      f'scenes crossing the antimeridian')
         del selection_tmp
         
         log.debug(f"loading geometries")
