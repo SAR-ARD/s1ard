@@ -117,14 +117,20 @@ def aoi_from_tile(tile):
     with Vector(kml, driver='KML') as vec:
         vec.layer.SetAttributeFilter(sql_where)
         for i, feat in enumerate(vec.layer):
+            tilename = feat.GetField('Name')
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
             epsg_target = epsg_codes[i]
             geom = wkt2vector_regrid(wkt=wkt,
                                      epsg_in=attrib['EPSG'],
                                      epsg_out=epsg_target)
+            geom.mgrs = tilename
+            field_defn = ogr.FieldDefn("mgrs", ogr.OFTString)
+            geom.layer.CreateField(field_defn)
+            feature = geom.getFeatureByIndex(0)
+            feature.SetField("mgrs", tilename)
+            geom.layer.SetFeature(feature)
             out.append(geom)
-        vec.vector.ReleaseResultSet(result_layer)
     if len(out) == 1:
         return out[0]
     else:
