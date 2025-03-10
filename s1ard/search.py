@@ -318,7 +318,7 @@ class STACParquetArchive(object):
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True):
+               vectorobject=None, date_strict=True, return_value='scene'):
         """
         Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
 
@@ -352,13 +352,15 @@ class STACParquetArchive(object):
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        check_exist: bool
-            check whether found files exist locally?
+        return_value: str or List[str]
+            the query return value(s). Default 'scene': return the scene's storage location path.
 
         Returns
         -------
-        list[str]
-            the locations of the scene directories with suffix .SAFE
+        List[str] or List[tuple[str]]
+            the selected return value(s). Depending on whether a single or multiple
+            values have been defined for `return_value`, the returned list will
+            contain strings or tuples.
         """
         pars = locals()
         try:
@@ -373,8 +375,10 @@ class STACParquetArchive(object):
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
-        del pars['date_strict']
         del pars['self']
+        del pars['date_strict']
+        del pars['return_value']
+        
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
@@ -382,7 +386,26 @@ class STACParquetArchive(object):
                   'sensor': 'platform',
                   'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
-                           'S1B': 'sentinel-1b'}
+                           'S1B': 'sentinel-1b',
+                           'S1C': 'sentinel-1c',
+                           'S1D': 'sentinel-1d'}
+        return_value_mapping = {
+            "geometry_wkb": "ST_AsWKB(geometry)",
+            "geometry_wkt": "ST_AsText(geometry)",
+            "mindate": f"STRFTIME({lookup['mindate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "maxdate": f"STRFTIME({lookup['maxdate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "scene": "replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')"
+        }
+        for k, v in lookup.items():
+            if k not in return_value_mapping:
+                return_value_mapping[k] = f"\"{lookup[k]}\""
+        
+        return_values = return_value if isinstance(return_value, list) else [return_value]
+        for return_value in return_values:
+            if return_value not in return_value_mapping:
+                raise ValueError(f"unsupported return value '{return_value}'.\n"
+                                 f"supported options: {list(return_value_mapping.keys())}")
+        
         terms = []
         for key in pars.keys():
             val = pars[key]
@@ -427,13 +450,23 @@ class STACParquetArchive(object):
                     subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
                 terms.append(subterm)
         sql_where = ' AND '.join(terms)
+        sql_return_value = ', '.join([return_value_mapping[x] for x in return_values])
         sql_query = f"""
-        SELECT
-        replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')
+        SELECT {sql_return_value}
         FROM '{self.files}' WHERE {sql_where}
         """
         result = duckdb.query(sql_query).fetchall()
-        out = [x[0] for x in result]
+        if 'sensor' in return_values:
+            lookup_platform_reverse = {value: key for key, value in lookup_platform.items()}
+            sensor_index = return_values.index('sensor')
+            for i, item in enumerate(result):
+                item_new = list(item)
+                item_new[sensor_index] = lookup_platform_reverse[item[sensor_index]]
+                result[i] = tuple(item_new)
+        if len(return_values) == 1:
+            out = [x[0] for x in result]
+        else:
+            out = result
         return sorted(out)
 
 
