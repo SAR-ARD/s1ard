@@ -721,6 +721,7 @@ def process(scene, outdir, measurement, spacing, dem,
                                  'could not be determined')
                         pass
             else:
+                out_pre = out_buffer
                 log.info('GRD scene has already been buffered')
     ############################################################################
     # range look direction angle
