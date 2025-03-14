@@ -35,7 +35,7 @@ def main(config_file=None, debug=False, **kwargs):
     config_proc = config['processing']
     processor_name = config_proc['processor']
     processor = import_module(f's1ard.{processor_name}')
-    config_sar = config['processor_name']
+    config_sar = config[processor_name]
     gdal_prms = gdal_conf(config=config)
     
     spacings = {'IW': 10, 'SM': 10, 'EW': 40}
