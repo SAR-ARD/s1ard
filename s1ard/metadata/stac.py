@@ -375,12 +375,14 @@ def product_json(meta, target, assets, exist_ok=False):
         item.add_link(link=pystac.Link(rel='wind-norm-reference',
                                        target=meta['prod']['windNormReferenceModel'],
                                        title='Reference to the model used to create the wind normalisation layer.'))
-    item.add_link(link=pystac.Link(rel='radiometric-accuracy',
-                                   target=meta['prod']['radiometricAccuracyReference'],
-                                   title='Reference describing the radiometric uncertainty of the product.'))
-    item.add_link(link=pystac.Link(rel='geometric-correction',
-                                   target=meta['prod']['geoCorrAlgorithm'],
-                                   title='Reference to the Geometric Correction algorithm details.'))
+    if meta['prod']['radiometricAccuracyReference'] is not None:
+        item.add_link(link=pystac.Link(rel='radiometric-accuracy',
+                                       target=meta['prod']['radiometricAccuracyReference'],
+                                       title='Reference describing the radiometric uncertainty of the product.'))
+    if meta['prod']['geoCorrAlgorithm'] is not None:
+        item.add_link(link=pystac.Link(rel='geometric-correction',
+                                       target=meta['prod']['geoCorrAlgorithm'],
+                                       title='Reference to the Geometric Correction algorithm details.'))
     item.add_link(link=pystac.Link(rel='{}-model'.format(meta['prod']['demType']),
                                    target=meta['prod']['demReference'],
                                    title='Digital Elevation Model used as auxiliary data during processing: '
