@@ -497,6 +497,12 @@ def get_datasets(scenes, datadir, extent, epsg):
             with Vector(dm_vec) as bounds:
                 with bbox(extent, epsg) as tile_geom:
                     inter = intersect(bounds, tile_geom)
+                    if inter is not None:
+                        with Raster(dm_ras) as ras:
+                            inter_min = ras.res[0] * ras.res[1]
+                        if inter.getArea() < inter_min:
+                            inter.close()
+                            inter = None
                     if inter is None:
                         log.debug('no overlap, removing scene')
                         del ids[i]
