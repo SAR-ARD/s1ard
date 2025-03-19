@@ -268,3 +268,27 @@ SLC_ACC_MAP = {'SM': {'ALE': {'rg': -3.02,
                               'az': 1.37},
                       '1sigma': {'rg': 0.7,
                                  'az': 2.27}}}
+
+URL = {
+    'ancillaryData_KML': 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__'
+                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml',
+    'card4l_nrb': 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf',
+    'card4l_orb': 'https://ceos.org/ard/files/PFS/ORB/v1.0/'
+                  'CARD4L_Product_Family_Specification_Ocean_Radar_Backscatter-v1.0.pdf',
+    'geoCorrAccuracyReference': 'https://s1ard.readthedocs.io/en/v{}/general/geoaccuracy.html',
+    'geoCorrAlgorithm': 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf',
+    'griddingConventionURL': 'https://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf',
+    'noiseRemovalAlgorithm': 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF',
+    'orbitDataAccess': 'https://scihub.copernicus.eu/gnss',
+    'platformReference': {
+        'sentinel-1a': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
+        'sentinel-1b': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=576',
+        'sentinel-1c': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=577',
+        'sentinel-1d': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=814'
+    },
+    'RTCAlgorithm': 'https://doi.org/10.1109/Tgrs.2011.2120616',
+    'sensorCalibration': 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration',
+    'source_access': 'https://dataspace.copernicus.eu',
+    'source_doi': 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification',
+    'windNormReferenceModel': "https://www.ecmwf.int/sites/default/files/3.1.pdf"
+}
