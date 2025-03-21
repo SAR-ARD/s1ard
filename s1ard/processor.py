@@ -99,7 +99,25 @@ def main(config_file=None, debug=False, **kwargs):
         config_proc['product'] = scenes[0].product
         aoi_tiles = []
     
-    scenes_grouped = anc.group_by_attr(scenes, lambda x: x['frameNumber'])
+    # group scenes by datatake
+    scenes_grouped = anc.group_by_attr(scenes, lambda x: x.meta['frameNumber'])
+    
+    for scenes in scenes_grouped:
+        # check that the scenes can really be grouped together
+        anc.check_scene_consistency(scenes=scenes)
+        
+        # Remove scenes with an invalid (0) slice number if others have a valid one (>0).
+        # This ensures that scenes with a valid slice number are preferred.
+        slice_numbers = [x.meta['sliceNumber'] for x in scenes]
+        if min(slice_numbers) == 0 and max(slice_numbers) > 0:
+            for i in reversed(range(len(scenes))):
+                if slice_numbers[i] == 0:
+                    del scenes[i]
+                    del slice_numbers[i]
+            for i in range(1, len(scenes)):
+                if slice_numbers[i] != slice_numbers[i - 1] + 1:
+                    raise RuntimeError(f"nonconsecutive scene group, "
+                                       f"slice numbers: {slice_numbers}")
     ####################################################################################################################
     # get neighboring GRD scenes to add a buffer to the geocoded scenes
     # otherwise there will be a gap between final geocoded images.
@@ -266,8 +284,6 @@ def main(config_file=None, debug=False, **kwargs):
                             dem_type=config_proc['dem_type'],
                             tilenames=aoi_tiles, username=username, password=password,
                             dem_strict=True)
-            # check that the scenes can really be grouped together
-            anc.check_scene_consistency(scenes=scenes)
             # get the geometries of all tiles that overlap with the current scene group
             vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
