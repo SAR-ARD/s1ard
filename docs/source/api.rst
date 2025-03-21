@@ -165,6 +165,7 @@ Ancillary Functions
         get_kml
         get_max_ext
         get_tmp_name
+        group_by_attr
         group_by_time
         set_logging
         vrt_add_overviews
