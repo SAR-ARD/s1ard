@@ -20,8 +20,13 @@ import pyroSAR
 from pyroSAR.ancillary import Lock, LockCollection
 from pyroSAR import examine, identify_many
 import s1ard
+from collections import defaultdict
+from typing import Callable, List, TypeVar
 
 log = logging.getLogger('s1ard')
+
+T = TypeVar('T')  # any type
+K = TypeVar('K')  # key
 
 
 def check_scene_consistency(scenes):
@@ -189,6 +194,31 @@ def set_logging(config, debug=False):
     log_pyro.addHandler(handler)
     
     return logger
+
+
+def group_by_attr(items: List[T], key_fn: Callable[[T], K]) -> List[List[T]]:
+    """
+    Group items based on a key function.
+    
+    :param items: The list of arbitrary items to group.
+    :param key_fn: A function that extracts a key from each item.
+    :returns: A list of groups, where each group is a list of items with the same key.
+    
+    Example
+    -------
+    >>> list_in = ['abc', 'axy', 'brt', 'btk']
+    >>> print(group_by_attr(list_in, lambda x: x[0]))
+    [['abc', 'axy'], ['brt', 'btk']]
+    
+    >>> list_in = [{'a': 1}, {'a': 2}, {'a': 1}, {'a': 2}]
+    >>> print(group_by_attr(list_in, lambda x: x['a']))
+    [[{'a': 1}, {'a': 1}], [{'a': 2}, {'a': 2}]]
+    """
+    grouped = defaultdict(list)
+    for item in items:
+        key = key_fn(item)
+        grouped[key].append(item)
+    return list(grouped.values())
 
 
 def group_by_time(scenes, time=3):
