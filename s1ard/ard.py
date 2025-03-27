@@ -795,13 +795,9 @@ def calc_product_start_stop(src_ids, extent, epsg):
         src_dict[uid]['az_time'] = t_flat
         src_dict[uid]['gridpts'] = g
     
-    starts = [src_dict[uid]['sid'].start for uid in uids]
-    starts = [datetime.strptime(x, '%Y%m%dT%H%M%S') for x in starts]
-    
-    stops = [src_dict[uid]['sid'].stop for uid in uids]
-    stops = [datetime.strptime(x, '%Y%m%dT%H%M%S') for x in stops]
-    
     if len(uids) == 2:
+        starts = [src_dict[uid]['sid'].start for uid in uids]
+        starts = [datetime.strptime(x, '%Y%m%dT%H%M%S') for x in starts]
         az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
         gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
         if starts[0] > starts[1]:
@@ -826,11 +822,12 @@ def calc_product_start_stop(src_ids, extent, epsg):
     for i, r in enumerate(res):
         if np.isnan(r):
             if i == 0:
-                res_t.append(min(starts))
+                res_t.append(min(az_time))
             else:
-                res_t.append(max(stops))
+                res_t.append(max(az_time))
         else:
-            res_t.append(datetime.fromtimestamp(float(r)))
+            res_t.append(float(r))
+    res_t = [datetime.fromtimestamp(x) for x in res_t]
     
     start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
     stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
