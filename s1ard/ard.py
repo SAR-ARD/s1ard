@@ -785,7 +785,9 @@ def calc_product_start_stop(src_ids, extent, epsg):
         
         t_flat = np.asarray(
             [datetime.fromisoformat(item)
-             .timestamp() for item in t_flat]
+             .replace(tzinfo=timezone.utc)
+             .timestamp()
+             for item in t_flat]
         )
         
         y_flat = np.asarray([float(item) for item in y_flat])
@@ -797,7 +799,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
     
     if len(uids) == 2:
         starts = [src_dict[uid]['sid'].start for uid in uids]
-        starts = [datetime.strptime(x, '%Y%m%dT%H%M%S') for x in starts]
+        starts = [datetime.strptime(x, '%Y%m%dT%H%M%S')
+                  .replace(tzinfo=timezone.utc) for x in starts]
         az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
         gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
         if starts[0] > starts[1]:
@@ -827,7 +830,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
                 res_t.append(max(az_time))
         else:
             res_t.append(float(r))
-    res_t = [datetime.fromtimestamp(x) for x in res_t]
+    res_t = [datetime.fromtimestamp(x, tz=timezone.utc) for x in res_t]
     
     start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
     stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
