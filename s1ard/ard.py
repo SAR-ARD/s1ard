@@ -811,8 +811,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     intersection = None
     tile_geom_pts = np.asarray(tile_geom_pts)
     
-    interpolated = [float(griddata(gridpts, az_time, x, method='linear'))
-                    for x in tile_geom_pts]
+    interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
     
     out = [min(interpolated), max(interpolated)]
     out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
