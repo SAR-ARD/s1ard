@@ -808,7 +808,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
         ring = geometry.GetGeometryRef(0)
         points = ring.GetPoints()
         tile_geom_pts.extend(points)
-    intersection = None
+    intersection = feature = geometry = ring = None
     tile_geom_pts = np.asarray(tile_geom_pts)
     
     interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
