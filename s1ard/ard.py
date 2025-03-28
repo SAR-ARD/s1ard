@@ -734,8 +734,9 @@ def calc_product_start_stop(src_ids, extent, epsg):
     The geolocation grid points including their azimuth time information are
     extracted first from the metadata of each source product.
     These grid points are then used to interpolate the azimuth time for the
-    lower right and upper left (ascending) or upper right and lower left
-    (descending) corners of the MGRS tile extent.
+    coordinates of the MGRS tile extent. The lowest and highest interpolated
+    value are returned as product acquisition start and stop times of the
+    ARD product.
 
     Parameters
     ----------
@@ -746,7 +747,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The coordinate reference system as an EPSG code.
+        The coordinate reference system of the extent as an EPSG code.
 
     Returns
     -------
@@ -758,7 +759,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
         scene_geoms = [x.geometry() for x in src_ids]
         with combine_polygons(scene_geoms) as scene_geom:
             intersection = intersect(tile_geom, scene_geom)
-        scene_geom = None
+        scene_geoms = None
     
     src_dict = {}
     for i, sid in enumerate(src_ids):
@@ -795,20 +796,11 @@ def calc_product_start_stop(src_ids, extent, epsg):
         src_dict[uid]['az_time'] = t_flat
         src_dict[uid]['gridpts'] = g
     
-    if len(uids) == 2:
-        starts = [src_dict[uid]['sid'].start for uid in uids]
-        starts = [datetime.strptime(x, '%Y%m%dT%H%M%S')
-                  .replace(tzinfo=timezone.utc) for x in starts]
-        az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
-        gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
-        if starts[0] > starts[1]:
-            az_time = az_time[::-1]
-            gridpts = gridpts[::-1]
-        az_time = np.concatenate(az_time)
-        gridpts = np.concatenate(gridpts)
-    else:
-        az_time = src_dict[uids[0]]['az_time']
-        gridpts = src_dict[uids[0]]['gridpts']
+    az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
+    gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
+    
+    az_time = np.concatenate(az_time) if len(uids) > 1 else az_time[0]
+    gridpts = np.concatenate(gridpts) if len(uids) > 1 else gridpts[0]
     
     tile_geom_pts = []
     for feature in intersection.layer:
@@ -819,8 +811,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     intersection = None
     tile_geom_pts = np.asarray(tile_geom_pts)
     
-    method = 'linear'
-    interpolated = [float(griddata(gridpts, az_time, x, method=method))
+    interpolated = [float(griddata(gridpts, az_time, x, method='linear'))
                     for x in tile_geom_pts]
     
     out = [min(interpolated), max(interpolated)]
