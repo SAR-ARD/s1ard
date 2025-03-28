@@ -19,7 +19,7 @@ import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
-from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
 from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
 from s1ard.snap import find_datasets
 import logging
@@ -755,11 +755,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
-        ext = tile_geom.extent
-        ul = (ext['xmin'], ext['ymax'])
-        ur = (ext['xmax'], ext['ymax'])
-        lr = (ext['xmax'], ext['ymin'])
-        ll = (ext['xmin'], ext['ymin'])
+        scene_geoms = [x.geometry() for x in src_ids]
+        with combine_polygons(scene_geoms) as scene_geom:
+            intersection = intersect(tile_geom, scene_geom)
+        scene_geom = None
     
     src_dict = {}
     for i, sid in enumerate(src_ids):
@@ -811,21 +810,22 @@ def calc_product_start_stop(src_ids, extent, epsg):
         az_time = src_dict[uids[0]]['az_time']
         gridpts = src_dict[uids[0]]['gridpts']
     
-    if src_dict[uids[0]]['sid'].orbit == 'A':
-        coord1, coord2 = lr, ul
-    else:
-        coord1, coord2 = ur, ll
+    tile_geom_pts = []
+    for feature in intersection.layer:
+        geometry = feature.GetGeometryRef()
+        ring = geometry.GetGeometryRef(0)
+        points = ring.GetPoints()
+        tile_geom_pts.extend(points)
+    intersection = None
+    tile_geom_pts = np.asarray(tile_geom_pts)
     
     method = 'linear'
-    res = [griddata(gridpts, az_time, coord1, method=method),
-           griddata(gridpts, az_time, coord2, method=method)]
+    interpolated = [float(griddata(gridpts, az_time, x, method=method))
+                    for x in tile_geom_pts]
     
-    res_t = [
-        min(az_time) if np.isnan(res[0]) else float(res[0]),
-        max(az_time) if np.isnan(res[1]) else float(res[1]),
-    ]
-    res_t = [datetime.fromtimestamp(x, tz=timezone.utc) for x in res_t]
-    return tuple(res_t)
+    out = [min(interpolated), max(interpolated)]
+    out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
+    return tuple(out)
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
