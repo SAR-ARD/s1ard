@@ -144,7 +144,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
                              "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
-            'start': ard_start,
+            'start': datetime.strftime(ard_start, '%Y%m%dT%H%M%S'),
             'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
@@ -394,12 +394,12 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
     
-    # create metadata files in XML and (STAC) JSON formats
-    start = datetime.strptime(ard_start, '%Y%m%dT%H%M%S')
-    stop = datetime.strptime(ard_stop, '%Y%m%dT%H%M%S')
-    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
-                             proc_time=proc_time, start=start, stop=stop, compression=compress,
-                             product_type=product_type, wm_ref_files=wm_ref_files)
+    # create metadata files in XML and STAC JSON formats
+    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids,
+                             sar_dir=datadir, proc_time=proc_time,
+                             start=ard_start, stop=ard_stop,
+                             compression=compress, product_type=product_type,
+                             wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['metadata']['copy_original']:
@@ -750,9 +750,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
     Returns
     -------
-    tuple[str]
-        Start and stop time of the ARD product formatted as `YYYYmmddTHHMMSS`
-        in UTC.
+    tuple[datetime.datetime]
+        Start and stop time of the ARD product in UTC.
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -821,21 +820,12 @@ def calc_product_start_stop(src_ids, extent, epsg):
     res = [griddata(gridpts, az_time, coord1, method=method),
            griddata(gridpts, az_time, coord2, method=method)]
     
-    res_t = []
-    for i, r in enumerate(res):
-        if np.isnan(r):
-            if i == 0:
-                res_t.append(min(az_time))
-            else:
-                res_t.append(max(az_time))
-        else:
-            res_t.append(float(r))
+    res_t = [
+        min(az_time) if np.isnan(res[0]) else float(res[0]),
+        max(az_time) if np.isnan(res[1]) else float(res[1]),
+    ]
     res_t = [datetime.fromtimestamp(x, tz=timezone.utc) for x in res_t]
-    
-    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
-    
-    return start, stop
+    return tuple(res_t)
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
