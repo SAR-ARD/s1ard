@@ -5,6 +5,7 @@ lxml
 multiformats>=0.3.1
 numpy<2.0
 packaging
+pandas
 pyproj
 pyroSAR>=0.28.0
 pystac>=1.8.0,<1.11.0

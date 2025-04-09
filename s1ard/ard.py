@@ -4,6 +4,7 @@ import time
 import shutil
 from datetime import datetime, timezone
 import numpy as np
+import pandas as pd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
@@ -20,7 +21,7 @@ from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
-from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
+from s1ard.metadata.extract import copy_src_meta
 from s1ard.snap import find_datasets
 import logging
 
@@ -758,58 +759,19 @@ def calc_product_start_stop(src_ids, extent, epsg):
         tile_geom.reproject(4326)
         scene_geoms = [x.geometry() for x in src_ids]
         with combine_polygons(scene_geoms) as scene_geom:
-            intersection = intersect(tile_geom, scene_geom)
+            with intersect(tile_geom, scene_geom) as intersection:
+                gdf = intersection.to_geopandas()
+                tile_geom_pts = gdf.get_coordinates().to_numpy()
         scene_geoms = None
     
-    src_dict = {}
-    for i, sid in enumerate(src_ids):
-        uid = os.path.basename(sid.scene).split('.')[0][-4:]
-        src_dict[uid] = get_src_meta(sid)
-        src_dict[uid]['sid'] = sid
-    
-    uids = list(src_dict.keys())
-    
-    for uid in uids:
-        t = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/azimuthTime')
-        y = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/latitude')
-        x = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/longitude')
-        
-        swaths = t.keys()
-        t_flat = [item for sub in [t[s] for s in swaths] for item in sub]
-        y_flat = [item for sub in [y[s] for s in swaths] for item in sub]
-        x_flat = [item for sub in [x[s] for s in swaths] for item in sub]
-        
-        t_flat = np.asarray(
-            [datetime.fromisoformat(item)
-             .replace(tzinfo=timezone.utc)
-             .timestamp()
-             for item in t_flat]
-        )
-        
-        y_flat = np.asarray([float(item) for item in y_flat])
-        x_flat = np.asarray([float(item) for item in x_flat])
-        
-        g = np.asarray(list(zip(x_flat, y_flat)))
-        src_dict[uid]['az_time'] = t_flat
-        src_dict[uid]['gridpts'] = g
-    
-    az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
-    gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
-    
-    az_time = np.concatenate(az_time) if len(uids) > 1 else az_time[0]
-    gridpts = np.concatenate(gridpts) if len(uids) > 1 else gridpts[0]
-    
-    tile_geom_pts = []
-    for feature in intersection.layer:
-        geometry = feature.GetGeometryRef()
-        ring = geometry.GetGeometryRef(0)
-        points = ring.GetPoints()
-        tile_geom_pts.extend(points)
-    intersection = feature = geometry = ring = None
-    tile_geom_pts = np.asarray(tile_geom_pts)
+    gdfs = []
+    for src_id in src_ids:
+        with src_id.geo_grid() as vec:
+            gdfs.append(vec.to_geopandas())
+    gdf = pd.concat(gdfs)
+    gdf['timestamp'] = gdf['azimuthTime'].astype(np.int64) / 10 ** 9
+    gridpts = gdf.get_coordinates().to_numpy()
+    az_time = gdf['timestamp'].values
     
     interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
     
