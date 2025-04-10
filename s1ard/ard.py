@@ -754,6 +754,11 @@ def calc_product_start_stop(src_ids, extent, epsg):
     -------
     tuple[datetime.datetime]
         Start and stop time of the ARD product in UTC.
+    
+    See Also
+    --------
+    pyroSAR.drivers.SAFE.geo_grid
+    scipy.interpolate.griddata
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
