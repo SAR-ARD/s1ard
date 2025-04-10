@@ -4,6 +4,7 @@ import time
 import shutil
 from datetime import datetime, timezone
 import numpy as np
+import pandas as pd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
@@ -19,8 +20,8 @@ import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
-from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name
-from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
+from s1ard.metadata.extract import copy_src_meta
 from s1ard.snap import find_datasets
 import logging
 
@@ -734,8 +735,9 @@ def calc_product_start_stop(src_ids, extent, epsg):
     The geolocation grid points including their azimuth time information are
     extracted first from the metadata of each source product.
     These grid points are then used to interpolate the azimuth time for the
-    lower right and upper left (ascending) or upper right and lower left
-    (descending) corners of the MGRS tile extent.
+    coordinates of the MGRS tile extent. The lowest and highest interpolated
+    value are returned as product acquisition start and stop times of the
+    ARD product.
 
     Parameters
     ----------
@@ -746,86 +748,44 @@ def calc_product_start_stop(src_ids, extent, epsg):
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The coordinate reference system as an EPSG code.
+        The coordinate reference system of the extent as an EPSG code.
 
     Returns
     -------
     tuple[datetime.datetime]
         Start and stop time of the ARD product in UTC.
+    
+    See Also
+    --------
+    pyroSAR.drivers.SAFE.geo_grid
+    scipy.interpolate.griddata
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
-        ext = tile_geom.extent
-        ul = (ext['xmin'], ext['ymax'])
-        ur = (ext['xmax'], ext['ymax'])
-        lr = (ext['xmax'], ext['ymin'])
-        ll = (ext['xmin'], ext['ymin'])
+        scene_geoms = [x.geometry() for x in src_ids]
+        with combine_polygons(scene_geoms) as scene_geom:
+            with intersect(tile_geom, scene_geom) as intersection:
+                gdf = intersection.to_geopandas()
+                tile_geom_pts = gdf.get_coordinates().to_numpy()
+        scene_geoms = None
     
-    src_dict = {}
-    for i, sid in enumerate(src_ids):
-        uid = os.path.basename(sid.scene).split('.')[0][-4:]
-        src_dict[uid] = get_src_meta(sid)
-        src_dict[uid]['sid'] = sid
+    gdfs = []
+    for src_id in src_ids:
+        with src_id.geo_grid() as vec:
+            gdfs.append(vec.to_geopandas())
+    gdf = pd.concat(gdfs)
+    gdf['timestamp'] = gdf['azimuthTime'].astype(np.int64) / 10 ** 9
+    gridpts = gdf.get_coordinates().to_numpy()
+    az_time = gdf['timestamp'].values
     
-    uids = list(src_dict.keys())
+    interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
     
-    for uid in uids:
-        t = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/azimuthTime')
-        y = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/latitude')
-        x = find_in_annotation(annotation_dict=src_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/longitude')
-        
-        swaths = t.keys()
-        t_flat = [item for sub in [t[s] for s in swaths] for item in sub]
-        y_flat = [item for sub in [y[s] for s in swaths] for item in sub]
-        x_flat = [item for sub in [x[s] for s in swaths] for item in sub]
-        
-        t_flat = np.asarray(
-            [datetime.fromisoformat(item)
-             .replace(tzinfo=timezone.utc)
-             .timestamp()
-             for item in t_flat]
-        )
-        
-        y_flat = np.asarray([float(item) for item in y_flat])
-        x_flat = np.asarray([float(item) for item in x_flat])
-        
-        g = np.asarray(list(zip(x_flat, y_flat)))
-        src_dict[uid]['az_time'] = t_flat
-        src_dict[uid]['gridpts'] = g
+    if np.isnan(interpolated).any():
+        raise RuntimeError('Interpolated array contains NaN values.')
     
-    if len(uids) == 2:
-        starts = [src_dict[uid]['sid'].start for uid in uids]
-        starts = [datetime.strptime(x, '%Y%m%dT%H%M%S')
-                  .replace(tzinfo=timezone.utc) for x in starts]
-        az_time = [src_dict[key]['az_time'] for key in src_dict.keys()]
-        gridpts = [src_dict[key]['gridpts'] for key in src_dict.keys()]
-        if starts[0] > starts[1]:
-            az_time = az_time[::-1]
-            gridpts = gridpts[::-1]
-        az_time = np.concatenate(az_time)
-        gridpts = np.concatenate(gridpts)
-    else:
-        az_time = src_dict[uids[0]]['az_time']
-        gridpts = src_dict[uids[0]]['gridpts']
-    
-    if src_dict[uids[0]]['sid'].orbit == 'A':
-        coord1, coord2 = lr, ul
-    else:
-        coord1, coord2 = ur, ll
-    
-    method = 'linear'
-    res = [griddata(gridpts, az_time, coord1, method=method),
-           griddata(gridpts, az_time, coord2, method=method)]
-    
-    res_t = [
-        min(az_time) if np.isnan(res[0]) else float(res[0]),
-        max(az_time) if np.isnan(res[1]) else float(res[1]),
-    ]
-    res_t = [datetime.fromtimestamp(x, tz=timezone.utc) for x in res_t]
-    return tuple(res_t)
+    out = [min(interpolated), max(interpolated)]
+    out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
+    return tuple(out)
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
