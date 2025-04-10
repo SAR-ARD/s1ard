@@ -775,6 +775,9 @@ def calc_product_start_stop(src_ids, extent, epsg):
     
     interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
     
+    if np.isnan(interpolated).any():
+        raise RuntimeError('Interpolated array contains NaN values.')
+    
     out = [min(interpolated), max(interpolated)]
     out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
     return tuple(out)
