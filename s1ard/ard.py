@@ -8,7 +8,7 @@ import pandas as pd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
-from scipy.interpolate import griddata
+from scipy.interpolate import RBFInterpolator
 from osgeo import gdal
 from spatialist.vector import Vector, bbox, intersect
 from spatialist.raster import Raster, Dtype
@@ -758,7 +758,7 @@ def calc_product_start_stop(src_ids, extent, epsg):
     See Also
     --------
     pyroSAR.drivers.SAFE.geo_grid
-    scipy.interpolate.griddata
+    scipy.interpolate.RBFInterpolator
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
@@ -778,7 +778,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
     gridpts = gdf.get_coordinates().to_numpy()
     az_time = gdf['timestamp'].values
     
-    interpolated = griddata(gridpts, az_time, tile_geom_pts, method='linear')
+    rbf = RBFInterpolator(y=gridpts, d=az_time)
+    interpolated = rbf(tile_geom_pts)
     
     if np.isnan(interpolated).any():
         raise RuntimeError('Interpolated array contains NaN values.')
