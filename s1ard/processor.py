@@ -109,18 +109,17 @@ def main(config_file=None, debug=False, **kwargs):
         # Remove scenes with an invalid (0) slice number if others have a valid one (>0).
         # This ensures that scenes with a valid slice number are preferred.
         slice_numbers = [x.meta['sliceNumber'] for x in scenes]
-        c1 = None not in slice_numbers
-        c2 = min(slice_numbers) == 0 and max(slice_numbers) > 0
-        if c1 and c2:
-            for i in reversed(range(len(scenes))):
-                if slice_numbers[i] == 0:
-                    del scenes[i]
-                    del slice_numbers[i]
-            for i in range(1, len(scenes)):
-                if slice_numbers[i] != slice_numbers[i - 1] + 1:
-                    raise RuntimeError(f"nonconsecutive scene group, "
-                                       f"slice numbers: {slice_numbers}")
-    ####################################################################################################################
+        if None not in slice_numbers:
+            if min(slice_numbers) == 0 and max(slice_numbers) > 0:
+                for i in reversed(range(len(scenes))):
+                    if slice_numbers[i] == 0:
+                        del scenes[i]
+                        del slice_numbers[i]
+                for i in range(1, len(scenes)):
+                    if slice_numbers[i] != slice_numbers[i - 1] + 1:
+                        raise RuntimeError(f"nonconsecutive scene group, "
+                                           f"slice numbers: {slice_numbers}")
+        ####################################################################################################################
     # Get neighboring GRD scenes to add a buffer to the geocoded scenes.
     # Otherwise, there will be a gap between final geocoded images.
     # Buffering is only possible if the product composition is 'Sliced'
