@@ -671,6 +671,8 @@ def process(scene, outdir, measurement, spacing, dem,
     workflows = []
     
     apply_rtc = True
+    
+    apply_grd_buffering = neighbors is not None and len(neighbors) > 0
     ############################################################################
     # general pre-processing
     out_pre = tmp_base + '_pre.dim'
@@ -682,12 +684,13 @@ def process(scene, outdir, measurement, spacing, dem,
             log.info('preprocessing main scene')
             pre(src=scene, dst=out_pre, workflow=out_pre_wf,
                 allow_res_osv=allow_res_osv, output_noise=output_noise,
-                output_beta0=apply_rtc, gpt_args=gpt_args)
+                output_beta0=apply_rtc, gpt_args=gpt_args,
+                add_slice_num=apply_grd_buffering)
         else:
             log.info('main scene has already been preprocessed')
     ############################################################################
     # GRD buffering
-    if neighbors is not None and len(neighbors) > 0:
+    if apply_grd_buffering:
         # general preprocessing of neighboring scenes
         out_pre_neighbors = []
         for item in neighbors:
