@@ -1,5 +1,6 @@
 import os
 import re
+import inspect
 from lxml import etree
 from pathlib import Path
 from dateutil.parser import parse as dateparse
@@ -7,7 +8,7 @@ from packaging.version import Version
 from datetime import datetime, timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
-from spatialist.vector import Vector, crsConvert
+from spatialist.vector import Vector, crsConvert, wkt2vector
 import asf_search as asf
 from pyroSAR import identify_many, ID
 from s1ard.ancillary import date_to_utc, buffer_time, combine_polygons
@@ -318,7 +319,7 @@ class STACParquetArchive(object):
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True):
+               vectorobject=None, date_strict=True, return_value='scene'):
         """
         Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
 
@@ -352,13 +353,24 @@ class STACParquetArchive(object):
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        check_exist: bool
-            check whether found files exist locally?
+        return_value: str or List[str]
+            the query return value(s). Options:
+            
+            - acquisition_mode: the sensor's acquisition mode, e.g. IW, EW, SM
+            - frameNumber: the frame or datatake number
+            - geometry_wkb: the scene's footprint geometry formatted as WKB
+            - geometry_wkt: the scene's footprint geometry formatted as WKT
+            - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+            - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+            - product: the product type, e.g. SLC, GRD
+            - sensor: the scene's storage location path (default)
 
         Returns
         -------
-        list[str]
-            the locations of the scene directories with suffix .SAFE
+        List[str] or List[tuple[str]]
+            the selected return value(s). Depending on whether a single or multiple
+            values have been defined for `return_value`, the returned list will
+            contain strings or tuples.
         """
         pars = locals()
         try:
@@ -373,8 +385,10 @@ class STACParquetArchive(object):
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
-        del pars['date_strict']
         del pars['self']
+        del pars['date_strict']
+        del pars['return_value']
+        
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
@@ -382,7 +396,26 @@ class STACParquetArchive(object):
                   'sensor': 'platform',
                   'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
-                           'S1B': 'sentinel-1b'}
+                           'S1B': 'sentinel-1b',
+                           'S1C': 'sentinel-1c',
+                           'S1D': 'sentinel-1d'}
+        return_value_mapping = {
+            "geometry_wkb": "ST_AsWKB(geometry)",
+            "geometry_wkt": "ST_AsText(geometry)",
+            "mindate": f"STRFTIME({lookup['mindate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "maxdate": f"STRFTIME({lookup['maxdate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "scene": "replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')"
+        }
+        for k, v in lookup.items():
+            if k not in return_value_mapping:
+                return_value_mapping[k] = f"\"{lookup[k]}\""
+        
+        return_values = return_value if isinstance(return_value, list) else [return_value]
+        for return_value in return_values:
+            if return_value not in return_value_mapping:
+                raise ValueError(f"unsupported return value '{return_value}'.\n"
+                                 f"supported options: {list(return_value_mapping.keys())}")
+        
         terms = []
         for key in pars.keys():
             val = pars[key]
@@ -427,13 +460,23 @@ class STACParquetArchive(object):
                     subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
                 terms.append(subterm)
         sql_where = ' AND '.join(terms)
+        sql_return_value = ', '.join([return_value_mapping[x] for x in return_values])
         sql_query = f"""
-        SELECT
-        replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')
+        SELECT {sql_return_value}
         FROM '{self.files}' WHERE {sql_where}
         """
         result = duckdb.query(sql_query).fetchall()
-        out = [x[0] for x in result]
+        if 'sensor' in return_values:
+            lookup_platform_reverse = {value: key for key, value in lookup_platform.items()}
+            sensor_index = return_values.index('sensor')
+            for i, item in enumerate(result):
+                item_new = list(item)
+                item_new[sensor_index] = lookup_platform_reverse[item[sensor_index]]
+                result[i] = tuple(item_new)
+        if len(return_values) == 1:
+            out = [x[0] for x in result]
+        else:
+            out = result
         return sorted(out)
 
 
@@ -591,7 +634,7 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     return sorted(out)
 
 
-def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
+def scene_select(archive, aoi_tiles=None, aoi_geometry=None, return_value='scene', **kwargs):
     """
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
@@ -628,9 +671,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
-    cores: int
-        the number of cores to parallelize scene identification
-        (see :func:`pyroSAR.drivers.identify_many`)
+    return_value: str or List[str]
+        the query return value(s). Default 'scene': return the scene's storage location path.
+        See the documentation of `archive.select` for options.
     kwargs
         further search arguments passed to the `select` method of `archive`.
         The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
@@ -639,9 +682,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
 
     Returns
     -------
-    tuple[list[str], list[str]]
+    tuple[list[str or tuple[str]], list[str]]
     
-     - the list of scenes
+     - the list of return values; single value:string, multiple values: tuple
      - the list of MGRS tiles
     
     """
@@ -663,8 +706,16 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     if args['acquisition_mode'] == 'SM':
         args['acquisition_mode'] = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     
+    signature = inspect.signature(archive.select)
+    if 'return_value' not in signature.parameters:
+        raise RuntimeError("the 'select' method of 'archive' does not take "
+                           "a 'return_value' parameter")
+    
+    return_values = return_value if isinstance(return_value, list) else [return_value]
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'ASF'
+    else:
+        args['return_value'] = return_value
     
     vec = None
     if aoi_tiles is not None:
@@ -690,16 +741,21 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     # derive geometries and tiles from scene footprints
     if vec is None:
         log.debug("performing initial scene search without geometry constraint")
+        args['return_value'] = ['mindate', 'maxdate', 'geometry_wkt']
         selection_tmp = archive.select(**args)
-        log.debug(f'got {len(selection_tmp)} scenes, reading metadata')
-        if len(selection_tmp) == 0:
-            return [], []
-        if not isinstance(selection_tmp[0], ID):
-            scenes = identify_many(scenes=selection_tmp, sortkey='start', cores=cores)
-        else:
-            scenes = selection_tmp
+        log.debug(f'got {len(selection_tmp)} scenes')
+        mindates, maxdates, geometries_init = zip(*selection_tmp)
+        # The geometry of scenes crossing the antimeridian is stored as multipolygon.
+        # Since the processor is currently not able to process these scenes, they are
+        # removed in this step.
+        geometries = [x for x in geometries_init if x.startswith('POLYGON')]
+        if len(geometries) < len(geometries_init):
+            log.debug(f'removed {len(geometries_init) - len(geometries)} '
+                      f'scenes crossing the antimeridian')
+        del selection_tmp
+        
         log.debug(f"loading geometries")
-        scenes_geom = [x.geometry() for x in scenes]
+        scenes_geom = [wkt2vector(x, srs=4326) for x in geometries]
         # select all tiles overlapping with the scenes for further processing
         log.debug("extracting all tiles overlapping with initial scene selection")
         vec = tile_from_aoi(vector=scenes_geom,
@@ -710,9 +766,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
         log.debug(f"got {len(aoi_tiles)} tiles")
         del scenes_geom
         
-        args['mindate'] = min([date_to_utc(x.start, as_datetime=True) for x in scenes])
-        args['maxdate'] = max([date_to_utc(x.stop, as_datetime=True) for x in scenes])
-        del scenes
+        args['mindate'] = min([date_to_utc(x, as_datetime=True) for x in mindates])
+        args['maxdate'] = max([date_to_utc(x, as_datetime=True) for x in maxdates])
+        del mindates, maxdates, geometries
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
@@ -721,36 +777,46 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     if 'maxdate' in args.keys():
         args['maxdate'] += timedelta(minutes=1)
     
-    if isinstance(archive, ASFArchive):
-        args['return_value'] = 'url'
+    args['return_value'] = return_values.copy()
+    for key in ['mindate', 'maxdate']:
+        if key not in args['return_value']:
+            args['return_value'].append(key)
     
     log.debug("performing main scene search")
     with combine_polygons(vec, multipolygon=True) as combined:
         args['vectorobject'] = combined
         selection = archive.select(**args)
-    del vec, args
-    scenes = sorted(list(set(selection)))
-    if mindate_init is not None:
-        while True:
-            base = os.path.basename(scenes[0])
-            start, stop = re.findall('[0-9T]{15}', base)
-            stop = date_to_utc(stop, as_datetime=True)
-            if stop < mindate_init:
-                del scenes[0]
-            else:
-                break
-    if maxdate_init is not None:
-        while True:
-            base = os.path.basename(scenes[-1])
-            start, stop = re.findall('[0-9T]{15}', base)
-            start = date_to_utc(start, as_datetime=True)
-            if start > maxdate_init:
-                del scenes[-1]
-            else:
-                break
+    del vec
     
-    log.debug(f"got {len(scenes)} scenes")
-    return scenes, aoi_tiles
+    # reduce the selection to the time range defined by the user
+    if mindate_init is not None or maxdate_init is not None:
+        i = 0
+        while i < len(selection):
+            values = dict(zip(args['return_value'], selection[i]))
+            start = date_to_utc(values['mindate'], as_datetime=True)
+            stop = date_to_utc(values['maxdate'], as_datetime=True)
+            delete = False
+            if mindate_init is not None and stop < mindate_init:
+                delete = True
+            if maxdate_init is not None and start > maxdate_init:
+                delete = True
+            if delete:
+                del selection[i]
+            else:
+                i += 1
+    
+    # sort the return values by the scene's basename
+    rv_scene_key = args['return_value'].index('scene')
+    selection = sorted(selection, key=lambda k: os.path.basename(k[rv_scene_key]))
+    
+    # reduce the return values to those defined by the user
+    indices = [i for i, key in enumerate(args['return_value']) if key in return_values]
+    if len(indices) == 1:
+        selection = [scene[indices[0]] for scene in selection]
+    else:
+        selection = [tuple(scene[i] for i in indices) for scene in selection]
+    log.debug(f"got {len(selection)} scenes")
+    return selection, aoi_tiles
 
 
 def collect_neighbors(archive, scene, stac_check_exist=True):
