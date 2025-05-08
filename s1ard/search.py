@@ -354,7 +354,16 @@ class STACParquetArchive(object):
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
         return_value: str or List[str]
-            the query return value(s). Default 'scene': return the scene's storage location path.
+            the query return value(s). Options:
+            
+            - acquisition_mode: the sensor's acquisition mode, e.g. IW, EW, SM
+            - frameNumber: the frame or datatake number
+            - geometry_wkb: the scene's footprint geometry formatted as WKB
+            - geometry_wkt: the scene's footprint geometry formatted as WKT
+            - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+            - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+            - product: the product type, e.g. SLC, GRD
+            - sensor: the scene's storage location path (default)
 
         Returns
         -------
@@ -664,6 +673,7 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, return_value='scene
         the name of a vector geometry file for spatial search
     return_value: str or List[str]
         the query return value(s). Default 'scene': return the scene's storage location path.
+        See the documentation of `archive.select` for options.
     kwargs
         further search arguments passed to the `select` method of `archive`.
         The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
