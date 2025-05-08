@@ -109,7 +109,9 @@ def main(config_file=None, debug=False, **kwargs):
         # Remove scenes with an invalid (0) slice number if others have a valid one (>0).
         # This ensures that scenes with a valid slice number are preferred.
         slice_numbers = [x.meta['sliceNumber'] for x in scenes]
-        if min(slice_numbers) == 0 and max(slice_numbers) > 0:
+        c1 = None not in slice_numbers
+        c2 = min(slice_numbers) == 0 and max(slice_numbers) > 0
+        if c1 and c2:
             for i in reversed(range(len(scenes))):
                 if slice_numbers[i] == 0:
                     del scenes[i]
@@ -119,15 +121,22 @@ def main(config_file=None, debug=False, **kwargs):
                     raise RuntimeError(f"nonconsecutive scene group, "
                                        f"slice numbers: {slice_numbers}")
     ####################################################################################################################
-    # get neighboring GRD scenes to add a buffer to the geocoded scenes
-    # otherwise there will be a gap between final geocoded images.
+    # Get neighboring GRD scenes to add a buffer to the geocoded scenes.
+    # Otherwise, there will be a gap between final geocoded images.
+    # Buffering is only possible if the product composition is 'Sliced'
+    # (not 'Assembled' or 'Individual') and thus has a sliceNumber attribute.
     if config_proc['product'] == 'GRD' and sar_flag:
         log.info('collecting GRD neighbors')
         neighbors = []
         for scenes in scenes_grouped:
-            neighbors_group = []
-            for scene in scenes:
-                neighbors_group.append(search.collect_neighbors(archive=archive, scene=scene))
+            if scenes[0].meta['sliceNumber'] is not None:
+                neighbors_group = []
+                for scene in scenes:
+                    neighbors_scene = search.collect_neighbors(archive=archive,
+                                                               scene=scene)
+                    neighbors_group.append(neighbors_scene)
+            else:
+                neighbors_group = [None] * len(scenes)
             neighbors.append(neighbors_group)
     else:
         neighbors = [[None] * len(x) for x in scenes_grouped]
