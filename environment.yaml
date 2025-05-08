@@ -25,3 +25,4 @@ dependencies:
   - requests
   - packaging
   - pandas
+  - geopandas
