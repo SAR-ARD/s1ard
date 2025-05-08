@@ -82,7 +82,7 @@ def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
 
 def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output_noise=True, output_beta0=True, output_sigma0=True,
-        output_gamma0=False, gpt_args=None):
+        output_gamma0=False, add_slice_num=True, gpt_args=None):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
@@ -107,6 +107,10 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         output sigma nought backscatter needed for NESZ?
     output_gamma0: bool
         output gamma nought backscatter needed?
+    add_slice_num: bool
+        determine a slice number and add it to the product's metadata?
+        This is only necessary if GRD buffering is intended.
+        See :func:`~s1ard.snap.nrt_slice_num`.
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
         
@@ -166,7 +170,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
     if not os.path.isfile(dst):
         gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
             gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
-        if scene.product == 'GRD':
+        if scene.product == 'GRD' and add_slice_num:
             try:
                 nrt_slice_num(dim=dst)
             except RuntimeError:
