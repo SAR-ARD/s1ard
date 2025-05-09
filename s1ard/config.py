@@ -148,7 +148,7 @@ def get_config(config_file=None, **kwargs):
             if date_short:
                 v += timedelta(days=1, microseconds=-1)
         if k == 'sensor':
-            assert v in ['S1A', 'S1B']
+            assert v in ['S1A', 'S1B', 'S1C', 'S1D']
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
