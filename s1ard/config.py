@@ -198,7 +198,7 @@ def get_config(config_file=None, **kwargs):
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
-            v = proc_sec['snap_gpt_args'].split(' ')
+            v = proc_sec.get_list(k)
         if k == 'datatake':
             v = proc_sec.get_list(k)
         out_dict['processing'][k] = v
