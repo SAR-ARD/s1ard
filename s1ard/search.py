@@ -270,7 +270,7 @@ class STACArchive(object):
                     with val.clone() as vec:
                         vec.reproject(4326)
                         feat = vec.getFeatureByIndex(0)
-                        json = feat.ExportToJson(as_object=True)
+                        json = feat.ExportToJson(as_object=True)['geometry']
                         feat = None
                         args['intersects'] = json
                 else:
