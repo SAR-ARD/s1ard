@@ -44,11 +44,17 @@ class ASF(ID):
         self.meta = self.scanMetadata()
         super(ASF, self).__init__(self.meta)
     
+    def __lt__(self, other):
+        if not isinstance(other, ASF):
+            return NotImplemented
+        return self.outname_base() < other.outname_base()
+    
     def scanMetadata(self):
         meta = dict()
         meta['acquisition_mode'] = self._meta['properties']['beamModeType']
         meta['coordinates'] = [tuple(x) for x in self._meta['geometry']['coordinates'][0]]
-        meta['frameNumber'] = self._meta['properties']['frameNumber']
+        fname = os.path.splitext(self._meta['properties']['fileName'])[0]
+        meta['frameNumber'] = fname[-11:-5]
         meta['orbit'] = self._meta['properties']['flightDirection'][0]
         meta['orbitNumber_abs'] = self._meta['properties']['orbit']
         meta['orbitNumber_rel'] = self._meta['properties']['pathNumber']
@@ -199,7 +205,8 @@ class STACArchive(object):
             - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
             - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
             - product: the product type, e.g., SLC, GRD
-            - sensor: the scene's storage location path (default)
+            - scene: the scene's storage location path (default)
+            - sensor: the satellite platform, e.g., S1A or S1B
 
         Returns
         -------
@@ -217,7 +224,6 @@ class STACArchive(object):
         del pars['return_value']
         del pars['self']
         
-        # Convert return_value to list if it's a string
         if isinstance(return_value, str):
             return_values = [return_value]
         else:
@@ -403,14 +409,15 @@ class STACParquetArchive(object):
         return_value: str or List[str]
             the query return value(s). Options:
             
-            - acquisition_mode: the sensor's acquisition mode, e.g. IW, EW, SM
+            - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
             - frameNumber: the frame or datatake number
             - geometry_wkb: the scene's footprint geometry formatted as WKB
             - geometry_wkt: the scene's footprint geometry formatted as WKT
             - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
             - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
-            - product: the product type, e.g. SLC, GRD
-            - sensor: the scene's storage location path (default)
+            - product: the product type, e.g., SLC, GRD
+            - scene: the scene's storage location path (default)
+            - sensor: the satellite platform, e.g., S1A or S1B
 
         Returns
         -------
@@ -542,7 +549,7 @@ class ASFArchive(object):
     
     @staticmethod
     def select(sensor=None, product=None, acquisition_mode=None, mindate=None,
-               maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
+               maxdate=None, vectorobject=None, date_strict=True, return_value='scene'):
         """
         Select scenes from the ASF catalog. This is a simple wrapper around the function
         :func:`~s1ard.search.asf_select` to be consistent with the interfaces of the
@@ -588,31 +595,36 @@ class ASFArchive(object):
 def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                vectorobject=None, return_value='url', date_strict=True):
     """
-    Search scenes in the Alaska Satellite Facility (ASF) data catalog. This is a simple interface to the
+    Search scenes in the Alaska Satellite Facility (ASF) data catalog.
+    This is a simple interface to the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
     
     Parameters
     ----------
     sensor: str
-        S1A or S1B
+        S1A|S1B|S1C|S1D
     product: str
         GRD or SLC
     acquisition_mode: str
-        IW, EW or SM
+        IW, EW, or SM
     mindate: str or datetime.datetime
         the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
     maxdate: str or datetime.datetime
         the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap. The object may only contain one feature.
-    return_value: str or list[str]
-        the metadata return value; if `ASF`, an :class:`~s1ard.search.ASF` object is returned;
-        further string options specify certain properties to return: `beamModeType`, `browse`,
-        `bytes`, `centerLat`, `centerLon`, `faradayRotation`, `fileID`, `flightDirection`, `groupID`,
-        `granuleType`, `insarStackId`, `md5sum`, `offNadirAngle`, `orbit`, `pathNumber`, `platform`,
-        `pointingAngle`, `polarization`, `processingDate`, `processingLevel`, `sceneName`, `sensor`,
-        `startTime`, `stopTime`, `url`, `pgeVersion`, `fileName`, `frameNumber`; all options except
-        `ASF` can also be combined in a list
+    return_value: str or List[str]
+        the query return value(s). Options:
+        
+        - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
+        - frameNumber: the frame or datatake number
+        - geometry_wkb: the scene's footprint geometry formatted as WKB
+        - geometry_wkt: the scene's footprint geometry formatted as WKT
+        - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+        - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+        - product: the product type, e.g., SLC, GRD
+        - scene: the scene's storage location path (default)
+        - sensor: the satellite platform, e.g., S1A or S1B
     date_strict: bool
         treat dates as strict limits or also allow flexible limits to incorporate scenes
         whose acquisition period overlaps with the defined limit?
@@ -628,8 +640,10 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
         whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
-    if isinstance(return_value, list) and 'ASF' in return_value:
-        raise RuntimeError("'ASF' may not be a list element of 'return_value'")
+    if isinstance(return_value, str):
+        return_values = [return_value]
+    else:
+        return_values = return_value
     
     if product == 'GRD':
         processing_level = ['GRD_HD', 'GRD_MD', 'GRD_MS', 'GRD_HS', 'GRD_FD']
@@ -651,7 +665,13 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     start = date_to_utc(mindate, as_datetime=True)
     stop = date_to_utc(maxdate, as_datetime=True)
     
-    result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
+    lookup_platform = {'S1A': 'Sentinel-1A',
+                       'S1B': 'Sentinel-1B',
+                       'S1C': 'Sentinel-1C',
+                       'S1D': 'Sentinel-1D'}
+    platform = lookup_platform[sensor] if sensor is not None else None
+    
+    result = asf.search(platform=platform,
                         processingLevel=processing_level,
                         beamMode=beam_mode,
                         start=start,
@@ -667,18 +687,35 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                     if start <= date_extract(x, 'startTime')
                     and date_extract(x, 'stopTime') <= stop]
     
-    if return_value == 'ASF':
-        return [ASF(x) for x in features]
+    features = sorted([ASF(x) for x in features])
+    
     out = []
     for item in features:
-        properties = item['properties']
-        if isinstance(return_value, str):
-            out.append(properties[return_value])
-        elif isinstance(return_value, list):
-            out.append(tuple([properties[x] for x in return_value]))
+        values = []
+        for key in return_values:
+            if key == 'ASF':
+                values.append(item)
+            elif key == 'mindate':
+                values.append(getattr(item, 'start'))
+            elif key == 'maxdate':
+                values.append(getattr(item, 'stop'))
+            elif key == 'geometry_wkb':
+                with item.geometry() as vec:
+                    value = vec.to_geopandas().to_wkb()['geometry'][0]
+                    values.append(value)
+            elif key == 'geometry_wkt':
+                with item.geometry() as vec:
+                    value = vec.to_geopandas().to_wkt()['geometry'][0]
+                    values.append(value)
+            elif hasattr(item, key):
+                values.append(getattr(item, key))
+            else:
+                raise ValueError(f'invalid return value: {key}')
+        if len(return_values) == 1:
+            out.append(values[0])
         else:
-            raise TypeError(f'invalid type of return value: {type(return_value)}')
-    return sorted(out)
+            out.append(tuple(values))
+    return out
 
 
 def scene_select(archive, aoi_tiles=None, aoi_geometry=None, return_value='scene', **kwargs):
