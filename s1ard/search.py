@@ -9,6 +9,7 @@ from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector, crsConvert, wkt2vector
 from shapely.geometry import shape
+from shapely.ops import orient
 import asf_search as asf
 from pyroSAR import identify_many, ID
 from s1ard.ancillary import date_to_utc, buffer_time, combine_polygons
@@ -322,10 +323,11 @@ class STACArchive(object):
                     if key == 'sensor':
                         value = lookup_platform_reverse[value]
                     values.append(value)
+                # reverse coordinate order to be consistent with ASF return
                 elif key == "geometry_wkt":
-                    values.append(shape(item.geometry).wkt)
+                    values.append(orient(shape(item.geometry), sign=-1.0).wkt)
                 elif key == "geometry_wkb":
-                    values.append(shape(item.geometry).wkb)
+                    values.append(orient(shape(item.geometry), sign=-1.0).wkb)
                 else:
                     raise ValueError(f"Invalid return value: {key}")
             
@@ -341,7 +343,7 @@ class STACArchive(object):
             o = i[:-2]
             return o[0] if len(o) == 1 else tuple(o)
         
-        out =[reduce(x) for x in out]
+        out = [reduce(x) for x in out]
         return out
 
 
