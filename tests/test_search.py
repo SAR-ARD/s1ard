@@ -1,18 +1,38 @@
 from pyroSAR import identify
 from s1ard.search import STACArchive, ASFArchive, collect_neighbors, scene_select
+from shapely import wkt
 
 
 def test_stac(stac, testdata):
+    search_args = {'sensor': 'S1A', 'product': 'GRD',
+                   'mindate': '20200708T182600', 'maxdate': '20200708T182800',
+                   'check_exist': False}
     with STACArchive(url=stac['url'],
                      collections=[stac['collection']]) as archive:
-        scenes = archive.select(sensor='S1A', mindate='20200708T182600',
-                                maxdate='20200708T182800', check_exist=False)
+        scenes = archive.select(**search_args)
         assert len(scenes) == 4
         scene = identify(testdata['s1'])
         neighbors = collect_neighbors(archive=archive, scene=scene,
                                       stac_check_exist=False)
         suffixes = sorted([x[-9:] for x in neighbors])
         assert suffixes == ['CEAB.SAFE', 'EBC3.SAFE']
+        
+        return_values = ['product', 'acquisition_mode', 'mindate', 'maxdate',
+                         'sensor', 'frameNumber', 'geometry_wkt', 'geometry_wkb']
+        values = archive.select(**search_args, return_value=return_values)
+        values = [dict(zip(return_values, x)) for x in values]
+        assert values[0]['product'] == 'GRD'
+        assert values[0]['acquisition_mode'] == 'IW'
+        assert values[0]['mindate'] == '20200708T182614'
+        assert values[0]['maxdate'] == '20200708T182643'
+        assert values[0]['sensor'] == 'S1A'
+        assert values[0]['frameNumber'] == '03DDAA'
+        wkt_string = ('POLYGON ((-3.54075 4.290702, -1.313489 4.754753, '
+                      '-1.666533 6.50591, -3.901151 6.046738, '
+                      '-3.54075 4.290702))')
+        wkb = wkt.loads(wkt_string).wkb
+        assert values[0]['geometry_wkt'] == wkt_string
+        assert values[0]['geometry_wkb'] == wkb
 
 
 def test_asf(testdata):

@@ -1,14 +1,14 @@
 import os
 import re
 import inspect
-from lxml import etree
 from pathlib import Path
 from dateutil.parser import parse as dateparse
 from packaging.version import Version
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector, crsConvert, wkt2vector
+from shapely.geometry import shape
 import asf_search as asf
 from pyroSAR import identify_many, ID
 from s1ard.ancillary import date_to_utc, buffer_time, combine_polygons
@@ -113,34 +113,26 @@ class STACArchive(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
     
-    @staticmethod
-    def _get_proc_time(scene):
-        with open(os.path.join(scene, 'manifest.safe'), 'rb') as f:
-            tree = etree.fromstring(f.read())
-        proc = tree.find(path='.//xmlData/safe:processing',
-                         namespaces=tree.nsmap)
-        start = proc.attrib['start']
-        del tree, proc
-        return datetime.strptime(start, '%Y-%m-%dT%H:%M:%S.%f')
-    
-    def _filter_duplicates(self, scenes):
-        tmp = sorted(scenes)
+    def _filter_duplicates(self, values):
+        tmp = sorted(values, key=lambda x: os.path.basename(x[-2]))
         pattern = '([0-9A-Z_]{16})_([0-9T]{15})_([0-9T]{15})'
         keep = []
         i = 0
         while i < len(tmp):
             group = [tmp[i]]
-            match1 = re.search(pattern, os.path.basename(tmp[i])).groups()
+            base = os.path.basename(tmp[i][-2])
+            match1 = re.search(pattern, base).groups()
             j = i + 1
             while j < len(tmp):
-                match2 = re.search(pattern, os.path.basename(tmp[j])).groups()
+                base = os.path.basename(tmp[j][-2])
+                match2 = re.search(pattern, base).groups()
                 if match1 == match2:
                     group.append(tmp[j])
                     j += 1
                 else:
                     break
             if len(group) > 1:
-                tproc = [self._get_proc_time(x) for x in group]
+                tproc = [x[-1] for x in group]
                 keep.append(group[tproc.index(max(tproc))])
             else:
                 keep.append(group[0])
@@ -158,17 +150,20 @@ class STACArchive(object):
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True, check_exist=True):
+               vectorobject=None, date_strict=True, check_exist=True,
+               return_value="scene"):
         """
-        Select scenes from the catalog. Used STAC keys:
-        
+        Select scenes from the catalog. Duplicates (same acquisition time) are filtered
+        by returning only the last processed product. Used STAC property keys:
+
         - platform
         - start_datetime
         - end_datetime
+        - created
         - sar:instrument_mode
         - sar:product_type
         - s1:datatake (custom)
-        
+
         Parameters
         ----------
         sensor: str or list[str] or None
@@ -189,17 +184,29 @@ class STACArchive(object):
         date_strict: bool
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
-            
+
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
         check_exist: bool
             check whether found files exist locally?
-        
+        return_value: str or List[str]
+            the query return value(s). Options:
+            
+            - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
+            - frameNumber: the frame or datatake number
+            - geometry_wkb: the scene's footprint geometry formatted as WKB
+            - geometry_wkt: the scene's footprint geometry formatted as WKT
+            - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+            - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+            - product: the product type, e.g., SLC, GRD
+            - sensor: the scene's storage location path (default)
+
         Returns
         -------
-        list[str]
-            the locations of the scene directories with suffix .SAFE
-        
+        list or list[tuple]
+            If a single return_value is specified: list of values
+            If multiple return_values are specified: list of tuples containing the requested values
+
         See Also
         --------
         pystac_client.Client.search
@@ -207,7 +214,14 @@ class STACArchive(object):
         pars = locals()
         del pars['date_strict']
         del pars['check_exist']
+        del pars['return_value']
         del pars['self']
+        
+        # Convert return_value to list if it's a string
+        if isinstance(return_value, str):
+            return_values = [return_value]
+        else:
+            return_values = return_value
         
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
@@ -217,6 +231,8 @@ class STACArchive(object):
                   'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
+        lookup_platform_reverse = {value: key for key, value
+                                   in lookup_platform.items()}
         
         args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
@@ -280,15 +296,46 @@ class STACArchive(object):
             assets = item.assets
             ref = assets[list(assets.keys())[0]]
             href = ref.href
-            path = href[:re.search(r'\.SAFE', href).end()]
-            path = re.sub('^file://', '', path)
-            if Path(path).exists():
-                path = os.path.realpath(path)
+            scene = href[:re.search(r'\.SAFE', href).end()]
+            scene = re.sub('^file://', '', scene)
+            if Path(scene).exists():
+                scene = os.path.realpath(scene)
             else:
                 if check_exist:
-                    raise RuntimeError('scene does not exist locally:', path)
-            out.append(path)
+                    raise RuntimeError('scene does not exist locally:', scene)
+            
+            # prepare return values
+            values = []
+            for key in return_values:
+                if key == "scene":
+                    values.append(scene)
+                elif key in lookup.keys():
+                    value = item.properties[lookup[key]]
+                    if key in ['mindate', 'maxdate']:
+                        value = dateparse(value).strftime('%Y%m%dT%H%M%S')
+                    if key == 'sensor':
+                        value = lookup_platform_reverse[value]
+                    values.append(value)
+                elif key == "geometry_wkt":
+                    values.append(shape(item.geometry).wkt)
+                elif key == "geometry_wkb":
+                    values.append(shape(item.geometry).wkb)
+                else:
+                    raise ValueError(f"Invalid return value: {key}")
+            
+            values.append(scene)
+            created = dateparse(item.properties['created'])
+            values.append(created)
+            
+            out.append(values)
+        
         out = self._filter_duplicates(out)
+        
+        def reduce(i):
+            o = i[:-2]
+            return o[0] if len(o) == 1 else tuple(o)
+        
+        out =[reduce(x) for x in out]
         return out
 
 
@@ -321,7 +368,7 @@ class STACParquetArchive(object):
                mindate=None, maxdate=None, frameNumber=None,
                vectorobject=None, date_strict=True, return_value='scene'):
         """
-        Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
+        Select scenes from a STAC catalog's geoparquet dump. Used STAC property keys:
 
         - platform
         - start_datetime
