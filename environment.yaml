@@ -25,4 +25,5 @@ dependencies:
   - requests
   - packaging
   - pandas
+  - geopandas
   - shapely

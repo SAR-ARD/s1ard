@@ -1,6 +1,7 @@
 asf_search
 click>=7.1.0
 gdal>=3.5.0
+geopandas
 lxml
 multiformats>=0.3.1
 numpy<2.0

@@ -5,6 +5,7 @@ import shutil
 from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
@@ -764,9 +765,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
         tile_geom.reproject(4326)
         scene_geoms = [x.geometry() for x in src_ids]
         with combine_polygons(scene_geoms) as scene_geom:
-            with intersect(tile_geom, scene_geom) as intersection:
-                gdf = intersection.to_geopandas()
-                tile_geom_pts = gdf.get_coordinates().to_numpy()
+            intersection = gpd.overlay(df1=tile_geom.to_geopandas(),
+                                       df2=scene_geom.to_geopandas(),
+                                       how='intersection')
+            tile_geom_pts = intersection.get_coordinates().to_numpy()
         scene_geoms = None
     
     gdfs = []
