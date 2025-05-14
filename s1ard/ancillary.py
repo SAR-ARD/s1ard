@@ -436,7 +436,7 @@ def date_to_utc(date, as_datetime=False):
     return out
 
 
-def buffer_time(start, stop, as_datetime=False, **kwargs):
+def buffer_time(start, stop, as_datetime=False, str_format='%Y%m%dT%H%M%S', **kwargs):
     """
     Time range buffering
     
@@ -448,20 +448,22 @@ def buffer_time(start, stop, as_datetime=False, **kwargs):
         the stop time date object to convert; timezone-unaware dates are interpreted as UTC.
     as_datetime: bool
         return datetime objects instead of strings?
+    str_format: str
+        the output string format (ignored if `as_datetime` is True)
     kwargs
         time arguments passed to :func:`datetime.timedelta`
 
     Returns
     -------
     tuple[str | datetime]
-        the buffered start and stop time as UTC string or datetime object
+        the buffered start and stop time as string or datetime object
     """
     td = timedelta(**kwargs)
     start = date_to_utc(start, as_datetime=True) - td
     stop = date_to_utc(stop, as_datetime=True) + td
     if not as_datetime:
-        start = start.strftime('%Y-%m-%dT%H:%M:%SZ')
-        stop = stop.strftime('%Y-%m-%dT%H:%M:%SZ')
+        start = start.strftime(str_format)
+        stop = stop.strftime(str_format)
     return start, stop
 
 
