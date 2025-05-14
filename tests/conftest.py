@@ -18,6 +18,9 @@ def stac():
     return {'url': 'https://stac.terrabyte.lrz.de/public/api',
             'collection': 'sentinel-1-grd'}
 
+@pytest.fixture
+def stac_parquet():
+    return '/dss/dsstbyfs03/pn56su/pn56su-dss-0022/Sentinel-1/GRD/geoparquet/*.parquet'
 
 @pytest.fixture
 def testdir():

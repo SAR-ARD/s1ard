@@ -1,12 +1,12 @@
 import re
 import pytest
 from pyroSAR import identify
-from s1ard.search import STACArchive, ASFArchive, collect_neighbors, scene_select
+from s1ard.search import ASFArchive, STACArchive, STACParquetArchive, collect_neighbors, scene_select
 from shapely import wkt
 
 
-@pytest.mark.parametrize('archive_class', [STACArchive, ASFArchive])
-def test_archive(archive_class, stac, testdata):
+@pytest.mark.parametrize('archive_class', [ASFArchive, STACArchive, STACParquetArchive])
+def test_archive(archive_class, stac, stac_parquet, testdata):
     """
     Test archive functionality for different archive types
 
@@ -22,14 +22,17 @@ def test_archive(archive_class, stac, testdata):
     search_args = {'sensor': 'S1A', 'product': 'GRD',
                    'mindate': '20200708T182600', 'maxdate': '20200708T182800'}
     
-    if archive_class is STACArchive:
+    if archive_class is ASFArchive:
+        archive_kwargs = {}
+        file_ext = '.zip'
+    elif archive_class is STACArchive:
         archive_kwargs = {'url': stac['url'],
                           'collections': [stac['collection']]}
         search_args['check_exist'] = False
         file_ext = '.SAFE'
-    elif archive_class is ASFArchive:
-        archive_kwargs = {}
-        file_ext = '.zip'
+    elif archive_class is STACParquetArchive:
+        archive_kwargs = {'files': stac_parquet}
+        file_ext = '.SAFE'
     else:
         raise RuntimeError(f'archive_class must be STACArchive or ASFArchive, '
                            f'is {type(archive_class)}')
