@@ -247,7 +247,7 @@ class STACArchive(object):
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_to_utc(val)
+                val = date_to_utc(val, str_format='%Y-%m-%dT%H:%M:%SZ')
             if key == 'mindate':
                 args['datetime'][0] = val
                 if date_strict:
@@ -477,7 +477,7 @@ class STACParquetArchive(object):
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_to_utc(val)
+                val = date_to_utc(val, str_format='%Y-%m-%dT%H:%M:%SZ')
             if key == 'mindate':
                 if date_strict:
                     terms.append(f'"start_datetime" >= \'{val}\'')

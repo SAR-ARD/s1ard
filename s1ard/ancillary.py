@@ -403,7 +403,7 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     return bbox(ext3, 4326)
 
 
-def date_to_utc(date, as_datetime=False):
+def date_to_utc(date, as_datetime=False, str_format='%Y%m%dT%H%M%S'):
     """
     convert a date object to a UTC date string or datetime object.
 
@@ -413,6 +413,8 @@ def date_to_utc(date, as_datetime=False):
         the date object to convert; timezone-unaware dates are interpreted as UTC.
     as_datetime: bool
         return a datetime object instead of a string?
+    str_format: str
+        the output string format (ignored if `as_datetime` is True)
 
     Returns
     -------
@@ -432,7 +434,7 @@ def date_to_utc(date, as_datetime=False):
     else:
         out = out.astimezone(timezone.utc)
     if not as_datetime:
-        out = out.strftime('%Y-%m-%dT%H:%M:%SZ')
+        out = out.strftime(str_format)
     return out
 
 
