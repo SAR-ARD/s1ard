@@ -72,16 +72,18 @@ def test_archive(archive_class, stac, stac_parquet, testdata):
         assert values[0]['geometry_wkb'] == wkb
 
 
-@pytest.mark.parametrize('archive_class', [STACArchive, ASFArchive])
-def test_scene_select(archive_class, stac):
+@pytest.mark.parametrize('archive_class', [ASFArchive, STACArchive, STACParquetArchive])
+def test_scene_select(archive_class, stac, stac_parquet):
     search_args = {'sensor': 'S1A', 'product': 'GRD',
                    'mindate': '20200708T182600', 'maxdate': '20200708T182800'}
-    if archive_class is STACArchive:
+    if archive_class is ASFArchive:
+        archive_kwargs = {}
+    elif archive_class is STACArchive:
         archive_kwargs = {'url': stac['url'],
                           'collections': [stac['collection']]}
         search_args['check_exist'] = False
-    elif archive_class is ASFArchive:
-        archive_kwargs = {}
+    elif archive_class is STACParquetArchive:
+        archive_kwargs = {'files': stac_parquet}
     else:
         raise RuntimeError(f'archive_class must be STACArchive or ASFArchive, '
                            f'is {type(archive_class)}')
