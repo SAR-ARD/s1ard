@@ -593,8 +593,8 @@ class ASFArchive(object):
                           return_value=return_value, date_strict=date_strict)
 
 
-def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
-               vectorobject=None, return_value='url', date_strict=True):
+def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
+               maxdate=None, vectorobject=None, date_strict=True, return_value='scene'):
     """
     Search scenes in the Alaska Satellite Facility (ASF) data catalog.
     This is a simple interface to the
@@ -602,18 +602,25 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     
     Parameters
     ----------
-    sensor: str
+    sensor: str or None
         S1A|S1B|S1C|S1D
-    product: str
+    product: str or None
         GRD or SLC
-    acquisition_mode: str
+    acquisition_mode: str or None
         IW, EW, or SM
-    mindate: str or datetime.datetime
+    mindate: str or datetime.datetime or None
         the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
-    maxdate: str or datetime.datetime
+    maxdate: str or datetime.datetime or None
         the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap. The object may only contain one feature.
+    date_strict: bool
+        treat dates as strict limits or also allow flexible limits to incorporate scenes
+        whose acquisition period overlaps with the defined limit?
+        
+        - strict: start >= mindate & stop <= maxdate
+        - not strict: stop >= mindate & start <= maxdate
+    
     return_value: str or List[str]
         the query return value(s). Options:
         
@@ -626,12 +633,6 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
         - product: the product type, e.g., SLC, GRD
         - scene: the scene's storage location path (default)
         - sensor: the satellite platform, e.g., S1A or S1B
-    date_strict: bool
-        treat dates as strict limits or also allow flexible limits to incorporate scenes
-        whose acquisition period overlaps with the defined limit?
-        
-        - strict: start >= mindate & stop <= maxdate
-        - not strict: stop >= mindate & start <= maxdate
 
     Returns
     -------
