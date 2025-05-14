@@ -927,13 +927,13 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
     
     kwargs = {'mindate': start, 'maxdate': stop, 'date_strict': False,
               'sensor': scene.sensor, 'product': scene.product,
-              'acquisition_mode': scene.acquisition_mode}
+              'acquisition_mode': scene.acquisition_mode,
+              'return_value': ['scene', 'mindate', 'maxdate']}
     if isinstance(archive, STACArchive):
         kwargs['check_exist'] = stac_check_exist
     
     selection = archive.select(**kwargs)
-    pattern = f'{scene.start}_{scene.stop}'
-    neighbors = [x for x in selection if not re.search(pattern, x)]
+    neighbors = [x for x in selection if x[1] != scene.start]
     if len(neighbors) > 2:
         # more than two neighbors can exist if multiple versions of the
         # datatake with different slicing exist.
@@ -941,15 +941,13 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
         stop_ref = dateparse(scene.stop)
         start_diff = []
         stop_diff = []
-        pattern = '([0-9T]{15})_([0-9T]{15})'
-        for neighbor in neighbors:
-            start, stop = [dateparse(x) for x in re.search(pattern, neighbor).groups()]
-            start_diff.append(abs(start_ref - stop))
-            stop_diff.append(abs(stop_ref - start))
+        for neighbor, start, stop in neighbors:
+            start_diff.append(abs(start_ref - dateparse(stop)))
+            stop_diff.append(abs(stop_ref - dateparse(start)))
         predecessor = neighbors[start_diff.index(min(start_diff))]
         successor = neighbors[stop_diff.index(min(stop_diff))]
         neighbors = [predecessor, successor]
-    return neighbors
+    return [x[0] for x in neighbors]
 
 
 def check_acquisition_completeness(archive, scenes):
