@@ -61,8 +61,8 @@ def test_archive(archive_class, stac, testdata):
         assert values[0]['frameNumber'] == '03DDAA'
         
         wkt_string = ('POLYGON (('
-                      '-3.54075 4.290702, -3.901151 6.046738, '
-                      '-1.666533 6.50591, -1.313489 4.754753, '
+                      '-3.54075 4.290702, -1.313489 4.754753, '
+                      '-1.666533 6.50591, -3.901151 6.046738, '
                       '-3.54075 4.290702))')
         wkb = wkt.loads(wkt_string).wkb
         assert values[0]['geometry_wkt'] == wkt_string
