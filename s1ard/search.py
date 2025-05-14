@@ -348,7 +348,7 @@ class STACArchive(object):
 
 class STACParquetArchive(object):
     """
-    Search for scenes in a SpatioTemporal Asset Catalog's geoparquet dump.
+    Search for scenes in STAC geoparquet dump.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
     The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
     :class:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
@@ -426,12 +426,17 @@ class STACParquetArchive(object):
             the selected return value(s). Depending on whether a single or multiple
             values have been defined for `return_value`, the returned list will
             contain strings or tuples.
+        
+        See Also
+        --------
+        stac_geoparquet.arrow.to_parquet
+        duckdb.query
         """
         pars = locals()
         try:
             import duckdb
         except ImportError:
-            raise ImportError("this method requires 'duckdb' to be installed")
+            raise ImportError("this method requires 'duckdb>=1.1.1' to be installed")
         ddb_version = Version(duckdb.__version__)
         ddb_version_req = Version('1.1.1')
         if ddb_version < ddb_version_req:
