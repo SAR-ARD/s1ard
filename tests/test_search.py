@@ -71,41 +71,23 @@ def test_archive(archive_class, stac, stac_parquet, testdata):
         assert values[0]['geometry_wkt'] == wkt_string
         assert values[0]['geometry_wkb'] == wkb
 
-
-@pytest.mark.parametrize('archive_class', [ASFArchive, STACArchive, STACParquetArchive])
-def test_scene_select(archive_class, stac, stac_parquet):
-    search_args = {'sensor': 'S1A', 'product': 'GRD',
-                   'mindate': '20200708T182600', 'maxdate': '20200708T182800'}
-    if archive_class is ASFArchive:
-        archive_kwargs = {}
-    elif archive_class is STACArchive:
-        archive_kwargs = {'url': stac['url'],
-                          'collections': [stac['collection']]}
-        search_args['check_exist'] = False
-    elif archive_class is STACParquetArchive:
-        archive_kwargs = {'files': stac_parquet}
-    else:
-        raise RuntimeError(f'archive_class must be STACArchive or ASFArchive, '
-                           f'is {type(archive_class)}')
-    
-    with archive_class(**archive_kwargs) as archive:
         scenes, tiles = scene_select(archive=archive, **search_args)
     
-    # four scenes matching the search result:
-    # S1A_IW_GRDH_1SDV_20200708T182614_20200708T182643_033367_03DDAA_D160 (first scene of the data take)
-    # S1A_IW_GRDH_1SDV_20200708T182643_20200708T182708_033367_03DDAA_9550
-    # S1A_IW_GRDH_1SDV_20200708T182708_20200708T182733_033367_03DDAA_DAAD
-    # S1A_IW_GRDH_1SDV_20200708T182733_20200708T182758_033367_03DDAA_888C
-    
-    # 31 MGRS tiles overlapping with the four scenes
-    
-    # one additional scene to fully cover the MGRS tiles:
-    # the default is "date_strict=True" so initially this scene is not selected
-    # because it exceeds the defined time range.
-    # S1A_IW_GRDH_1SDV_20200708T182758_20200708T182823_033367_03DDAA_A793
-    
-    assert len(scenes) == 5
-    assert len(tiles) == 31
+        # four scenes matching the search result:
+        # S1A_IW_GRDH_1SDV_20200708T182614_20200708T182643_033367_03DDAA_D160 (first scene of the data take)
+        # S1A_IW_GRDH_1SDV_20200708T182643_20200708T182708_033367_03DDAA_9550
+        # S1A_IW_GRDH_1SDV_20200708T182708_20200708T182733_033367_03DDAA_DAAD
+        # S1A_IW_GRDH_1SDV_20200708T182733_20200708T182758_033367_03DDAA_888C
+        
+        # 31 MGRS tiles overlapping with the four scenes
+        
+        # one additional scene to fully cover the MGRS tiles:
+        # the default is "date_strict=True" so initially this scene is not selected
+        # because it exceeds the defined time range.
+        # S1A_IW_GRDH_1SDV_20200708T182758_20200708T182823_033367_03DDAA_A793
+        
+        assert len(scenes) == 5
+        assert len(tiles) == 31
 
 
 def test_aoi_date():
