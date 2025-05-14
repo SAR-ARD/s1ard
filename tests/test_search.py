@@ -6,7 +6,7 @@ from shapely import wkt
 
 
 @pytest.mark.parametrize('archive_class', [
-    Archive,ASFArchive, STACArchive, STACParquetArchive
+    Archive, ASFArchive, STACArchive, STACParquetArchive
 ])
 def test_archive(archive_class, stac, stac_parquet, testdata, tmpdir):
     """
