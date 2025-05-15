@@ -472,7 +472,9 @@ def write(config, target, overwrite=False, **kwargs):
         if v is not None and work_dir in v:
             config['processing'][k] = v.replace(work_dir, '').strip('/\\')
     k = 'snap_gpt_args'
-    v = ' '.join([str(x) for x in config['processing'][k]])
+    v = config['processing'][k]
+    if v is not None:
+        v = ' '.join([str(x) for x in config['processing'][k]])
     config['processing'][k] = v
     config = to_string(config)
     parser = configparser.ConfigParser()
