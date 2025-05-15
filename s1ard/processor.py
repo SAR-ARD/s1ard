@@ -57,7 +57,8 @@ def main(config_file=None, debug=False, **kwargs):
     if db_file_set:
         archive = Archive(dbfile=config_proc['db_file'])
         if scene_dir_set:
-            scenes = finder(config_proc['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
+            scenes = finder(target=config_proc['scene_dir'],
+                            matchlist=[r'^S1[ABCD].*(SAFE|zip)$'],
                             regex=True, recursive=True, foldermode=1)
             archive.insert(scenes)
     elif stac_catalog_set and stac_collections_set:
