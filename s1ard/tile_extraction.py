@@ -50,12 +50,8 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
             if tilenames is not None:
                 values = ", ".join([f"'{x}'" for x in tilenames])
                 sql_where = f"Name IN ({values})"
-                layer_name = vec_kml.layer.GetName()
-                query = f"SELECT * FROM {layer_name} WHERE {sql_where}"
-                layer = vec_kml.vector.ExecuteSQL(query)
-            else:
-                layer = vec_kml.layer
-            for tile in layer:
+                vec_kml.layer.SetAttributeFilter(sql_where)
+            for tile in vec_kml.layer:
                 tilename = tile.GetField('Name')
                 attrib = description2dict(tile.GetField('Description'))
                 epsg_target = None
@@ -71,6 +67,11 @@ def tile_from_aoi(vector, epsg=None, strict=True, return_geometries=False, tilen
                                              epsg_in=attrib['EPSG'],
                                              epsg_out=epsg_target)
                     geom.mgrs = tilename
+                    field_defn = ogr.FieldDefn("mgrs", ogr.OFTString)
+                    geom.layer.CreateField(field_defn)
+                    feature = geom.getFeatureByIndex(0)
+                    feature.SetField("mgrs", tilename)
+                    geom.layer.SetFeature(feature)
                     tiles.append(geom)
                 else:
                     tiles.append(tilename)
@@ -114,18 +115,22 @@ def aoi_from_tile(tile):
     sql_where = f"Name IN ({values})"
     out = []
     with Vector(kml, driver='KML') as vec:
-        layer_name = vec.layer.GetName()
-        query = f"SELECT * FROM {layer_name} WHERE {sql_where}"
-        result_layer = vec.vector.ExecuteSQL(query)
-        for i, feat in enumerate(result_layer):
+        vec.layer.SetAttributeFilter(sql_where)
+        for i, feat in enumerate(vec.layer):
+            tilename = feat.GetField('Name')
             attrib = description2dict(feat.GetField('Description'))
             wkt = multipolygon2polygon(attrib['UTM_WKT'])
             epsg_target = epsg_codes[i]
             geom = wkt2vector_regrid(wkt=wkt,
                                      epsg_in=attrib['EPSG'],
                                      epsg_out=epsg_target)
+            geom.mgrs = tilename
+            field_defn = ogr.FieldDefn("mgrs", ogr.OFTString)
+            geom.layer.CreateField(field_defn)
+            feature = geom.getFeatureByIndex(0)
+            feature.SetField("mgrs", tilename)
+            geom.layer.SetFeature(feature)
             out.append(geom)
-        vec.vector.ReleaseResultSet(result_layer)
     if len(out) == 1:
         return out[0]
     else:
