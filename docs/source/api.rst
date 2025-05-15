@@ -14,6 +14,7 @@ Configuration
 
         gdal_conf
         get_config
+        init
         snap_conf
         write
 
