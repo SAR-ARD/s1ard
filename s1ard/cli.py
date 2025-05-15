@@ -1,5 +1,4 @@
 import click
-import importlib.resources
 
 
 @click.group(name='s1rb',
@@ -70,14 +69,11 @@ def init(ctx, config_file, overwrite=False, config_source=None):
     - licence:           None
     - processing_center: None
     """
-    from s1ard.config import get_config, write
-    extra = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)}
-    if config_source is None:
-        with importlib.resources.path(package='s1ard.resources',
-                                      resource='config.ini') as path:
-            config_source = str(path)
-    config = get_config(config_file=config_source, **extra)
-    write(config=config, target=config_file, overwrite=overwrite)
+    from s1ard.config import init as init_config
+    extra = {ctx.args[i][2:]: ctx.args[i + 1]
+             for i in range(0, len(ctx.args), 2)}
+    init_config(target=config_file, source=config_source,
+                overwrite=overwrite, **extra)
 
 
 @cli.command(name='process',
