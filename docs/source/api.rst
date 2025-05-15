@@ -184,6 +184,7 @@ Scene Search
         ASF
         ASFArchive
         STACArchive
+        STACParquetArchive
         asf_select
         check_acquisition_completeness
         collect_neighbors
