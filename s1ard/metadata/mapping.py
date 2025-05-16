@@ -1,3 +1,6 @@
+import s1ard
+from packaging.version import parse, Version
+
 ARD_PATTERN = r'^(?P<sensor>S1[ABCD])_' \
               r'(?P<mode>IW|EW|S[1-6])_' \
               r'(?P<product>NRB|ORB)_' \
@@ -268,3 +271,54 @@ SLC_ACC_MAP = {'SM': {'ALE': {'rg': -3.02,
                               'az': 1.37},
                       '1sigma': {'rg': 0.7,
                                  'az': 2.27}}}
+
+
+def get_release_version(version_str: str) -> str:
+    """
+    Reduces a development version string to its last release version
+
+    Parameters
+    ----------
+    version_str : str
+        Version string (e.g. "v2.2.1.dev80+g34bba8c.d20250516")
+
+    Returns
+    -------
+    str
+        Release version (e.g. "2.2.0")
+    """
+    v = parse(version_str.lstrip('v'))
+    if isinstance(v, Version):
+        release = v.base_version
+        parts = [int(x) for x in release.split('.')]
+        if v.is_devrelease:
+            if len(parts) >= 3:
+                parts[-1] = max(0, parts[-1] - 1)
+        return '.'.join(str(x) for x in parts)
+    return version_str
+
+
+URL = {
+    'ancillaryData_KML': 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__'
+                         '20151209T095117_V20150622T000000_21000101T000000_B00.kml',
+    'card4l_nrb': 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf',
+    'card4l_orb': 'https://ceos.org/ard/files/PFS/ORB/v1.0/'
+                  'CARD4L_Product_Family_Specification_Ocean_Radar_Backscatter-v1.0.pdf',
+    'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'
+                                f'v{get_release_version(s1ard.__version__)}/general/geoaccuracy.html',
+    'geoCorrAlgorithm': 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf',
+    'griddingConventionURL': 'https://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf',
+    'noiseRemovalAlgorithm': 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF',
+    'orbitDataAccess': 'https://step.esa.int/auxdata/orbits/Sentinel-1',
+    'platformReference': {
+        'sentinel-1a': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
+        'sentinel-1b': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=576',
+        'sentinel-1c': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=577',
+        'sentinel-1d': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=814'
+    },
+    'RTCAlgorithm': 'https://doi.org/10.1109/Tgrs.2011.2120616',
+    'sensorCalibration': 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration',
+    'source_access': 'https://dataspace.copernicus.eu',
+    'source_doi': 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification',
+    'windNormReferenceModel': "https://www.ecmwf.int/sites/default/files/3.1.pdf"
+}

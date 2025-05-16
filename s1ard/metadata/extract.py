@@ -16,8 +16,8 @@ from spatialist.raster import rasterize
 from spatialist.vector import Vector
 from osgeo import gdal, ogr
 import s1ard
-from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD, OSV_MAP,
-                                    DEM_MAP, SLC_ACC_MAP)
+from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
+                                    ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
 from s1ard import snap
 from s1ard.ancillary import get_tmp_name
 
@@ -97,12 +97,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
                                                         meta['common']['platformIdentifier'].lower())
-    meta['common']['platformReference'] = \
-        {'sentinel-1a': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
-         'sentinel-1b': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=576',
-         'sentinel-1c': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=577',
-         'sentinel-1d': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=814'}[
-            meta['common']['platformFullname']]
+    meta['common']['platformReference'] = URL['platformReference'][meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
     meta['common']['polarisationMode'] = prod_meta['pols'][0]
     meta['common']['processingLevel'] = 'L1C'
@@ -125,18 +120,16 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     # (sorted alphabetically)
     meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
-    meta['prod']['ancillaryData_KML'] = 'https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__' \
-                                        '20151209T095117_V20150622T000000_21000101T000000_B00.kml'
+    meta['prod']['ancillaryData_KML'] = URL['ancillaryData_KML']
     meta['prod']['azimuthNumberOfLooks'] = round(prod_meta['ML_nAzLooks'], 2)
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
     if product_type == 'ORB':
-        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/ORB/v1.0/CARD4L_Product_Family_Specification_' \
-                                      'Ocean_Radar_Backscatter-v1.0.pdf'
+        meta['prod']['card4l-link'] = URL['card4l_orb']
         meta['prod']['card4l-version'] = '1.0'
     else:
-        meta['prod']['card4l-link'] = 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf'
+        meta['prod']['card4l-link'] = URL['card4l_nrb']
         meta['prod']['card4l-version'] = '5.5'
     meta['prod']['compression_type'] = compression
     meta['prod']['compression_zerrors'] = z_err_dict
@@ -157,12 +150,16 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
-    meta['prod']['geoCorrAccuracyReference'] = 'https://s1ard.readthedocs.io/en/v{}/general/geoaccuracy.html' \
-                                               ''.format(s1ard.__version__) if geo_corr_accuracy is not None else None
-    meta['prod']['geoCorrAccuracyType'] = 'slant-range' if geo_corr_accuracy is not None else None
+    if geo_corr_accuracy is not None:
+        geo_corr_accuracy_reference = URL['geoCorrAccuracyReference']
+        geo_corr_accuracy_type = 'slant-range'
+    else:
+        geo_corr_accuracy_reference = None
+        geo_corr_accuracy_type = None
+    meta['prod']['geoCorrAccuracyReference'] = geo_corr_accuracy_reference
+    meta['prod']['geoCorrAccuracyType'] = geo_corr_accuracy_type
     meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
-    meta['prod']['geoCorrAlgorithm'] = 'https://sentinel.esa.int/documents/247904/1653442/' \
-                                       'Guide-to-Sentinel-1-Geocoding.pdf'
+    meta['prod']['geoCorrAlgorithm'] = URL['geoCorrAlgorithm']
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = prod_meta['geom']['bbox_native']
     meta['prod']['geom_stac_bbox_4326'] = prod_meta['geom']['bbox']
@@ -170,12 +167,11 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
     meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
-    meta['prod']['griddingConventionURL'] = 'http://www.mgrs-data.org/data/documents/nga_mgrs_doc.pdf'
+    meta['prod']['griddingConventionURL'] = URL['griddingConventionURL']
     meta['prod']['licence'] = config['metadata']['licence']
     meta['prod']['mgrsID'] = prod_meta['mgrsID']
     meta['prod']['noiseRemovalApplied'] = True
-    nr_algo = 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-' \
-              'Sentinel-1-IPF' if meta['prod']['noiseRemovalApplied'] else None
+    nr_algo = URL['noiseRemovalAlgorithm'] if meta['prod']['noiseRemovalApplied'] else None
     meta['prod']['noiseRemovalAlgorithm'] = nr_algo
     meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
@@ -186,7 +182,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
     meta['prod']['processorVersion'] = s1ard.__version__
-    meta['prod']['productName'] = 'Ocean Radar Backscatter' if product_type == 'ORB' else 'Normalised Radar Backscatter'
+    meta['prod']['productName'] = f"{'Ocean' if product_type == 'ORB' else 'Normalised'} Radar Backscatter"
     meta['prod']['productName-short'] = product_type
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
@@ -194,7 +190,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['radiometricAccuracyRelative'] = None
     meta['prod']['radiometricAccuracyReference'] = None
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
-    meta['prod']['RTCAlgorithm'] = 'https://doi.org/10.1109/Tgrs.2011.2120616'
+    meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = proc_time
@@ -208,7 +204,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
         meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
         meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
-        meta['prod']['windNormReferenceModel'] = "https://www.ecmwf.int/sites/default/files/3.1.pdf"
+        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
         meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
         meta['prod']['windNormReferenceType'] = 'sigma0-ref'
     else:
@@ -285,7 +281,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         
         # (sorted alphabetically)
         meta['source'][uid] = {}
-        meta['source'][uid]['access'] = 'https://dataspace.copernicus.eu'
+        meta['source'][uid]['access'] = URL['source_access']
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
         meta['source'][uid]['ascendingNodeDate'] = _read_manifest('.//s1:ascendingNodeTime')
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
@@ -294,8 +290,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['azimuthResolution'] = res_az
         meta['source'][uid]['dataGeometry'] = data_geometry
         meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
-        meta['source'][uid]['doi'] = 'https://sentinel.esa.int/documents/247904/1877131/' \
-                                     'Sentinel-1-Product-Specification'
+        meta['source'][uid]['doi'] = URL['source_doi']
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = None
         meta['source'][uid]['filename'] = sid.file
@@ -311,7 +306,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(sid.meta['cycleNumber'])
-        meta['source'][uid]['orbitDataAccess'] = 'https://scihub.copernicus.eu/gnss'
+        meta['source'][uid]['orbitDataAccess'] = URL['orbitDataAccess']
         meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
         for osv in list(OSV_MAP.keys()):
             if osv in meta['source'][uid]['orbitStateVector']:
@@ -341,8 +336,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
         meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
         meta['source'][uid]['rangeResolution'] = res_rg
-        meta['source'][uid]['sensorCalibration'] = 'https://sentinel.esa.int/web/sentinel/technical-guides/' \
-                                                   'sentinel-1-sar/sar-instrument/calibration'
+        meta['source'][uid]['sensorCalibration'] = URL['sensorCalibration']
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
