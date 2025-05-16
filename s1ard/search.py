@@ -1005,7 +1005,8 @@ def check_acquisition_completeness(archive, scenes):
                              maxdate=stop,
                              return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 if ref_start_min == scene.start:
@@ -1045,7 +1046,8 @@ def check_acquisition_completeness(archive, scenes):
                                  maxdate=stop,
                                  return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 start_min = min([x.start for x in group])
