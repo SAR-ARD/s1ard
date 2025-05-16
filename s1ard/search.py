@@ -1003,7 +1003,7 @@ def check_acquisition_completeness(archive, scenes):
                              acquisition_mode=scene.acquisition_mode,
                              mindate=start,
                              maxdate=stop,
-                             return_value='sceneName')
+                             return_value='scene')
             if len(ref) > 0:
                 match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
@@ -1043,7 +1043,7 @@ def check_acquisition_completeness(archive, scenes):
                                  acquisition_mode=scene.acquisition_mode,
                                  mindate=start,
                                  maxdate=stop,
-                                 return_value='sceneName')
+                                 return_value='scene')
             if len(ref) > 0:
                 match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
