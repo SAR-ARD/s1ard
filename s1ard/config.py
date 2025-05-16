@@ -148,7 +148,7 @@ def get_config(config_file=None, **kwargs):
             if date_short:
                 v += timedelta(days=1, microseconds=-1)
         if k == 'sensor':
-            assert v in ['S1A', 'S1B']
+            assert v in ['S1A', 'S1B', 'S1C', 'S1D']
         if k == 'acq_mode':
             assert v in ['IW', 'EW', 'SM']
         if k == 'work_dir':
@@ -198,7 +198,7 @@ def get_config(config_file=None, **kwargs):
         if k == 'annotation':
             v = proc_sec.get_annotation(k)
         if k == 'snap_gpt_args':
-            v = proc_sec['snap_gpt_args'].split(' ')
+            v = proc_sec.get_list(k)
         if k == 'datatake':
             v = proc_sec.get_list(k)
         out_dict['processing'][k] = v
@@ -248,6 +248,43 @@ def get_config(config_file=None, **kwargs):
             out_dict['metadata'][key] = None
     
     return out_dict
+
+
+def init(target, source=None, overwrite=False, **kwargs):
+    """
+    Initialize a configuration file.
+
+    Parameters
+    ----------
+    target : str
+        Path to the target configuration file.
+    source : str, optional
+        Path to the source file to read the configuration from. If not provided,
+        a default configuration file within the package will be used.
+    overwrite : bool, default=False
+        Overwrite an existing file?
+    kwargs : Any
+        Additional keyword arguments for overwriting the configuration in `source`.
+    
+    Returns
+    -------
+    
+    Examples
+    --------
+    Create a file in the current working directory.
+    `work_dir` and a scene search option (in this case SQLite via `db_file`)
+    must be defined, other configuration is read from the default configuration file.
+    
+    >>> from s1ard.config import init
+    >>> init(target='config.ini', work_dir='.', db_file='scenes.db')
+
+    """
+    if source is None:
+        with importlib.resources.path(package='s1ard.resources',
+                                      resource='config.ini') as path:
+            source = str(path)
+    config = get_config(config_file=source, **kwargs)
+    write(config=config, target=target, overwrite=overwrite)
 
 
 def _parse_annotation(s):
@@ -435,7 +472,9 @@ def write(config, target, overwrite=False, **kwargs):
         if v is not None and work_dir in v:
             config['processing'][k] = v.replace(work_dir, '').strip('/\\')
     k = 'snap_gpt_args'
-    v = ' '.join([str(x) for x in config['processing'][k]])
+    v = config['processing'][k]
+    if v is not None:
+        v = ' '.join([str(x) for x in config['processing'][k]])
     config['processing'][k] = v
     config = to_string(config)
     parser = configparser.ConfigParser()

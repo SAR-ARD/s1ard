@@ -57,7 +57,8 @@ def main(config_file=None, debug=False, **kwargs):
     if db_file_set:
         archive = Archive(dbfile=config_proc['db_file'])
         if scene_dir_set:
-            scenes = finder(config_proc['scene_dir'], [r'^S1[AB].*(SAFE|zip)$'],
+            scenes = finder(target=config_proc['scene_dir'],
+                            matchlist=[r'^S1[ABCD].*(SAFE|zip)$'],
                             regex=True, recursive=True, foldermode=1)
             archive.insert(scenes)
     elif stac_catalog_set and stac_collections_set:
@@ -98,38 +99,72 @@ def main(config_file=None, debug=False, **kwargs):
         config_proc['acq_mode'] = scenes[0].acquisition_mode
         config_proc['product'] = scenes[0].product
         aoi_tiles = []
-    ####################################################################################################################
-    # get neighboring GRD scenes to add a buffer to the geocoded scenes
-    # otherwise there will be a gap between final geocoded images.
+    
+    # group scenes by datatake
+    scenes_grouped = anc.group_by_attr(scenes, lambda x: x.meta['frameNumber'])
+    
+    for scenes in scenes_grouped:
+        # check that the scenes can really be grouped together
+        anc.check_scene_consistency(scenes=scenes)
+        
+        # Remove scenes with an invalid (0) slice number if others have a valid one (>0).
+        # This ensures that scenes with a valid slice number are preferred.
+        slice_numbers = [x.meta['sliceNumber'] for x in scenes]
+        if None not in slice_numbers:
+            if min(slice_numbers) == 0 and max(slice_numbers) > 0:
+                for i in reversed(range(len(scenes))):
+                    if slice_numbers[i] == 0:
+                        del scenes[i]
+                        del slice_numbers[i]
+                for i in range(1, len(scenes)):
+                    if slice_numbers[i] != slice_numbers[i - 1] + 1:
+                        raise RuntimeError(f"nonconsecutive scene group, "
+                                           f"slice numbers: {slice_numbers}")
+        ####################################################################################################################
+    # Get neighboring GRD scenes to add a buffer to the geocoded scenes.
+    # Otherwise, there will be a gap between final geocoded images.
+    # Buffering is only possible if the product composition is 'Sliced'
+    # (not 'Assembled' or 'Individual') and thus has a sliceNumber attribute.
     if config_proc['product'] == 'GRD' and sar_flag:
         log.info('collecting GRD neighbors')
         neighbors = []
-        for scene in scenes:
-            neighbors.append(search.collect_neighbors(archive=archive, scene=scene))
+        for scenes in scenes_grouped:
+            if scenes[0].meta['sliceNumber'] is not None:
+                neighbors_group = []
+                for scene in scenes:
+                    neighbors_scene = search.collect_neighbors(archive=archive,
+                                                               scene=scene)
+                    neighbors_group.append(neighbors_scene)
+            else:
+                neighbors_group = [None] * len(scenes)
+            neighbors.append(neighbors_group)
     else:
-        neighbors = [None] * len(scenes)
+        neighbors = [[None] * len(x) for x in scenes_grouped]
     ####################################################################################################################
     # OCN scene selection
     if 'wm' in config_proc['annotation']:
         log.info('collecting OCN products')
         scenes_ocn = []
-        for scene in scenes:
-            start, stop = anc.buffer_time(scene.start, scene.stop, seconds=2)
-            result = archive.select(product='OCN', mindate=start,
-                                    maxdate=stop, date_strict=True)
-            if len(result) == 1:
-                scenes_ocn.append(result[0])
-            else:
-                if len(result) == 0:
-                    log.error(f'could not find an OCN product for scene {scene.scene}')
+        for scenes in scenes_grouped:
+            scenes_ocn_group = []
+            for scene in scenes:
+                start, stop = anc.buffer_time(scene.start, scene.stop, seconds=2)
+                result = archive.select(product='OCN', mindate=start,
+                                        maxdate=stop, date_strict=True)
+                if len(result) == 1:
+                    scenes_ocn_group.append(result[0])
                 else:
-                    msg = f'found multiple OCN products for scene {scene.scene}:\n'
-                    log.error(msg + '\n'.join(result))
-                archive.close()
-                return
-        scenes_ocn = identify_many(scenes_ocn)
+                    if len(result) == 0:
+                        log.error(f'could not find an OCN product for scene {scene.scene}')
+                    else:
+                        msg = f'found multiple OCN products for scene {scene.scene}:\n'
+                        log.error(msg + '\n'.join(result))
+                    archive.close()
+                    return
+            scenes_ocn_group = identify_many(scenes_ocn_group)
+            scenes_ocn.append(scenes_ocn_group)
     else:
-        scenes_ocn = []
+        scenes_ocn = [[] for scenes in scenes_grouped]
     
     archive.close()
     ####################################################################################################################
@@ -156,111 +191,110 @@ def main(config_file=None, debug=False, **kwargs):
     ####################################################################################################################
     # main SAR processing
     if sar_flag:
-        for i, scene in enumerate(scenes):
-            scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
-            out_dir_scene = os.path.join(config_proc['sar_dir'], scene_base)
-            tmp_dir_scene = os.path.join(config_proc['tmp_dir'], scene_base)
-            
-            log.info(f'SAR processing scene {i + 1}/{len(scenes)}: {scene.scene}')
-            if os.path.isdir(out_dir_scene) and not update:
-                log.info('Already processed - Skip!')
-                continue
-            else:
-                os.makedirs(out_dir_scene, exist_ok=True)
-                os.makedirs(tmp_dir_scene, exist_ok=True)
-            ############################################################################################################
-            # Preparation of DEM for SAR processing
-            dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
-                               'Copernicus 30m Global DEM II': 'GLO30II',
-                               'Copernicus 30m Global DEM': 'GLO30',
-                               'GETASSE30': 'GETASSE30'}
-            dem_type_short = dem_type_lookup[config_proc['dem_type']]
-            fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
-            fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
-            os.makedirs(tmp_dir_scene, exist_ok=True)
-            with Lock(fname_dem):
-                if not os.path.isfile(fname_dem):
-                    log.info('creating scene-specific DEM mosaic')
-                    with scene.bbox() as geom:
-                        dem.mosaic(geometry=geom, outname=fname_dem,
-                                   dem_type=config_proc['dem_type'],
-                                   username=username, password=password)
+        for h, scenes in enumerate(scenes_grouped):
+            log.info(f'SAR processing of group {h + 1}/{len(scenes_grouped)}')
+            for i, scene in enumerate(scenes):
+                scene_base = os.path.splitext(os.path.basename(scene.scene))[0]
+                out_dir_scene = os.path.join(config_proc['sar_dir'], scene_base)
+                tmp_dir_scene = os.path.join(config_proc['tmp_dir'], scene_base)
+                
+                log.info(f'processing scene {i + 1}/{len(scenes)}: {scene.scene}')
+                if os.path.isdir(out_dir_scene) and not update:
+                    log.info('Already processed - Skip!')
+                    continue
                 else:
-                    log.info(f'found scene-specific DEM mosaic: {fname_dem}')
-            ############################################################################################################
-            # ETAD correction
-            if config_proc['etad']:
-                log.info('ETAD correction')
-                scene = etad.process(scene=scene, etad_dir=config_proc['etad_dir'],
-                                     out_dir=tmp_dir_scene)
-            ############################################################################################################
-            # determination of look factors
-            if scene.product == 'SLC':
-                rlks = {'IW': 5,
-                        'SM': 6,
-                        'EW': 3}[config_proc['acq_mode']]
-                rlks *= int(geocode_prms['spacing'] / 10)
-                azlks = {'IW': 1,
-                         'SM': 6,
-                         'EW': 1}[config_proc['acq_mode']]
-                azlks *= int(geocode_prms['spacing'] / 10)
-            else:
-                rlks = azlks = None
-            ############################################################################################################
-            # main processing routine
-            start_time = time.time()
-            try:
-                log.info('starting SNAP processing')
-                snap.process(scene=scene.scene, outdir=config_proc['sar_dir'],
-                             measurement=measurement,
-                             tmpdir=config_proc['tmp_dir'],
-                             dem=fname_dem, neighbors=neighbors[i],
-                             export_extra=export_extra,
-                             gpt_args=config_proc['snap_gpt_args'],
-                             rlks=rlks, azlks=azlks, **geocode_prms)
-                t = round((time.time() - start_time), 2)
-                log.info(f'SNAP processing finished in {t} seconds')
-            except Exception as e:
-                log.error(msg=e)
-                raise
+                    os.makedirs(out_dir_scene, exist_ok=True)
+                    os.makedirs(tmp_dir_scene, exist_ok=True)
+                ########################################################################################################
+                # Preparation of DEM for SAR processing
+                dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
+                                   'Copernicus 30m Global DEM II': 'GLO30II',
+                                   'Copernicus 30m Global DEM': 'GLO30',
+                                   'GETASSE30': 'GETASSE30'}
+                dem_type_short = dem_type_lookup[config_proc['dem_type']]
+                fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
+                fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
+                os.makedirs(tmp_dir_scene, exist_ok=True)
+                with Lock(fname_dem):
+                    if not os.path.isfile(fname_dem):
+                        log.info('creating scene-specific DEM mosaic')
+                        with scene.bbox() as geom:
+                            dem.mosaic(geometry=geom, outname=fname_dem,
+                                       dem_type=config_proc['dem_type'],
+                                       username=username, password=password)
+                    else:
+                        log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+                ########################################################################################################
+                # ETAD correction
+                if config_proc['etad']:
+                    log.info('ETAD correction')
+                    scene = etad.process(scene=scene, etad_dir=config_proc['etad_dir'],
+                                         out_dir=tmp_dir_scene)
+                ########################################################################################################
+                # determination of look factors
+                if scene.product == 'SLC':
+                    rlks = {'IW': 5,
+                            'SM': 6,
+                            'EW': 3}[config_proc['acq_mode']]
+                    rlks *= int(geocode_prms['spacing'] / 10)
+                    azlks = {'IW': 1,
+                             'SM': 6,
+                             'EW': 1}[config_proc['acq_mode']]
+                    azlks *= int(geocode_prms['spacing'] / 10)
+                else:
+                    rlks = azlks = None
+                ########################################################################################################
+                # main processing routine
+                start_time = time.time()
+                try:
+                    log.info('starting SNAP processing')
+                    snap.process(scene=scene.scene, outdir=config_proc['sar_dir'],
+                                 measurement=measurement,
+                                 tmpdir=config_proc['tmp_dir'],
+                                 dem=fname_dem, neighbors=neighbors[h][i],
+                                 export_extra=export_extra,
+                                 gpt_args=config_proc['snap_gpt_args'],
+                                 rlks=rlks, azlks=azlks, **geocode_prms)
+                    t = round((time.time() - start_time), 2)
+                    log.info(f'SNAP processing finished in {t} seconds')
+                except Exception as e:
+                    log.error(msg=e)
+                    raise
     ####################################################################################################################
     # OCN preparation
     if len(scenes_ocn) > 0:
         log.info('extracting OCN products')
-        for scene in scenes_ocn:
-            if scene.compression is not None:
-                scene.unpack(directory=config_proc['tmp_dir'], exist_ok=True)
-            basename = os.path.basename(scene.scene).replace('.SAFE', '')
-            outdir = os.path.join(config_proc['sar_dir'], basename)
-            os.makedirs(outdir, exist_ok=True)
-            for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
-                out = os.path.join(outdir, f'{v}.tif')
-                if not os.path.isfile(out):
-                    ocn.extract(src=scene.scene, dst=out, variable=v)
+        for scenes in scenes_ocn:
+            for scene in scenes:
+                if scene.compression is not None:
+                    scene.unpack(directory=config_proc['tmp_dir'], exist_ok=True)
+                basename = os.path.basename(scene.scene).replace('.SAFE', '')
+                outdir = os.path.join(config_proc['sar_dir'], basename)
+                os.makedirs(outdir, exist_ok=True)
+                for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
+                    out = os.path.join(outdir, f'{v}.tif')
+                    if not os.path.isfile(out):
+                        ocn.extract(src=scene.scene, dst=out, variable=v)
     ####################################################################################################################
     # ARD - final product generation
     if nrb_flag or orb_flag:
         product_type = 'NRB' if nrb_flag else 'ORB'
+        log.info(f'starting {product_type} production')
         
-        # prepare WBM MGRS tiles
-        log.info('preparing WBM tiles')
-        vec = [x.geometry() for x in scenes]
-        extent = anc.get_max_ext(geometries=vec)
-        del vec
-        with bbox(coordinates=extent, crs=4326) as box:
-            dem.prepare(vector=box, threads=gdal_prms['threads'],
-                        dem_dir=None, wbm_dir=config_proc['wbm_dir'],
-                        dem_type=config_proc['dem_type'],
-                        tilenames=aoi_tiles, username=username, password=password,
-                        dem_strict=True)
-        log.info(f'grouping scenes by time and starting {product_type} production')
-        selection_grouped = anc.group_by_time(scenes=scenes)
-        for s, group in enumerate(selection_grouped):
-            gstr = f'{s + 1}/{len(selection_grouped)}'
-            # check that the scenes can really be grouped together
-            anc.check_scene_consistency(scenes=group)
+        for s, scenes in enumerate(scenes_grouped):
+            log.info(f'ARD processing of group {s + 1}/{len(scenes_grouped)}')
+            log.info('preparing WBM tiles')
+            vec = [x.geometry() for x in scenes]
+            extent = anc.get_max_ext(geometries=vec)
+            del vec
+            with bbox(coordinates=extent, crs=4326) as box:
+                dem.prepare(vector=box, threads=gdal_prms['threads'],
+                            dem_dir=None, wbm_dir=config_proc['wbm_dir'],
+                            dem_type=config_proc['dem_type'],
+                            tilenames=aoi_tiles, username=username, password=password,
+                            dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
-            vec = [x.geometry() for x in group]
+            vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
@@ -268,7 +302,7 @@ def main(config_file=None, debug=False, **kwargs):
             t_total = len(tiles)
             for t, tile in enumerate(tiles):
                 # select all scenes from the group whose footprint overlaps with the current tile
-                scenes_sub = [x for x in group if intersect(tile, x.geometry())]
+                scenes_sub = [x for x in scenes if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
                 outdir = os.path.join(config_proc['ard_dir'], tile.mgrs)
                 os.makedirs(outdir, exist_ok=True)
@@ -281,7 +315,7 @@ def main(config_file=None, debug=False, **kwargs):
                 dem_type = config_proc['dem_type'] if add_dem else None
                 extent = tile.extent
                 epsg = tile.getProjection('epsg')
-                log.info(f'creating product {t + 1}/{t_total} of group {gstr}')
+                log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
                 try:
                     msg = ard.format(config=config, product_type=product_type,

@@ -20,8 +20,13 @@ import pyroSAR
 from pyroSAR.ancillary import Lock, LockCollection
 from pyroSAR import examine, identify_many
 import s1ard
+from collections import defaultdict
+from typing import Callable, List, TypeVar
 
 log = logging.getLogger('s1ard')
+
+T = TypeVar('T')  # any type
+K = TypeVar('K')  # key
 
 
 def check_scene_consistency(scenes):
@@ -189,6 +194,31 @@ def set_logging(config, debug=False):
     log_pyro.addHandler(handler)
     
     return logger
+
+
+def group_by_attr(items: List[T], key_fn: Callable[[T], K]) -> List[List[T]]:
+    """
+    Group items based on a key function.
+    
+    :param items: The list of arbitrary items to group.
+    :param key_fn: A function that extracts a key from each item.
+    :returns: A list of groups, where each group is a list of items with the same key.
+    
+    Example
+    -------
+    >>> list_in = ['abc', 'axy', 'brt', 'btk']
+    >>> print(group_by_attr(list_in, lambda x: x[0]))
+    [['abc', 'axy'], ['brt', 'btk']]
+    
+    >>> list_in = [{'a': 1}, {'a': 2}, {'a': 1}, {'a': 2}]
+    >>> print(group_by_attr(list_in, lambda x: x['a']))
+    [[{'a': 1}, {'a': 1}], [{'a': 2}, {'a': 2}]]
+    """
+    grouped = defaultdict(list)
+    for item in items:
+        key = key_fn(item)
+        grouped[key].append(item)
+    return list(grouped.values())
 
 
 def group_by_time(scenes, time=3):
@@ -373,7 +403,7 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     return bbox(ext3, 4326)
 
 
-def date_to_utc(date, as_datetime=False):
+def date_to_utc(date, as_datetime=False, str_format='%Y%m%dT%H%M%S'):
     """
     convert a date object to a UTC date string or datetime object.
 
@@ -383,6 +413,8 @@ def date_to_utc(date, as_datetime=False):
         the date object to convert; timezone-unaware dates are interpreted as UTC.
     as_datetime: bool
         return a datetime object instead of a string?
+    str_format: str
+        the output string format (ignored if `as_datetime` is True)
 
     Returns
     -------
@@ -402,11 +434,11 @@ def date_to_utc(date, as_datetime=False):
     else:
         out = out.astimezone(timezone.utc)
     if not as_datetime:
-        out = out.strftime('%Y-%m-%dT%H:%M:%SZ')
+        out = out.strftime(str_format)
     return out
 
 
-def buffer_time(start, stop, as_datetime=False, **kwargs):
+def buffer_time(start, stop, as_datetime=False, str_format='%Y%m%dT%H%M%S', **kwargs):
     """
     Time range buffering
     
@@ -418,20 +450,22 @@ def buffer_time(start, stop, as_datetime=False, **kwargs):
         the stop time date object to convert; timezone-unaware dates are interpreted as UTC.
     as_datetime: bool
         return datetime objects instead of strings?
+    str_format: str
+        the output string format (ignored if `as_datetime` is True)
     kwargs
         time arguments passed to :func:`datetime.timedelta`
 
     Returns
     -------
     tuple[str | datetime]
-        the buffered start and stop time as UTC string or datetime object
+        the buffered start and stop time as string or datetime object
     """
     td = timedelta(**kwargs)
     start = date_to_utc(start, as_datetime=True) - td
     stop = date_to_utc(stop, as_datetime=True) + td
     if not as_datetime:
-        start = start.strftime('%Y-%m-%dT%H:%M:%SZ')
-        stop = stop.strftime('%Y-%m-%dT%H:%M:%SZ')
+        start = start.strftime(str_format)
+        stop = stop.strftime(str_format)
     return start, stop
 
 
@@ -638,7 +672,9 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
     ##############################################################################
     # check geometry types
     geometry_names = []
+    field_defs = []
     for item in vector:
+        field_defs.extend(item.fieldDefs)
         for feature in item.layer:
             geom = feature.GetGeometryRef()
             geometry_names.append(geom.GetGeometryName())
@@ -652,12 +688,14 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
     srs_out = crsConvert(crs, 'osr')
     if multipolygon:
         geom_type = ogr.wkbMultiPolygon
-        geom_out = ogr.Geometry(geom_type)
+        geom_out = [ogr.Geometry(geom_type)]
     else:
         geom_type = ogr.wkbPolygon
         geom_out = []
+    fields = []
     vec.addlayer(name=layer_name, srs=srs_out, geomType=geom_type)
     for item in vector:
+        fieldnames = item.fieldnames
         if item.srs.IsSame(srs_out):
             coord_trans = None
         else:
@@ -667,16 +705,20 @@ def combine_polygons(vector, crs=4326, multipolygon=False, layer_name='combined'
             if coord_trans is not None:
                 geom.Transform(coord_trans)
             if multipolygon:
-                geom_out.AddGeometry(geom.Clone())
+                geom_out[0].AddGeometry(geom.Clone())
             else:
+                fields.append({x: feature.GetField(x) for x in fieldnames})
                 geom_out.append(geom.Clone())
         item.layer.ResetReading()
     geom = None
     if multipolygon:
-        geom_out = geom_out.UnionCascaded()
+        geom_out = geom_out[0].UnionCascaded()
         vec.addfeature(geom_out)
     else:
-        for geom in geom_out:
-            vec.addfeature(geom)
+        for field_def in field_defs:
+            if field_def.GetName() not in vec.fieldnames:
+                vec.layer.CreateField(field_def)
+        for i, geom in enumerate(geom_out):
+            vec.addfeature(geometry=geom, fields=fields[i])
     geom_out = None
     return vec

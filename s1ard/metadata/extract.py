@@ -92,7 +92,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
     meta['common']['orbitNumber_abs'] = sid0.meta['orbitNumber_abs']
     meta['common']['orbitNumber_rel'] = sid0.meta['orbitNumber_rel']
-    meta['common']['platformIdentifier'] = {'S1A': '1A', 'S1B': '1B'}[sid0.sensor]
+    pid_lookup = {'S1A': '1A', 'S1B': '1B', 'S1C': '1C', 'S1D': '1D'}
+    meta['common']['platformIdentifier'] = pid_lookup[sid0.sensor]
     meta['common']['platformShortName'] = 'Sentinel'
     meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
                                                         meta['common']['platformIdentifier'].lower())
@@ -455,7 +456,7 @@ def get_src_meta(sid):
     dict
         A dictionary containing the parsed `etree.ElementTree` objects for the manifest and annotation XML files.
     """
-    files = sid.findfiles(r'^s1[ab].*-[vh]{2}-.*\.xml$')
+    files = sid.findfiles(r'^s1[abcd].*-[vh]{2}-.*\.xml$')
     pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
     annotation_files = list(filter(re.compile(pols[0]).search, files))
     
