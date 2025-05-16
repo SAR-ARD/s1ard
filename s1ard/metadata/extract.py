@@ -151,7 +151,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
     meta['prod']['geoCorrAccuracyNorthernSTDev'] = None
     if geo_corr_accuracy is not None:
-        geo_corr_accuracy_reference = URL['geoCorrAccuracyReference'].format(s1ard.__version__)
+        geo_corr_accuracy_reference = URL['geoCorrAccuracyReference']
         geo_corr_accuracy_type = 'slant-range'
     else:
         geo_corr_accuracy_reference = None
