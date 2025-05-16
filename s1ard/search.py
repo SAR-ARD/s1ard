@@ -610,9 +610,9 @@ def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
     sensor: str or None
         S1A|S1B|S1C|S1D
     product: str or None
-        GRD or SLC
+        GRD|SLC
     acquisition_mode: str or None
-        IW, EW, or SM
+        IW|EW|SM
     mindate: str or datetime.datetime or None
         the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
     maxdate: str or datetime.datetime or None
@@ -643,7 +643,7 @@ def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
     -------
     list[str or tuple[str] or ASF]
         the scene metadata attributes as specified with `return_value`; the return type
-        is a list of strings, tuples or :class:`~s1ard.search.ASF` objects depending on
+        is a list of strings, tuples, or :class:`~s1ard.search.ASF` objects depending on
         whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
@@ -1003,9 +1003,10 @@ def check_acquisition_completeness(archive, scenes):
                              acquisition_mode=scene.acquisition_mode,
                              mindate=start,
                              maxdate=stop,
-                             return_value='sceneName')
+                             return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 if ref_start_min == scene.start:
@@ -1043,9 +1044,10 @@ def check_acquisition_completeness(archive, scenes):
                                  acquisition_mode=scene.acquisition_mode,
                                  mindate=start,
                                  maxdate=stop,
-                                 return_value='sceneName')
+                                 return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 start_min = min([x.start for x in group])
