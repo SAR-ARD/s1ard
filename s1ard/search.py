@@ -610,9 +610,9 @@ def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
     sensor: str or None
         S1A|S1B|S1C|S1D
     product: str or None
-        GRD or SLC
+        GRD|SLC
     acquisition_mode: str or None
-        IW, EW, or SM
+        IW|EW|SM
     mindate: str or datetime.datetime or None
         the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
     maxdate: str or datetime.datetime or None
@@ -643,7 +643,7 @@ def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
     -------
     list[str or tuple[str] or ASF]
         the scene metadata attributes as specified with `return_value`; the return type
-        is a list of strings, tuples or :class:`~s1ard.search.ASF` objects depending on
+        is a list of strings, tuples, or :class:`~s1ard.search.ASF` objects depending on
         whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
