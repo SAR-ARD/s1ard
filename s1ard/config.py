@@ -39,9 +39,9 @@ def get_keys(section):
         except ModuleNotFoundError:
             raise RuntimeError(f"unknown section: {section}.")
         try:
-            return module.config_keys
+            return module.get_config_keys()
         except AttributeError:
-            raise RuntimeError(f"section '{section}' does not have a 'config_keys' attribute.")
+            raise RuntimeError(f"missing function s1ard.{section}.get_config_keys().")
 
 
 def read_config_file(config_file=None):
@@ -51,6 +51,8 @@ def read_config_file(config_file=None):
     Parameters
     ----------
     config_file: str or None
+        the configuration file name. If None, the default configuration file
+        within the package will be used.
 
     Returns
     -------
@@ -64,7 +66,8 @@ def read_config_file(config_file=None):
         if not os.path.isfile(config_file):
             raise FileNotFoundError(f"Config file {config_file} does not exist.")
     else:
-        with importlib.resources.path('s1ard.resources', 'config.ini') as path:
+        with importlib.resources.path(package='s1ard.resources',
+                                      resource='config.ini') as path:
             config_file = str(path)
     
     parser.read(config_file)
@@ -90,12 +93,16 @@ def get_config(config_file=None, **kwargs):
     """
     parser = read_config_file(config_file)
     
-    out = {'processing': _get_config_processing(parser, **kwargs),
-           'metadata': _get_config_metadata(parser, **kwargs)}
+    kwargs_proc = {k: v for k, v in kwargs.items() if k in get_keys('processing')}
+    kwargs_meta = {k: v for k, v in kwargs.items() if k in get_keys('metadata')}
+    
+    out = {'processing': _get_config_processing(parser, **kwargs_proc),
+           'metadata': _get_config_metadata(parser, **kwargs_meta)}
     
     processor_name = out['processing']['processor']
     processor = import_module(f's1ard.{processor_name}')
-    out[processor_name] = processor.get_config_section(parser, **kwargs)
+    kwargs_sar = {k: v for k, v in kwargs.items() if k in get_keys(processor_name)}
+    out[processor_name] = processor.get_config_section(parser, **kwargs_sar)
     
     return out
 
@@ -218,7 +225,7 @@ def _get_config_processing(parser, **kwargs):
 def _get_config_metadata(parser, **kwargs):
     # METADATA section
     allowed_keys = get_keys(section='metadata')
-    if 'METADATA' not in parser.keys():
+    if 'METADATA' not in parser.sections():
         parser.add_section('METADATA')
     meta_sec = parser['METADATA']
     
@@ -402,9 +409,9 @@ def write(config, target, overwrite=False, **kwargs):
     target: str
         the name of the output file
     overwrite: bool
-        overwrite existing file if it exists?
+        overwrite an existing file if it exists?
     kwargs
-        further keyword arguments overriding configuration found in the config file.
+        further keyword arguments overriding configuration found in `config`.
 
     Returns
     -------
@@ -433,14 +440,20 @@ def write(config, target, overwrite=False, **kwargs):
         else:
             return str(item)
     
+    processor_name = config['processing']['processor']
+    processor = import_module(f's1ard.{processor_name}')
+    
     config = copy.deepcopy(config)
     keys_processing = get_keys('processing')
     keys_meta = get_keys('metadata')
+    keys_proc = processor.get_config_keys()
     for k, v in kwargs.items():
         if k in keys_processing:
             config['processing'][k] = v
         elif k in keys_meta:
             config['metadata'][k] = v
+        elif k in keys_proc:
+            config[processor_name][k] = v
         else:
             raise KeyError("Parameter '{}' is not supported".format(k))
     keys_path_relative = ['sar_dir', 'tmp_dir', 'ard_dir', 'wbm_dir', 'db_file']
@@ -449,14 +462,13 @@ def write(config, target, overwrite=False, **kwargs):
         v = config['processing'][k]
         if v is not None and work_dir in v:
             config['processing'][k] = v.replace(work_dir, '').strip('/\\')
-    k = 'snap_gpt_args'
-    v = config['processing'][k]
-    if v is not None:
-        v = ' '.join([str(x) for x in config['processing'][k]])
-    config['processing'][k] = v
-    config = to_string(config)
+    config['metadata'] = to_string(config['metadata'])
+    config['processing'] = to_string(config['processing'])
+    config_proc_str = processor.config_to_string(config[processor_name])
+    config[processor_name] = config_proc_str
     parser = configparser.ConfigParser()
     parser['METADATA'] = config['metadata']
     parser['PROCESSING'] = config['processing']
+    parser[processor_name.upper()] = config[processor_name]
     with open(target, 'w') as configfile:
         parser.write(configfile)

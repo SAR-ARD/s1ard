@@ -25,13 +25,22 @@ import logging
 
 log = logging.getLogger('s1ard')
 
-config_keys = ['allow_res_osv', 'cleanup', 'clean_edges', 'clean_edges_pixels',
-               'dem_resampling_method', 'gpt_args', 'img_resampling_method']
+
+def get_config_keys():
+    """
+    Get all allowed configuration keys.
+    
+    Returns
+    -------
+    List[str]
+    """
+    return ['allow_res_osv', 'clean_edges', 'clean_edges_pixels', 'cleanup',
+            'dem_resampling_method', 'gpt_args', 'img_resampling_method']
 
 
 def get_config_section(parser, **kwargs):
     """
-    Get the content of `config.ini` `SNAP` section as a dictionary.
+    Get the`config.ini` `SNAP` section content as a dictionary.
     
     Parameters
     ----------
@@ -52,30 +61,61 @@ def get_config_section(parser, **kwargs):
         'gpt_args': 'None',
         'img_resampling_method': 'BILINEAR_INTERPOLATION',
     }
-    try:
+    if 'SNAP' in parser.sections():
         section = parser['SNAP']
-    except KeyError:
-        section = defaults
+        for k, v in defaults.items():
+            if k not in section and k not in kwargs:
+                section[k] = v
+    else:
+        parser.read_dict({'SNAP': defaults})
+        section = parser['SNAP']
     
-    for k, v in kwargs.items():
-        if k in config_keys:
-            section[k] = v.strip()
-    
-    for k, v in defaults.items():
-        if k not in section:
+    kwargs_str = config_to_string(kwargs)
+    for k, v in kwargs_str.items():
+        if k in get_config_keys():
             section[k] = v
     
     for k, v in section.items():
-        v = _keyval_check(key=k, val=v, allowed_keys=config_keys)
+        v = _keyval_check(key=k, val=v, allowed_keys=get_config_keys())
         if k == 'gpt_args':
             if v is not None:
                 v = v.split(' ')
         if k == 'clean_edges_pixels':
-            v = int(v)
+            v = section.getint(k)
         if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
             v = section.getboolean(k)
         out[k] = v
+    return out
+
+
+def config_to_string(config):
+    """
+    Convert the values of a configuration dictionary to strings.
     
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config_section`
+
+    Returns
+    -------
+    dict
+        the dictionary with the same structure but values converted to strings.
+    """
+    out = {}
+    allowed = get_config_keys()
+    for k, v in config.items():
+        if k not in allowed:
+            raise ValueError(f'key {k} not in allowed keys: {allowed}')
+        if v is None:
+            out[k] = 'None'
+        elif k in ['allow_res_osv', 'clean_edges',
+                   'clean_edges_pixels', 'cleanup']:
+            out[k] = str(v)
+        elif k == 'gpt_args' and isinstance(v, list):
+            out[k] = ' '.join(v)
+        else:
+            out[k] = v
     return out
 
 
