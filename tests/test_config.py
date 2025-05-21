@@ -16,7 +16,7 @@ def test_config(tmpdir):
 def test_init(tmpdir):
     target = str(tmpdir / 'config.ini')
     # work_dir undefined
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         init(target=target)
     # no search option defined
     with pytest.raises(RuntimeError):
