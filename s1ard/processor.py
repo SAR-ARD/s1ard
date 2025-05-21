@@ -126,7 +126,7 @@ def main(config_file=None, debug=False, **kwargs):
                     if slice_numbers[i] != slice_numbers[i - 1] + 1:
                         raise RuntimeError(f"nonconsecutive scene group, "
                                            f"slice numbers: {slice_numbers}")
-        ####################################################################################################################
+    ####################################################################################################################
     # Get neighboring GRD scenes to add a buffer to the geocoded scenes.
     # Otherwise, there will be a gap between final geocoded images.
     # Buffering is only possible if the product composition is 'Sliced'
@@ -255,11 +255,11 @@ def main(config_file=None, debug=False, **kwargs):
                 try:
                     log.info('starting SAR processing')
                     processor.process(scene=scene.scene, outdir=config_proc['sar_dir'],
-                                 measurement=measurement,
-                                 tmpdir=config_proc['tmp_dir'],
-                                 dem=fname_dem, neighbors=neighbors[h][i],
-                                 export_extra=export_extra,
-                                 rlks=rlks, azlks=azlks, **config_sar)
+                                      measurement=measurement,
+                                      tmpdir=config_proc['tmp_dir'],
+                                      dem=fname_dem, neighbors=neighbors[h][i],
+                                      export_extra=export_extra,
+                                      rlks=rlks, azlks=azlks, **config_sar)
                     t = round((time.time() - start_time), 2)
                     log.info(f'SAR processing finished in {t} seconds')
                 except Exception as e:
