@@ -350,51 +350,37 @@ def product_json(meta, target, assets, exist_ok=False):
         item.add_link(link=pystac.Link(rel='derived_from',
                                        target=src_target,
                                        media_type='application/json',
-                                       title='Source metadata formatted in STAC compliant JSON format.'))
-    if meta['prod']['doi'] is not None:
-        item.add_link(link=pystac.Link(rel='about',
-                                       target=meta['prod']['doi'],
-                                       title='Product definition reference.'))
-    if meta['prod']['access'] is not None:
-        item.add_link(link=pystac.Link(rel='access',
-                                       target=meta['prod']['access'],
-                                       title='Product data access.'))
-    item.add_link(link=pystac.Link(rel='related',
-                                   target=meta['prod']['ancillaryData_KML'],
-                                   title='Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '
-                                         'used as auxiliary data during processing.'))
-    if meta['prod']['noiseRemovalApplied']:
-        item.add_link(link=pystac.Link(rel='noise-removal',
-                                       target=meta['prod']['noiseRemovalAlgorithm'],
-                                       title='Reference to the noise removal algorithm details.'))
-    if meta['prod']['RTCAlgorithm'] is not None:
-        item.add_link(link=pystac.Link(rel='radiometric-terrain-correction',
-                                       target=meta['prod']['RTCAlgorithm'],
-                                       title='Reference to the Radiometric Terrain Correction algorithm details.'))
-    if meta['prod']['windNormReferenceModel'] is not None:
-        item.add_link(link=pystac.Link(rel='wind-norm-reference',
-                                       target=meta['prod']['windNormReferenceModel'],
-                                       title='Reference to the model used to create the wind normalisation layer.'))
-    item.add_link(link=pystac.Link(rel='radiometric-accuracy',
-                                   target=meta['prod']['radiometricAccuracyReference'],
-                                   title='Reference describing the radiometric uncertainty of the product.'))
-    item.add_link(link=pystac.Link(rel='geometric-correction',
-                                   target=meta['prod']['geoCorrAlgorithm'],
-                                   title='Reference to the Geometric Correction algorithm details.'))
-    item.add_link(link=pystac.Link(rel='{}-model'.format(meta['prod']['demType']),
-                                   target=meta['prod']['demReference'],
-                                   title='Digital Elevation Model used as auxiliary data during processing: '
-                                         '{}'.format(meta['prod']['demName'])))
-    item.add_link(link=pystac.Link(rel='earth-gravitational-model',
-                                   target=meta['prod']['demEGMReference'],
-                                   title='Reference to the Earth Gravitational Model (EGM) used for Geometric '
-                                         'Correction.'))
-    item.add_link(link=pystac.Link(rel='geometric-accuracy',
-                                   target=meta['prod']['geoCorrAccuracyReference'],
-                                   title='Reference documenting the estimate of absolute localization error.'))
-    item.add_link(link=pystac.Link(rel='gridding-convention',
-                                   target=meta['prod']['griddingConventionURL'],
-                                   title='Reference describing the gridding convention used.'))
+                                       title='Source metadata formatted in STAC compliant JSON format'))
+    
+    links = [('about', meta['prod']['doi'],
+              'Product definition reference.'),
+             ('access', meta['prod']['access'],
+              'Product data access'),
+             ('related', meta['prod']['ancillaryData_KML'],
+              'Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '
+              'used as auxiliary data during processing'),
+             ('noise-removal', meta['prod']['noiseRemovalAlgorithm'],
+              'Reference to the noise removal algorithm details'),
+             ('radiometric-terrain-correction', meta['prod']['RTCAlgorithm'],
+              'Reference to the Radiometric Terrain Correction algorithm details'),
+             ('wind-norm-reference', meta['prod']['windNormReferenceModel'],
+              'Reference to the model used to create the wind normalisation layer'),
+             ('radiometric-accuracy', meta['prod']['radiometricAccuracyReference'],
+              'Reference describing the radiometric uncertainty of the product'),
+             ('geometric-correction', meta['prod']['geoCorrAlgorithm'],
+              'Reference to the Geometric Correction algorithm details'),
+             (f"{meta['prod']['demType']}-model", meta['prod']['demReference'],
+              f"Digital Elevation Model used as auxiliary data during processing: "
+              f"{meta['prod']['demName']}"),
+             ('earth-gravitational-model', meta['prod']['demEGMReference'],
+              'Reference to the Earth Gravitational Model (EGM) used for geometric correction'),
+             ('geometric-accuracy', meta['prod']['geoCorrAccuracyReference'],
+              'Reference documenting the estimate of absolute localization error'),
+             ('gridding-convention', meta['prod']['griddingConventionURL'],
+              'Reference describing the gridding convention used')]
+    for rel, target_link, title in links:
+        if target_link is not None:
+            item.add_link(link=pystac.Link(rel=rel, target=target_link, title=title))
     
     # Add assets
     assets = assets.copy()

@@ -1,12 +1,14 @@
 asf_search
 click>=7.1.0
 gdal>=3.5.0
+geopandas
 lxml
 multiformats>=0.3.1
 numpy<2.0
 packaging
+pandas
 pyproj
-pyroSAR>=0.28.0
+pyroSAR>=0.30.0
 pystac>=1.8.0,<1.11.0
 pystac-client>=0.7.0
 python-dateutil
@@ -14,4 +16,5 @@ requests
 s1etad>=0.5.3
 s1etad_tools>=0.8.1
 scipy
-spatialist>=0.12.0
+spatialist>=0.15.2
+shapely

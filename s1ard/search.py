@@ -1,13 +1,14 @@
 import os
 import re
-from lxml import etree
+import inspect
 from pathlib import Path
 from dateutil.parser import parse as dateparse
 from packaging.version import Version
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
-from spatialist.vector import Vector, crsConvert
+from spatialist.vector import Vector, crsConvert, wkt2vector
+from shapely.geometry import shape
 import asf_search as asf
 from pyroSAR import identify_many, ID
 from s1ard.ancillary import date_to_utc, buffer_time, combine_polygons
@@ -43,11 +44,17 @@ class ASF(ID):
         self.meta = self.scanMetadata()
         super(ASF, self).__init__(self.meta)
     
+    def __lt__(self, other):
+        if not isinstance(other, ASF):
+            return NotImplemented
+        return self.outname_base() < other.outname_base()
+    
     def scanMetadata(self):
         meta = dict()
         meta['acquisition_mode'] = self._meta['properties']['beamModeType']
         meta['coordinates'] = [tuple(x) for x in self._meta['geometry']['coordinates'][0]]
-        meta['frameNumber'] = self._meta['properties']['frameNumber']
+        fname = os.path.splitext(self._meta['properties']['fileName'])[0]
+        meta['frameNumber'] = fname[-11:-5]
         meta['orbit'] = self._meta['properties']['flightDirection'][0]
         meta['orbitNumber_abs'] = self._meta['properties']['orbit']
         meta['orbitNumber_rel'] = self._meta['properties']['pathNumber']
@@ -112,34 +119,26 @@ class STACArchive(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
     
-    @staticmethod
-    def _get_proc_time(scene):
-        with open(os.path.join(scene, 'manifest.safe'), 'rb') as f:
-            tree = etree.fromstring(f.read())
-        proc = tree.find(path='.//xmlData/safe:processing',
-                         namespaces=tree.nsmap)
-        start = proc.attrib['start']
-        del tree, proc
-        return datetime.strptime(start, '%Y-%m-%dT%H:%M:%S.%f')
-    
-    def _filter_duplicates(self, scenes):
-        tmp = sorted(scenes)
+    def _filter_duplicates(self, values):
+        tmp = sorted(values, key=lambda x: os.path.basename(x[-2]))
         pattern = '([0-9A-Z_]{16})_([0-9T]{15})_([0-9T]{15})'
         keep = []
         i = 0
         while i < len(tmp):
             group = [tmp[i]]
-            match1 = re.search(pattern, os.path.basename(tmp[i])).groups()
+            base = os.path.basename(tmp[i][-2])
+            match1 = re.search(pattern, base).groups()
             j = i + 1
             while j < len(tmp):
-                match2 = re.search(pattern, os.path.basename(tmp[j])).groups()
+                base = os.path.basename(tmp[j][-2])
+                match2 = re.search(pattern, base).groups()
                 if match1 == match2:
                     group.append(tmp[j])
                     j += 1
                 else:
                     break
             if len(group) > 1:
-                tproc = [self._get_proc_time(x) for x in group]
+                tproc = [x[-1] for x in group]
                 keep.append(group[tproc.index(max(tproc))])
             else:
                 keep.append(group[0])
@@ -157,17 +156,20 @@ class STACArchive(object):
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True, check_exist=True):
+               vectorobject=None, date_strict=True, check_exist=True,
+               return_value="scene"):
         """
-        Select scenes from the catalog. Used STAC keys:
-        
+        Select scenes from the catalog. Duplicates (same acquisition time) are filtered
+        by returning only the last processed product. Used STAC property keys:
+
         - platform
         - start_datetime
         - end_datetime
+        - created
         - sar:instrument_mode
         - sar:product_type
         - s1:datatake (custom)
-        
+
         Parameters
         ----------
         sensor: str or list[str] or None
@@ -188,17 +190,30 @@ class STACArchive(object):
         date_strict: bool
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
-            
+
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
         check_exist: bool
             check whether found files exist locally?
-        
+        return_value: str or List[str]
+            the query return value(s). Options:
+            
+            - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
+            - frameNumber: the frame or datatake number
+            - geometry_wkb: the scene's footprint geometry formatted as WKB
+            - geometry_wkt: the scene's footprint geometry formatted as WKT
+            - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+            - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+            - product: the product type, e.g., SLC, GRD
+            - scene: the scene's storage location path (default)
+            - sensor: the satellite platform, e.g., S1A or S1B
+
         Returns
         -------
-        list[str]
-            the locations of the scene directories with suffix .SAFE
-        
+        list or list[tuple]
+            If a single return_value is specified: list of values
+            If multiple return_values are specified: list of tuples containing the requested values
+
         See Also
         --------
         pystac_client.Client.search
@@ -206,7 +221,13 @@ class STACArchive(object):
         pars = locals()
         del pars['date_strict']
         del pars['check_exist']
+        del pars['return_value']
         del pars['self']
+        
+        if isinstance(return_value, str):
+            return_values = [return_value]
+        else:
+            return_values = return_value
         
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
@@ -216,6 +237,8 @@ class STACArchive(object):
                   'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b'}
+        lookup_platform_reverse = {value: key for key, value
+                                   in lookup_platform.items()}
         
         args = {'datetime': [None, None]}
         flt = {'op': 'and', 'args': []}
@@ -224,7 +247,7 @@ class STACArchive(object):
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_to_utc(val)
+                val = date_to_utc(val, str_format='%Y-%m-%dT%H:%M:%SZ')
             if key == 'mindate':
                 args['datetime'][0] = val
                 if date_strict:
@@ -246,7 +269,7 @@ class STACArchive(object):
                     with val.clone() as vec:
                         vec.reproject(4326)
                         feat = vec.getFeatureByIndex(0)
-                        json = feat.ExportToJson(as_object=True)
+                        json = feat.ExportToJson(as_object=True)['geometry']
                         feat = None
                         args['intersects'] = json
                 else:
@@ -279,21 +302,53 @@ class STACArchive(object):
             assets = item.assets
             ref = assets[list(assets.keys())[0]]
             href = ref.href
-            path = href[:re.search(r'\.SAFE', href).end()]
-            path = re.sub('^file://', '', path)
-            if Path(path).exists():
-                path = os.path.realpath(path)
+            scene = href[:re.search(r'\.SAFE', href).end()]
+            scene = re.sub('^file://', '', scene)
+            if Path(scene).exists():
+                scene = os.path.realpath(scene)
             else:
                 if check_exist:
-                    raise RuntimeError('scene does not exist locally:', path)
-            out.append(path)
+                    raise RuntimeError('scene does not exist locally:', scene)
+            
+            # prepare return values
+            values = []
+            for key in return_values:
+                if key == "scene":
+                    values.append(scene)
+                elif key in lookup.keys():
+                    value = item.properties[lookup[key]]
+                    if key in ['mindate', 'maxdate']:
+                        value = dateparse(value).strftime('%Y%m%dT%H%M%S')
+                    if key == 'sensor':
+                        value = lookup_platform_reverse[value]
+                    values.append(value)
+                # reverse coordinate order to be consistent with ASF return
+                elif key == "geometry_wkt":
+                    values.append(shape(item.geometry).wkt)
+                elif key == "geometry_wkb":
+                    values.append(shape(item.geometry).wkb)
+                else:
+                    raise ValueError(f"Invalid return value: {key}")
+            
+            values.append(scene)
+            created = dateparse(item.properties['created'])
+            values.append(created)
+            
+            out.append(values)
+        
         out = self._filter_duplicates(out)
+        
+        def reduce(i):
+            o = i[:-2]
+            return o[0] if len(o) == 1 else tuple(o)
+        
+        out = [reduce(x) for x in out]
         return out
 
 
 class STACParquetArchive(object):
     """
-    Search for scenes in a SpatioTemporal Asset Catalog's geoparquet dump.
+    Search for scenes in STAC geoparquet dump.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
     The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
     :class:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
@@ -318,9 +373,9 @@ class STACParquetArchive(object):
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True):
+               vectorobject=None, date_strict=True, return_value='scene'):
         """
-        Select scenes from a STAC catalog's geoparquet dump. Used STAC keys:
+        Select scenes from a STAC catalog's geoparquet dump. Used STAC property keys:
 
         - platform
         - start_datetime
@@ -352,19 +407,36 @@ class STACParquetArchive(object):
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        check_exist: bool
-            check whether found files exist locally?
+        return_value: str or List[str]
+            the query return value(s). Options:
+            
+            - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
+            - frameNumber: the frame or datatake number
+            - geometry_wkb: the scene's footprint geometry formatted as WKB
+            - geometry_wkt: the scene's footprint geometry formatted as WKT
+            - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+            - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+            - product: the product type, e.g., SLC, GRD
+            - scene: the scene's storage location path (default)
+            - sensor: the satellite platform, e.g., S1A or S1B
 
         Returns
         -------
-        list[str]
-            the locations of the scene directories with suffix .SAFE
+        List[str] or List[tuple[str]]
+            the selected return value(s). Depending on whether a single or multiple
+            values have been defined for `return_value`, the returned list will
+            contain strings or tuples.
+        
+        See Also
+        --------
+        stac_geoparquet.arrow.to_parquet
+        duckdb.query
         """
         pars = locals()
         try:
             import duckdb
         except ImportError:
-            raise ImportError("this method requires 'duckdb' to be installed")
+            raise ImportError("this method requires 'duckdb>=1.1.1' to be installed")
         ddb_version = Version(duckdb.__version__)
         ddb_version_req = Version('1.1.1')
         if ddb_version < ddb_version_req:
@@ -373,8 +445,10 @@ class STACParquetArchive(object):
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
-        del pars['date_strict']
         del pars['self']
+        del pars['date_strict']
+        del pars['return_value']
+        
         lookup = {'product': 'sar:product_type',
                   'acquisition_mode': 'sar:instrument_mode',
                   'mindate': 'start_datetime',
@@ -382,14 +456,33 @@ class STACParquetArchive(object):
                   'sensor': 'platform',
                   'frameNumber': 's1:datatake'}
         lookup_platform = {'S1A': 'sentinel-1a',
-                           'S1B': 'sentinel-1b'}
+                           'S1B': 'sentinel-1b',
+                           'S1C': 'sentinel-1c',
+                           'S1D': 'sentinel-1d'}
+        return_value_mapping = {
+            "geometry_wkb": "ST_AsWKB(geometry)",
+            "geometry_wkt": "ST_AsText(geometry)",
+            "mindate": f"STRFTIME({lookup['mindate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "maxdate": f"STRFTIME({lookup['maxdate']} AT TIME ZONE 'UTC', '%Y%m%dT%H%M%S')",
+            "scene": "replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')"
+        }
+        for k, v in lookup.items():
+            if k not in return_value_mapping:
+                return_value_mapping[k] = f"\"{lookup[k]}\""
+        
+        return_values = return_value if isinstance(return_value, list) else [return_value]
+        for return_value in return_values:
+            if return_value not in return_value_mapping:
+                raise ValueError(f"unsupported return value '{return_value}'.\n"
+                                 f"supported options: {list(return_value_mapping.keys())}")
+        
         terms = []
         for key in pars.keys():
             val = pars[key]
             if val is None:
                 continue
             if key in ['mindate', 'maxdate']:
-                val = date_to_utc(val)
+                val = date_to_utc(val, str_format='%Y-%m-%dT%H:%M:%SZ')
             if key == 'mindate':
                 if date_strict:
                     terms.append(f'"start_datetime" >= \'{val}\'')
@@ -427,13 +520,23 @@ class STACParquetArchive(object):
                     subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
                 terms.append(subterm)
         sql_where = ' AND '.join(terms)
+        sql_return_value = ', '.join([return_value_mapping[x] for x in return_values])
         sql_query = f"""
-        SELECT
-        replace(json_extract_string(assets::json, '$.folder.href'), 'file://', '')
+        SELECT {sql_return_value}
         FROM '{self.files}' WHERE {sql_where}
         """
         result = duckdb.query(sql_query).fetchall()
-        out = [x[0] for x in result]
+        if 'sensor' in return_values:
+            lookup_platform_reverse = {value: key for key, value in lookup_platform.items()}
+            sensor_index = return_values.index('sensor')
+            for i, item in enumerate(result):
+                item_new = list(item)
+                item_new[sensor_index] = lookup_platform_reverse[item[sensor_index]]
+                result[i] = tuple(item_new)
+        if len(return_values) == 1:
+            out = [x[0] for x in result]
+        else:
+            out = result
         return sorted(out)
 
 
@@ -452,7 +555,7 @@ class ASFArchive(object):
     
     @staticmethod
     def select(sensor=None, product=None, acquisition_mode=None, mindate=None,
-               maxdate=None, vectorobject=None, date_strict=True, return_value='url'):
+               maxdate=None, vectorobject=None, date_strict=True, return_value='scene'):
         """
         Select scenes from the ASF catalog. This is a simple wrapper around the function
         :func:`~s1ard.search.asf_select` to be consistent with the interfaces of the
@@ -495,51 +598,59 @@ class ASFArchive(object):
                           return_value=return_value, date_strict=date_strict)
 
 
-def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
-               vectorobject=None, return_value='url', date_strict=True):
+def asf_select(sensor=None, product=None, acquisition_mode=None, mindate=None,
+               maxdate=None, vectorobject=None, date_strict=True, return_value='scene'):
     """
-    Search scenes in the Alaska Satellite Facility (ASF) data catalog. This is a simple interface to the
+    Search scenes in the Alaska Satellite Facility (ASF) data catalog.
+    This is a simple interface to the
     `asf_search <https://github.com/asfadmin/Discovery-asf_search>`_ package.
     
     Parameters
     ----------
-    sensor: str
-        S1A or S1B
-    product: str
-        GRD or SLC
-    acquisition_mode: str
-        IW, EW or SM
-    mindate: str or datetime.datetime
+    sensor: str or None
+        S1A|S1B|S1C|S1D
+    product: str or None
+        GRD|SLC
+    acquisition_mode: str or None
+        IW|EW|SM
+    mindate: str or datetime.datetime or None
         the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
-    maxdate: str or datetime.datetime
+    maxdate: str or datetime.datetime or None
         the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
     vectorobject: spatialist.vector.Vector or None
         a geometry with which the scenes need to overlap. The object may only contain one feature.
-    return_value: str or list[str]
-        the metadata return value; if `ASF`, an :class:`~s1ard.search.ASF` object is returned;
-        further string options specify certain properties to return: `beamModeType`, `browse`,
-        `bytes`, `centerLat`, `centerLon`, `faradayRotation`, `fileID`, `flightDirection`, `groupID`,
-        `granuleType`, `insarStackId`, `md5sum`, `offNadirAngle`, `orbit`, `pathNumber`, `platform`,
-        `pointingAngle`, `polarization`, `processingDate`, `processingLevel`, `sceneName`, `sensor`,
-        `startTime`, `stopTime`, `url`, `pgeVersion`, `fileName`, `frameNumber`; all options except
-        `ASF` can also be combined in a list
     date_strict: bool
         treat dates as strict limits or also allow flexible limits to incorporate scenes
         whose acquisition period overlaps with the defined limit?
         
         - strict: start >= mindate & stop <= maxdate
         - not strict: stop >= mindate & start <= maxdate
+    
+    return_value: str or List[str]
+        the query return value(s). Options:
+        
+        - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
+        - frameNumber: the frame or datatake number
+        - geometry_wkb: the scene's footprint geometry formatted as WKB
+        - geometry_wkt: the scene's footprint geometry formatted as WKT
+        - mindate: the acquisition start datetime in UTC formatted as YYYYmmddTHHMMSS
+        - maxdate: the acquisition end datetime in UTC formatted as YYYYmmddTHHMMSS
+        - product: the product type, e.g., SLC, GRD
+        - scene: the scene's storage location path (default)
+        - sensor: the satellite platform, e.g., S1A or S1B
 
     Returns
     -------
     list[str or tuple[str] or ASF]
         the scene metadata attributes as specified with `return_value`; the return type
-        is a list of strings, tuples or :class:`~s1ard.search.ASF` objects depending on
+        is a list of strings, tuples, or :class:`~s1ard.search.ASF` objects depending on
         whether `return_type` is of type string, list or :class:`~s1ard.search.ASF`.
     
     """
-    if isinstance(return_value, list) and 'ASF' in return_value:
-        raise RuntimeError("'ASF' may not be a list element of 'return_value'")
+    if isinstance(return_value, str):
+        return_values = [return_value]
+    else:
+        return_values = return_value
     
     if product == 'GRD':
         processing_level = ['GRD_HD', 'GRD_MD', 'GRD_MS', 'GRD_HS', 'GRD_FD']
@@ -561,7 +672,13 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
     start = date_to_utc(mindate, as_datetime=True)
     stop = date_to_utc(maxdate, as_datetime=True)
     
-    result = asf.search(platform=sensor.replace('S1', 'Sentinel-1'),
+    lookup_platform = {'S1A': 'Sentinel-1A',
+                       'S1B': 'Sentinel-1B',
+                       'S1C': 'Sentinel-1C',
+                       'S1D': 'Sentinel-1D'}
+    platform = lookup_platform[sensor] if sensor is not None else None
+    
+    result = asf.search(platform=platform,
                         processingLevel=processing_level,
                         beamMode=beam_mode,
                         start=start,
@@ -577,21 +694,38 @@ def asf_select(sensor, product, acquisition_mode, mindate, maxdate,
                     if start <= date_extract(x, 'startTime')
                     and date_extract(x, 'stopTime') <= stop]
     
-    if return_value == 'ASF':
-        return [ASF(x) for x in features]
+    features = sorted([ASF(x) for x in features])
+    
     out = []
     for item in features:
-        properties = item['properties']
-        if isinstance(return_value, str):
-            out.append(properties[return_value])
-        elif isinstance(return_value, list):
-            out.append(tuple([properties[x] for x in return_value]))
+        values = []
+        for key in return_values:
+            if key == 'ASF':
+                values.append(item)
+            elif key == 'mindate':
+                values.append(getattr(item, 'start'))
+            elif key == 'maxdate':
+                values.append(getattr(item, 'stop'))
+            elif key == 'geometry_wkb':
+                with item.geometry() as vec:
+                    value = vec.to_geopandas().to_wkb()['geometry'][0]
+                    values.append(value)
+            elif key == 'geometry_wkt':
+                with item.geometry() as vec:
+                    value = vec.to_geopandas().to_wkt()['geometry'][0]
+                    values.append(value)
+            elif hasattr(item, key):
+                values.append(getattr(item, key))
+            else:
+                raise ValueError(f'invalid return value: {key}')
+        if len(return_values) == 1:
+            out.append(values[0])
         else:
-            raise TypeError(f'invalid type of return value: {type(return_value)}')
-    return sorted(out)
+            out.append(tuple(values))
+    return out
 
 
-def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
+def scene_select(archive, aoi_tiles=None, aoi_geometry=None, return_value='scene', **kwargs):
     """
     Central scene search utility. Selects scenes from a database and returns their file names
     together with the MGRS tile names for which to process ARD products.
@@ -628,9 +762,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
         a list of MGRS tile names for spatial search
     aoi_geometry: str or None
         the name of a vector geometry file for spatial search
-    cores: int
-        the number of cores to parallelize scene identification
-        (see :func:`pyroSAR.drivers.identify_many`)
+    return_value: str or List[str]
+        the query return value(s). Default 'scene': return the scene's storage location path.
+        See the documentation of `archive.select` for options.
     kwargs
         further search arguments passed to the `select` method of `archive`.
         The `date_strict` argument has no effect. Whether an ARD product is strictly in the defined
@@ -639,9 +773,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
 
     Returns
     -------
-    tuple[list[str], list[str]]
+    tuple[list[str or tuple[str]], list[str]]
     
-     - the list of scenes
+     - the list of return values; single value:string, multiple values: tuple
      - the list of MGRS tiles
     
     """
@@ -663,8 +797,16 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     if args['acquisition_mode'] == 'SM':
         args['acquisition_mode'] = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
     
+    signature = inspect.signature(archive.select)
+    if 'return_value' not in signature.parameters:
+        raise RuntimeError("the 'select' method of 'archive' does not take "
+                           "a 'return_value' parameter")
+    
+    return_values = return_value if isinstance(return_value, list) else [return_value]
     if isinstance(archive, ASFArchive):
         args['return_value'] = 'ASF'
+    else:
+        args['return_value'] = return_value
     
     vec = None
     if aoi_tiles is not None:
@@ -690,16 +832,21 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     # derive geometries and tiles from scene footprints
     if vec is None:
         log.debug("performing initial scene search without geometry constraint")
+        args['return_value'] = ['mindate', 'maxdate', 'geometry_wkt']
         selection_tmp = archive.select(**args)
-        log.debug(f'got {len(selection_tmp)} scenes, reading metadata')
-        if len(selection_tmp) == 0:
-            return [], []
-        if not isinstance(selection_tmp[0], ID):
-            scenes = identify_many(scenes=selection_tmp, sortkey='start', cores=cores)
-        else:
-            scenes = selection_tmp
+        log.debug(f'got {len(selection_tmp)} scenes')
+        mindates, maxdates, geometries_init = zip(*selection_tmp)
+        # The geometry of scenes crossing the antimeridian is stored as multipolygon.
+        # Since the processor is currently not able to process these scenes, they are
+        # removed in this step.
+        geometries = [x for x in geometries_init if x.startswith('POLYGON')]
+        if len(geometries) < len(geometries_init):
+            log.debug(f'removed {len(geometries_init) - len(geometries)} '
+                      f'scenes crossing the antimeridian')
+        del selection_tmp
+        
         log.debug(f"loading geometries")
-        scenes_geom = [x.geometry() for x in scenes]
+        scenes_geom = [wkt2vector(x, srs=4326) for x in geometries]
         # select all tiles overlapping with the scenes for further processing
         log.debug("extracting all tiles overlapping with initial scene selection")
         vec = tile_from_aoi(vector=scenes_geom,
@@ -710,9 +857,9 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
         log.debug(f"got {len(aoi_tiles)} tiles")
         del scenes_geom
         
-        args['mindate'] = min([date_to_utc(x.start, as_datetime=True) for x in scenes])
-        args['maxdate'] = max([date_to_utc(x.stop, as_datetime=True) for x in scenes])
-        del scenes
+        args['mindate'] = min([date_to_utc(x, as_datetime=True) for x in mindates])
+        args['maxdate'] = max([date_to_utc(x, as_datetime=True) for x in maxdates])
+        del mindates, maxdates, geometries
     
     # extend the time range to fully cover all tiles
     # (one additional scene needed before and after each data take group)
@@ -721,36 +868,46 @@ def scene_select(archive, aoi_tiles=None, aoi_geometry=None, cores=1, **kwargs):
     if 'maxdate' in args.keys():
         args['maxdate'] += timedelta(minutes=1)
     
-    if isinstance(archive, ASFArchive):
-        args['return_value'] = 'url'
+    args['return_value'] = return_values.copy()
+    for key in ['mindate', 'maxdate']:
+        if key not in args['return_value']:
+            args['return_value'].append(key)
     
     log.debug("performing main scene search")
     with combine_polygons(vec, multipolygon=True) as combined:
         args['vectorobject'] = combined
         selection = archive.select(**args)
-    del vec, args
-    scenes = sorted(list(set(selection)))
-    if mindate_init is not None:
-        while True:
-            base = os.path.basename(scenes[0])
-            start, stop = re.findall('[0-9T]{15}', base)
-            stop = date_to_utc(stop, as_datetime=True)
-            if stop < mindate_init:
-                del scenes[0]
-            else:
-                break
-    if maxdate_init is not None:
-        while True:
-            base = os.path.basename(scenes[-1])
-            start, stop = re.findall('[0-9T]{15}', base)
-            start = date_to_utc(start, as_datetime=True)
-            if start > maxdate_init:
-                del scenes[-1]
-            else:
-                break
+    del vec
     
-    log.debug(f"got {len(scenes)} scenes")
-    return scenes, aoi_tiles
+    # reduce the selection to the time range defined by the user
+    if mindate_init is not None or maxdate_init is not None:
+        i = 0
+        while i < len(selection):
+            values = dict(zip(args['return_value'], selection[i]))
+            start = date_to_utc(values['mindate'], as_datetime=True)
+            stop = date_to_utc(values['maxdate'], as_datetime=True)
+            delete = False
+            if mindate_init is not None and stop < mindate_init:
+                delete = True
+            if maxdate_init is not None and start > maxdate_init:
+                delete = True
+            if delete:
+                del selection[i]
+            else:
+                i += 1
+    
+    # sort the return values by the scene's basename
+    rv_scene_key = args['return_value'].index('scene')
+    selection = sorted(selection, key=lambda k: os.path.basename(k[rv_scene_key]))
+    
+    # reduce the return values to those defined by the user
+    indices = [i for i, key in enumerate(args['return_value']) if key in return_values]
+    if len(indices) == 1:
+        selection = [scene[indices[0]] for scene in selection]
+    else:
+        selection = [tuple(scene[i] for i in indices) for scene in selection]
+    log.debug(f"got {len(selection)} scenes")
+    return selection, aoi_tiles
 
 
 def collect_neighbors(archive, scene, stac_check_exist=True):
@@ -775,13 +932,13 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
     
     kwargs = {'mindate': start, 'maxdate': stop, 'date_strict': False,
               'sensor': scene.sensor, 'product': scene.product,
-              'acquisition_mode': scene.acquisition_mode}
+              'acquisition_mode': scene.acquisition_mode,
+              'return_value': ['scene', 'mindate', 'maxdate']}
     if isinstance(archive, STACArchive):
         kwargs['check_exist'] = stac_check_exist
     
     selection = archive.select(**kwargs)
-    pattern = f'{scene.start}_{scene.stop}'
-    neighbors = [x for x in selection if not re.search(pattern, x)]
+    neighbors = [x for x in selection if x[1] != scene.start]
     if len(neighbors) > 2:
         # more than two neighbors can exist if multiple versions of the
         # datatake with different slicing exist.
@@ -789,15 +946,13 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
         stop_ref = dateparse(scene.stop)
         start_diff = []
         stop_diff = []
-        pattern = '([0-9T]{15})_([0-9T]{15})'
-        for neighbor in neighbors:
-            start, stop = [dateparse(x) for x in re.search(pattern, neighbor).groups()]
-            start_diff.append(abs(start_ref - stop))
-            stop_diff.append(abs(stop_ref - start))
+        for neighbor, start, stop in neighbors:
+            start_diff.append(abs(start_ref - dateparse(stop)))
+            stop_diff.append(abs(stop_ref - dateparse(start)))
         predecessor = neighbors[start_diff.index(min(start_diff))]
         successor = neighbors[stop_diff.index(min(stop_diff))]
         neighbors = [predecessor, successor]
-    return neighbors
+    return [x[0] for x in neighbors]
 
 
 def check_acquisition_completeness(archive, scenes):
@@ -848,9 +1003,10 @@ def check_acquisition_completeness(archive, scenes):
                              acquisition_mode=scene.acquisition_mode,
                              mindate=start,
                              maxdate=stop,
-                             return_value='sceneName')
+                             return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 if ref_start_min == scene.start:
@@ -888,9 +1044,10 @@ def check_acquisition_completeness(archive, scenes):
                                  acquisition_mode=scene.acquisition_mode,
                                  mindate=start,
                                  maxdate=stop,
-                                 return_value='sceneName')
+                                 return_value='scene')
             if len(ref) > 0:
-                match = [re.search(scene.pattern, x + '.SAFE').groupdict() for x in ref]
+                ref = [os.path.basename(x).replace('.zip', '.SAFE') for x in ref]
+                match = [re.search(scene.pattern, x).groupdict() for x in ref]
                 ref_start_min = min([x['start'] for x in match])
                 ref_stop_max = max([x['stop'] for x in match])
                 start_min = min([x.start for x in group])

@@ -4,10 +4,12 @@ import time
 import shutil
 from datetime import datetime, timezone
 import numpy as np
+import pandas as pd
+import geopandas as gpd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
-from scipy.interpolate import griddata
+from scipy.interpolate import RBFInterpolator
 from osgeo import gdal
 from spatialist.vector import Vector, bbox, intersect
 from spatialist.raster import Raster, Dtype
@@ -19,8 +21,8 @@ import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
-from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name
-from s1ard.metadata.extract import copy_src_meta, get_src_meta, find_in_annotation
+from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
+from s1ard.metadata.extract import copy_src_meta
 from s1ard.snap import find_datasets
 import logging
 
@@ -144,7 +146,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
                              "['VV']": 'SV',
                              "['HH', 'HV']": 'DH',
                              "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
-            'start': ard_start,
+            'start': datetime.strftime(ard_start, '%Y%m%dT%H%M%S'),
             'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
             'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
             'tile': tile,
@@ -394,12 +396,12 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
     
-    # create metadata files in XML and (STAC) JSON formats
-    start = datetime.strptime(ard_start, '%Y%m%dT%H%M%S')
-    stop = datetime.strptime(ard_stop, '%Y%m%dT%H%M%S')
-    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids, sar_dir=datadir,
-                             proc_time=proc_time, start=start, stop=stop, compression=compress,
-                             product_type=product_type, wm_ref_files=wm_ref_files)
+    # create metadata files in XML and STAC JSON formats
+    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids,
+                             sar_dir=datadir, proc_time=proc_time,
+                             start=ard_start, stop=ard_stop,
+                             compression=compress, product_type=product_type,
+                             wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['metadata']['copy_original']:
@@ -497,6 +499,12 @@ def get_datasets(scenes, datadir, extent, epsg):
             with Vector(dm_vec) as bounds:
                 with bbox(extent, epsg) as tile_geom:
                     inter = intersect(bounds, tile_geom)
+                    if inter is not None:
+                        with Raster(dm_ras) as ras:
+                            inter_min = ras.res[0] * ras.res[1]
+                        if inter.getArea() < inter_min:
+                            inter.close()
+                            inter = None
                     if inter is None:
                         log.debug('no overlap, removing scene')
                         del ids[i]
@@ -725,94 +733,62 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
 def calc_product_start_stop(src_ids, extent, epsg):
     """
     Calculates the start and stop times of the ARD product.
-    The geolocation grid points including their azimuth time information are extracted first from the metadata of each
-    source SLC. These grid points are then used to interpolate the azimuth time for the lower right and upper left
-    (ascending) or upper right and lower left (descending) corners of the MGRS tile extent.
+    The geolocation grid points including their azimuth time information are
+    extracted first from the metadata of each source product.
+    These grid points are then used to interpolate the azimuth time for the
+    coordinates of the MGRS tile extent. The lowest and highest interpolated
+    value are returned as product acquisition start and stop times of the
+    ARD product.
 
     Parameters
     ----------
     src_ids: list[pyroSAR.drivers.ID]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source products
+        that overlap with the current MGRS tile.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a
+        :class:`~spatialist.vector.Vector` object.
     epsg: int
-        The coordinate reference system as an EPSG code.
+        The coordinate reference system of the extent as an EPSG code.
 
     Returns
     -------
-    tuple[str]
-        Start and stop time of the ARD product formatted as `YYYYmmddTHHMMSS` in UTC.
+    tuple[datetime.datetime]
+        Start and stop time of the ARD product in UTC.
+    
+    See Also
+    --------
+    pyroSAR.drivers.SAFE.geo_grid
+    scipy.interpolate.RBFInterpolator
     """
     with bbox(extent, epsg) as tile_geom:
         tile_geom.reproject(4326)
-        ext = tile_geom.extent
-        ul = (ext['xmin'], ext['ymax'])
-        ur = (ext['xmax'], ext['ymax'])
-        lr = (ext['xmax'], ext['ymin'])
-        ll = (ext['xmin'], ext['ymin'])
-        tile_geom = None
+        scene_geoms = [x.geometry() for x in src_ids]
+        with combine_polygons(scene_geoms) as scene_geom:
+            intersection = gpd.overlay(df1=tile_geom.to_geopandas(),
+                                       df2=scene_geom.to_geopandas(),
+                                       how='intersection')
+            tile_geom_pts = intersection.get_coordinates().to_numpy()
+        scene_geoms = None
     
-    slc_dict = {}
-    for i, sid in enumerate(src_ids):
-        uid = os.path.basename(sid.scene).split('.')[0][-4:]
-        slc_dict[uid] = get_src_meta(sid)
-        slc_dict[uid]['sid'] = sid
+    gdfs = []
+    for src_id in src_ids:
+        with src_id.geo_grid() as vec:
+            gdfs.append(vec.to_geopandas())
+    gdf = pd.concat(gdfs)
+    gdf['timestamp'] = gdf['azimuthTime'].astype(np.int64) / 10 ** 9
+    gridpts = gdf.get_coordinates().to_numpy()
+    az_time = gdf['timestamp'].values
     
-    uids = list(slc_dict.keys())
+    rbf = RBFInterpolator(y=gridpts, d=az_time)
+    interpolated = rbf(tile_geom_pts)
     
-    for uid in uids:
-        t = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'],
-                               pattern='.//geolocationGridPoint/azimuthTime')
-        swaths = t.keys()
-        y = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/latitude')
-        x = find_in_annotation(annotation_dict=slc_dict[uid]['annotation'], pattern='.//geolocationGridPoint/longitude')
-        t_flat = np.asarray([datetime.fromisoformat(item).timestamp() for sublist in [t[swath] for swath in swaths]
-                             for item in sublist])
-        y_flat = np.asarray([float(item) for sublist in [y[swath] for swath in swaths] for item in sublist])
-        x_flat = np.asarray([float(item) for sublist in [x[swath] for swath in swaths] for item in sublist])
-        g = np.asarray([(x, y) for x, y in zip(x_flat, y_flat)])
-        slc_dict[uid]['az_time'] = t_flat
-        slc_dict[uid]['gridpts'] = g
+    if np.isnan(interpolated).any():
+        raise RuntimeError('Interpolated array contains NaN values.')
     
-    if len(uids) == 2:
-        starts = [datetime.strptime(slc_dict[key]['sid'].start, '%Y%m%dT%H%M%S') for key in slc_dict.keys()]
-        if starts[0] > starts[1]:
-            az_time = np.concatenate([slc_dict[uids[1]]['az_time'], slc_dict[uids[0]]['az_time']])
-            gridpts = np.concatenate([slc_dict[uids[1]]['gridpts'], slc_dict[uids[0]]['gridpts']])
-        else:
-            az_time = np.concatenate([slc_dict[key]['az_time'] for key in slc_dict.keys()])
-            gridpts = np.concatenate([slc_dict[key]['gridpts'] for key in slc_dict.keys()])
-    else:
-        az_time = slc_dict[uids[0]]['az_time']
-        gridpts = slc_dict[uids[0]]['gridpts']
-    
-    if slc_dict[uids[0]]['sid'].orbit == 'A':
-        coord1 = lr
-        coord2 = ul
-    else:
-        coord1 = ur
-        coord2 = ll
-    
-    method = 'linear'
-    res = [griddata(gridpts, az_time, coord1, method=method),
-           griddata(gridpts, az_time, coord2, method=method)]
-    
-    min_start = min([datetime.strptime(slc_dict[uid]['sid'].start, '%Y%m%dT%H%M%S') for uid in uids])
-    max_stop = max([datetime.strptime(slc_dict[uid]['sid'].stop, '%Y%m%dT%H%M%S') for uid in uids])
-    res_t = []
-    for i, r in enumerate(res):
-        if np.isnan(r):
-            if i == 0:
-                res_t.append(min_start)
-            else:
-                res_t.append(max_stop)
-        else:
-            res_t.append(datetime.fromtimestamp(float(r)))
-    
-    start = datetime.strftime(res_t[0], '%Y%m%dT%H%M%S')
-    stop = datetime.strftime(res_t[1], '%Y%m%dT%H%M%S')
-    
-    return start, stop
+    out = [min(interpolated), max(interpolated)]
+    out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
+    return tuple(out)
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
