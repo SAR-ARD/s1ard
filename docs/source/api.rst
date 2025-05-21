@@ -15,7 +15,6 @@ Configuration
         gdal_conf
         get_config
         init
-        snap_conf
         write
 
 Processing
@@ -38,6 +37,16 @@ SNAP
     :members:
     :undoc-members:
     :show-inheritance:
+
+    .. rubric:: configuration
+
+    .. autosummary::
+        :nosignatures:
+
+        config_to_string
+        get_config_keys
+        get_config_section
+
 
     .. rubric:: core processing
 
