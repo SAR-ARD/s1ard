@@ -1,6 +1,26 @@
 Changelog
 =========
 
+2.3.0 | 2025-05-26
+------------------
+
+* `snap.process`: fixed bug in not reassigning `out_pre` when buffering has already been performed (`#245 <https://github.com/SAR-ARD/s1ard/pull/245>`_)
+* STAC: do not insert links for radiometric and geometric accuracy reference if the value is None (`#246 <https://github.com/SAR-ARD/s1ard/pull/246>`_)
+* STAC: do not create link fields when URL is None (`#247 <https://github.com/SAR-ARD/s1ard/pull/247>`_)
+* require at least one pixel overlap with the MGRS tile (`#248 <https://github.com/SAR-ARD/s1ard/pull/248>`_)
+* product acquisition time improvements (`#251 <https://github.com/SAR-ARD/s1ard/pull/251>`_)
+* `ard.calc_product_start_stop`: enable extrapolation (`#252 <https://github.com/SAR-ARD/s1ard/pull/252>`_)
+* processing per datatake, slice number filtering (`#250 <https://github.com/SAR-ARD/s1ard/pull/250>`_)
+* `ard.calc_product_start_stop`: use geopandas for intersection (`#255 <https://github.com/SAR-ARD/s1ard/pull/255>`_)
+* scene and tile search improvements (`#254 <https://github.com/SAR-ARD/s1ard/pull/254>`_)
+* support scenes in individual composition (`#256 <https://github.com/SAR-ARD/s1ard/pull/256>`_)
+* support for Sentinel-1C (and -1D) (`#257 <https://github.com/SAR-ARD/s1ard/pull/257>`_)
+* `config`: new function `init`, write bug fix (`#259 <https://github.com/SAR-ARD/s1ard/pull/259>`_)
+* `search.check_acquisition_completeness`: bug fix (`#260 <https://github.com/SAR-ARD/s1ard/pull/260>`_)
+* metadata extraction: outsourced URLs to mapping, changed to https for some (`#249 <https://github.com/SAR-ARD/s1ard/pull/249>`_)
+
+`Full v2.3.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.2.0...v2.3.0>`_
+
 2.2.0 | 2025-02-21
 ------------------
 
