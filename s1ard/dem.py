@@ -291,7 +291,7 @@ def mosaic(geometry, dem_type, outname, epsg=None,
                      username=username, password=password)
         dem_create(src=vrt, dst=outname, pbar=False,
                    geoid_convert=geoid_convert, geoid=geoid,
-                   threads=threads, nodata=-32767)
+                   threads=threads, nodata=-32767, t_srs=epsg)
 
 
 def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
