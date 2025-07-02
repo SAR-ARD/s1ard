@@ -249,7 +249,7 @@ def authenticate(dem_type, username=None, password=None):
 
 
 def mosaic(geometry, dem_type, outname, epsg=None,
-           username=None, password=None, threads=4):
+           tr=None, username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
     Makes use of :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
@@ -264,8 +264,8 @@ def mosaic(geometry, dem_type, outname, epsg=None,
         The name of the mosaic.
     epsg: int or None
         The coordinate reference system as an EPSG code.
-    dem_dir: str or None
-        The directory containing the DEM MGRS tiles.
+    tr: None or tuple[int or float]
+        the target resolution as (xres, yres)
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the environment variable 'DEM_USER' is read.
@@ -289,7 +289,7 @@ def mosaic(geometry, dem_type, outname, epsg=None,
         dem_autoload([geometry], demType=dem_type,
                      vrt=vrt, buffer=buffer, product='dem',
                      username=username, password=password)
-        dem_create(src=vrt, dst=outname, pbar=False,
+        dem_create(src=vrt, dst=outname, pbar=False, tr=tr,
                    geoid_convert=geoid_convert, geoid=geoid,
                    threads=threads, nodata=-32767, t_srs=epsg)
 
