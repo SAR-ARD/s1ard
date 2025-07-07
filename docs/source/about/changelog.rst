@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.3.1 | 2025-07-07
+------------------
+
+* `metadata.extract`: OSV info gathering improvements (`#264 <https://github.com/SAR-ARD/s1ard/pull/264>`_)
+* `ard.calc_product_start_stop`: remove duplicate grid points (`#265 <https://github.com/SAR-ARD/s1ard/pull/265>`_)
+
+`Full v2.3.1 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.3.0...v2.3.1>`_
+
 2.3.0 | 2025-05-26
 ------------------
 
