@@ -17,12 +17,106 @@ from pyroSAR import identify, identify_many
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
+from s1ard.config import _keyval_check
 from s1ard.tile_extraction import aoi_from_scene
 from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
 import logging
 
 log = logging.getLogger('s1ard')
+
+
+def get_config_keys():
+    """
+    Get all allowed configuration keys.
+    
+    Returns
+    -------
+    List[str]
+    """
+    return ['allow_res_osv', 'clean_edges', 'clean_edges_pixels', 'cleanup',
+            'dem_resampling_method', 'gpt_args', 'img_resampling_method']
+
+
+def get_config_section(parser, **kwargs):
+    """
+    Get the`config.ini` `SNAP` section content as a dictionary.
+    
+    Parameters
+    ----------
+    parser: configparser.ConfigParser
+    kwargs: dict[str]
+
+    Returns
+    -------
+    dict
+    """
+    out = {}
+    defaults = {
+        'allow_res_osv': 'True',
+        'cleanup': 'True',
+        'clean_edges': 'True',
+        'clean_edges_pixels': '4',
+        'dem_resampling_method': 'BILINEAR_INTERPOLATION',
+        'gpt_args': 'None',
+        'img_resampling_method': 'BILINEAR_INTERPOLATION',
+    }
+    if 'SNAP' in parser.sections():
+        section = parser['SNAP']
+        for k, v in defaults.items():
+            if k not in section and k not in kwargs:
+                section[k] = v
+    else:
+        parser.read_dict({'SNAP': defaults})
+        section = parser['SNAP']
+    
+    kwargs_str = config_to_string(kwargs)
+    for k, v in kwargs_str.items():
+        if k in get_config_keys():
+            section[k] = v
+    
+    for k, v in section.items():
+        v = _keyval_check(key=k, val=v, allowed_keys=get_config_keys())
+        if k == 'gpt_args':
+            if v is not None:
+                v = v.split(' ')
+        if k == 'clean_edges_pixels':
+            v = section.getint(k)
+        if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
+            v = section.getboolean(k)
+        out[k] = v
+    return out
+
+
+def config_to_string(config):
+    """
+    Convert the values of a configuration dictionary to strings.
+    
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config_section`
+
+    Returns
+    -------
+    dict
+        the dictionary with the same structure but values converted to strings.
+    """
+    out = {}
+    allowed = get_config_keys()
+    for k, v in config.items():
+        if k not in allowed:
+            raise ValueError(f'key {k} not in allowed keys: {allowed}')
+        if v is None:
+            out[k] = 'None'
+        elif k in ['allow_res_osv', 'clean_edges',
+                   'clean_edges_pixels', 'cleanup']:
+            out[k] = str(v)
+        elif k == 'gpt_args' and isinstance(v, list):
+            out[k] = ' '.join(v)
+        else:
+            out[k] = v
+    return out
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
