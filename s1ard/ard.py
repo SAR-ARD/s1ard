@@ -771,21 +771,37 @@ def calc_product_start_stop(src_ids, extent, epsg):
             tile_geom_pts = intersection.get_coordinates().to_numpy()
         scene_geoms = None
     
+    # combine geo grid of all scenes into one
     gdfs = []
     for src_id in src_ids:
         with src_id.geo_grid() as vec:
             gdfs.append(vec.to_geopandas())
-    gdf = pd.concat(gdfs)
+    gdf = pd.concat(gdfs, ignore_index=True)
+    
+    # remove duplicate points
+    gdf["xy"] = gdf.geometry.apply(lambda p: (p.x, p.y))
+    gdf = gdf.drop_duplicates(subset="xy").copy()
+    gdf.drop(columns="xy", inplace=True)
+    
+    # get grid point coordinates and numerical time stamps for interpolation
     gdf['timestamp'] = gdf['azimuthTime'].astype(np.int64) / 10 ** 9
     gridpts = gdf.get_coordinates().to_numpy()
     az_time = gdf['timestamp'].values
     
+    # perform interpolation
     rbf = RBFInterpolator(y=gridpts, d=az_time)
     interpolated = rbf(tile_geom_pts)
     
+    # check interpolation validity
     if np.isnan(interpolated).any():
         raise RuntimeError('Interpolated array contains NaN values.')
     
+    c1 = min(gdf['timestamp']) <= min(interpolated) <= max(gdf['timestamp'])
+    c2 = min(gdf['timestamp']) <= max(interpolated) <= max(gdf['timestamp'])
+    if not c1 or not c2:
+        raise RuntimeError('Interpolated values exceed input range.')
+    
+    # return minimum and maximum interpolated values as datetime objects
     out = [min(interpolated), max(interpolated)]
     out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
     return tuple(out)
