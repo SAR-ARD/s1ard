@@ -27,9 +27,10 @@ gdal.UseExceptions()
 def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
               compression, product_type, wm_ref_files=None):
     """
-    Creates a dictionary containing metadata for a product scene, as well as its source scenes. The dictionary can then
-    be utilized by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse` to generate OGC XML and
-    STAC JSON metadata files, respectively.
+    Creates a dictionary containing metadata for a product scene, as well
+    as its source scenes. The dictionary can then be used
+    by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse`
+    to generate OGC XML and STAC JSON metadata files, respectively.
     
     Parameters
     ----------
@@ -228,7 +229,6 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
                 swaths.extend(item)
             else:
                 swaths.append(item)
-        osv = sid.getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
         with sid.geometry() as vec:
             geom = geometry_from_vec(vectorobject=vec)
         
@@ -307,10 +307,9 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['lutApplied'] = lut_applied
         meta['source'][uid]['majorCycleID'] = str(sid.meta['cycleNumber'])
         meta['source'][uid]['orbitDataAccess'] = URL['orbitDataAccess']
-        meta['source'][uid]['orbitStateVector'] = os.path.basename(osv).replace('.zip', '')
-        for osv in list(OSV_MAP.keys()):
-            if osv in meta['source'][uid]['orbitStateVector']:
-                meta['source'][uid]['orbitDataSource'] = OSV_MAP[osv]
+        osv_base, osv_descr = get_osv_info(sid)
+        meta['source'][uid]['orbitStateVector'] = osv_base
+        meta['source'][uid]['orbitDataSource'] = osv_descr
         if len(np_tifs) > 0:
             meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)
             meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
@@ -880,6 +879,51 @@ def get_header_size(tif):
     if headers_size == 0:
         headers_size = gdal.VSIStatL(tif).size
     return headers_size
+
+
+def get_osv_info(sid):
+    """
+    Get information about the used OSV file.
+    First, this function attempts to find an auxiliary OSV file matching the scene.
+    If found, its name is returned. If not, it is assumed that it is not yet available
+    and processing was performed using the OSVs found in the source product.
+    In this case, the metadata is searched for the name of an auxiliary OSV file
+    used during L1 generation. If found, its name is returned.
+    
+    Parameters
+    ----------
+    sid: pyroSAR.drivers.ID
+        The pyroSAR scene ID object
+
+    Returns
+    -------
+    tuple[str or None]
+        the OSV file's basename and the OSV type description.
+        None is returned if no OSV file is found.
+    
+    See Also
+    --------
+    pyroSAR.drivers.SAFE.getOSV
+    """
+    # try to find external OSV files
+    osv = sid.getOSV(returnMatch=True, osvType=['POE', 'RES'], useLocal=True)
+    if osv is None:
+        # read the OSV file used during preprocessing from the metadata
+        with sid.getFileObj(sid.findfiles('manifest.safe')[0]) as f:
+            manifest = f.getvalue()
+        tree = etree.fromstring(manifest)
+        pattern = ("//safe:resource[@role='AUX_POE' or "
+                   "@role='AUX_RES' or @role='AUX_PRE']")
+        osv_match = tree.xpath(pattern, namespaces=tree.nsmap)
+        if len(osv_match) > 0:
+            osv = osv_match[0].get('name')
+    osv_descr = None
+    if osv is not None:
+        while '.' in osv:
+            osv = os.path.splitext(os.path.basename(osv))[0]
+        osv_type = re.search('(?:POE|RES|PRE)ORB', osv).group()
+        osv_descr = OSV_MAP[osv_type]
+    return osv, osv_descr
 
 
 def copy_src_meta(ard_dir, src_ids):

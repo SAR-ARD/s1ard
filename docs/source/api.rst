@@ -222,6 +222,7 @@ Extraction
         find_in_annotation
         geometry_from_vec
         get_header_size
+        get_osv_info
         get_prod_meta
         get_src_meta
         meta_dict
