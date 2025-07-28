@@ -6,7 +6,7 @@ import math
 from statistics import mean
 import json
 from lxml import etree
-from datetime import datetime
+from dateutil.parser import parse as dateparse
 import numpy as np
 from statistics import median
 from spatialist import Raster
@@ -160,6 +160,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geoCorrAccuracyReference'] = geo_corr_accuracy_reference
     meta['prod']['geoCorrAccuracyType'] = geo_corr_accuracy_type
     meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
+    
     meta['prod']['geoCorrAlgorithm'] = URL['geoCorrAlgorithm']
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = prod_meta['geom']['bbox_native']
@@ -325,7 +326,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
         fac_name = _read_manifest('.//safe:facility', attrib='name')
         meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
-        meta['source'][uid]['processingDate'] = _read_manifest('.//safe:processing', attrib='stop')
+        proc_date = dateparse(_read_manifest('.//safe:processing', attrib='stop'))
+        meta['source'][uid]['processingDate'] = proc_date
         meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
@@ -340,8 +342,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(_read_manifest('.//s1:startTimeANX')))
-        meta['source'][uid]['timeStart'] = datetime.strptime(sid.start, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['timeStop'] = datetime.strptime(sid.stop, '%Y%m%dT%H%M%S')
+        meta['source'][uid]['timeStart'] = dateparse(sid.start)
+        meta['source'][uid]['timeStop'] = dateparse(sid.stop)
     
     return meta
 
