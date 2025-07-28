@@ -190,7 +190,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None
     meta['prod']['radiometricAccuracyRelative'] = None
-    meta['prod']['radiometricAccuracyReference'] = None
+    meta['prod']['radiometricAccuracyReference'] = URL['radiometricAccuracyReference']
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
     meta['prod']['speckleFilterApplied'] = False
@@ -280,7 +280,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
             else:
                 return obj.text
         
-        # (sorted alphabetically)
+        # Source product metadata (sorted alphabetically)
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = URL['source_access']
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
@@ -293,7 +293,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
         meta['source'][uid]['doi'] = URL['source_doi']
         meta['source'][uid]['faradayMeanRotationAngle'] = None
-        meta['source'][uid]['faradayRotationReference'] = None
+        meta['source'][uid]['faradayRotationReference'] = URL['faradayRotationReference']
         meta['source'][uid]['filename'] = sid.file
         meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
