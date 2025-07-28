@@ -322,6 +322,7 @@ URL = {
     'card4l_nrb': 'https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf',
     'card4l_orb': 'https://ceos.org/ard/files/PFS/ORB/v1.0/'
                   'CARD4L_Product_Family_Specification_Ocean_Radar_Backscatter-v1.0.pdf',
+    'faradayRotationReference': None,
     'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'
                                 f'v{get_release_version(s1ard.__version__)}/general/geoaccuracy.html',
     'geoCorrAlgorithm': 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf',
@@ -334,6 +335,7 @@ URL = {
         'sentinel-1c': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=577',
         'sentinel-1d': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=814'
     },
+    'radiometricAccuracyReference': None,
     'RTCAlgorithm': 'https://doi.org/10.1109/Tgrs.2011.2120616',
     'sensorCalibration': 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration',
     'source_access': 'https://dataspace.copernicus.eu',
