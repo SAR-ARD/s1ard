@@ -286,7 +286,6 @@ def main(config_file=None, debug=False, **kwargs):
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
             extent = anc.get_max_ext(geometries=vec)
-            del vec
             with bbox(coordinates=extent, crs=4326) as box:
                 dem.prepare(vector=box, threads=gdal_prms['threads'],
                             dem_dir=None, wbm_dir=config_proc['wbm_dir'],
@@ -294,7 +293,6 @@ def main(config_file=None, debug=False, **kwargs):
                             tilenames=aoi_tiles, username=username, password=password,
                             dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
-            vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
