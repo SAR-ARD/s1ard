@@ -105,17 +105,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['common']['swathIdentifier'] = swath_id
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
-    # PRODUCT metadata
-    if (len(ei_tif) == 1 and
-            sid0.product == 'SLC' and
-            'copernicus' in config['processing']['dem_type'].lower()):
-        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id,
-                                                      ei_tif=ei_tif[0],
-                                                      etad=config['processing']['etad'])
-    else:
-        geo_corr_accuracy = None
-    
-    # (sorted alphabetically)
+    # Product metadata (sorted alphabetically)
     meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = URL['ancillaryData_KML']
@@ -144,6 +134,15 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['doi'] = config['metadata']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['equivalentNumberLooks'] = calc_enl(tif=ref_tif)
+    
+    if (len(ei_tif) == 1 and
+            sid0.product == 'SLC' and
+            'copernicus' in config['processing']['dem_type'].lower()):
+        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=op_mode,
+                                                      ei_tif=ei_tif[0],
+                                                      etad=config['processing']['etad'])
+    else:
+        geo_corr_accuracy = None
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
