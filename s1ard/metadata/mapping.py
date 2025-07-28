@@ -330,6 +330,9 @@ URL = {
     'noiseRemovalAlgorithm': 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF',
     'orbitDataAccess': 'https://step.esa.int/auxdata/orbits/Sentinel-1',
     'platformReference': {
+        'envisat-1': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=2',
+        'ers-1': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=220',
+        'ers-2': 'http://database.eohandbook.com/database/missionsummary.aspx?missionID=221',
         'sentinel-1a': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=575',
         'sentinel-1b': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=576',
         'sentinel-1c': 'https://database.eohandbook.com/database/missionsummary.aspx?missionID=577',
