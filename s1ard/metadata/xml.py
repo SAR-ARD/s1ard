@@ -65,8 +65,8 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         if os.path.isfile(outname) and exist_ok:
             continue
         log.info(f'creating {outname}')
-        timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
-        timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
+        timeStart = meta['source'][uid]['timeStart'].isoformat()
+        timeStop = meta['source'][uid]['timeStop'].isoformat()
         
         root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
@@ -257,9 +257,9 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     if os.path.isfile(outname) and exist_ok:
         return
     log.info(f'creating {outname}')
-    timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
-    timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
-    timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
+    timeCreated = meta['prod']['timeCreated'].isoformat()
+    timeStart = meta['prod']['timeStart'].isoformat()
+    timeStop = meta['prod']['timeStop'].isoformat()
     
     root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
