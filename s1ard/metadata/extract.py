@@ -81,9 +81,6 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
                               src_ids=src_ids, sar_dir=sar_dir)
     op_mode = prod_meta['mode']
     
-    tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
-    z_err_dict = dict(tups)
-    
     # COMMON metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
     meta['common']['constellation'] = 'sentinel-1'
@@ -133,7 +130,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['prod']['card4l-link'] = URL['card4l_nrb']
         meta['prod']['card4l-version'] = '5.5'
     meta['prod']['compression_type'] = compression
-    meta['prod']['compression_zerrors'] = z_err_dict
+    meta['prod']['compression_zerrors'] = LERC_ERR_THRES
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
