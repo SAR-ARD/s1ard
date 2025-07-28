@@ -57,7 +57,7 @@ def source_json(meta, target, exist_ok=False):
     """
     metadir = os.path.join(target, 'source')
     for uid in list(meta['source'].keys()):
-        scene = os.path.basename(meta['source'][uid]['filename']).split('.')[0]
+        scene = os.path.splitext(os.path.basename(meta['source'][uid]['filename']))[0]
         outname = os.path.join(metadir, '{}.json'.format(scene))
         if os.path.isfile(outname) and exist_ok:
             continue
@@ -65,124 +65,169 @@ def source_json(meta, target, exist_ok=False):
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
         date = start + (stop - start) / 2
-        
+        #################################################################################
         # Initialise STAC item
         item = pystac.Item(id=scene,
                            geometry=meta['source'][uid]['geom_stac_geometry_4326'],
                            bbox=meta['source'][uid]['geom_stac_bbox_4326'],
                            datetime=date,
                            properties={})
-        
+        #################################################################################
         # Add common metadata
         item.common_metadata.start_datetime = start
         item.common_metadata.end_datetime = stop
-        item.common_metadata.created = datetime.strptime(meta['source'][uid]['processingDate'], '%Y-%m-%dT%H:%M:%S.%f')
+        item.common_metadata.created = meta['source'][uid]['processingDate']
         item.common_metadata.instruments = [meta['common']['instrumentShortName'].lower()]
         item.common_metadata.constellation = meta['common']['constellation']
         item.common_metadata.platform = meta['common']['platformFullname']
-        
-        # Initialise STAC extensions for properties
-        sar_ext = SarExtension.ext(item, add_if_missing=True)
-        sat_ext = SatExtension.ext(item, add_if_missing=True)
-        view_ext = ViewExtension.ext(item, add_if_missing=True)
-        item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
-        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
-        
+        #################################################################################
         # Add properties
+        
+        # prepare values
+        values = {}
+        for key in ['rangeResolution', 'rangePixelSpacing', 'rangeNumberOfLooks',
+                    'azimuthResolution', 'azimuthPixelSpacing', 'azimuthNumberOfLooks']:
+            value = meta['source'][uid][key]
+            values[key] = mean(value.values()) if isinstance(value, dict) else value
+        for key in ['rangeLookBandwidth', 'azimuthLookBandwidth']:
+            if hasattr(meta['source'][uid], key):
+                value = meta['source'][uid][key]
+                if isinstance(value, dict):
+                    value = {k: v / 1e9 for k, v in value.items()}  # GHz
+                if isinstance(value, (float, int)):
+                    value = value / 1e9
+                values[key] = value
+        ####################################
+        # sat extension properties
+        sat_ext = SatExtension.ext(item, add_if_missing=True)
         sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                       relative_orbit=meta['common']['orbitNumber_rel'],
                       absolute_orbit=meta['common']['orbitNumber_abs'],
-                      anx_datetime=datetime.strptime(meta['source'][uid]['ascendingNodeDate'], '%Y-%m-%dT%H:%M:%S.%f'))
+                      anx_datetime=meta['source'][uid]['ascendingNodeDate'])
+        ####################################
+        # sar extension properties
+        sar_ext = SarExtension.ext(item, add_if_missing=True)
         sar_ext.apply(instrument_mode=meta['common']['operationalMode'],
                       frequency_band=FrequencyBand[meta['common']['radarBand'].upper()],
                       polarizations=[Polarization[pol] for pol in meta['common']['polarisationChannels']],
                       product_type=meta['source'][uid]['productType'],
                       center_frequency=float(meta['common']['radarCenterFreq'] / 1e9),
-                      resolution_range=min(meta['source'][uid]['rangeResolution'].values()),
-                      resolution_azimuth=min(meta['source'][uid]['azimuthResolution'].values()),
-                      pixel_spacing_range=mean(meta['source'][uid]['rangePixelSpacing'].values()),
-                      pixel_spacing_azimuth=mean(meta['source'][uid]['azimuthPixelSpacing'].values()),
-                      looks_range=mean(meta['source'][uid]['rangeNumberOfLooks'].values()),
-                      looks_azimuth=mean(meta['source'][uid]['azimuthNumberOfLooks'].values()),
+                      resolution_range=values['rangeResolution'],
+                      resolution_azimuth=values['azimuthResolution'],
+                      pixel_spacing_range=values['rangePixelSpacing'],
+                      pixel_spacing_azimuth=values['azimuthPixelSpacing'],
+                      looks_range=values['rangeNumberOfLooks'],
+                      looks_azimuth=values['azimuthNumberOfLooks'],
                       looks_equivalent_number=meta['source'][uid]['perfEquivalentNumberOfLooks'],
                       observation_direction=ObservationDirection[meta['common']['antennaLookDirection']])
+        ####################################
+        # view extension properties
+        view_ext = ViewExtension.ext(item, add_if_missing=True)
         view_ext.apply(incidence_angle=meta['source'][uid]['incidenceAngleMidSwath'],
                        azimuth=meta['source'][uid]['instrumentAzimuthAngle'])
+        ####################################
+        # processing extension properties
+        item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
         item.properties['processing:facility'] = meta['source'][uid]['processingCenter']
         item.properties['processing:software'] = {meta['source'][uid]['processorName']:
                                                       meta['source'][uid]['processorVersion']}
         item.properties['processing:level'] = meta['common']['processingLevel']
+        ####################################
+        # card4l extension properties
+        item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/source.json')
         item.properties['card4l:specification'] = meta['prod']['productName-short']
         item.properties['card4l:specification_version'] = meta['prod']['card4l-version']
         item.properties['card4l:beam_id'] = meta['common']['swathIdentifier']
-        item.properties['card4l:orbit_data_source'] = meta['source'][uid]['orbitDataSource']
         item.properties['card4l:orbit_mean_altitude'] = float(meta['common']['orbitMeanAltitude'])
-        range_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['rangeLookBandwidth'].items()}  # GHz
-        azimuth_look_bandwidth = {k: v / 1e9 for k, v in meta['source'][uid]['azimuthLookBandwidth'].items()}  # GHz
-        item.properties['card4l:source_processing_parameters'] = {'lut_applied': meta['source'][uid]['lutApplied'],
-                                                                  'range_look_bandwidth': range_look_bandwidth,
-                                                                  'azimuth_look_bandwidth': azimuth_look_bandwidth}
-        for field, key in zip(['card4l:resolution_range', 'card4l:resolution_azimuth'],
-                              ['rangeResolution', 'azimuthResolution']):
-            res = {}
-            for k, v in meta['source'][uid][key].items():
-                res[k] = float(v)
-            item.properties[field] = res
-        item.properties['card4l:source_geometry'] = meta['source'][uid]['dataGeometry']
-        item.properties['card4l:incidence_angle_near_range'] = meta['source'][uid]['incidenceAngleMin']
-        item.properties['card4l:incidence_angle_far_range'] = meta['source'][uid]['incidenceAngleMax']
-        item.properties['card4l:noise_equivalent_intensity'] = meta['source'][uid]['perfEstimates']
-        item.properties['card4l:noise_equivalent_intensity_type'] = meta['source'][uid][
-            'perfNoiseEquivalentIntensityType']
-        item.properties['card4l:peak_sidelobe_ratio'] = meta['source'][uid]['perfPeakSideLobeRatio']
-        item.properties['card4l:integrated_sidelobe_ratio'] = meta['source'][uid]['perfIntegratedSideLobeRatio']
-        item.properties['card4l:mean_faraday_rotation_angle'] = meta['source'][uid]['faradayMeanRotationAngle']
-        item.properties['card4l:ionosphere_indicator'] = meta['source'][uid]['ionosphereIndicator']
         
+        proc_param = {'lut_applied': meta['source'][uid]['lutApplied']}
+        
+        pairs = [('range_look_bandwidth', 'rangeLookBandwidth'),
+                 ('azimuth_look_bandwidth', 'azimuthLookBandwidth')]
+        for key_dst, key_src in pairs:
+            if hasattr(values, key_src):
+                proc_param[key_dst] = values[key_src]
+        
+        item.properties['card4l:source_processing_parameters'] = proc_param
+        
+        keys = [
+            ('card4l:incidence_angle_far_range', 'incidenceAngleMax'),
+            ('card4l:incidence_angle_near_range', 'incidenceAngleMin'),
+            ('card4l:integrated_sidelobe_ratio', 'perfIntegratedSideLobeRatio'),
+            ('card4l:ionosphere_indicator', 'ionosphereIndicator'),
+            ('card4l:mean_faraday_rotation_angle', 'faradayMeanRotationAngle'),
+            ('card4l:noise_equivalent_intensity', 'perfEstimates'),
+            ('card4l:noise_equivalent_intensity_type', 'perfNoiseEquivalentIntensityType'),
+            ('card4l:orbit_data_source', 'orbitDataSource'),
+            ('card4l:peak_sidelobe_ratio', 'perfPeakSideLobeRatio'),
+            ('card4l:resolution_range', 'rangeResolution'),
+            ('card4l:resolution_azimuth', 'azimuthResolution'),
+            ('card4l:source_geometry', 'dataGeometry')
+        ]
+        for key_dst, key_src in keys:
+            val = meta['source'][uid][key_src]
+            if val is not None:
+                item.properties[key_dst] = val
+        #################################################################################
         # Add links
-        item.add_link(link=pystac.Link(rel='card4l-document',
-                                       target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
-                                       media_type='application/vnd.openxmlformats-officedocument.wordprocessingml'
-                                                  '.document',
-                                       title='CARD4L Product Family Specification: {} (v{})'
-                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
-        item.add_link(link=pystac.Link(rel='card4l-document',
-                                       target=meta['prod']['card4l-link'],
-                                       media_type='application/pdf',
-                                       title='CARD4L Product Family Specification: {} (v{})'
-                                             ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
-        item.add_link(link=pystac.Link(rel='about',
-                                       target=meta['source'][uid]['doi'],
-                                       title='Product definition reference.'))
-        item.add_link(link=pystac.Link(rel='access',
-                                       target=meta['source'][uid]['access'],
-                                       title='Product data access.'))
-        item.add_link(link=pystac.Link(rel='satellite',
-                                       target=meta['common']['platformReference'],
-                                       title='CEOS Missions, Instruments and Measurements Database record'))
-        item.add_link(link=pystac.Link(rel='state-vectors',
-                                       target=meta['source'][uid]['orbitStateVector'],
-                                       title='Orbit data file containing state vectors.'))
-        item.add_link(link=pystac.Link(rel='sensor-calibration',
-                                       target=meta['source'][uid]['sensorCalibration'],
-                                       title='Reference describing sensor calibration parameters.'))
-        item.add_link(link=pystac.Link(rel='pol-cal-matrices',
-                                       target=meta['source'][uid]['polCalMatrices'],
-                                       title='Reference to the complex-valued polarimetric distortion matrices.'))
-        item.add_link(link=pystac.Link(rel='referenced-faraday-rotation',
-                                       target=meta['source'][uid]['faradayRotationReference'],
-                                       title='Reference describing the method used to derive the estimate for the mean'
-                                             ' Faraday rotation angle.'))
+        links = [
+            {'rel': 'card4l-document',
+             'target': meta['prod']['card4l-link'].replace('.pdf', '.docx'),
+             'media_type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+             'title': f'CARD4L Product Family Specification: '
+                      f'{meta["prod"]["productName"]} (v{meta["prod"]["card4l-version"]})'},
+            {'rel': 'card4l-document',
+             'target': meta['prod']['card4l-link'],
+             'media_type': 'application/pdf',
+             'title': f'CARD4L Product Family Specification: '
+                      f'{meta["prod"]["productName"]} (v{meta["prod"]["card4l-version"]})'},
+            {'rel': 'about',
+             'target': meta['source'][uid]['doi'],
+             'media_type': None,
+             'title': 'Product definition reference.'},
+            {'rel': 'access',
+             'target': meta['source'][uid]['access'],
+             'media_type': None,
+             'title': 'Product data access.'},
+            {'rel': 'satellite',
+             'target': meta['common']['platformReference'],
+             'media_type': None,
+             'title': 'CEOS Missions, Instruments and Measurements Database record'},
+            {'rel': 'state-vectors',
+             'target': meta['source'][uid]['orbitStateVector'],
+             'media_type': None,
+             'title': 'Orbit data file containing state vectors.'},
+            {'rel': 'sensor-calibration',
+             'target': meta['source'][uid]['sensorCalibration'],
+             'media_type': None,
+             'title': 'Reference describing sensor calibration parameters.'},
+            {'rel': 'pol-cal-matrices',
+             'target': meta['source'][uid]['polCalMatrices'],
+             'media_type': None,
+             'title': 'Reference to the complex-valued polarimetric distortion matrices.'},
+            {'rel': 'referenced-faraday-rotation',
+             'target': meta['source'][uid]['faradayRotationReference'],
+             'media_type': None,
+             'title': 'Reference describing the method used to derive the estimate '
+                      'for the mean Faraday rotation angle.'}]
         
+        for link in links:
+            if link['target'] is not None:
+                item.add_link(link=pystac.Link(**link))
+        #################################################################################
         # Add assets
-        xml_relpath = './' + os.path.relpath(outname.replace('.json', '.xml'), metadir).replace('\\', '/')
+        relpath = os.path.relpath(outname.replace('.json', '.xml'), metadir)
+        xml_relpath = './' + relpath.replace('\\', '/')
         item.add_asset(key='card4l',
                        asset=pystac.Asset(href=xml_relpath,
                                           title='Metadata in XML format.',
                                           media_type=pystac.MediaType.XML,
                                           roles=['metadata', 'card4l']))
         _asset_add_orig_src(metadir=metadir, uid=uid, item=item)
+        #################################################################################
+        # (validate) and save the result
         
+        # item.validate()  # for later
         item.save_object(dest_href=outname)
 
 
@@ -287,7 +332,7 @@ def product_json(meta, target, assets, exist_ok=False):
     mgrs_ext = MgrsExtension.ext(item, add_if_missing=True)
     item.stac_extensions.append('https://stac-extensions.github.io/processing/v1.1.0/schema.json')
     item.stac_extensions.append('https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json')
-    
+    #################################################################################
     # Add properties
     sat_ext.apply(orbit_state=OrbitState[meta['common']['orbitDirection'].upper()],
                   relative_orbit=meta['common']['orbitNumber_rel'],
@@ -332,56 +377,88 @@ def product_json(meta, target, assets, exist_ok=False):
         bias = float(meta['prod'][key[1]]) if meta['prod'][key[1]] is not None else None
         item.properties['card4l:{}_geometric_accuracy'.format(x.lower())] = {'bias': bias, 'stddev': stddev}
     item.properties['card4l:geometric_accuracy_radial_rmse'] = meta['prod']['geoCorrAccuracy_rRMSE']
-    
+    #################################################################################
     # Add links
-    item.add_link(link=pystac.Link(rel='card4l-document',
-                                   target=meta['prod']['card4l-link'].replace('.pdf', '.docx'),
-                                   media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                   title='CARD4L Product Family Specification: {} (v{})'
-                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
-    item.add_link(link=pystac.Link(rel='card4l-document',
-                                   target=meta['prod']['card4l-link'],
-                                   media_type='application/pdf',
-                                   title='CARD4L Product Family Specification: {} (v{})'
-                                         ''.format(meta['prod']['productName'], meta['prod']['card4l-version'])))
+    
+    links = [
+        {'rel': 'card4l-document',
+         'target': meta['prod']['card4l-link'].replace('.pdf', '.docx'),
+         'media_type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         'title': f'CARD4L Product Family Specification: '
+                  f'{meta["prod"]["productName"]} (v{meta["prod"]["card4l-version"]})'},
+        {'rel': 'card4l-document',
+         'target': meta['prod']['card4l-link'],
+         'media_type': 'application/pdf',
+         'title': f'CARD4L Product Family Specification: '
+                  f'{meta["prod"]["productName"]} (v{meta["prod"]["card4l-version"]})'},
+        {"rel": "about",
+         "target": meta["prod"]["doi"],
+         "title": "Product definition reference.",
+         "media_type": None},
+        {"rel": "access",
+         "target": meta["prod"]["access"],
+         "title": "Product data access",
+         "media_type": None},
+        {"rel": "related",
+         "target": meta["prod"]["ancillaryData_KML"],
+         "title": "Sentinel-2 Military Grid Reference System (MGRS) tiling "
+                  "grid file used as auxiliary data during processing",
+         "media_type": None},
+        {"rel": "noise-removal",
+         "target": meta["prod"]["noiseRemovalAlgorithm"],
+         "title": "Reference to the noise removal algorithm details",
+         "media_type": None},
+        {"rel": "radiometric-terrain-correction",
+         "target": meta["prod"]["RTCAlgorithm"],
+         "title": "Reference to the Radiometric Terrain Correction algorithm details",
+         "media_type": None},
+        {"rel": "radiometric-accuracy",
+         "target": meta["prod"]["radiometricAccuracyReference"],
+         "title": "Reference describing the radiometric uncertainty of the product",
+         "media_type": None},
+        {"rel": "geometric-correction",
+         "target": meta["prod"]["geoCorrAlgorithm"],
+         "title": "Reference to the Geometric Correction algorithm details",
+         "media_type": None},
+        {"rel": f"{meta['prod']['demType']}-model",
+         "target": meta["prod"]["demReference"],
+         "title": f"Digital Elevation Model used as auxiliary data during processing: "
+                  f"{meta['prod']['demName']}",
+         "media_type": None},
+        {"rel": "earth-gravitational-model",
+         "target": meta["prod"]["demEGMReference"],
+         "title": "Reference to the Earth Gravitational Model (EGM) used for geometric correction",
+         "media_type": None},
+        {"rel": "geometric-accuracy",
+         "target": meta["prod"]["geoCorrAccuracyReference"],
+         "title": "Reference documenting the estimate of absolute localization error",
+         "media_type": None},
+        {"rel": "gridding-convention",
+         "target": meta["prod"]["griddingConventionURL"],
+         "title": "Reference describing the gridding convention used",
+         "media_type": None}
+    ]
+    if meta['prod']['productName-short'] == 'ORB':
+        links.append(
+            {"rel": "wind-norm-reference",
+             "target": meta["prod"]["windNormReferenceModel"],
+             "title": "Reference to the model used to create the wind normalisation layer",
+             "media_type": None}
+        )
+    
     for src in list(meta['source'].keys()):
         x = os.path.basename(meta['source'][src]['filename']).split('.')[0]
         src_target = os.path.join('./source', '{}.json'.format(x)).replace('\\', '/')
-        item.add_link(link=pystac.Link(rel='derived_from',
-                                       target=src_target,
-                                       media_type='application/json',
-                                       title='Source metadata formatted in STAC compliant JSON format'))
+        links.append(
+            {'rel': 'derived_from',
+             'target': src_target,
+             'media_type': 'application/json',
+             'title': 'Source metadata formatted in STAC compliant JSON format'})
     
-    links = [('about', meta['prod']['doi'],
-              'Product definition reference.'),
-             ('access', meta['prod']['access'],
-              'Product data access'),
-             ('related', meta['prod']['ancillaryData_KML'],
-              'Sentinel-2 Military Grid Reference System (MGRS) tiling grid file '
-              'used as auxiliary data during processing'),
-             ('noise-removal', meta['prod']['noiseRemovalAlgorithm'],
-              'Reference to the noise removal algorithm details'),
-             ('radiometric-terrain-correction', meta['prod']['RTCAlgorithm'],
-              'Reference to the Radiometric Terrain Correction algorithm details'),
-             ('wind-norm-reference', meta['prod']['windNormReferenceModel'],
-              'Reference to the model used to create the wind normalisation layer'),
-             ('radiometric-accuracy', meta['prod']['radiometricAccuracyReference'],
-              'Reference describing the radiometric uncertainty of the product'),
-             ('geometric-correction', meta['prod']['geoCorrAlgorithm'],
-              'Reference to the Geometric Correction algorithm details'),
-             (f"{meta['prod']['demType']}-model", meta['prod']['demReference'],
-              f"Digital Elevation Model used as auxiliary data during processing: "
-              f"{meta['prod']['demName']}"),
-             ('earth-gravitational-model', meta['prod']['demEGMReference'],
-              'Reference to the Earth Gravitational Model (EGM) used for geometric correction'),
-             ('geometric-accuracy', meta['prod']['geoCorrAccuracyReference'],
-              'Reference documenting the estimate of absolute localization error'),
-             ('gridding-convention', meta['prod']['griddingConventionURL'],
-              'Reference describing the gridding convention used')]
-    for rel, target_link, title in links:
-        if target_link is not None:
-            item.add_link(link=pystac.Link(rel=rel, target=target_link, title=title))
-    
+    for link in links:
+        if link['target'] is not None:
+            item.add_link(link=pystac.Link(**link))
+    #################################################################################
     # Add assets
     assets = assets.copy()
     assets.append(outname.replace('.json', '.xml'))
