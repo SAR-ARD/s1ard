@@ -166,7 +166,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geom_stac_bbox_4326'] = prod_meta['geom']['bbox']
     meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
     meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
-    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
+    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelope']
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['griddingConventionURL'] = URL['griddingConventionURL']
     meta['prod']['licence'] = config['metadata']['licence']
@@ -507,7 +507,7 @@ def geometry_from_vec(vectorobject):
     out['center'] = '{} {}'.format(c_y, c_x)
     wkt = geom.ExportToWkt().removeprefix('POLYGON ((').removesuffix('))')
     wkt_list = ['{} {}'.format(x[1], x[0]) for x in [y.split(' ') for y in wkt.split(',')]]
-    out['envelop'] = ' '.join(wkt_list)
+    out['envelope'] = ' '.join(wkt_list)
     
     return out
 
