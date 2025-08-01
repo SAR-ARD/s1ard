@@ -207,23 +207,9 @@ def main(config_file=None, debug=False, **kwargs):
                     os.makedirs(tmp_dir_scene, exist_ok=True)
                 ########################################################################################################
                 # Preparation of DEM for SAR processing
-                dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
-                                   'Copernicus 30m Global DEM II': 'GLO30II',
-                                   'Copernicus 30m Global DEM': 'GLO30',
-                                   'GETASSE30': 'GETASSE30'}
-                dem_type_short = dem_type_lookup[config_proc['dem_type']]
-                fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
-                fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
-                os.makedirs(tmp_dir_scene, exist_ok=True)
-                with Lock(fname_dem):
-                    if not os.path.isfile(fname_dem):
-                        log.info('creating scene-specific DEM mosaic')
-                        with scene.bbox() as geom:
-                            dem.mosaic(geometry=geom, outname=fname_dem,
-                                       dem_type=config_proc['dem_type'],
-                                       username=username, password=password)
-                    else:
-                        log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+                fname_dem = dem.prepare(scene=scene, dem_type=config_proc['dem_type'],
+                                        dir_out=tmp_dir_scene, username=username,
+                                        password=password, mode='single-4326')
                 ########################################################################################################
                 # ETAD correction
                 if config_proc['etad']:
@@ -288,11 +274,11 @@ def main(config_file=None, debug=False, **kwargs):
             extent = anc.get_max_ext(geometries=vec)
             del vec
             with bbox(coordinates=extent, crs=4326) as box:
-                dem.prepare(vector=box, threads=gdal_prms['threads'],
-                            dem_dir=None, wbm_dir=config_proc['wbm_dir'],
-                            dem_type=config_proc['dem_type'],
-                            tilenames=aoi_tiles, username=username, password=password,
-                            dem_strict=True)
+                dem.retile(vector=box, threads=gdal_prms['threads'],
+                           dem_dir=None, wbm_dir=config_proc['wbm_dir'],
+                           dem_type=config_proc['dem_type'],
+                           tilenames=aoi_tiles, username=username, password=password,
+                           dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
             vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,

@@ -6,15 +6,15 @@ from pyroSAR.auxdata import dem_autoload, dem_create
 from pyroSAR.ancillary import Lock
 import s1ard.tile_extraction as tile_ex
 from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews, get_tmp_name
-from spatialist import Raster, bbox
+from spatialist import bbox
 import logging
 
 log = logging.getLogger('s1ard')
 
 
-def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
-            tilenames=None, threads=None, username=None, password=None,
-            lock_timeout=1200):
+def retile(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
+           tilenames=None, threads=None, username=None, password=None,
+           lock_timeout=1200):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -56,15 +56,15 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
     # strictly only create overlapping DEM tiles in their native CRS.
     # Will create tiles 32UQA, 32UQB, 33UUR and 33UUS.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
-    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
-    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=True,
-    >>>                 threads=4)
+    >>>     dem.retile(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                dem_dir='DEM', wbm_dir=None, dem_strict=True,
+    >>>                threads=4)
     # Process all overlapping DEM tiles to each CRS.
     # Will additionally create tiles 32UQA_32633, 32UQB_32633, 33UUR_32632 and 33UUS_32632.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
-    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
-    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=False,
-    >>>                 threads=4)
+    >>>     dem.retile(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                dem_dir='DEM', wbm_dir=None, dem_strict=False,
+    >>>                threads=4)
     
     See Also
     --------
@@ -249,15 +249,10 @@ def authenticate(dem_type, username=None, password=None):
 
 
 def mosaic(geometry, dem_type, outname, epsg=None,
-           dem_dir=None, username=None, password=None, threads=4):
+           tr=None, username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
-    Can be created from MGRS-tiled DEMs as created by :func:`s1ard.dem.prepare`
-    or ad hoc using :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
-    In the former case the arguments `username`, `password` and `threads` are ignored and
-    all tiles found in `dem_dir` are read.
-    In the latter case the arguments `epsg` and `dem_dir` are ignored and the DEM is
-    only mosaiced and geoid-corrected.
+    Makes use of :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
     
     Parameters
     ----------
@@ -269,8 +264,8 @@ def mosaic(geometry, dem_type, outname, epsg=None,
         The name of the mosaic.
     epsg: int or None
         The coordinate reference system as an EPSG code.
-    dem_dir: str or None
-        The directory containing the DEM MGRS tiles.
+    tr: None or tuple[int or float]
+        the target resolution as (xres, yres)
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the environment variable 'DEM_USER' is read.
@@ -282,36 +277,21 @@ def mosaic(geometry, dem_type, outname, epsg=None,
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     """
     if not os.path.isfile(outname):
-        if dem_dir is not None:
-            dem_buffer = 200  # meters
-            with geometry.clone() as footprint:
-                footprint.reproject(epsg)
-                extent = footprint.extent
-                extent['xmin'] -= dem_buffer
-                extent['ymin'] -= dem_buffer
-                extent['xmax'] += dem_buffer
-                extent['ymax'] += dem_buffer
-                with bbox(extent, epsg) as dem_box:
-                    tiles = tile_ex.tile_from_aoi(vector=geometry,
-                                                  epsg=epsg, strict=False)
-                    dem_names = [os.path.join(dem_dir, dem_type, '{}_DEM.tif'.format(tile)) for tile in tiles]
-                    with Raster(dem_names, list_separate=False)[dem_box] as dem_mosaic:
-                        dem_mosaic.write(outname, format='GTiff')
+        username, password = authenticate(dem_type=dem_type, username=username,
+                                          password=password)
+        buffer = 0.01  # degrees
+        if dem_type == 'GETASSE30':
+            geoid_convert = False
         else:
-            username, password = authenticate(dem_type=dem_type, username=username, password=password)
-            buffer = 0.01  # degrees
-            if dem_type == 'GETASSE30':
-                geoid_convert = False
-            else:
-                geoid_convert = True
-            geoid = 'EGM2008'
-            vrt = outname.replace('.tif', '.vrt')
-            dem_autoload([geometry], demType=dem_type,
-                         vrt=vrt, buffer=buffer, product='dem',
-                         username=username, password=password)
-            dem_create(src=vrt, dst=outname, pbar=False,
-                       geoid_convert=geoid_convert, geoid=geoid,
-                       threads=threads, nodata=-32767)
+            geoid_convert = True
+        geoid = 'EGM2008'
+        vrt = outname.replace('.tif', '.vrt')
+        dem_autoload([geometry], demType=dem_type,
+                     vrt=vrt, buffer=buffer, product='dem',
+                     username=username, password=password)
+        dem_create(src=vrt, dst=outname, pbar=False, tr=tr,
+                   geoid_convert=geoid_convert, geoid=geoid,
+                   threads=threads, nodata=-32767, t_srs=epsg)
 
 
 def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
@@ -368,3 +348,73 @@ def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
                outputBounds=bounds, threads=threads, format=format,
                creationOptions=create_options)
     os.remove(vrt)
+
+
+def prepare(scene, dem_type, mode, dir_out, tr=None,
+            username=None, password=None):
+    """
+    Prepare DEM files for SAR processing.
+
+    Parameters
+    ----------
+    scene: pyroSAR.drivers.ID
+        the SAR product
+    dem_type: str
+        the DEM type
+    mode: {single-4326, multi-UTM}
+        the DEM preparation mode (depends on the requirements of the used SAR processor)
+    dir_out: str
+        the destination directory
+    tr: tuple(int or float) or None
+        the target resolution as (x, y)
+    username: str or None
+        The username for accessing the DEM tiles. If None and authentication is required
+        for the selected DEM type, the environment variable 'DEM_USER' is read.
+        If this is not set, the user is prompted interactively to provide credentials.
+    password: str or None
+        The password for accessing the DEM tiles.
+        If None: same behavior as for username but with env. variable 'DEM_PASS'.
+
+    Returns
+    -------
+    List[str]
+        the names of the newly created DEM files.
+    """
+    dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
+                       'Copernicus 30m Global DEM II': 'GLO30II',
+                       'Copernicus 30m Global DEM': 'GLO30',
+                       'GETASSE30': 'GETASSE30'}
+    dem_type_short = dem_type_lookup[dem_type]
+    if mode == 'single-4326':
+        fname_base_dem = f'DEM_{dem_type_short}_4326.tif'
+        fname_dem = os.path.join(dir_out, fname_base_dem)
+        with Lock(fname_dem):
+            if not os.path.isfile(fname_dem):
+                log.info('creating scene-specific DEM mosaic in EPSG:4326')
+                with scene.bbox() as geom:
+                    mosaic(geometry=geom, outname=fname_dem,
+                           dem_type=dem_type, tr=tr, epsg=4326,
+                           username=username, password=password)
+            else:
+                log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+    elif mode == 'multi-UTM':
+        aois = tile_ex.aoi_from_scene(scene=scene, multi=True)
+        fname_dem = []
+        for aoi in aois:
+            ext = aoi['extent']
+            epsg = aoi['epsg']
+            fname_base_dem = f'DEM_{dem_type_short}_{epsg}.tif'
+            fname_dem_tmp = os.path.join(dir_out, fname_base_dem)
+            fname_dem.append(fname_dem_tmp)
+            with Lock(fname_dem_tmp):
+                if not os.path.isfile(fname_dem_tmp):
+                    log.info(f'creating scene-specific DEM mosaic in EPSG:{epsg}')
+                    with bbox(coordinates=ext, crs=4326) as geom:
+                        mosaic(geometry=geom, outname=fname_dem_tmp,
+                               dem_type=dem_type, tr=tr, epsg=epsg,
+                               username=username, password=password)
+                else:
+                    log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+    else:
+        raise ValueError('mode must be one of "single-4326" or "multi-UTM"')
+    return fname_dem
