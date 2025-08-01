@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.3.2 | 2025-08-01
+------------------
+
+* `calc_product_start_stop`: fixed bug in values exceeding valid range (`#267 <https://github.com/SAR-ARD/s1ard/pull/267>`_)
+* `snap.pre`: remove grd border boise for all sentinel-1 satellites (`#268 <https://github.com/SAR-ARD/s1ard/pull/268>`_)
+
+`Full v2.3.2 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.3.1...v2.3.2>`_
+
 2.3.1 | 2025-07-07
 ------------------
 
