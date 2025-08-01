@@ -138,7 +138,7 @@ def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
         wf.insert_node(orb, before=read.id)
         last = orb
         ############################################
-        if scene.sensor in ['S1A', 'S1B'] and scene.product == 'GRD':
+        if re.search('S1[A-Z]', scene.sensor) and scene.product == 'GRD':
             bn = parse_node('Remove-GRD-Border-Noise')
             wf.insert_node(bn, before=last.id)
             bn.parameters['selectedPolarisations'] = polarizations
