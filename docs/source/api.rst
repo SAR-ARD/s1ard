@@ -109,7 +109,7 @@ DEM
         :nosignatures:
 
         mosaic
-        prepare
+        retile
 
 OCN
 ^^^

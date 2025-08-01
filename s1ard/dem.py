@@ -12,9 +12,9 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
-            tilenames=None, threads=None, username=None, password=None,
-            lock_timeout=1200):
+def retile(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
+           tilenames=None, threads=None, username=None, password=None,
+           lock_timeout=1200):
     """
     Downloads DEM and WBM tiles and restructures them into the MGRS tiling
     scheme including re-projection and vertical datum conversion.
@@ -56,15 +56,15 @@ def prepare(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
     # strictly only create overlapping DEM tiles in their native CRS.
     # Will create tiles 32UQA, 32UQB, 33UUR and 33UUS.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
-    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
-    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=True,
-    >>>                 threads=4)
+    >>>     dem.retile(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                dem_dir='DEM', wbm_dir=None, dem_strict=True,
+    >>>                threads=4)
     # Process all overlapping DEM tiles to each CRS.
     # Will additionally create tiles 32UQA_32633, 32UQB_32633, 33UUR_32632 and 33UUS_32632.
     >>> with bbox(coordinates=ext, crs=4326) as vec:
-    >>>     dem.prepare(vector=vec, dem_type='Copernicus 30m Global DEM',
-    >>>                 dem_dir='DEM', wbm_dir=None, dem_strict=False,
-    >>>                 threads=4)
+    >>>     dem.retile(vector=vec, dem_type='Copernicus 30m Global DEM',
+    >>>                dem_dir='DEM', wbm_dir=None, dem_strict=False,
+    >>>                threads=4)
     
     See Also
     --------
