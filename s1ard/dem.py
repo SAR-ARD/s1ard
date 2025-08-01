@@ -6,7 +6,7 @@ from pyroSAR.auxdata import dem_autoload, dem_create
 from pyroSAR.ancillary import Lock
 import s1ard.tile_extraction as tile_ex
 from s1ard.ancillary import generate_unique_id, get_max_ext, vrt_add_overviews, get_tmp_name
-from spatialist import Raster, bbox
+from spatialist import bbox
 import logging
 
 log = logging.getLogger('s1ard')
@@ -348,3 +348,73 @@ def to_mgrs(tile, dst, dem_type, overviews, tr, format='COG',
                outputBounds=bounds, threads=threads, format=format,
                creationOptions=create_options)
     os.remove(vrt)
+
+
+def prepare(scene, dem_type, mode, dir_out, tr=None,
+            username=None, password=None):
+    """
+    Prepare DEM files for SAR processing.
+
+    Parameters
+    ----------
+    scene: pyroSAR.drivers.ID
+        the SAR product
+    dem_type: str
+        the DEM type
+    mode: {single-4326, multi-UTM}
+        the DEM preparation mode (depends on the requirements of the used SAR processor)
+    dir_out: str
+        the destination directory
+    tr: tuple(int or float) or None
+        the target resolution as (x, y)
+    username: str or None
+        The username for accessing the DEM tiles. If None and authentication is required
+        for the selected DEM type, the environment variable 'DEM_USER' is read.
+        If this is not set, the user is prompted interactively to provide credentials.
+    password: str or None
+        The password for accessing the DEM tiles.
+        If None: same behavior as for username but with env. variable 'DEM_PASS'.
+
+    Returns
+    -------
+    List[str]
+        the names of the newly created DEM files.
+    """
+    dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
+                       'Copernicus 30m Global DEM II': 'GLO30II',
+                       'Copernicus 30m Global DEM': 'GLO30',
+                       'GETASSE30': 'GETASSE30'}
+    dem_type_short = dem_type_lookup[dem_type]
+    if mode == 'single-4326':
+        fname_base_dem = f'DEM_{dem_type_short}_4326.tif'
+        fname_dem = os.path.join(dir_out, fname_base_dem)
+        with Lock(fname_dem):
+            if not os.path.isfile(fname_dem):
+                log.info('creating scene-specific DEM mosaic in EPSG:4326')
+                with scene.bbox() as geom:
+                    mosaic(geometry=geom, outname=fname_dem,
+                           dem_type=dem_type, tr=tr, epsg=4326,
+                           username=username, password=password)
+            else:
+                log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+    elif mode == 'multi-UTM':
+        aois = tile_ex.aoi_from_scene(scene=scene, multi=True)
+        fname_dem = []
+        for aoi in aois:
+            ext = aoi['extent']
+            epsg = aoi['epsg']
+            fname_base_dem = f'DEM_{dem_type_short}_{epsg}.tif'
+            fname_dem_tmp = os.path.join(dir_out, fname_base_dem)
+            fname_dem.append(fname_dem_tmp)
+            with Lock(fname_dem_tmp):
+                if not os.path.isfile(fname_dem_tmp):
+                    log.info(f'creating scene-specific DEM mosaic in EPSG:{epsg}')
+                    with bbox(coordinates=ext, crs=4326) as geom:
+                        mosaic(geometry=geom, outname=fname_dem_tmp,
+                               dem_type=dem_type, tr=tr, epsg=epsg,
+                               username=username, password=password)
+                else:
+                    log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+    else:
+        raise ValueError('mode must be one of "single-4326" or "multi-UTM"')
+    return fname_dem
