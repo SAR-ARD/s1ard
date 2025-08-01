@@ -794,17 +794,22 @@ def calc_product_start_stop(src_ids, extent, epsg):
     
     # check interpolation validity
     if np.isnan(interpolated).any():
-        raise RuntimeError('Interpolated array contains NaN values.')
+        raise RuntimeError('The interpolated array contains NaN values.')
     
-    c1 = min(gdf['timestamp']) <= min(interpolated) <= max(gdf['timestamp'])
-    c2 = min(gdf['timestamp']) <= max(interpolated) <= max(gdf['timestamp'])
-    if not c1 or not c2:
-        raise RuntimeError('Interpolated values exceed input range.')
+    # Make sure the interpolated values do not exceed the actual values.
+    # This might happen when the source product geometries are slightly
+    # larger than the geo grid extent.
+    out = [max(min(interpolated), min(gdf['timestamp'])),
+           min(max(interpolated), max(gdf['timestamp']))]
     
-    # return minimum and maximum interpolated values as datetime objects
-    out = [min(interpolated), max(interpolated)]
-    out = [datetime.fromtimestamp(x, tz=timezone.utc) for x in out]
-    return tuple(out)
+    # double-check that values are plausible
+    if out[0] < min(gdf['timestamp']) or out[1] > max(gdf['timestamp']):
+        raise RuntimeError('The interpolated values exceed the input range.')
+    if out[0] >= out[1]:
+        raise RuntimeError('The determined acquisition start is larger '
+                           'than or equal to the acquisition end.')
+    
+    return (datetime.fromtimestamp(x, tz=timezone.utc) for x in out)
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
