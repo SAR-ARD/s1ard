@@ -315,15 +315,22 @@ def main(config_file=None, debug=False, **kwargs):
                 epsg = tile.getProjection('epsg')
                 log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
+                
+                meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
+                                        tile_id=tile.mgrs, extent=extent, epsg=epsg)
+                log.info(f'product name: {os.path.join(outdir, meta["product_base"])}')
+                
                 try:
-                    msg = ard.format(config=config, product_type=product_type,
-                                     scenes=scenes_sub_fnames, datadir=config_proc['sar_dir'],
-                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=dem_type,
-                                     multithread=gdal_prms['multithread'], annotation=annotation,
-                                     update=update)
-                    if msg == 'Already processed - Skip!':
-                        log.info(msg)
+                    dir_ard = ard.check_status(dir_out=outdir, product_base=meta["product_base"],
+                                               product_id=meta["id"], update=update)
+                except RuntimeError:
+                    log.info('Already processed - Skip!')
+                try:
+                    ard.format(config=config, meta=meta,
+                               scenes=scenes_sub_fnames, dir_sar=config_proc['sar_dir'],
+                               dir_ard=dir_ard, tile=tile.mgrs, extent=extent, epsg=epsg,
+                               wbm=fname_wbm, dem_type=dem_type,
+                               multithread=gdal_prms['multithread'], annotation=annotation)
                 except Exception as e:
                     log.error(msg=e)
                     raise

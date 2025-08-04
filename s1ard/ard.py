@@ -29,9 +29,103 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wbm=None,
+def product_info(product_type, src_ids, tile_id, extent, epsg):
+    """
+    Create ARD product metadata.
+    
+    Parameters
+    ----------
+    product_type {NRB, ORB}
+        the ARD product type
+    src_ids: list[pyroSAR.drivers.ID]
+        the source product objects
+    tile_id: str
+        the MGRS tile ID
+    extent: dict
+        the extent of the MGRS tile
+    epsg: int
+        the EPSG code of the MGRS tile
+
+    Returns
+    -------
+    dict
+        ARD product metadata
+    """
+    # determine processing timestamp and generate unique ID
+    proc_time = datetime.now(timezone.utc)
+    t = proc_time.isoformat().encode()
+    product_id = generate_unique_id(encoded_str=t)
+    
+    ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
+    meta = {'mission': src_ids[0].sensor,
+            'mode': src_ids[0].meta['acquisition_mode'],
+            'product_type': product_type,
+            'polarization': {"['HH']": 'SH',
+                             "['VV']": 'SV',
+                             "['HH', 'HV']": 'DH',
+                             "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
+            'start': ard_start,
+            'stop': ard_stop,
+            'proc_time': proc_time,
+            'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
+            'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
+            'tile': tile_id,
+            'id': product_id}
+    meta_name = deepcopy(meta)
+    meta_name['start'] = datetime.strftime(meta_name['start'], '%Y%m%dT%H%M%S')
+    del meta_name['stop']
+    meta_name_lower = dict((k, v.lower() if not isinstance(v, int) else v)
+                           for k, v in meta_name.items())
+    skeleton_dir = ('{mission}_{mode}_{ard_spec}__1S{polarization}_{start}_'
+                    '{orbitnumber:06}_{datatake:0>6}_{tile}_{id}')
+    skeleton_files = '{mission}-{mode}-{ard_spec}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}'
+    
+    meta['product_base'] = skeleton_dir.format(**meta_name)
+    meta['file_base'] = skeleton_files.format(**meta_name_lower) + '-{suffix}.tif'
+    return meta
+
+
+# TODO also return the ID of an existing product if updated? Otherwise the product metadata is incorrect.
+def check_status(dir_out, product_base, product_id, update):
+    """
+    Determine whether a product needs to be processed.
+    
+    Parameters
+    ----------
+    dir_out: str
+        the directory into which the ARD product might be stored and where products might already exist.
+    product_base: str
+        the base name of the ARD product.
+    product_id: str
+        the ARD product ID.
+    update: bool
+        update an existing ARD product?
+
+    Returns
+    -------
+    str
+        the ARD product target directory
+    """
+    msg = 'Already processed - Skip!'
+    pattern = product_base.replace(product_id, '*')
+    existing = finder(dir_out, [pattern], foldermode=2)
+    if len(existing) > 0:
+        if not update:
+            raise RuntimeError(msg)
+        else:
+            dir_ard = existing[0]
+    else:
+        dir_ard = os.path.join(dir_out, product_base)
+        try:
+            os.makedirs(dir_ard, exist_ok=False)
+        except OSError:
+            raise RuntimeError(msg)
+    return dir_ard
+
+
+def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None, overviews=None,
-           annotation=None, update=False):
+           annotation=None):
     """
     Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
     This includes the following:
@@ -45,15 +139,15 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    product_type: str
-        The type of ARD product to be generated. Options: 'NRB' or 'ORB'.
+    meta: dict
+        Product metadata as returned by :func:`~s1ard.ard.product_info`.
     scenes: list[str]
         List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
         All scenes are expected to overlap with `extent` and an error will be thrown if the processing output
         cannot be found for any of the scenes.
-    datadir: str
+    dir_sar: str
         The directory containing the SAR datasets processed from the source scenes using pyroSAR.
-    outdir: str
+    dir_ard: str
         The directory to write the final files to.
     tile: str
         ID of an MGRS tile.
@@ -89,8 +183,6 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         - gs: gamma-sigma ratio: sigma0 RTC / gamma0 RTC
         - sg: sigma-gamma ratio: gamma0 RTC / sigma0 ellipsoidal
         - wm: OCN product wind model; requires OCN scenes via argument `scenes_ocn`
-    update: bool
-        modify existing products so that only missing files are re-created?
     
     Returns
     -------
@@ -109,13 +201,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
     vrt_options = {'VRTNodata': vrt_nodata}
     
-    # determine processing timestamp and generate unique ID
     start_time = time.time()
-    proc_time = datetime.now(timezone.utc)
-    t = proc_time.isoformat().encode()
-    product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=dir_sar, extent=extent, epsg=epsg)
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
@@ -138,40 +226,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     # GDAL output bounds
     bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
-    ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
-    meta = {'mission': src_ids[0].sensor,
-            'mode': src_ids[0].meta['acquisition_mode'],
-            'ard_spec': product_type,
-            'polarization': {"['HH']": 'SH',
-                             "['VV']": 'SV',
-                             "['HH', 'HV']": 'DH',
-                             "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
-            'start': datetime.strftime(ard_start, '%Y%m%dT%H%M%S'),
-            'orbitnumber': src_ids[0].meta['orbitNumbers_abs']['start'],
-            'datatake': hex(src_ids[0].meta['frameNumber']).replace('x', '').upper(),
-            'tile': tile,
-            'id': product_id}
-    meta_lower = dict((k, v.lower() if not isinstance(v, int) else v) for k, v in meta.items())
-    skeleton_dir = '{mission}_{mode}_{ard_spec}__1S{polarization}_{start}_{orbitnumber:06}_{datatake:0>6}_{tile}_{id}'
-    skeleton_files = '{mission}-{mode}-{ard_spec}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}-{suffix}.tif'
-    
-    ard_base = skeleton_dir.format(**meta)
-    log.info(f'product name: {os.path.join(outdir, ard_base)}')
-    existing = finder(outdir, [ard_base.replace(product_id, '*')], foldermode=2)
-    if len(existing) > 0:
-        if not update:
-            return 'Already processed - Skip!'
-        else:
-            ard_dir = existing[0]
-    else:
-        ard_dir = os.path.join(outdir, ard_base)
-        try:
-            os.makedirs(ard_dir, exist_ok=False)
-        except OSError:
-            return 'Already processed - Skip!'
     subdirectories = ['measurement', 'annotation', 'source', 'support']
     for subdirectory in subdirectories:
-        os.makedirs(os.path.join(ard_dir, subdirectory), exist_ok=True)
+        os.makedirs(os.path.join(dir_ard, subdirectory), exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -196,13 +253,12 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             # raster files for keys 'dm' and 'wm' are created later
             continue
         
-        meta_lower['suffix'] = key
-        outname_base = skeleton_files.format(**meta_lower)
+        outname_base = meta["file_base"].format(suffix=key)
         if re.search('[gs]-lin', key):
             subdir = 'measurement'
         else:
             subdir = 'annotation'
-        outname = os.path.join(ard_dir, subdir, outname_base)
+        outname = os.path.join(dir_ard, subdir, outname_base)
         
         if not os.path.isfile(outname):
             log.info(f'creating {outname}')
@@ -244,7 +300,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type)
+                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=meta['product_type'])
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
@@ -373,9 +429,8 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             copol_sigma0 = None
             wn_ard = None
         
-        meta_lower['suffix'] = 'wm'
-        outname_base = skeleton_files.format(**meta_lower)
-        wm_ard = os.path.join(ard_dir, 'annotation', outname_base)
+        outname_base = meta["file_base"].format(suffix='wm')
+        wm_ard = os.path.join(dir_ard, 'annotation', outname_base)
         
         gapfill = True if src_ids[0].product == 'GRD' else False
         
@@ -391,25 +446,25 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(ard_dir, 'support', schema)
+        schema_out = os.path.join(dir_ard, 'support', schema)
         if not os.path.isfile(schema_out):
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
     
     # create metadata files in XML and STAC JSON formats
-    meta = extract.meta_dict(config=config, target=ard_dir, src_ids=src_ids,
-                             sar_dir=datadir, proc_time=proc_time,
-                             start=ard_start, stop=ard_stop,
-                             compression=compress, product_type=product_type,
+    meta = extract.meta_dict(config=config, target=dir_ard, src_ids=src_ids,
+                             sar_dir=dir_sar, proc_time=meta['proc_time'],
+                             start=meta['start'], stop=meta['stop'],
+                             compression=compress, product_type=meta['product_type'],
                              wm_ref_files=wm_ref_files)
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['metadata']['copy_original']:
-        copy_src_meta(ard_dir=ard_dir, src_ids=src_ids)
+        copy_src_meta(ard_dir=dir_ard, src_ids=src_ids)
     if 'OGC' in config['metadata']['format']:
-        xml.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
+        xml.parse(meta=meta, target=dir_ard, assets=ard_assets, exist_ok=True)
     if 'STAC' in config['metadata']['format']:
-        stac.parse(meta=meta, target=ard_dir, assets=ard_assets, exist_ok=True)
+        stac.parse(meta=meta, target=dir_ard, assets=ard_assets, exist_ok=True)
     return str(round((time.time() - start_time), 2))
 
 
