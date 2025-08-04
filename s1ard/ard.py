@@ -35,7 +35,7 @@ def product_info(product_type, src_ids, tile_id, extent, epsg):
     
     Parameters
     ----------
-    product_type {NRB, ORB}
+    product_type: {NRB, ORB}
         the ARD product type
     src_ids: list[pyroSAR.drivers.ID]
         the source product objects
