@@ -57,13 +57,14 @@ def product_info(product_type, src_ids, tile_id, extent, epsg):
     product_id = generate_unique_id(encoded_str=t)
     
     ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
+    pol_str = '_'.join(sorted(src_ids[0].polarizations))
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
             'product_type': product_type,
-            'polarization': {"['HH']": 'SH',
-                             "['VV']": 'SV',
-                             "['HH', 'HV']": 'DH',
-                             "['VV', 'VH']": 'DV'}[str(src_ids[0].polarizations)],
+            'polarization': {'HH': 'SH',
+                             'VV': 'SV',
+                             'HH_HV': 'DH',
+                             'VH_VV': 'DV'}[pol_str],
             'start': ard_start,
             'stop': ard_stop,
             'proc_time': proc_time,
