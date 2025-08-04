@@ -16,7 +16,7 @@ from spatialist.raster import rasterize
 from spatialist.vector import Vector
 from osgeo import gdal, ogr
 import s1ard
-from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
+from s1ard.metadata.mapping import (LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
                                     ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
 from s1ard import snap
 from s1ard.ancillary import get_tmp_name
@@ -24,8 +24,7 @@ from s1ard.ancillary import get_tmp_name
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time,
-              start, stop, compression, product_type):
+def meta_dict(config, prod_meta, target, src_ids, sar_dir, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
@@ -36,22 +35,16 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
+    prod_meta: dict
+        a metadata dictionary as returned by :func:`s1ard.ard.product_info`
     target: str
         A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     sar_dir: str
         The SAR processing output directory.
-    proc_time: datetime.datetime
-        The processing time object used to generate the unique product identifier.
-    start: datetime.datetime
-        The product start time.
-    stop: datetime.datetime
-        The product stop time.
     compression: str
         The compression type applied to raster files of the product.
-    product_type: str
-        The type of ARD product that is being created. Either 'NRB' or 'ORB'.
     
     Returns
     -------
@@ -70,12 +63,9 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
     ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
-    ratio_tif = finder(target, ['[hv]{2}-[gs]-lin.vrt$'], regex=True)
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
-    product_id = os.path.basename(target)
-    prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
-                              src_ids=src_ids, sar_dir=sar_dir)
+    prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids, sar_dir=sar_dir))
     op_mode = prod_meta['mode']
     
     # COMMON metadata (sorted alphabetically)
@@ -94,7 +84,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
                                                         meta['common']['platformIdentifier'].lower())
     meta['common']['platformReference'] = URL['platformReference'][meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
-    meta['common']['polarisationMode'] = prod_meta['pols'][0]
+    meta['common']['polarisationMode'] = prod_meta['polarization'][0]
     meta['common']['processingLevel'] = 'L1C'
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = 5405000000
@@ -110,7 +100,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
-    if product_type == 'ORB':
+    if prod_meta['product_type'] == 'ORB':
         meta['prod']['card4l-link'] = URL['card4l_orb']
         meta['prod']['card4l-version'] = '1.0'
     else:
@@ -164,7 +154,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['griddingConventionURL'] = URL['griddingConventionURL']
     meta['prod']['licence'] = config['metadata']['licence']
-    meta['prod']['mgrsID'] = prod_meta['mgrsID']
+    meta['prod']['mgrsID'] = prod_meta['tile']
     meta['prod']['noiseRemovalApplied'] = True
     nr_algo = URL['noiseRemovalAlgorithm'] if meta['prod']['noiseRemovalApplied'] else None
     meta['prod']['noiseRemovalAlgorithm'] = nr_algo
@@ -177,8 +167,9 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
     meta['prod']['processorVersion'] = s1ard.__version__
-    meta['prod']['productName'] = f"{'Ocean' if product_type == 'ORB' else 'Normalised'} Radar Backscatter"
-    meta['prod']['productName-short'] = product_type
+    prod_name_prefix = 'Ocean' if prod_meta['product_type'] == 'ORB' else 'Normalised'
+    meta['prod']['productName'] = f"{prod_name_prefix} Radar Backscatter"
+    meta['prod']['productName-short'] = prod_meta['product_type']
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None
@@ -188,9 +179,9 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time,
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
-    meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeStart'] = start
-    meta['prod']['timeStop'] = stop
+    meta['prod']['timeCreated'] = prod_meta['proc_time']
+    meta['prod']['timeStart'] = prod_meta['start']
+    meta['prod']['timeStop'] = prod_meta['stop']
     meta['prod']['transform'] = prod_meta['transform']
     
     # SOURCE metadata
@@ -361,7 +352,7 @@ def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
         meta['prod']['windNormReferenceType'] = None
 
 
-def get_prod_meta(product_id, tif, src_ids, sar_dir):
+def get_prod_meta(tif, src_ids, sar_dir):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -369,8 +360,6 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     
     Parameters
     ----------
-    product_id: str
-        The top-level product folder name.
     tif: str
         The path to a measurement GeoTIFF file of the product scene.
     src_ids: list[pyroSAR.drivers.ID]
@@ -383,7 +372,7 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     dict
         A dictionary containing metadata for the product scene.
     """
-    out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
+    out = dict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
     with Raster(tif) as ras:

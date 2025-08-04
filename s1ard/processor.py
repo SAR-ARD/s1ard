@@ -11,6 +11,7 @@ import s1ard.ancillary as anc
 import s1ard.tile_extraction as tile_ex
 from s1ard import search
 from s1ard import ocn
+from s1ard.metadata.extract import meta_dict
 
 gdal.UseExceptions()
 
@@ -316,8 +317,8 @@ def main(config_file=None, debug=False, **kwargs):
                 log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
                 
-                meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
-                                        tile_id=tile.mgrs, extent=extent, epsg=epsg)
+                prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
+                                             tile_id=tile.mgrs, extent=extent, epsg=epsg)
                 log.info(f'product name: {os.path.join(outdir, meta["product_base"])}')
                 
                 try:
@@ -325,11 +326,17 @@ def main(config_file=None, debug=False, **kwargs):
                                                product_id=meta["id"], update=update)
                 except RuntimeError:
                     log.info('Already processed - Skip!')
+                    del tiles
+                    return
+                
+                meta = meta_dict(config=config, prod_meta=prod_meta, target=dir_ard,
+                                 src_ids=scenes_sub, sar_dir=config_proc['sar_dir'],
+                                 compression='LERC_ZSTD')
                 try:
                     ard.format(config=config, meta=meta,
                                scenes=scenes_sub_fnames, dir_sar=config_proc['sar_dir'],
                                dir_ard=dir_ard, tile=tile.mgrs, extent=extent, epsg=epsg,
-                               wbm=fname_wbm, dem_type=dem_type,
+                               wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
                                multithread=gdal_prms['multithread'], annotation=annotation)
                 except Exception as e:
                     log.error(msg=e)

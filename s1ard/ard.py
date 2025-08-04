@@ -406,7 +406,6 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
-    wm_ref_speed = wm_ref_direction = None
     if 'wm' in annotation:
         wm = []
         wm_ref_speed = []
@@ -443,6 +442,8 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
                            dst_nodata=dst_nodata_float, multithread=multithread)
         datasets_ard['wm'] = wm_ard
         datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
+        extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed,
+                                 wm_ref_direction=wm_ref_direction)
     
     # copy support files
     schema_dir = os.path.join(s1ard.__path__[0], 'validation', 'schemas')
@@ -453,14 +454,6 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
         if not os.path.isfile(schema_out):
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
-    
-    # create metadata files in XML and STAC JSON formats
-    meta = extract.meta_dict(config=config, target=dir_ard, src_ids=src_ids,
-                             sar_dir=dir_sar, proc_time=meta['proc_time'],
-                             start=meta['start'], stop=meta['stop'],
-                             compression=compress, product_type=meta['product_type'])
-    
-    extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed, wm_ref_direction=wm_ref_direction)
     
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
