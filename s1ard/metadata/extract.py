@@ -24,8 +24,8 @@ from s1ard.ancillary import get_tmp_name
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
-              compression, product_type, wm_ref_files=None):
+def meta_dict(config, target, src_ids, sar_dir, proc_time,
+              start, stop, compression, product_type):
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
@@ -52,8 +52,6 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         The compression type applied to raster files of the product.
     product_type: str
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
-    wm_ref_files: list[str], optional
-        A list of paths pointing to wind model reference files. Default is None.
     
     Returns
     -------
@@ -194,23 +192,6 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['timeStart'] = start
     meta['prod']['timeStop'] = stop
     meta['prod']['transform'] = prod_meta['transform']
-    if wm_ref_files is not None:
-        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_files=wm_ref_files,
-                                                               epsg=prod_meta['epsg'],
-                                                               bounds=prod_meta['geom']['bbox_native'])
-        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
-        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
-        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
-        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
-        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
-        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
-    else:
-        meta['prod']['windNormBackscatterMeasurement'] = None
-        meta['prod']['windNormBackscatterConvention'] = None
-        meta['prod']['windNormReferenceDirection'] = None
-        meta['prod']['windNormReferenceModel'] = None
-        meta['prod']['windNormReferenceSpeed'] = None
-        meta['prod']['windNormReferenceType'] = None
     
     # SOURCE metadata
     for uid in list(src_sid.keys()):
@@ -341,6 +322,43 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['timeStop'] = dateparse(sid.stop)
     
     return meta
+
+
+def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
+    """
+    Update a metadata dictionary with wind model information
+    
+    Parameters
+    ----------
+    meta: dict
+        metadata extracted by :func:`meta_dict`
+    wm_ref_speed: List[str]
+        List of paths pointing to the wind model reference speed files.
+    wm_ref_direction: List[str]
+        List of paths pointing to the wind model reference direction files.
+    
+    Returns
+    -------
+
+    """
+    if wm_ref_speed is not None and wm_ref_direction is not None:
+        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_speed=wm_ref_speed,
+                                                               wm_ref_direction=wm_ref_direction,
+                                                               epsg=meta['prod']['crsEPSG'],
+                                                               bounds=meta['prod']['geom_stac_bbox_native'])
+        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
+        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
+        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
+        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
+        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
+        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
+    else:
+        meta['prod']['windNormBackscatterMeasurement'] = None
+        meta['prod']['windNormBackscatterConvention'] = None
+        meta['prod']['windNormReferenceDirection'] = None
+        meta['prod']['windNormReferenceModel'] = None
+        meta['prod']['windNormReferenceSpeed'] = None
+        meta['prod']['windNormReferenceType'] = None
 
 
 def get_prod_meta(product_id, tif, src_ids, sar_dir):
@@ -775,14 +793,16 @@ def calc_pslr_islr(annotation_dict, decimals=2):
     return pslr, islr
 
 
-def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
+def calc_wm_ref_stats(wm_ref_speed, wm_ref_direction, epsg, bounds, resolution=915):
     """
     Calculates the mean wind model reference speed and direction for the wind model annotation layer.
     
     Parameters
     ----------
-    wm_ref_files: list[str]
-        List of paths pointing to the wind model reference files.
+    wm_ref_speed: list[str]
+        List of paths pointing to the wind model reference speed files.
+    wm_ref_speed: list[str]
+        List of paths pointing to the wind model reference direction files.
     epsg: int
         The EPSG code of the current MGRS tile.
     bounds: list[float]
@@ -798,14 +818,11 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
         - Mean wind model reference speed.
         - Mean wind model reference direction.
     """
-    files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
-    files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
-    
     ref_speed = get_tmp_name(suffix='.tif')
     ref_direction = get_tmp_name(suffix='.tif')
     
     out = []
-    for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):
+    for src, dst in zip([wm_ref_speed, wm_ref_direction], [ref_speed, ref_direction]):
         gdalwarp(src=src, dst=dst,
                  outputBounds=bounds,
                  dstSRS=f'EPSG:{epsg}',

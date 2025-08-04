@@ -406,16 +406,19 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
-    wm_ref_files = None
+    wm_ref_speed = wm_ref_direction = None
     if 'wm' in annotation:
         wm = []
-        wm_ref_files = []
+        wm_ref_speed = []
+        wm_ref_direction = []
         for i, ds in enumerate(datasets_sar):
             if 'wm' in ds.keys():
                 wm.append(ds['wm'])
-                for key in ['wm_ref_speed', 'wm_ref_direction']:
-                    if key in ds.keys():
-                        wm_ref_files.append(ds[key])
+                # for key in ['wm_ref_speed', 'wm_ref_direction']:
+                if 'wm_ref_speed' in ds.keys():
+                    wm_ref_speed.append(ds['wm_ref_speed'])
+                if 'wm_ref_direction' in ds.keys():
+                    wm_ref_direction.append(ds['wm_ref_direction'])
             else:
                 scene_base = os.path.basename(src_ids[i].scene)
                 raise RuntimeError(f'could not find wind model product for scene {scene_base}')
@@ -455,8 +458,10 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
     meta = extract.meta_dict(config=config, target=dir_ard, src_ids=src_ids,
                              sar_dir=dir_sar, proc_time=meta['proc_time'],
                              start=meta['start'], stop=meta['stop'],
-                             compression=compress, product_type=meta['product_type'],
-                             wm_ref_files=wm_ref_files)
+                             compression=compress, product_type=meta['product_type'])
+    
+    extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed, wm_ref_direction=wm_ref_direction)
+    
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['metadata']['copy_original']:
