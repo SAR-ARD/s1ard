@@ -1085,11 +1085,12 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
                       overviews=overviews, options=creation_opt)
 
 
-def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver, creation_opt, dst_nodata,
+def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds,
+                       epsg, driver, creation_opt, dst_nodata,
                        multithread, resolution=915):
     """
-    Create wind normalization layers. A wind model annotation layer is created and optionally
-    a wind normalization VRT.
+    Create wind normalization layers. A wind model annotation layer is
+    created and optionally a wind normalization VRT.
     
     Parameters
     ----------
@@ -1114,15 +1115,16 @@ def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, 
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]
-        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+        GDAL creation options to use for raster file creation. Should match
+        specified GDAL driver.
     dst_nodata: float
         Nodata value to write to the output raster.
     multithread: bool
         Should `gdalwarp` use multithreading?
     resolution: int, optional
-        The target pixel resolution in meters. 915 is chosen as default because it is closest
-        to the OCN product resolution (1000) and still fits into the MGRS bounds
-        (``109800 % 915 == 0``).
+        The target pixel resolution in meters. 915 is chosen as default because
+        it is closest to the OCN product resolution (1000) and still fits into
+        the MGRS bounds (``109800 % 915 == 0``).
     
     Returns
     -------
