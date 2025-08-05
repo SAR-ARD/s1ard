@@ -24,7 +24,7 @@ from s1ard.ancillary import get_tmp_name
 gdal.UseExceptions()
 
 
-def meta_dict(config, prod_meta, target, src_ids, sar_dir, compression):
+def meta_dict(config, prod_meta, target, src_ids, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
@@ -41,8 +41,6 @@ def meta_dict(config, prod_meta, target, src_ids, sar_dir, compression):
         A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    sar_dir: str
-        The SAR processing output directory.
     compression: str
         The compression type applied to raster files of the product.
     
@@ -65,7 +63,8 @@ def meta_dict(config, prod_meta, target, src_ids, sar_dir, compression):
     ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
-    prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids, sar_dir=sar_dir))
+    prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
+                                   sar_dir=config['processing']['sar_dir']))
     op_mode = prod_meta['mode']
     
     # COMMON metadata (sorted alphabetically)
