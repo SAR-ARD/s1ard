@@ -74,11 +74,12 @@ def product_info(product_type, src_ids, tile_id, extent, epsg):
     meta_name = deepcopy(meta)
     meta_name['start'] = datetime.strftime(meta_name['start'], '%Y%m%dT%H%M%S')
     del meta_name['stop']
-    meta_name_lower = dict((k, v.lower() if not isinstance(v, int) else v)
+    del meta_name['proc_time']
+    meta_name_lower = dict((k, v.lower() if isinstance(v, str) else v)
                            for k, v in meta_name.items())
-    skeleton_dir = ('{mission}_{mode}_{ard_spec}__1S{polarization}_{start}_'
+    skeleton_dir = ('{mission}_{mode}_{product_type}__1S{polarization}_{start}_'
                     '{orbitnumber:06}_{datatake:0>6}_{tile}_{id}')
-    skeleton_files = '{mission}-{mode}-{ard_spec}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}'
+    skeleton_files = '{mission}-{mode}-{product_type}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}'
     
     meta['product_base'] = skeleton_dir.format(**meta_name)
     meta['file_base'] = skeleton_files.format(**meta_name_lower) + '-{suffix}.tif'
