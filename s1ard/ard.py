@@ -22,7 +22,7 @@ from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
-from s1ard.metadata.extract import copy_src_meta
+from s1ard.metadata.extract import copy_src_meta, meta_dict
 from s1ard.snap import find_datasets
 import logging
 
@@ -124,7 +124,7 @@ def check_status(dir_out, product_base, product_id, update):
     return dir_ard
 
 
-def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
+def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None, overviews=None,
            annotation=None):
     """
@@ -140,7 +140,7 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    meta: dict
+    prod_meta: dict
         Product metadata as returned by :func:`~s1ard.ard.product_info`.
     scenes: list[str]
         List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
@@ -254,7 +254,7 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
             # raster files for keys 'dm' and 'wm' are created later
             continue
         
-        outname_base = meta["file_base"].format(suffix=key)
+        outname_base = prod_meta["file_base"].format(suffix=key)
         if re.search('[gs]-lin', key):
             subdir = 'measurement'
         else:
@@ -301,7 +301,8 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=meta['product_type'])
+                             dst_nodata=dst_nodata_byte, wbm=wbm,
+                             product_type=prod_meta['product_type'])
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
@@ -334,7 +335,7 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
         datasets_ard['em'] = em_path
     
     # create color composite VRT (-cc-[gs]-lin.vrt)
-    if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
+    if prod_meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
         if not os.path.isfile(cc_path):
             log.info(f'creating {cc_path}')
@@ -407,6 +408,7 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
+    wm_ref_speed = wm_ref_direction = None
     if 'wm' in annotation:
         wm = []
         wm_ref_speed = []
@@ -432,7 +434,7 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
             copol_sigma0 = None
             wn_ard = None
         
-        outname_base = meta["file_base"].format(suffix='wm')
+        outname_base = prod_meta["file_base"].format(suffix='wm')
         wm_ard = os.path.join(dir_ard, 'annotation', outname_base)
         
         gapfill = True if src_ids[0].product == 'GRD' else False
@@ -443,28 +445,67 @@ def format(config, meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
                            dst_nodata=dst_nodata_float, multithread=multithread)
         datasets_ard['wm'] = wm_ard
         datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
-        extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed,
-                                 wm_ref_direction=wm_ref_direction)
+    
+    ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
+                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
+    
+    append_metadata(target=dir_ard, config=config, prod_meta=prod_meta,
+                    src_ids=src_ids, assets=ard_assets, compression=compress,
+                    wm_ref_speed=wm_ref_speed, wm_ref_direction=wm_ref_direction)
+    
+    return str(round((time.time() - start_time), 2))
+
+
+def append_metadata(target, config, prod_meta, src_ids, assets, compression,
+                    wm_ref_speed=None, wm_ref_direction=None):
+    """
+    Append metadata files to an ARD product.
+    
+    Parameters
+    ----------
+    target: str
+        the path to the ARD product
+    config: dict
+        the confiuration dictionary
+    prod_meta: dict
+        the product metadata as returned by :func:`product_info`
+    src_ids: List[pyroSAR.drivers.ID]
+        the source product objects
+    assets: List[str]
+        a list of assets in the ARD product
+    compression: str
+        the used compression algorithm
+    wm_ref_speed: List[str] or None
+        the wind model reference wind speed files
+    wm_ref_direction: List[str] or None
+        the wind model reference wind direction files
+
+    Returns
+    -------
+
+    """
+    meta = meta_dict(config=config, prod_meta=prod_meta, target=target,
+                     src_ids=src_ids, compression=compression)
+    
+    extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed,
+                             wm_ref_direction=wm_ref_direction)
     
     # copy support files
     schema_dir = os.path.join(s1ard.__path__[0], 'validation', 'schemas')
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(dir_ard, 'support', schema)
+        schema_out = os.path.join(target, 'support', schema)
         if not os.path.isfile(schema_out):
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
     
-    ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
-                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     if config['metadata']['copy_original']:
-        copy_src_meta(ard_dir=dir_ard, src_ids=src_ids)
+        copy_src_meta(ard_dir=target, src_ids=src_ids)
     if 'OGC' in config['metadata']['format']:
-        xml.parse(meta=meta, target=dir_ard, assets=ard_assets, exist_ok=True)
+        xml.parse(meta=meta, target=target, assets=assets, exist_ok=True)
     if 'STAC' in config['metadata']['format']:
-        stac.parse(meta=meta, target=dir_ard, assets=ard_assets, exist_ok=True)
-    return str(round((time.time() - start_time), 2))
+        stac.parse(meta=meta, target=target, assets=assets, exist_ok=True)
 
 
 def get_datasets(scenes, datadir, extent, epsg):
