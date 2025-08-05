@@ -7,6 +7,7 @@ from statistics import mean
 import json
 from lxml import etree
 from dateutil.parser import parse as dateparse
+from datetime import timezone
 import numpy as np
 from statistics import median
 from spatialist import Raster
@@ -250,7 +251,9 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = URL['source_access']
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
-        meta['source'][uid]['ascendingNodeDate'] = _read_manifest('.//s1:ascendingNodeTime')
+        asc_node_time = dateparse(_read_manifest('.//s1:ascendingNodeTime'))
+        asc_node_time = asc_node_time.replace(tzinfo=timezone.utc)
+        meta['source'][uid]['ascendingNodeDate'] = asc_node_time
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
@@ -293,6 +296,7 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         fac_name = _read_manifest('.//safe:facility', attrib='name')
         meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
         proc_date = dateparse(_read_manifest('.//safe:processing', attrib='stop'))
+        proc_date = proc_date.replace(tzinfo=timezone.utc)
         meta['source'][uid]['processingDate'] = proc_date
         meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
         meta['source'][uid]['processingMode'] = 'NOMINAL'
@@ -308,9 +312,8 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(_read_manifest('.//s1:startTimeANX')))
-        meta['source'][uid]['timeStart'] = dateparse(sid.start)
-        meta['source'][uid]['timeStop'] = dateparse(sid.stop)
-    
+        meta['source'][uid]['timeStart'] = dateparse(sid.start).replace(tzinfo=timezone.utc)
+        meta['source'][uid]['timeStop'] = dateparse(sid.stop).replace(tzinfo=timezone.utc)
     return meta
 
 
