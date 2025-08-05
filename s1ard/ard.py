@@ -1,6 +1,5 @@
 import os
 import re
-import time
 import shutil
 from datetime import datetime, timezone
 import numpy as np
@@ -202,7 +201,6 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
     vrt_nodata = 'nan'  # was found necessary for proper calculation of statistics in QGIS
     vrt_options = {'VRTNodata': vrt_nodata}
     
-    start_time = time.time()
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
@@ -246,7 +244,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
     # ellipsoidal incident angle (-ei.tif), gamma-to-sigma ratio (-gs.tif),
     # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
-    datasets_ard = dict()
+    ard_assets = dict()
     for key in list(sar_assets[0].keys()):
         if key in ['dm', 'wm'] or key not in LERC_ERR_THRES.keys() or key not in allowed:
             # raster files for keys 'dm' and 'wm' are created later
@@ -280,12 +278,12 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
             gdalwarp(src=source, dst=outname, **options)
             if ras is not None:
                 ras.close()
-        datasets_ard[key] = outname
+        ard_assets[key] = outname
     
     # define a reference raster from the annotation datasets and list all gamma0/sigma0 backscatter measurement rasters
-    measure_tifs = [v for k, v in datasets_ard.items() if re.search('[gs]-lin', k)]
-    ref_key = list(datasets_ard.keys())[0]
-    ref_tif = datasets_ard[ref_key]
+    measure_tifs = [v for k, v in ard_assets.items() if re.search('[gs]-lin', k)]
+    ref_key = list(ard_assets.keys())[0]
+    ref_tif = ard_assets[ref_key]
     
     # create data mask raster (-dm.tif)
     if 'dm' in allowed:
@@ -301,7 +299,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                              overviews=overviews, overview_resampling=ovr_resampling,
                              dst_nodata=dst_nodata_byte, wbm=wbm,
                              product_type=prod_meta['product_type'])
-        datasets_ard['dm'] = dm_path
+        ard_assets['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
     if 'id' in allowed:
@@ -313,7 +311,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                                 extent=extent, epsg=epsg, driver=driver,
                                 creation_opt=write_options['id'],
                                 overviews=overviews, dst_nodata=dst_nodata_byte)
-        datasets_ard['id'] = id_path
+        ard_assets['id'] = id_path
     
     # create DEM (-em.tif)
     if dem_type is not None and 'em' in allowed:
@@ -330,7 +328,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                         create_options=write_options['em'],
                         pbar=False)
             log_pyro.setLevel(level)
-        datasets_ard['em'] = em_path
+        ard_assets['em'] = em_path
     
     # create color composite VRT (-cc-[gs]-lin.vrt)
     if prod_meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
@@ -340,7 +338,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
         key = re.search('cc-[gs]-lin', cc_path).group()
-        datasets_ard[key] = cc_path
+        ard_assets[key] = cc_path
     
     # create log-scaled gamma0|sigma0 nought VRTs (-[vh|vv|hh|hv]-[gs]-log.vrt)
     fun = 'dB'
@@ -354,11 +352,11 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
         key = re.search('[hv]{2}-[gs]-log', target).group()
-        datasets_ard[key] = target
+        ard_assets[key] = target
     
     # create sigma nought RTC VRTs (-[vh|vv|hh|hv]-s-[lin|log].vrt)
     if 'gs' in allowed:
-        gs_path = datasets_ard['gs']
+        gs_path = ard_assets['gs']
         for item in measure_tifs:
             sigma0_rtc_lin = item.replace('g-lin.tif', 's-lin.vrt')
             sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
@@ -369,7 +367,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
             key = re.search('[hv]{2}-s-lin', sigma0_rtc_lin).group()
-            datasets_ard[key] = sigma0_rtc_lin
+            ard_assets[key] = sigma0_rtc_lin
             
             if not os.path.isfile(sigma0_rtc_log):
                 log.info(f'creating {sigma0_rtc_log}')
@@ -377,11 +375,11 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
             key = key.replace('lin', 'log')
-            datasets_ard[key] = sigma0_rtc_log
+            ard_assets[key] = sigma0_rtc_log
     
     # create gamma nought RTC VRTs (-[vh|vv|hh|hv]-g-[lin|log].vrt)
     if 'sg' in allowed:
-        sg_path = datasets_ard['sg']
+        sg_path = ard_assets['sg']
         for item in measure_tifs:
             if not item.endswith('s-lin.tif'):
                 continue
@@ -394,7 +392,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
             key = re.search('[hv]{2}-g-lin', gamma0_rtc_lin).group()
-            datasets_ard[key] = gamma0_rtc_lin
+            ard_assets[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
                 log.info(f'creating {gamma0_rtc_log}')
@@ -402,7 +400,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
             key = key.replace('lin', 'log')
-            datasets_ard[key] = gamma0_rtc_log
+            ard_assets[key] = gamma0_rtc_log
     
     # create backscatter wind model (-wm.tif)
     # and wind normalization VRT (-[vv|hh]-s-lin-wn.vrt)
@@ -425,8 +423,8 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
         
         copol = 'VV' if 'VV' in src_ids[0].polarizations else 'HH'
         copol_sigma0_key = f'{copol.lower()}-s-lin'
-        if copol_sigma0_key in datasets_ard.keys():
-            copol_sigma0 = datasets_ard[copol_sigma0_key]
+        if copol_sigma0_key in ard_assets.keys():
+            copol_sigma0 = ard_assets[copol_sigma0_key]
             wn_ard = re.sub(r's-lin\.(?:tif|vrt)', 's-lin-wn.vrt', copol_sigma0)
         else:
             copol_sigma0 = None
@@ -441,8 +439,8 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                            gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver,
                            creation_opt=write_options['wm'],
                            dst_nodata=dst_nodata_float, multithread=multithread)
-        datasets_ard['wm'] = wm_ard
-        datasets_ard[f'{copol_sigma0_key}-wn'] = wn_ard
+        ard_assets['wm'] = wm_ard
+        ard_assets[f'{copol_sigma0_key}-wn'] = wn_ard
     
     ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
                         key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
@@ -451,7 +449,6 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
                     src_ids=src_ids, assets=ard_assets, compression=compress,
                     wm_ref_speed=wm_ref_speed, wm_ref_direction=wm_ref_direction)
     
-    return str(round((time.time() - start_time), 2))
 
 
 def append_metadata(target, config, prod_meta, src_ids, assets, compression,
