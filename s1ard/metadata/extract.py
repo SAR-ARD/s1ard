@@ -267,7 +267,7 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
-        meta['source'][uid]['geom_xml_envelop'] = geom['envelop']
+        meta['source'][uid]['geom_xml_envelope'] = geom['envelope']
         meta['source'][uid]['incidenceAngleMax'] = round(np.max(inc_vals), 2)
         meta['source'][uid]['incidenceAngleMin'] = round(np.min(inc_vals), 2)
         meta['source'][uid]['incidenceAngleMidSwath'] = round(np.max(inc_vals) -

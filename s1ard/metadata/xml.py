@@ -75,7 +75,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
         _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
-                                extent=meta['source'][uid]['geom_xml_envelop'],
+                                extent=meta['source'][uid]['geom_xml_envelope'],
                                 center=meta['source'][uid]['geom_xml_center'])
         
         ################################################################################################################
