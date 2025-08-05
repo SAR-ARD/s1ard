@@ -204,7 +204,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
     
     start_time = time.time()
     
-    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=dir_sar, extent=extent, epsg=epsg)
+    src_ids, datasets_sar = get_datasets(scenes=scenes, sar_dir=dir_sar, extent=extent, epsg=epsg)
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
@@ -508,10 +508,10 @@ def append_metadata(target, config, prod_meta, src_ids, assets, compression,
         stac.parse(meta=meta, target=target, assets=assets, exist_ok=True)
 
 
-def get_datasets(scenes, datadir, extent, epsg):
+def get_datasets(scenes, sar_dir, extent, epsg):
     """
     Collect processing output for a list of scenes.
-    Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
+    Reads metadata from all source SLC/GRD scenes, finds matching output files in `sar_dir`
     and filters both lists depending on the actual overlap of each SLC/GRD valid data coverage
     with the current MGRS tile geometry. If no output is found for any scene the function will raise an error.
     To obtain the extent of valid data coverage, first a binary
@@ -526,9 +526,9 @@ def get_datasets(scenes, datadir, extent, epsg):
     ----------
     scenes: list[str]
         List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
-    datadir: str
+    sar_dir: str
         The directory containing the SAR datasets processed from the source scenes using pyroSAR.
-        The function will raise an error if the processing output cannot be found for all scenes in `datadir`.
+        The function will raise an error if the processing output cannot be found for all scenes in `sar_dir`.
     extent: dict
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -550,7 +550,7 @@ def get_datasets(scenes, datadir, extent, epsg):
     datasets = []
     for i, _id in enumerate(ids):
         log.debug(f'collecting processing output for scene {os.path.basename(_id.scene)}')
-        files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
+        files = find_datasets(scene=_id.scene, outdir=sar_dir, epsg=epsg)
         if files is not None:
             base = os.path.splitext(os.path.basename(_id.scene))[0]
             ocn = re.sub('(?:SLC_|GRD[FHM])_1', 'OCN__2', base)[:-5]
@@ -563,7 +563,7 @@ def get_datasets(scenes, datadir, extent, epsg):
             ocn_list[47] = f'[{s_stop - s}{s_stop}{s_stop + s}]'
             ocn = ''.join(ocn_list)
             log.debug(f'searching for OCN products with pattern {ocn}')
-            ocn_match = finder(target=datadir, matchlist=[ocn], regex=True,
+            ocn_match = finder(target=sar_dir, matchlist=[ocn], regex=True,
                                foldermode=2, recursive=False)
             if len(ocn_match) > 0:
                 for v in ['owiNrcsCmod', 'owiEcmwfWindSpeed', 'owiEcmwfWindDirection']:
