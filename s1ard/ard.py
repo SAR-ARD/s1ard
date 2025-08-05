@@ -536,11 +536,11 @@ def get_datasets(scenes, sar_dir, extent, epsg):
 
     Returns
     -------
-    ids: list[:class:`pyroSAR.drivers.ID`]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
-    datasets: list[dict]
-        List of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
-        The format is a list of dictionaries per scene with keys as described by e.g. :func:`s1ard.snap.find_datasets`.
+    tuple[List]
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS
+        tile and a list of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
+        The format of the latter is a list of dictionaries per scene with keys as described by e.g.
+        :func:`s1ard.snap.find_datasets`.
     
     See Also
     --------
