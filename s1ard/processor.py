@@ -331,11 +331,19 @@ def main(config_file=None, debug=False, **kwargs):
                     del tiles
                     return
                 try:
-                    ard.format(config=config, prod_meta=prod_meta,
-                               scenes=scenes_sub_fnames, dir_sar=config_proc['sar_dir'],
-                               dir_ard=dir_ard, tile=tile.mgrs, extent=extent, epsg=epsg,
-                               wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
-                               multithread=gdal_prms['multithread'], annotation=annotation)
+                    src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
+                                                           sar_dir=config_proc['sar_dir'],
+                                                           extent=extent, epsg=epsg)
+                    
+                    ard_assets = ard.format(config=config, prod_meta=prod_meta,
+                                            src_ids=src_ids, sar_assets=sar_assets,
+                                            dir_ard=dir_ard, tile=tile.mgrs, extent=extent, epsg=epsg,
+                                            wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
+                                            multithread=gdal_prms['multithread'], annotation=annotation)
+                    
+                    ard.append_metadata(target=dir_ard, config=config, prod_meta=prod_meta,
+                                        src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
+                
                 except Exception as e:
                     log.error(msg=e)
                     raise

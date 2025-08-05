@@ -442,13 +442,10 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
         ard_assets['wm'] = wm_ard
         ard_assets[f'{copol_sigma0_key}-wn'] = wn_ard
     
-    ard_assets = sorted(sorted(list(datasets_ard.values()), key=lambda x: os.path.splitext(x)[1]),
-                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
+    # ard_assets = sorted(sorted(list(ard_assets.values()), key=lambda x: os.path.splitext(x)[1]),
+    #                     key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     
-    append_metadata(target=dir_ard, config=config, prod_meta=prod_meta,
-                    src_ids=src_ids, assets=ard_assets, compression=compress,
-                    wm_ref_speed=wm_ref_speed, wm_ref_direction=wm_ref_direction)
-    
+    return ard_assets
 
 
 def append_metadata(target, config, prod_meta, src_ids, assets, compression,
