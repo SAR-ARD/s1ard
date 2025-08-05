@@ -187,8 +187,8 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
     
     Returns
     -------
-    str
-        Either the time spent executing the function in seconds or 'Already processed - Skip!'
+    List[str]
+        the ARD product assets
     """
     if compress is None:
         compress = 'LERC_ZSTD'
@@ -443,8 +443,8 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
         ard_assets['wm'] = wm_ard
         ard_assets[f'{copol_sigma0_key}-wn'] = wn_ard
     
-    # ard_assets = sorted(sorted(list(ard_assets.values()), key=lambda x: os.path.splitext(x)[1]),
-    #                     key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
+    ard_assets = sorted(sorted(list(ard_assets.values()), key=lambda x: os.path.splitext(x)[1]),
+                        key=lambda x: os.path.basename(os.path.dirname(x)), reverse=True)
     
     return ard_assets
 
