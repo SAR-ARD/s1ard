@@ -137,7 +137,6 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                   (earthObservationMetaData, '_:ionosphereIndicator', None, 'ionosphereIndicator')]
         
         for parent, field_dst, attrib, field_src in fields:
-            print(field_src)
             element = etree.SubElement(_parent=parent,
                                        _tag=_nsc(text=field_dst, nsmap=nsmap, ard_ns=ard_ns),
                                        attrib=attrib)
