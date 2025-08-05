@@ -319,21 +319,19 @@ def main(config_file=None, debug=False, **kwargs):
                 
                 prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
                                              tile_id=tile.mgrs, extent=extent, epsg=epsg)
-                log.info(f'product name: {os.path.join(outdir, meta["product_base"])}')
+                log.info(f'product name: {os.path.join(outdir, prod_meta["product_base"])}')
                 
                 try:
-                    dir_ard = ard.check_status(dir_out=outdir, product_base=meta["product_base"],
-                                               product_id=meta["id"], update=update)
+                    dir_ard = ard.check_status(dir_out=outdir,
+                                               product_base=prod_meta["product_base"],
+                                               product_id=prod_meta["id"],
+                                               update=update)
                 except RuntimeError:
                     log.info('Already processed - Skip!')
                     del tiles
                     return
-                
-                meta = meta_dict(config=config, prod_meta=prod_meta, target=dir_ard,
-                                 src_ids=scenes_sub, sar_dir=config_proc['sar_dir'],
-                                 compression='LERC_ZSTD')
                 try:
-                    ard.format(config=config, meta=meta,
+                    ard.format(config=config, prod_meta=prod_meta,
                                scenes=scenes_sub_fnames, dir_sar=config_proc['sar_dir'],
                                dir_ard=dir_ard, tile=tile.mgrs, extent=extent, epsg=epsg,
                                wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
