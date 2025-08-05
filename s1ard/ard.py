@@ -124,7 +124,7 @@ def check_status(dir_out, product_base, product_id, update):
     return dir_ard
 
 
-def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=None,
+def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None, overviews=None,
            annotation=None):
     """
@@ -203,22 +203,20 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
     vrt_options = {'VRTNodata': vrt_nodata}
     
     start_time = time.time()
-    
-    src_ids, datasets_sar = get_datasets(scenes=scenes, sar_dir=dir_sar, extent=extent, epsg=epsg)
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
     
     if annotation is not None:
         allowed = []
-        for key in datasets_sar[0]:
+        for key in sar_assets[0]:
             c1 = re.search('[gs]-lin', key)
             c2 = key in annotation
             c3 = key.startswith('np') and 'np' in annotation
             if c1 or c2 or c3:
                 allowed.append(key)
     else:
-        allowed = [key for key in datasets_sar[0].keys() if re.search('[gs]-lin', key)]
+        allowed = [key for key in sar_assets[0].keys() if re.search('[gs]-lin', key)]
         annotation = []
     for item in ['em', 'id']:
         if item in annotation:
@@ -249,7 +247,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
     # local contributing area (-lc.tif), local incident angle (-li.tif),
     # noise power images (-np-[vh|vv|hh|hv].tif)
     datasets_ard = dict()
-    for key in list(datasets_sar[0].keys()):
+    for key in list(sar_assets[0].keys()):
         if key in ['dm', 'wm'] or key not in LERC_ERR_THRES.keys() or key not in allowed:
             # raster files for keys 'dm' and 'wm' are created later
             continue
@@ -263,7 +261,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
         
         if not os.path.isfile(outname):
             log.info(f'creating {outname}')
-            images = [ds[key] for ds in datasets_sar]
+            images = [ds[key] for ds in sar_assets]
             ras = None
             if len(images) > 1:
                 ras = Raster(images, list_separate=False)
@@ -298,7 +296,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
             log.info(f'creating {dm_path}')
-            create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
+            create_data_mask(outname=dm_path, datasets=sar_assets, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
                              dst_nodata=dst_nodata_byte, wbm=wbm,
@@ -311,7 +309,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
         if not os.path.isfile(id_path):
             log.info(f'creating {id_path}')
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
-                                datasets=datasets_sar, src_ids=src_ids,
+                                datasets=sar_assets, src_ids=src_ids,
                                 extent=extent, epsg=epsg, driver=driver,
                                 creation_opt=write_options['id'],
                                 overviews=overviews, dst_nodata=dst_nodata_byte)
@@ -413,7 +411,7 @@ def format(config, prod_meta, scenes, dir_sar, dir_ard, tile, extent, epsg, wbm=
         wm = []
         wm_ref_speed = []
         wm_ref_direction = []
-        for i, ds in enumerate(datasets_sar):
+        for i, ds in enumerate(sar_assets):
             if 'wm' in ds.keys():
                 wm.append(ds['wm'])
                 # for key in ['wm_ref_speed', 'wm_ref_direction']:
