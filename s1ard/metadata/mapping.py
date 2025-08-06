@@ -212,7 +212,7 @@ DEM_MAP = {
 # XML namespaces are identifiers, and it is not their goal to be directly usable for schema retrieval:
 # https://stackoverflow.com/a/30761004
 NS_MAP = {
-    'placeholder': 'http://earth.esa.int/sentinel-1/spec/role/1.0',
+    'placeholder': 'http://earth.esa.int/{0}/spec/role/1.0',
     'sar': 'http://www.opengis.net/sar/2.1',
     'eop': 'http://www.opengis.net/eop/2.1',
     'om': 'http://www.opengis.net/om/2.0',

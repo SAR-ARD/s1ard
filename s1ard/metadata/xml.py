@@ -28,9 +28,11 @@ def parse(meta, target, assets, exist_ok=False):
     exist_ok: bool
         Do not create files if they already exist?
     """
-    key = "s1-{}".format(meta['prod']['productName-short'].lower())
+    platform = meta['common']['platformShortName']
+    pid = {'Sentinel-1': 's1', 'ERS': 'ers', 'ENVISAT': 'env'}[platform]
+    key = f"{pid}-{meta['prod']['productName-short'].lower()}"
     nsmap = deepcopy(NS_MAP)
-    nsmap[key] = nsmap.pop('placeholder')
+    nsmap[key] = nsmap.pop('placeholder').format(meta['common']['constellation'])
     src_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'source')
     prod_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'product')
     
