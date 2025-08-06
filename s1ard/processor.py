@@ -11,7 +11,6 @@ import s1ard.ancillary as anc
 import s1ard.tile_extraction as tile_ex
 from s1ard import search
 from s1ard import ocn
-from s1ard.metadata.extract import meta_dict
 
 gdal.UseExceptions()
 
