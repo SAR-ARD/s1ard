@@ -75,11 +75,11 @@ def meta_dict(config, prod_meta, src_ids, compression):
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
     meta['common']['orbitNumber_abs'] = sid0.meta['orbitNumber_abs']
     meta['common']['orbitNumber_rel'] = sid0.meta['orbitNumber_rel']
-    pid_lookup = {'S1A': '1A', 'S1B': '1B', 'S1C': '1C', 'S1D': '1D'}
+    pid_lookup = {'S1A': 'A', 'S1B': 'B', 'S1C': 'C', 'S1D': 'D'}
     meta['common']['platformIdentifier'] = pid_lookup[sid0.sensor]
-    meta['common']['platformShortName'] = 'Sentinel'
-    meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
-                                                        meta['common']['platformIdentifier'].lower())
+    meta['common']['platformShortName'] = 'Sentinel-1'
+    meta['common']['platformFullname'] = '{}{}'.format(meta['common']['platformShortName'].lower(),
+                                                       meta['common']['platformIdentifier'].lower())
     meta['common']['platformReference'] = URL['platformReference'][meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
     meta['common']['polarisationMode'] = prod_meta['polarization'][0]
@@ -630,8 +630,8 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
-                                                    num_blocks_cols, block_size)
+    :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
+                                           num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
