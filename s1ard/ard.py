@@ -966,11 +966,11 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     cols_ratio = ras_wbm_cols / cols
                     if cols_ratio > 1:
                         # create low resolution VRT
-                        res = int(ras_ls_res[0])
-                        wbm_lowres = wbm.replace('.tif', f'_{res}m.vrt')
-                        options = {'xRes': res, 'yRes': res,
-                                   'resampleAlg': 'mode'}
-                        gdalbuildvrt(src=wbm, dst=wbm_lowres, **options)
+                        wbm_lowres = wbm.replace('.tif', f'_{ras_ls_res[0]}m.vrt')
+                        if not os.path.isfile(wbm_lowres):
+                            options = {'xRes': ras_ls_res[0], 'yRes': ras_ls_res[1],
+                                       'resampleAlg': 'mode'}
+                            gdalbuildvrt(src=wbm, dst=wbm_lowres, **options)
                         with Raster(wbm_lowres) as ras_wbm_lowres:
                             arr_wbm = ras_wbm_lowres.array()
                     else:
