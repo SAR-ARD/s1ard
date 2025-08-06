@@ -318,7 +318,7 @@ def main(config_file=None, debug=False, **kwargs):
                 try:
                     prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
                                                  tile_id=tile.mgrs, extent=extent, epsg=epsg,
-                                                 dir_out=outdir)
+                                                 dir_out=outdir, update=update)
                 except RuntimeError:
                     log.info('Already processed - Skip!')
                     del tiles
