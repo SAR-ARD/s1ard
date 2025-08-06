@@ -499,7 +499,7 @@ def product_json(meta, target, assets, exist_ok=False):
             assets_dict['measurement'][key] = stac_asset
         elif 'annotation' in asset:
             key, title = _asset_get_key_title(meta=meta, asset=asset)
-            if key == '-np-[vh]{2}.tif':
+            if key == 'np':
                 pol = re.search('-[vh]{2}', relpath).group().removeprefix('-')
                 asset_key = 'noise-power-{}'.format(pol)
                 title = "{} {}".format(title, pol.upper())
@@ -594,10 +594,8 @@ def _asset_get_key_title(meta, asset):
                                     subtype=subtype,
                                     scale=title_dict[info['scaling']])
     elif 'annotation' in asset:
-        key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
-        np_pat = '-np-[vh]{2}.tif'
-        if re.search(np_pat, key) is not None:
-            key = np_pat
+        pattern = '(dm|ei|em|lc|ld|li|gs|id|np-[vh]{2}|sg|wm).tif'
+        key = re.search(pattern, asset).groups()[0][:2]
         title = ASSET_MAP[key]['title']
     return key, title
 
@@ -633,7 +631,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
         if key is None or meta is None or asset is None:
             raise ValueError(f'`key`, `meta` and `asset` parameters need to be defined to handle RasterExtension '
                              f'for {stac_asset.href}')
-        if key == '-id.tif':
+        if key == 'id':
             src_list = [
                 os.path.basename(meta['source'][src]['filename']).replace('.SAFE', '').replace('.zip', '')
                 for src in list(meta['source'].keys())]
@@ -643,7 +641,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             class_ext = ClassificationExtension.ext(band)
             class_ext.classes = [Classification.create(value=i + 1, description=j) for i, j in enumerate(src_list)]
             raster_ext.bands = [band]
-        elif key == '-dm.tif':
+        elif key == 'dm':
             with Raster(asset) as dm_ras:
                 band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                               range(1, dm_ras.bands + 1)]
@@ -661,7 +659,7 @@ def _asset_handle_raster_ext(stac_asset, nodata, key=None, meta=None, asset=None
             raster_ext.bands = [RasterBand.create(nodata=nodata,
                                                   data_type=DataType.FLOAT32,
                                                   unit=ASSET_MAP[key]['unit'])]
-    if key == '-em.tif':
+    if key == 'em':
         raster_ext.bands[0].spatial_resolution = int(meta['prod']['demGSD'].split()[0])
 
 

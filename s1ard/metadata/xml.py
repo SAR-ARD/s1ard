@@ -306,21 +306,19 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
             compressionzError.text = z_error
         
         if 'annotation' in asset:
-            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
-            np_pat = '-np-[vh]{2}.tif'
-            if re.search(np_pat, key) is not None:
-                key = np_pat
+            pattern = '(dm|ei|em|lc|ld|li|gs|id|np-[vh]{2}|sg|wm).tif'
+            key = re.search(pattern, asset).groups()[0][:2]
             
             sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
                                           attrib={'uom': 'unitless' if ASSET_MAP[key]['unit'] is None else
                                           ASSET_MAP[key]['unit']})
             sampleType.text = ASSET_MAP[key]['type']
             
-            if key in ['-dm.tif', '-id.tif']:
+            if key in ['dm', 'id']:
                 dataType.text = 'UINT'
                 bitsPerSample.text = '8'
                 
-                if key == '-dm.tif':
+                if key == 'dm':
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
@@ -330,7 +328,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                                                     attrib={'band': str(i + 1),
                                                             'name': sample})
                         bitValue.text = '1'
-                else:  # key == '-id.tif'
+                else:  # key == 'id'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE',
                                                                                             '').replace('.zip', '')
@@ -340,7 +338,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                                                     attrib={'band': '1', 'name': s})
                         bitValue.text = str(i + 1)
             
-            if key == '-ei.tif':
+            if key == 'ei':
                 ellipsoidalHeight = etree.SubElement(productInformation, _nsc('_:ellipsoidalHeight', nsmap,
                                                                               ard_ns=ard_ns),
                                                      attrib={'uom': 'm'})
