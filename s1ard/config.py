@@ -329,7 +329,7 @@ def _parse_tile_list(s):
             if len(tile) != 5:
                 raise ValueError("Parameter 'aoi_tiles': Error while parsing "
                                  "MGRS tile IDs to list; tile '{}' is not 5 "
-                                 "digits long.".format(tile))
+                                 "characters long.".format(tile))
             else:
                 continue
     return tile_list
