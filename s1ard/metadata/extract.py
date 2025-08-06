@@ -25,7 +25,7 @@ from s1ard.ancillary import get_tmp_name
 gdal.UseExceptions()
 
 
-def meta_dict(config, prod_meta, target, src_ids, compression):
+def meta_dict(config, prod_meta, src_ids, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
@@ -38,8 +38,6 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         Dictionary of the parsed config parameters for the current process.
     prod_meta: dict
         a metadata dictionary as returned by :func:`s1ard.ard.product_info`
-    target: str
-        A path pointing to the current ARD product directory.
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
     compression: str
@@ -61,9 +59,9 @@ def meta_dict(config, prod_meta, target, src_ids, compression):
         src_xml[uid] = get_src_meta(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
-    ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
-    np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tif = finder(target, ['-ei.tif$'], regex=True)
+    ref_tif = finder(prod_meta['ard_dir'], ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
+    np_tifs = finder(prod_meta['ard_dir'], ['-np-[hv]{2}.tif$'], regex=True)
+    ei_tif = finder(prod_meta['ard_dir'], ['-ei.tif$'], regex=True)
     prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
                                    sar_dir=config['processing']['sar_dir']))
     op_mode = prod_meta['mode']

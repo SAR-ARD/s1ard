@@ -19,7 +19,7 @@ from pyroSAR.ancillary import Lock
 import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
-from s1ard.metadata.mapping import LERC_ERR_THRES
+from s1ard.metadata.mapping import LERC_ERR_THRES, ARD_PATTERN
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
 from s1ard.metadata.extract import copy_src_meta, meta_dict
 from s1ard.snap import find_datasets
@@ -28,7 +28,8 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-def product_info(product_type, src_ids, tile_id, extent, epsg):
+def product_info(product_type, src_ids, tile_id, extent, epsg,
+                 dir_out, update=False, product_id=None):
     """
     Create ARD product metadata.
     
@@ -52,8 +53,9 @@ def product_info(product_type, src_ids, tile_id, extent, epsg):
     """
     # determine processing timestamp and generate unique ID
     proc_time = datetime.now(timezone.utc)
-    t = proc_time.isoformat().encode()
-    product_id = generate_unique_id(encoded_str=t)
+    if product_id is None:
+        t = proc_time.isoformat().encode()
+        product_id = generate_unique_id(encoded_str=t)
     
     ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
     pol_str = '_'.join(sorted(src_ids[0].polarizations))
@@ -82,49 +84,31 @@ def product_info(product_type, src_ids, tile_id, extent, epsg):
     skeleton_files = '{mission}-{mode}-{product_type}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}'
     
     meta['product_base'] = skeleton_dir.format(**meta_name)
+    meta['dir_ard'] = os.path.join(dir_out, meta['product_base'])
     meta['file_base'] = skeleton_files.format(**meta_name_lower) + '-{suffix}.tif'
-    return meta
-
-
-# TODO also return the ID of an existing product if updated? Otherwise the product metadata is incorrect.
-def check_status(dir_out, product_base, product_id, update):
-    """
-    Determine whether a product needs to be processed.
     
-    Parameters
-    ----------
-    dir_out: str
-        the directory into which the ARD product might be stored and where products might already exist.
-    product_base: str
-        the base name of the ARD product.
-    product_id: str
-        the ARD product ID.
-    update: bool
-        update an existing ARD product?
-
-    Returns
-    -------
-    str
-        the ARD product target directory
-    """
+    # check existence of products
     msg = 'Already processed - Skip!'
-    pattern = product_base.replace(product_id, '*')
+    pattern = meta['product_base'].replace(product_id, '*')
     existing = finder(dir_out, [pattern], foldermode=2)
     if len(existing) > 0:
         if not update:
             raise RuntimeError(msg)
         else:
-            dir_ard = existing[0]
+            existing_meta = re.search(ARD_PATTERN, os.path.basename(existing[0])).groupdict()
+            product_info(product_type=product_type, src_ids=src_ids,
+                         tile_id=tile_id, extent=extent, epsg=epsg,
+                         dir_out=dir_out, update=update,
+                         product_id=existing_meta['id'])
     else:
-        dir_ard = os.path.join(dir_out, product_base)
         try:
-            os.makedirs(dir_ard, exist_ok=False)
+            os.makedirs(meta['dir_ard'], exist_ok=False)
         except OSError:
             raise RuntimeError(msg)
-    return dir_ard
+    return meta
 
 
-def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, wbm=None,
+def format(config, prod_meta, src_ids, sar_assets, tile, extent, epsg, wbm=None,
            dem_type=None, multithread=True, compress=None, overviews=None,
            annotation=None):
     """
@@ -226,7 +210,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
     
     subdirectories = ['measurement', 'annotation', 'source', 'support']
     for subdirectory in subdirectories:
-        os.makedirs(os.path.join(dir_ard, subdirectory), exist_ok=True)
+        os.makedirs(os.path.join(prod_meta['dir_ard'], subdirectory), exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -256,7 +240,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
             subdir = 'measurement'
         else:
             subdir = 'annotation'
-        outname = os.path.join(dir_ard, subdir, outname_base)
+        outname = os.path.join(prod_meta['dir_ard'], subdir, outname_base)
         
         if not os.path.isfile(outname):
             log.info(f'creating {outname}')
@@ -432,7 +416,7 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
             wn_ard = None
         
         outname_base = prod_meta["file_base"].format(suffix='wm')
-        wm_ard = os.path.join(dir_ard, 'annotation', outname_base)
+        wm_ard = os.path.join(prod_meta['dir_ard'], 'annotation', outname_base)
         
         gapfill = True if src_ids[0].product == 'GRD' else False
         
@@ -449,15 +433,13 @@ def format(config, prod_meta, src_ids, sar_assets, dir_ard, tile, extent, epsg, 
     return ard_assets
 
 
-def append_metadata(target, config, prod_meta, src_ids, assets, compression,
+def append_metadata(config, prod_meta, src_ids, assets, compression,
                     wm_ref_speed=None, wm_ref_direction=None):
     """
     Append metadata files to an ARD product.
     
     Parameters
     ----------
-    target: str
-        the path to the ARD product
     config: dict
         the confiuration dictionary
     prod_meta: dict
@@ -477,7 +459,7 @@ def append_metadata(target, config, prod_meta, src_ids, assets, compression,
     -------
 
     """
-    meta = meta_dict(config=config, prod_meta=prod_meta, target=target,
+    meta = meta_dict(config=config, prod_meta=prod_meta,
                      src_ids=src_ids, compression=compression)
     
     extract.append_wind_norm(meta=meta, wm_ref_speed=wm_ref_speed,
@@ -488,17 +470,19 @@ def append_metadata(target, config, prod_meta, src_ids, assets, compression,
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(target, 'support', schema)
+        schema_out = os.path.join(prod_meta['ard_dir'], 'support', schema)
         if not os.path.isfile(schema_out):
             log.info(f'creating {schema_out}')
             shutil.copy(schema_in, schema_out)
     
     if config['metadata']['copy_original']:
-        copy_src_meta(ard_dir=target, src_ids=src_ids)
+        copy_src_meta(ard_dir=prod_meta['ard_dir'], src_ids=src_ids)
     if 'OGC' in config['metadata']['format']:
-        xml.parse(meta=meta, target=target, assets=assets, exist_ok=True)
+        xml.parse(meta=meta, target=prod_meta['ard_dir'],
+                  assets=assets, exist_ok=True)
     if 'STAC' in config['metadata']['format']:
-        stac.parse(meta=meta, target=target, assets=assets, exist_ok=True)
+        stac.parse(meta=meta, target=prod_meta['ard_dir'],
+                   assets=assets, exist_ok=True)
 
 
 def get_datasets(scenes, sar_dir, extent, epsg):
