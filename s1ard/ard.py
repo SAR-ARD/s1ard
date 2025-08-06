@@ -95,11 +95,14 @@ def product_info(product_type, src_ids, tile_id, extent, epsg,
         if not update:
             raise RuntimeError(msg)
         else:
-            existing_meta = re.search(ARD_PATTERN, os.path.basename(existing[0])).groupdict()
-            product_info(product_type=product_type, src_ids=src_ids,
-                         tile_id=tile_id, extent=extent, epsg=epsg,
-                         dir_out=dir_out, update=update,
-                         product_id=existing_meta['id'])
+            if existing[0] != meta['dir_ard']:
+                existing_meta = re.search(ARD_PATTERN, os.path.basename(existing[0])).groupdict()
+                return product_info(product_type=product_type, src_ids=src_ids,
+                                    tile_id=tile_id, extent=extent, epsg=epsg,
+                                    dir_out=dir_out, update=update,
+                                    product_id=existing_meta['id'])
+            else:
+                return meta
     else:
         try:
             os.makedirs(meta['dir_ard'], exist_ok=False)
