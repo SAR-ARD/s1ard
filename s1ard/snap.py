@@ -13,7 +13,7 @@ from dateutil.parser import parse as dateparse
 from spatialist import Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
-from pyroSAR import identify, identify_many
+from pyroSAR import identify, identify_many, examine
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
@@ -117,6 +117,27 @@ def config_to_string(config):
         else:
             out[k] = v
     return out
+
+
+def version_dict():
+    """
+    
+    Returns
+    -------
+    dict[str]
+        a dictionary with software components as keys and their version as values.
+    """
+    try:
+        snap_config = examine.ExamineSnap()
+        core = snap_config.get_version('core')
+        microwavetbx = snap_config.get_version('microwavetbx')
+        snap_core = f"{core['version']} | {core['date']}"
+        snap_microwavetbx = f"{microwavetbx['version']} | {microwavetbx['date']}"
+    except RuntimeError:
+        snap_core = 'unknown'
+        snap_microwavetbx = 'unknown'
+    return ({'snap_core': snap_core,
+             'snap_microwavetbx': snap_microwavetbx})
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
