@@ -1,5 +1,6 @@
 import os
 import time
+import inspect
 from importlib import import_module
 from osgeo import gdal
 from spatialist import bbox, intersect
@@ -254,12 +255,19 @@ def main(config_file=None, debug=False, **kwargs):
                 start_time = time.time()
                 try:
                     log.info('starting SAR processing')
-                    processor.process(scene=scene.scene, outdir=config_proc['sar_dir'],
-                                      measurement=measurement,
-                                      tmpdir=config_proc['tmp_dir'],
-                                      dem=fname_dem, neighbors=neighbors[h][i],
-                                      export_extra=export_extra,
-                                      rlks=rlks, azlks=azlks, **config_sar)
+                    proc_args = {'scene': scene.scene,
+                                 'outdir': config_proc['sar_dir'],
+                                 'measurement': measurement,
+                                 'tmpdir': config_proc['tmp_dir'],
+                                 'dem': fname_dem,
+                                 'neighbors': neighbors[h][i],
+                                 'export_extra': export_extra,
+                                 'rlks': rlks, 'azlks': azlks}
+                    proc_args.update(config_sar)
+                    sig = inspect.signature(processor.process)
+                    accepted_params = set(sig.parameters.keys())
+                    proc_args = {k: v for k, v in proc_args.items() if k in accepted_params}
+                    processor.process(**proc_args)
                     t = round((time.time() - start_time), 2)
                     log.info(f'SAR processing finished in {t} seconds')
                 except Exception as e:
