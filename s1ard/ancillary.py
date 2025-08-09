@@ -9,7 +9,6 @@ from pathlib import Path
 from multiformats import multihash
 import binascii
 from lxml import etree
-from textwrap import dedent
 from datetime import datetime, timedelta, timezone
 from osgeo import gdal, ogr, osr
 import numpy as np
@@ -261,7 +260,8 @@ def group_by_time(scenes, time=3):
 
 def _log_process_config(logger, config):
     """
-    Adds a header to the logfile, which includes information about the current processing configuration.
+    Adds a header to the logfile, which includes information about
+    the current processing configuration.
     
     Parameters
     ----------
@@ -279,56 +279,35 @@ def _log_process_config(logger, config):
     except RuntimeError:
         snap_core = 'unknown'
         snap_microwavetbx = 'unknown'
+    sw_versions = {
+        's1ard': s1ard.__version__,
+        'snap-core': snap_core,
+        'snap-microwavetbx': snap_microwavetbx,
+        'python': sys.version,
+        'python-pyroSAR': pyroSAR.__version__,
+        'python-spatialist': spatialist.__version__,
+        'python-GDAL': gdal.__version__}
     
-    header = f"""
-    ====================================================================================================================
-    PROCESSING CONFIGURATION
+    max_len_sw = len(max(sw_versions.keys(), key=len))
+    max_len_proc = len(max(config['processing'].keys(), key=len))
+    max_len = max(max_len_sw, max_len_proc) + 4
     
-    mode                {config['processing']['mode']}
-    aoi_tiles           {config['processing']['aoi_tiles']}
-    aoi_geometry        {config['processing']['aoi_geometry']}
-    scene               {config['processing']['scene']}
-    mindate             {config['processing']['mindate'].isoformat()}
-    maxdate             {config['processing']['maxdate'].isoformat()}
-    date_strict         {config['processing']['date_strict']}
-    sensor              {config['processing']['sensor']}
-    acq_mode            {config['processing']['acq_mode']}
-    product             {config['processing']['product']}
-    datatake            {config['processing']['datatake']}
-    measurement         {config['processing']['measurement']}
-    annotation          {config['processing']['annotation']}
-    dem_type            {config['processing']['dem_type']}
-    etad                {config['processing']['etad']}
-    
-    work_dir            {config['processing']['work_dir']}
-    sar_dir             {config['processing']['sar_dir']}
-    tmp_dir             {config['processing']['tmp_dir']}
-    ard_dir             {config['processing']['ard_dir']}
-    wbm_dir             {config['processing']['wbm_dir']}
-    etad_dir            {config['processing']['etad_dir']}
-    scene_dir           {config['processing']['scene_dir']}
-    logfile             {config['processing']['logfile']}
-    db_file             {config['processing']['db_file']}
-    stac_catalog        {config['processing']['stac_catalog']}
-    stac_collections    {config['processing']['stac_collections']}
-    parquet             {config['processing']['parquet']}
-    gdal_threads        {config['processing']['gdal_threads']}
-    snap_gpt_args       {config['processing']['snap_gpt_args']}
-    
-    ====================================================================================================================
-    SOFTWARE
-    
-    s1ard               {s1ard.__version__}
-    snap-core           {snap_core}
-    snap-microwavetbx   {snap_microwavetbx}
-    python              {sys.version}
-    python-pyroSAR      {pyroSAR.__version__}
-    python-spatialist   {spatialist.__version__}
-    python-GDAL         {gdal.__version__}
-    
-    ====================================================================================================================
-    """
-    logger.info(dedent(header))
+    lines = []
+    lines.append('=' * 100)
+    lines.append('PROCESSING CONFIGURATION')
+    for k, v in config['processing'].items():
+        if k in ['mindate', 'maxdate']:
+            val = v.isoformat()
+        else:
+            val = v
+        lines.append(f"{k: <{max_len}}{val}")
+    lines.append('=' * 100)
+    lines.append('SOFTWARE')
+    for k, v in sw_versions.items():
+        lines.append(f"{k: <{max_len}}{v}")
+    lines.append('=' * 100)
+    header = '\n'.join(lines)
+    logger.info(header)
 
 
 def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
