@@ -121,7 +121,7 @@ def _get_config_processing(parser, **kwargs):
             proc_sec[k] = v.strip()
     
     # make all relevant paths absolute
-    for k in ['work_dir', 'scene_dir', 'scene', 'logfile', 'etad_dir']:
+    for k in ['work_dir', 'scene_dir', 'scene', 'etad_dir']:
         v = proc_sec[k]
         proc_sec[k] = 'None' if v in ['', 'None'] else os.path.abspath(v)
     
