@@ -180,20 +180,20 @@ def _get_config_processing(parser, **kwargs):
         if k == 'scene_dir' and v is None:
             dir_ignore.append(k)
         if k.endswith('_dir') and k not in dir_ignore:
-            if any(x in v for x in ['/', '\\']):
+            if os.path.isabs(v):
                 msg = f"Parameter '{k}': '{v}' must be an existing directory"
                 assert v is not None and os.path.isdir(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
         if k.endswith('_file') and not k.startswith('db'):
             msg = f"Parameter '{k}': file {v} could not be found"
-            if any(x in v for x in ['/', '\\']):
+            if os.path.isabs(v):
                 assert os.path.isfile(v), msg
             else:
                 v = os.path.join(proc_sec['work_dir'], v)
                 assert os.path.isfile(v), msg
         if k in ['db_file', 'logfile'] and v is not None:
-            if not any(x in v for x in ['/', '\\']):
+            if not os.path.isabs(v):
                 v = os.path.join(proc_sec['work_dir'], v)
         if k == 'gdal_threads':
             v = int(v)
