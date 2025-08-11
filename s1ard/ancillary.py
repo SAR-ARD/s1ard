@@ -288,7 +288,7 @@ def _log_process_config(logger, config):
     
     lines = []
     lines.append('=' * 100)
-    for section in ['PROCESSING', 'METADATA']:
+    for section in ['PROCESSING', processor_name.upper(), 'METADATA']:
         lines.append(f'{section} CONFIGURATION')
         for k, v in config[section.lower()].items():
             if isinstance(v, datetime):
