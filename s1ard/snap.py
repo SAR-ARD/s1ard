@@ -85,6 +85,7 @@ def get_config_section(parser, **kwargs):
         if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
             v = section.getboolean(k)
         out[k] = v
+    out['dem_prepare_mode'] = 'single-4326'
     return out
 
 

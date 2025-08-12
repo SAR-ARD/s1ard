@@ -214,9 +214,14 @@ def main(config_file=None, debug=False, **kwargs):
                     os.makedirs(tmp_dir_scene, exist_ok=True)
                 ########################################################################################################
                 # Preparation of DEM for SAR processing
-                fname_dem = dem.prepare(scene=scene, dem_type=config_proc['dem_type'],
-                                        dir_out=tmp_dir_scene, username=username,
-                                        password=password, mode='single-4326')
+                dem_prepare_mode = config_sar['dem_prepare_mode']
+                if dem_prepare_mode is not None:
+                    fname_dem = dem.prepare(scene=scene, dem_type=config_proc['dem_type'],
+                                            dir_out=tmp_dir_scene, username=username,
+                                            password=password, mode=dem_prepare_mode,
+                                            tr=(config_sar['spacing'], config_sar['spacing']))
+                else:
+                    fname_dem = None
                 ########################################################################################################
                 # ETAD correction
                 if config_proc['etad']:
