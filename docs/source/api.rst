@@ -108,9 +108,11 @@ DEM
     .. autosummary::
         :nosignatures:
 
+        authenticate
         mosaic
-        retile
         prepare
+        retile
+        to_mgrs
 
 OCN
 ^^^
