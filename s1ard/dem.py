@@ -16,8 +16,8 @@ def retile(vector, dem_type, dem_dir, wbm_dir, dem_strict=True,
            tilenames=None, threads=None, username=None, password=None,
            lock_timeout=1200):
     """
-    Downloads DEM and WBM tiles and restructures them into the MGRS tiling
-    scheme including re-projection and vertical datum conversion.
+    Download and retile DEM and WBM tiles to MGRS.
+    Including re-projection and vertical datum conversion.
 
     Parameters
     ----------
