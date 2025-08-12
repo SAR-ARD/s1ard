@@ -110,6 +110,7 @@ DEM
 
         mosaic
         retile
+        prepare
 
 OCN
 ^^^
