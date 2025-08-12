@@ -414,7 +414,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
                                dem_type=dem_type, tr=tr, epsg=epsg,
                                username=username, password=password)
                 else:
-                    log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+                    log.info(f'found scene-specific DEM mosaic: {fname_dem_tmp}')
     else:
         raise ValueError('mode must be one of "single-4326" or "multi-UTM"')
     return fname_dem
