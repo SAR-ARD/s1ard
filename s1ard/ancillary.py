@@ -9,7 +9,7 @@ from pathlib import Path
 from multiformats import multihash
 import binascii
 from lxml import etree
-from textwrap import dedent
+from importlib import import_module
 from datetime import datetime, timedelta, timezone
 from osgeo import gdal, ogr, osr
 import numpy as np
@@ -18,7 +18,7 @@ from spatialist.raster import Raster, rasterize
 from spatialist.vector import bbox, intersect, boundary, vectorize, Vector, crsConvert
 import pyroSAR
 from pyroSAR.ancillary import Lock, LockCollection
-from pyroSAR import examine, identify_many
+from pyroSAR import identify_many
 import s1ard
 from collections import defaultdict
 from typing import Callable, List, TypeVar
@@ -168,7 +168,7 @@ def set_logging(config, debug=False):
     logger = logging.getLogger('s1ard')
     logger.setLevel(level)
     
-    log_format = "[%(asctime)s] [%(levelname)5s] %(message)s"
+    log_format = "[%(asctime)s] [%(levelname)7s] %(message)s"
     formatter = logging.Formatter(fmt=log_format,
                                   datefmt='%Y-%m-%d %H:%M:%S')
     
@@ -261,7 +261,8 @@ def group_by_time(scenes, time=3):
 
 def _log_process_config(logger, config):
     """
-    Adds a header to the logfile, which includes information about the current processing configuration.
+    Adds a header to the logfile, which includes information about
+    the current processing configuration.
     
     Parameters
     ----------
@@ -270,65 +271,40 @@ def _log_process_config(logger, config):
     config: dict
         Dictionary of the parsed config parameters for the current process.
     """
-    try:
-        snap_config = examine.ExamineSnap()
-        core = snap_config.get_version('core')
-        microwavetbx = snap_config.get_version('microwavetbx')
-        snap_core = f"{core['version']} | {core['date']}"
-        snap_microwavetbx = f"{microwavetbx['version']} | {microwavetbx['date']}"
-    except RuntimeError:
-        snap_core = 'unknown'
-        snap_microwavetbx = 'unknown'
+    sw_versions = {
+        's1ard': s1ard.__version__,
+        'python': sys.version,
+        'python-pyroSAR': pyroSAR.__version__,
+        'python-spatialist': spatialist.__version__,
+        'python-GDAL': gdal.__version__}
     
-    header = f"""
-    ====================================================================================================================
-    PROCESSING CONFIGURATION
+    processor_name = config['processing']['processor']
+    processor = import_module(f's1ard.{processor_name}')
+    sw_versions.update(processor.version_dict())
     
-    mode                {config['processing']['mode']}
-    aoi_tiles           {config['processing']['aoi_tiles']}
-    aoi_geometry        {config['processing']['aoi_geometry']}
-    scene               {config['processing']['scene']}
-    mindate             {config['processing']['mindate'].isoformat()}
-    maxdate             {config['processing']['maxdate'].isoformat()}
-    date_strict         {config['processing']['date_strict']}
-    sensor              {config['processing']['sensor']}
-    acq_mode            {config['processing']['acq_mode']}
-    product             {config['processing']['product']}
-    datatake            {config['processing']['datatake']}
-    measurement         {config['processing']['measurement']}
-    annotation          {config['processing']['annotation']}
-    dem_type            {config['processing']['dem_type']}
-    etad                {config['processing']['etad']}
+    max_len_sw = len(max(sw_versions.keys(), key=len))
+    max_len_proc = len(max(config['processing'].keys(), key=len))
+    max_len = max(max_len_sw, max_len_proc) + 4
     
-    work_dir            {config['processing']['work_dir']}
-    sar_dir             {config['processing']['sar_dir']}
-    tmp_dir             {config['processing']['tmp_dir']}
-    ard_dir             {config['processing']['ard_dir']}
-    wbm_dir             {config['processing']['wbm_dir']}
-    etad_dir            {config['processing']['etad_dir']}
-    scene_dir           {config['processing']['scene_dir']}
-    logfile             {config['processing']['logfile']}
-    db_file             {config['processing']['db_file']}
-    stac_catalog        {config['processing']['stac_catalog']}
-    stac_collections    {config['processing']['stac_collections']}
-    parquet             {config['processing']['parquet']}
-    gdal_threads        {config['processing']['gdal_threads']}
-    snap_gpt_args       {config['processing']['snap_gpt_args']}
-    
-    ====================================================================================================================
-    SOFTWARE
-    
-    s1ard               {s1ard.__version__}
-    snap-core           {snap_core}
-    snap-microwavetbx   {snap_microwavetbx}
-    python              {sys.version}
-    python-pyroSAR      {pyroSAR.__version__}
-    python-spatialist   {spatialist.__version__}
-    python-GDAL         {gdal.__version__}
-    
-    ====================================================================================================================
-    """
-    logger.info(dedent(header))
+    lines = []
+    lines.append('=' * 100)
+    for section in ['PROCESSING', processor_name.upper(), 'METADATA']:
+        lines.append(f'{section} CONFIGURATION')
+        for k, v in config[section.lower()].items():
+            if k == 'dem_prepare_mode':
+                continue
+            if isinstance(v, datetime):
+                val = v.isoformat()
+            else:
+                val = v
+            lines.append(f"{k: <{max_len}}{val}")
+        lines.append('=' * 100)
+    lines.append('SOFTWARE CONFIGURATION')
+    for k, v in sw_versions.items():
+        lines.append(f"{k: <{max_len}}{v}")
+    lines.append('=' * 100)
+    header = '\n'.join(lines)
+    logger.info(header)
 
 
 def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
