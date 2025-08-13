@@ -61,7 +61,7 @@ def source_json(meta, target, exist_ok=False):
         outname = os.path.join(metadir, '{}.json'.format(scene))
         if os.path.isfile(outname) and exist_ok:
             continue
-        log.info(f'creating {outname}')
+        log.info(f'creating {os.path.relpath(outname, target)}')
         start = meta['source'][uid]['timeStart']
         stop = meta['source'][uid]['timeStop']
         date = start + (stop - start) / 2
@@ -257,7 +257,7 @@ def product_json(meta, target, assets, exist_ok=False):
     outname = os.path.join(target, '{}.json'.format(scene_id))
     if os.path.isfile(outname) and exist_ok:
         return
-    log.info(f'creating {outname}')
+    log.info(f'creating {os.path.relpath(outname, target)}')
     start = meta['prod']['timeStart']
     stop = meta['prod']['timeStop']
     date = start + (stop - start) / 2

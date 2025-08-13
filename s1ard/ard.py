@@ -205,7 +205,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         outname = os.path.join(ard_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
-            log.info(f'creating {outname}')
+            log.info(f"creating {os.path.relpath(outname, ard_dir)}")
             images = [ds[key] for ds in datasets_sar]
             ras = None
             if len(images) > 1:
@@ -240,7 +240,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
-            log.info(f'creating {dm_path}')
+            log.info(f'creating {os.path.relpath(dm_path, ard_dir)}')
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
@@ -251,7 +251,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     if 'id' in allowed:
         id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
         if not os.path.isfile(id_path):
-            log.info(f'creating {id_path}')
+            log.info(f'creating {os.path.relpath(id_path, ard_dir)}')
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
                                 datasets=datasets_sar, src_ids=src_ids,
                                 extent=extent, epsg=epsg, driver=driver,
@@ -260,10 +260,11 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         datasets_ard['id'] = id_path
     
     # create DEM (-em.tif)
+    # (if not already converted from processor output)
     if dem_type is not None and 'em' in allowed:
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
-            log.info(f'creating {em_path}')
+            log.info(f'creating {os.path.relpath(em_path, ard_dir)}')
             with Raster(ref_tif) as ras:
                 tr = ras.res
             log_pyro = logging.getLogger('pyroSAR')
@@ -280,7 +281,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
         if not os.path.isfile(cc_path):
-            log.info(f'creating {cc_path}')
+            log.info(f'creating {os.path.relpath(cc_path, ard_dir)}')
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
         key = re.search('cc-[gs]-lin', cc_path).group()
@@ -293,7 +294,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     for item in measure_tifs:
         target = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(target):
-            log.info(f'creating {target}')
+            log.info(f'creating {os.path.relpath(target, ard_dir)}')
             create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
@@ -308,7 +309,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
             
             if not os.path.isfile(sigma0_rtc_lin):
-                log.info(f'creating {sigma0_rtc_lin}')
+                log.info(f'creating {os.path.relpath(sigma0_rtc_lin, ard_dir)}')
                 create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -316,7 +317,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             datasets_ard[key] = sigma0_rtc_lin
             
             if not os.path.isfile(sigma0_rtc_log):
-                log.info(f'creating {sigma0_rtc_log}')
+                log.info(f'creating {os.path.relpath(sigma0_rtc_log, ard_dir)}')
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -333,7 +334,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             gamma0_rtc_log = item.replace('s-lin.tif', 'g-log.vrt')
             
             if not os.path.isfile(gamma0_rtc_lin):
-                log.info(f'creating {gamma0_rtc_lin}')
+                log.info(f'creating {os.path.relpath(gamma0_rtc_lin, ard_dir)}')
                 create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -341,7 +342,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             datasets_ard[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
-                log.info(f'creating {gamma0_rtc_log}')
+                log.info(f'creating {os.path.relpath(gamma0_rtc_log, ard_dir)}')
                 create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -379,6 +380,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         
         gapfill = True if src_ids[0].product == 'GRD' else False
         
+        log.info(f'creating {os.path.relpath(wm_ard, ard_dir)}')
+        if wn_ard is not None:
+            log.info(f'creating {os.path.relpath(wn_ard, ard_dir)}')
+        
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
                            gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver,
                            creation_opt=write_options['wm'],
@@ -393,7 +398,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         schema_in = os.path.join(schema_dir, schema)
         schema_out = os.path.join(ard_dir, 'support', schema)
         if not os.path.isfile(schema_out):
-            log.info(f'creating {schema_out}')
+            log.info(f'creating {os.path.relpath(schema_out, ard_dir)}')
             shutil.copy(schema_in, schema_out)
     
     # create metadata files in XML and STAC JSON formats
@@ -1035,8 +1040,8 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
                       overviews=overviews, options=creation_opt)
 
 
-def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver, creation_opt, dst_nodata,
-                       multithread, resolution=915):
+def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver,
+                       creation_opt, dst_nodata, multithread, resolution=915):
     """
     Create wind normalization layers. A wind model annotation layer is created and optionally
     a wind normalization VRT.
