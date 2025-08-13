@@ -6,7 +6,6 @@ from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from pyroSAR.ancillary import Lock
 from s1ard import etad, dem, ard
 from s1ard.config import get_config, gdal_conf
 import s1ard.ancillary as anc
@@ -266,7 +265,7 @@ def main(config_file=None, debug=False, **kwargs):
                     raise
     ####################################################################################################################
     # OCN preparation
-    if len(scenes_ocn) > 0:
+    if sum(len(x) for x in scenes_ocn) > 0:
         log.info('extracting OCN products')
         for scenes in scenes_ocn:
             for scene in scenes:
