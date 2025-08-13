@@ -177,23 +177,8 @@ def main(config_file=None, debug=False, **kwargs):
     # annotation layer selection
     annotation = config_proc['annotation']
     measurement = config_proc['measurement']
-    export_extra = None
-    lookup = {'dm': 'layoverShadowMask',
-              'ei': 'incidenceAngleFromEllipsoid',
-              'lc': 'scatteringArea',
-              'ld': 'lookDirection',
-              'li': 'localIncidenceAngle',
-              'np': 'NESZ',
-              'gs': 'gammaSigmaRatio',
-              'sg': 'sigmaGammaRatio'}
-    
-    if annotation is not None:
-        annotation = ['gs' if x == 'ratio' and measurement == 'gamma' else 'sg' if x == 'ratio'
-        else x for x in annotation]
-        export_extra = []
-        for layer in annotation:
-            if layer in lookup:
-                export_extra.append(lookup[layer])
+    export_extra = processor.translate_annotation(annotation=annotation,
+                                                  measurement=measurement)
     ####################################################################################################################
     # main SAR processing
     if sar_flag:

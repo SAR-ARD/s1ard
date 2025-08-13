@@ -26,6 +26,37 @@ import logging
 log = logging.getLogger('s1ard')
 
 
+def config_to_string(config):
+    """
+    Convert the values of a configuration dictionary to strings.
+
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config_section`
+
+    Returns
+    -------
+    dict
+        the dictionary with the same structure but values converted to strings.
+    """
+    out = {}
+    allowed = get_config_keys()
+    for k, v in config.items():
+        if k not in allowed:
+            raise ValueError(f'key {k} not in allowed keys: {allowed}')
+        if v is None:
+            out[k] = 'None'
+        elif k in ['allow_res_osv', 'clean_edges',
+                   'clean_edges_pixels', 'cleanup']:
+            out[k] = str(v)
+        elif k == 'gpt_args' and isinstance(v, list):
+            out[k] = ' '.join(v)
+        else:
+            out[k] = v
+    return out
+
+
 def get_config_keys():
     """
     Get all allowed configuration keys.
@@ -89,35 +120,44 @@ def get_config_section(parser, **kwargs):
     return out
 
 
-def config_to_string(config):
+def translate_annotation(annotation, measurement):
     """
-    Convert the values of a configuration dictionary to strings.
+    Translate s1ard annotation keys to SAR processor naming.
     
     Parameters
     ----------
-    config: dict
-        the configuration as returned by :func:`get_config_section`
+    annotation: List[str]
+        the s1ard annotation keys (e.g. ei, gs)
+    measurement: str
+        the SAR backscatter measurement (gamma|sigma)
 
     Returns
     -------
-    dict
-        the dictionary with the same structure but values converted to strings.
+    List[str]
+        the annotation layer keys as required by the SAR processor
     """
-    out = {}
-    allowed = get_config_keys()
-    for k, v in config.items():
-        if k not in allowed:
-            raise ValueError(f'key {k} not in allowed keys: {allowed}')
-        if v is None:
-            out[k] = 'None'
-        elif k in ['allow_res_osv', 'clean_edges',
-                   'clean_edges_pixels', 'cleanup']:
-            out[k] = str(v)
-        elif k == 'gpt_args' and isinstance(v, list):
-            out[k] = ' '.join(v)
-        else:
-            out[k] = v
-    return out
+    export_extra = None
+    lookup = {'dm': 'layoverShadowMask',
+              'ei': 'incidenceAngleFromEllipsoid',
+              'lc': 'scatteringArea',
+              'ld': 'lookDirection',
+              'li': 'localIncidenceAngle',
+              'np': 'NESZ',
+              'gs': 'gammaSigmaRatio',
+              'sg': 'sigmaGammaRatio'}
+    
+    if annotation is not None:
+        annotation = [
+            'gs' if x == 'ratio' and measurement == 'gamma'
+            else 'sg' if x == 'ratio'
+            else x for x in annotation]
+        export_extra = []
+        for layer in annotation:
+            if layer in lookup:
+                export_extra.append(lookup[layer])
+            else:
+                log.warning(f'unsupported annotation layer: {layer}')
+    return export_extra
 
 
 def version_dict():

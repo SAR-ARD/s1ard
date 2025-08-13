@@ -48,6 +48,7 @@ SNAP
         get_config_keys
         get_config_section
         get_metadata
+        translate_annotation
         version_dict
 
 
