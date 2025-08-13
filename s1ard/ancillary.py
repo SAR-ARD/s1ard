@@ -168,7 +168,7 @@ def set_logging(config, debug=False):
     logger = logging.getLogger('s1ard')
     logger.setLevel(level)
     
-    log_format = "[%(asctime)s] [%(levelname)5s] %(message)s"
+    log_format = "[%(asctime)s] [%(levelname)7s] %(message)s"
     formatter = logging.Formatter(fmt=log_format,
                                   datefmt='%Y-%m-%d %H:%M:%S')
     
@@ -291,6 +291,8 @@ def _log_process_config(logger, config):
     for section in ['PROCESSING', processor_name.upper(), 'METADATA']:
         lines.append(f'{section} CONFIGURATION')
         for k, v in config[section.lower()].items():
+            if k == 'dem_prepare_mode':
+                continue
             if isinstance(v, datetime):
                 val = v.isoformat()
             else:
