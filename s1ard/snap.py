@@ -122,11 +122,12 @@ def config_to_string(config):
 
 def version_dict():
     """
+    Get processor software version information.
     
     Returns
     -------
     dict[str]
-        a dictionary with software components as keys and their version as values.
+        a dictionary with software components as keys and their versions as values.
     """
     try:
         snap_config = examine.ExamineSnap()
@@ -1020,7 +1021,7 @@ def postprocess(src, clean_edges=True, clean_edges_pixels=4):
 
 def find_datasets(scene, outdir, epsg):
     """
-    Find processed datasets for a scene in a certain Coordinate Reference System (CRS).
+    Find processed datasets for a SAR scene.
     
     Parameters
     ----------
@@ -1029,7 +1030,7 @@ def find_datasets(scene, outdir, epsg):
     outdir: str
         the output directory in which to search for results
     epsg: int
-        the EPSG code defining the output projection of the processed scenes.
+        the EPSG code defining the output projection of the processed products.
 
     Returns
     -------

@@ -44,34 +44,29 @@ SNAP
         :nosignatures:
 
         config_to_string
+        find_datasets
         get_config_keys
         get_config_section
+        get_metadata
+        version_dict
 
 
-    .. rubric:: core processing
+    .. rubric:: processing
 
     .. autosummary::
         :nosignatures:
 
-        process
         geo
         grd_buffer
         gsr
+        look_direction
         mli
+        nrt_slice_num
+        postprocess
         pre
+        process
         rtc
         sgr
-        look_direction
-
-    .. rubric:: ancillary functions
-
-    .. autosummary::
-        :nosignatures:
-
-        find_datasets
-        get_metadata
-        postprocess
-        nrt_slice_num
 
 ARD
 ^^^
