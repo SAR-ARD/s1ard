@@ -9,6 +9,7 @@ import geopandas as gpd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
+from importlib import import_module
 from scipy.interpolate import RBFInterpolator
 from osgeo import gdal
 from spatialist.vector import Vector, bbox, intersect
@@ -23,7 +24,6 @@ from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
 from s1ard.metadata.extract import copy_src_meta
-from s1ard.snap import find_datasets
 import logging
 
 log = logging.getLogger('s1ard')
@@ -115,7 +115,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     t = proc_time.isoformat().encode()
     product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    processor_name = config['processing']['processor']
+    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent,
+                                         epsg=epsg, processor_name=processor_name)
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
@@ -418,7 +420,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     return str(round((time.time() - start_time), 2))
 
 
-def get_datasets(scenes, datadir, extent, epsg):
+def get_datasets(scenes, datadir, extent, epsg, processor_name):
     """
     Collect processing output for a list of scenes.
     Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
@@ -456,11 +458,12 @@ def get_datasets(scenes, datadir, extent, epsg):
     --------
     :func:`s1ard.snap.find_datasets`
     """
+    processor = import_module(f's1ard.{processor_name}')
     ids = identify_many(scenes)
     datasets = []
     for i, _id in enumerate(ids):
         log.debug(f'collecting processing output for scene {os.path.basename(_id.scene)}')
-        files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
+        files = processor.find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
             base = os.path.splitext(os.path.basename(_id.scene))[0]
             ocn = re.sub('(?:SLC_|GRD[FHM])_1', 'OCN__2', base)[:-5]
