@@ -127,8 +127,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         for key in datasets_sar[0]:
             c1 = re.search('[gs]-lin', key)
             c2 = key in annotation
-            c3 = key.startswith('np') and 'np' in annotation
-            if c1 or c2 or c3:
+            c3 = key in ['gs', 'sg'] and 'ratio' in annotation
+            c4 = key.startswith('np') and 'np' in annotation
+            if c1 or c2 or c3 or c4:
                 allowed.append(key)
     else:
         allowed = [key for key in datasets_sar[0].keys() if re.search('[gs]-lin', key)]
