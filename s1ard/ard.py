@@ -244,10 +244,13 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
             log.info(f'creating {os.path.relpath(dm_path, ard_dir)}')
+            processor = import_module(f's1ard.{processor_name}')
+            lsm_encoding = processor.lsm_encoding()
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type)
+                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type,
+                             lsm_encoding=lsm_encoding)
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
@@ -822,7 +825,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, product_type, wbm=None):
+                     overviews, overview_resampling, dst_nodata, product_type,
+                     lsm_encoding, wbm=None):
     """
     Creation of the Data Mask image.
     
@@ -831,17 +835,20 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     outname: str
         Full path to the output data mask file.
     datasets: list[dict]
-        List of processed output files that match the source scenes and overlap with the current MGRS tile.
-        An error will be thrown if not all datasets contain a key `datamask`.
-        The function will return without an error if not all datasets contain a key `dm`.
+        List of processed output files that match the source scenes and overlap
+        with the current MGRS tile. An error will be thrown if not all datasets
+        contain a key `datamask`. The function will return without an error if
+        not all datasets contain a key `dm`.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a
+        :class:`~spatialist.vector.Vector` object.
     epsg: int
         The coordinate reference system as an EPSG code.
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]
-        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+        GDAL creation options to use for raster file creation. Should match
+        specified GDAL driver.
     overviews: list[int]
         Internal overview levels to be created for each raster file.
     overview_resampling: str
@@ -850,9 +857,11 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Nodata value to write to the output raster.
     product_type: str
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
+    lsm_encoding: dict
+        a dictionary containing the layover shadow mask encoding.
     wbm: str or None
-        Path to a water body mask file with the dimensions of an MGRS tile. Optional if `product_type='NRB', mandatory
-        if `product_type='ORB'`.
+        Path to a water body mask file with the dimensions of an MGRS tile.
+        Optional if `product_type='NRB', mandatory if `product_type='ORB'`.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
     measurement = [scene[measurement_keys[0]] for scene in datasets]
@@ -912,6 +921,12 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             else:
                 del dm_bands[3:]
             
+            c = lsm_encoding['not layover, not shadow']
+            l = lsm_encoding['layover']
+            s = lsm_encoding['shadow']
+            ls = lsm_encoding['layover in shadow']
+            n = lsm_encoding['nodata']
+            
             # Extend the shadow class of the data mask with nodata values
             # from backscatter data and create final array
             with Raster(vrt_valid)[tile_vec] as ras_valid:
@@ -919,10 +934,10 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     arr_valid = ras_valid.array()
                     arr_measurement = ras_measurement.array()
                     
-                    arr_dm = np.nan_to_num(arr_dm)
+                    arr_dm[~np.isfinite(arr_dm)] = n
                     arr_dm = np.where(((arr_valid == 1) & (np.isnan(arr_measurement))),
-                                      2, arr_dm)
-                    arr_dm[np.isnan(arr_valid)] = dst_nodata
+                                      s, arr_dm)
+                    arr_dm[np.isnan(arr_valid)] = n
                     del arr_measurement
                     del arr_valid
         
@@ -939,11 +954,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             
             # not layover, nor shadow
             if i == 0:
-                arr = arr_dm == i
-            # layover | shadow
-            # source value 3: layover and shadow
-            elif i in [1, 2]:
-                arr = (arr_dm == i) | (arr_dm == 3)
+                arr = arr_dm == c
+            # layover | layover in shadow
+            elif i == 1:
+                arr = (arr_dm == l) | (arr_dm == ls)
+            # shadow | layover in shadow
+            elif i == 2:
+                arr = (arr_dm == s) | (arr_dm == ls)
             # ocean
             elif i == 3:
                 arr = arr_wbm == 1
@@ -957,6 +974,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                 raise ValueError(f'unknown array value: {i}')
             
             arr = arr.astype('uint8')
+            arr[arr_dm == n] = dst_nodata
             band.WriteArray(arr)
             band.SetNoDataValue(dst_nodata)
             band.SetDescription(name)

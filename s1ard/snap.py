@@ -120,6 +120,23 @@ def get_config_section(parser, **kwargs):
     return out
 
 
+def lsm_encoding():
+    """
+    Get the encoding on the layover shadow mask.
+
+    Returns
+    -------
+    dict
+    """
+    return {
+        'not layover, not shadow': 0,
+        'layover': 1,
+        'shadow': 2,
+        'layover in shadow': 3,
+        'nodata': 255 # dummy value
+    }
+
+
 def translate_annotation(annotation, measurement):
     """
     Translate s1ard annotation keys to SAR processor naming.
