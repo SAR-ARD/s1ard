@@ -112,7 +112,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
     dir_out: str
         the destination directory
     tr: tuple(int or float) or None
-        the target resolution as (x, y)
+        the target resolution in meters as (x, y). Only applies to mode `multi-UTM`.
     username: str or None
         The username for accessing the DEM tiles. If None and authentication is required
         for the selected DEM type, the environment variable 'DEM_USER' is read.
@@ -139,7 +139,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
                 log.info('creating scene-specific DEM mosaic in EPSG:4326')
                 with scene.bbox() as geom:
                     mosaic(geometry=geom, outname=fname_dem,
-                           dem_type=dem_type, tr=tr, epsg=4326,
+                           dem_type=dem_type, epsg=4326,
                            username=username, password=password)
             else:
                 log.info(f'found scene-specific DEM mosaic: {fname_dem}')
