@@ -937,7 +937,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     arr_dm[~np.isfinite(arr_dm)] = n
                     arr_dm = np.where(((arr_valid == 1) & (np.isnan(arr_measurement))),
                                       s, arr_dm)
-                    arr_dm[np.isnan(arr_valid)] = n
+                    arr_dm[arr_valid != 1] = n
                     del arr_measurement
                     del arr_valid
         
