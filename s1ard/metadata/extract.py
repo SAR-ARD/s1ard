@@ -394,16 +394,9 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
-    src_xml = get_src_meta(sid=src_ids[0])
-    az_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
-                                      pattern='.//azimuthProcessing/numberOfLooks',
-                                      out_type='int')
-    rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
-                                      pattern='.//rangeProcessing/numberOfLooks',
-                                      out_type='int')
     proc_meta = processor.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
-    out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
-    out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
+    out['ML_nRgLooks'] = proc_meta['rlks']
+    out['ML_nAzLooks'] = proc_meta['azlks']
     return out
 
 

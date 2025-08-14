@@ -1170,16 +1170,9 @@ def get_metadata(scene, outdir):
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
-    rlks = azlks = 1
-    wf_mli = finder(scenedir, ['*mli.xml'])
-    if len(wf_mli) == 1:
-        wf = parse_recipe(wf_mli[0])
-        if 'Multilook' in wf.operators:
-            rlks = int(wf['Multilook'].parameters['nRgLooks'])
-            azlks = int(wf['Multilook'].parameters['nAzLooks'])
-    elif len(wf_mli) > 1:
-        msg = 'found multiple multi-looking workflows:\n{}'
-        raise RuntimeError(msg.format('\n'.join(wf_mli)))
+    dim = finder(scenedir, ['*.dim'])[0]
+    scene = identify(dim)
+    rlks, azlks = scene.meta['looks']
     return {'azlks': azlks,
             'rlks': rlks}
 
