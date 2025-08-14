@@ -1071,9 +1071,10 @@ def postprocess(src, clean_edges=True, clean_edges_pixels=4):
     datadir = src.replace('.dim', '.data')
     hdrfiles = finder(target=datadir, matchlist=['*.hdr'])
     for hdrfile in hdrfiles:
-        with HDRobject(hdrfile) as hdr:
-            hdr.data_ignore_value = 0
-            hdr.write(hdrfile)
+        if not 'layoverShadowMask' in hdrfile:
+            with HDRobject(hdrfile) as hdr:
+                hdr.data_ignore_value = 0
+                hdr.write(hdrfile)
 
 
 def find_datasets(scene, outdir, epsg):
