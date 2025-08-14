@@ -8,6 +8,7 @@ import json
 from lxml import etree
 from datetime import datetime
 import numpy as np
+from importlib import import_module
 from statistics import median
 from spatialist import Raster
 from spatialist.auxil import gdalwarp, crsConvert
@@ -18,7 +19,6 @@ from osgeo import gdal, ogr
 import s1ard
 from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
                                     ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
-from s1ard import snap
 from s1ard.ancillary import get_tmp_name
 
 gdal.UseExceptions()
@@ -78,7 +78,8 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     ei_tif = finder(target, ['-ei.tif$'], regex=True)
     product_id = os.path.basename(target)
     prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
-                              src_ids=src_ids, sar_dir=sar_dir)
+                              src_ids=src_ids, sar_dir=sar_dir,
+                              processor_name=config['processing']['processor'])
     op_mode = prod_meta['mode']
     
     tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
@@ -346,7 +347,7 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     return meta
 
 
-def get_prod_meta(product_id, tif, src_ids, sar_dir):
+def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -362,12 +363,15 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     sar_dir: str
         A path pointing to the processed SAR datasets of the product.
+    processor_name: str
+        The name of the SAR processor. Needed for reading processing metadata.
     
     Returns
     -------
     dict
         A dictionary containing metadata for the product scene.
     """
+    processor = import_module(f's1ard.{processor_name}')
     out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
@@ -397,7 +401,7 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir):
     rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
                                       pattern='.//rangeProcessing/numberOfLooks',
                                       out_type='int')
-    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
+    proc_meta = processor.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
     out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
     out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
     return out
