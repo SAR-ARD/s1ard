@@ -283,13 +283,15 @@ def _log_process_config(logger, config):
     sw_versions.update(processor.version_dict())
     
     max_len_sw = len(max(sw_versions.keys(), key=len))
-    max_len_proc = len(max(config['processing'].keys(), key=len))
-    max_len = max(max_len_sw, max_len_proc) + 4
+    max_len_main = len(max(config['processing'].keys(), key=len))
+    max_len_meta = len(max(config['metadata'].keys(), key=len))
+    max_len_proc = len(max(config[processor_name].keys(), key=len))
+    max_len = max(max_len_sw, max_len_main, max_len_meta, max_len_proc) + 4
     
     lines = []
     lines.append('=' * 100)
     for section in ['PROCESSING', processor_name.upper(), 'METADATA']:
-        lines.append(f'{section} CONFIGURATION')
+        lines.append(f'{section}')
         for k, v in config[section.lower()].items():
             if k == 'dem_prepare_mode':
                 continue
@@ -299,7 +301,7 @@ def _log_process_config(logger, config):
                 val = v
             lines.append(f"{k: <{max_len}}{val}")
         lines.append('=' * 100)
-    lines.append('SOFTWARE CONFIGURATION')
+    lines.append('SOFTWARE')
     for k, v in sw_versions.items():
         lines.append(f"{k: <{max_len}}{v}")
     lines.append('=' * 100)
