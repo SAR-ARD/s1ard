@@ -175,7 +175,7 @@ def translate_annotation(annotation, measurement):
                 export_extra.append(lookup[layer])
             # supported by the NRB processor
             elif layer in ['em', 'id']:
-                export_extra.append(layer)
+                continue
             else:
                 log.warning(f'unsupported annotation layer: {layer}')
     return export_extra
