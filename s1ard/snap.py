@@ -170,8 +170,12 @@ def translate_annotation(annotation, measurement):
             else x for x in annotation]
         export_extra = []
         for layer in annotation:
+            # supported by the SAR processor
             if layer in lookup:
                 export_extra.append(lookup[layer])
+            # supported by the NRB processor
+            elif layer in ['em', 'id']:
+                export_extra.append(layer)
             else:
                 log.warning(f'unsupported annotation layer: {layer}')
     return export_extra
