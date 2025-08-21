@@ -1030,8 +1030,8 @@ def process(scene, outdir, measurement, spacing, dem,
     for aoi in aois:
         ext = aoi['extent']
         epsg = aoi['epsg']
-        align_x = aoi['align_x']
-        align_y = aoi['align_y']
+        align_x = aoi['extent_utm']['xmin']
+        align_y = aoi['extent_utm']['ymax']
         run()
     ############################################################################
     # delete intermediate files
