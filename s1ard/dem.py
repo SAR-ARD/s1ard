@@ -50,36 +50,40 @@ def authenticate(dem_type, username=None, password=None):
     return username, password
 
 
-def mosaic(geometry, dem_type, outname, epsg=None,
-           tr=None, username=None, password=None, threads=4):
+def mosaic(geometry, dem_type, outname, tr=None,
+           username=None, password=None, threads=4):
     """
     Create a new scene-specific DEM mosaic GeoTIFF file.
-    Makes use of :func:`pyroSAR.auxdata.dem_autoload` and :func:`pyroSAR.auxdata.dem_create`.
+    Makes use of :func:`pyroSAR.auxdata.dem_autoload` and
+    :func:`pyroSAR.auxdata.dem_create`.
     
     Parameters
     ----------
     geometry: spatialist.vector.Vector
-        The geometry to be covered by the mosaic.
+        The geometry to be covered by the mosaic. The geometry's CRS is
+        used as target CRS.
     dem_type: str
         The DEM type.
     outname: str
         The name of the mosaic.
-    epsg: int or None
-        The coordinate reference system as an EPSG code.
     tr: None or tuple[int or float]
-        the target resolution as (xres, yres)
+        the target resolution as (xres, yres) in units of the target CRS.
     username: str or None
-        The username for accessing the DEM tiles. If None and authentication is required
-        for the selected DEM type, the environment variable 'DEM_USER' is read.
-        If this is not set, the user is prompted interactively to provide credentials.
+        The username for accessing the DEM tiles. If None and authentication
+        is required for the selected DEM type, the environment variable
+        'DEM_USER' is read. If this is not set, the user is prompted
+        interactively to provide credentials.
     password: str or None
         The password for accessing the DEM tiles.
-        If None: same behavior as for username but with env. variable 'DEM_PASS'.
+        If None: same behavior as for username but with env. variable
+        'DEM_PASS'.
     threads: int
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     """
+    epsg = geometry.getProjection('epsg')
     if not os.path.isfile(outname):
-        username, password = authenticate(dem_type=dem_type, username=username,
+        username, password = authenticate(dem_type=dem_type,
+                                          username=username,
                                           password=password)
         buffer = 0.01  # degrees
         if dem_type == 'GETASSE30':
@@ -88,12 +92,17 @@ def mosaic(geometry, dem_type, outname, epsg=None,
             geoid_convert = True
         geoid = 'EGM2008'
         vrt = outname.replace('.tif', '.vrt')
+        if epsg != 4326:
+            geometry = geometry.clone()
+            geometry.reproject(4326)
         dem_autoload([geometry], demType=dem_type,
                      vrt=vrt, buffer=buffer, product='dem',
                      username=username, password=password)
         dem_create(src=vrt, dst=outname, pbar=False, tr=tr,
                    geoid_convert=geoid_convert, geoid=geoid,
                    threads=threads, nodata=-32767, t_srs=epsg)
+        if epsg != 4326:
+            geometry = None
 
 
 def prepare(scene, dem_type, mode, dir_out, tr=None,
@@ -139,7 +148,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
                 log.info('creating scene-specific DEM mosaic in EPSG:4326')
                 with scene.bbox() as geom:
                     mosaic(geometry=geom, outname=fname_dem,
-                           dem_type=dem_type, epsg=4326,
+                           dem_type=dem_type,
                            username=username, password=password)
             else:
                 log.info(f'found scene-specific DEM mosaic: {fname_dem}')
@@ -147,7 +156,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
         aois = tile_ex.aoi_from_scene(scene=scene, multi=True)
         fname_dem = []
         for aoi in aois:
-            ext = aoi['extent']
+            ext = aoi['extent_utm']
             epsg = aoi['epsg']
             fname_base_dem = f'DEM_{dem_type_short}_{epsg}.tif'
             fname_dem_tmp = os.path.join(dir_out, fname_base_dem)
@@ -155,9 +164,9 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
             with Lock(fname_dem_tmp):
                 if not os.path.isfile(fname_dem_tmp):
                     log.info(f'creating scene-specific DEM mosaic in EPSG:{epsg}')
-                    with bbox(coordinates=ext, crs=4326) as geom:
+                    with bbox(coordinates=ext, crs=epsg) as geom:
                         mosaic(geometry=geom, outname=fname_dem_tmp,
-                               dem_type=dem_type, tr=tr, epsg=epsg,
+                               dem_type=dem_type, tr=tr,
                                username=username, password=password)
                 else:
                     log.info(f'found scene-specific DEM mosaic: {fname_dem_tmp}')
