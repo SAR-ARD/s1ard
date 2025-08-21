@@ -348,7 +348,7 @@ def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
 
 def buffer_min_overlap(geom1, geom2, percent=1):
     """
-    Buffer a geometry to a minimum overlap with a second geometry.
+    Buffer a rectangular geometry to a minimum overlap with a second geometry.
     The geometry is iteratively buffered until the minimum overlap is reached.
     If the overlap of the input geometries is already larger than the defined
     threshold, a copy of the original geometry is returned.
@@ -366,6 +366,10 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     -------
 
     """
+    geom1_crs = geom1.getProjection('epsg')
+    geom2_crs = geom2.getProjection('epsg')
+    if geom1_crs != geom2_crs:
+        raise ValueError('both geometries must have the same CRS')
     geom2_area = geom2.getArea()
     ext = geom1.extent
     ext2 = ext.copy()
@@ -380,13 +384,13 @@ def buffer_min_overlap(geom1, geom2, percent=1):
         ext2['xmax'] = ext['xmax'] + xbuf
         ext2['ymin'] = ext['ymin'] - ybuf
         ext2['ymax'] = ext['ymax'] + ybuf
-        with bbox(ext2, 4326) as geom3:
+        with bbox(ext2, geom1_crs) as geom3:
             ext3 = geom3.extent
             with intersect(geom2, geom3) as inter:
                 inter_area = inter.getArea()
                 overlap = inter_area / geom2_area * 100
         buffer += 1
-    return bbox(ext3, 4326)
+    return bbox(ext3, geom1_crs)
 
 
 def date_to_utc(date, as_datetime=False, str_format='%Y%m%dT%H%M%S'):
