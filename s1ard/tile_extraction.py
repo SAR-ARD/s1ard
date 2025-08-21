@@ -213,8 +213,10 @@ def aoi_from_scene(scene, multi=True, percent=1):
                 # ensure a minimum overlap between AOI and pre-processed scene
                 with scene.geometry() as geom2:
                     geom2.reproject(epsg)
+                    # 60 m to keep aligned to MGRS tile size and overlaps
+                    # see ancillary.check_spacing
                     with buffer_min_overlap(geom1=geom1, geom2=geom2,
-                                            percent=percent) as buffered:
+                                            percent=percent, step=60) as buffered:
                         ext_utm = buffered.extent
                 # convert extent to EPSG:4326
                 geom1.reproject(projection=4326)
