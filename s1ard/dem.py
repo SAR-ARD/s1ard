@@ -81,11 +81,11 @@ def mosaic(geometry, dem_type, outname, tr=None,
         The number of threads to pass to :func:`pyroSAR.auxdata.dem_create`.
     """
     epsg = geometry.getProjection('epsg')
+    ext = geometry.extent
     if not os.path.isfile(outname):
         username, password = authenticate(dem_type=dem_type,
                                           username=username,
                                           password=password)
-        buffer = 0.01  # degrees
         if dem_type == 'GETASSE30':
             geoid_convert = False
         else:
@@ -96,11 +96,13 @@ def mosaic(geometry, dem_type, outname, tr=None,
             geometry = geometry.clone()
             geometry.reproject(4326)
         dem_autoload([geometry], demType=dem_type,
-                     vrt=vrt, buffer=buffer, product='dem',
+                     vrt=vrt, buffer=0.01, product='dem',
                      username=username, password=password)
+        bounds = [ext['xmin'], ext['ymin'], ext['xmax'], ext['ymax']]
         dem_create(src=vrt, dst=outname, pbar=False, tr=tr,
                    geoid_convert=geoid_convert, geoid=geoid,
-                   threads=threads, nodata=-32767, t_srs=epsg)
+                   threads=threads, nodata=-32767, t_srs=epsg,
+                   outputBounds=bounds)
         if epsg != 4326:
             geometry = None
 
