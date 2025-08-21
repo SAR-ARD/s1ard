@@ -71,8 +71,16 @@ def check_spacing(spacing):
     -------
 
     """
-    if 109800 % spacing != 0:
-        raise RuntimeError(f'target spacing of {spacing} m does not align with MGRS tile size of 109800 m.')
+    # 109800 m is the edge length of one tile.
+    # the overlap between tiles is either 9780 or 9840 m.
+    overlap_edges = [9780, 9840, 109800]
+    options = []
+    for i in range(1, (spacing + 1) * 10):
+        if all([x % (i / 10) == 0 for x in overlap_edges]):
+            options.append(i / 10)
+    if spacing not in options:
+        raise RuntimeError(f'target spacing of {spacing} m does not align '
+                           f'with MGRS tile size and overlaps.\nOptions: {options}')
 
 
 def generate_unique_id(encoded_str):
