@@ -346,7 +346,7 @@ def vrt_add_overviews(vrt, overviews, resampling='AVERAGE'):
     tree.write(vrt, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def buffer_min_overlap(geom1, geom2, percent=1):
+def buffer_min_overlap(geom1, geom2, percent=1, step=None):
     """
     Buffer a rectangular geometry to a minimum overlap with a second geometry.
     The geometry is iteratively buffered until the minimum overlap is reached.
@@ -361,6 +361,9 @@ def buffer_min_overlap(geom1, geom2, percent=1):
         the reference geometry to intersect with
     percent: int or float
         the minimum overlap in percent of `geom1`
+    step: int or float or None
+        the buffering step size. If None, the step size is 0.1 % of the
+        average rectangle corner length.
 
     Returns
     -------
@@ -373,13 +376,15 @@ def buffer_min_overlap(geom1, geom2, percent=1):
     geom2_area = geom2.getArea()
     ext = geom1.extent
     ext2 = ext.copy()
-    xdist = ext['xmax'] - ext['xmin']
-    ydist = ext['ymax'] - ext['ymin']
+    if step is None:
+        xdist = ext['xmax'] - ext['xmin']
+        ydist = ext['ymax'] - ext['ymin']
+        step = (xdist + ydist) / 2 / 1000
     buffer = 0
     overlap = 0
-    while overlap < percent:
-        xbuf = xdist * buffer / 100 / 2
-        ybuf = ydist * buffer / 100 / 2
+    while overlap <= percent:
+        xbuf = buffer * step
+        ybuf = buffer * step
         ext2['xmin'] = ext['xmin'] - xbuf
         ext2['xmax'] = ext['xmax'] + xbuf
         ext2['ymin'] = ext['ymin'] - ybuf
