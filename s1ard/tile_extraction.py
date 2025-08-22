@@ -231,13 +231,10 @@ def aoi_from_scene(scene, multi=True, percent=1):
             # get all tiles, reprojected to the target UTM zone if necessary
             tiles = tile_from_aoi(vector=geom, epsg=epsg,
                                   return_geometries=True, strict=False)
-        # determine corner coordinate for alignment
-        ext_utm = tiles[0].extent
-        align_x = ext_utm['xmin']
-        align_y = ext_utm['ymax']
+        ext_utm = get_max_ext(geometries=tiles)
         del tiles
         out.append({'extent': ext, 'epsg': epsg,
-                    'align_x': align_x, 'align_y': align_y})
+                    'extent_utm': ext_utm})
     return out
 
 
