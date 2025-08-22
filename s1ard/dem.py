@@ -103,6 +103,7 @@ def mosaic(geometry, dem_type, outname, tr=None,
                    geoid_convert=geoid_convert, geoid=geoid,
                    threads=threads, nodata=-32767, t_srs=epsg,
                    outputBounds=bounds)
+        os.remove(vrt)
         if epsg != 4326:
             geometry = None
 
