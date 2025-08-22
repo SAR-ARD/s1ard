@@ -148,7 +148,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
         with Lock(fname_dem):
             if not os.path.isfile(fname_dem):
                 log.info('creating scene-specific DEM mosaic in EPSG:4326')
-                with scene.bbox() as geom:
+                with scene.bbox(buffer=0.002) as geom:
                     mosaic(geometry=geom, outname=fname_dem,
                            dem_type=dem_type,
                            username=username, password=password)
@@ -166,7 +166,7 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
             with Lock(fname_dem_tmp):
                 if not os.path.isfile(fname_dem_tmp):
                     log.info(f'creating scene-specific DEM mosaic in EPSG:{epsg}')
-                    with bbox(coordinates=ext, crs=epsg) as geom:
+                    with bbox(coordinates=ext, crs=epsg, buffer=240) as geom:
                         mosaic(geometry=geom, outname=fname_dem_tmp,
                                dem_type=dem_type, tr=tr,
                                username=username, password=password)
