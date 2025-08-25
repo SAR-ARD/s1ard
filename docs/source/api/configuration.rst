@@ -1,0 +1,15 @@
+Configuration
+-------------
+
+.. automodule:: s1ard.config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    .. autosummary::
+        :nosignatures:
+
+        gdal_conf
+        get_config
+        init
+        write

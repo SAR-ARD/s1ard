@@ -122,7 +122,7 @@ def get_config_section(parser, **kwargs):
 
 def lsm_encoding():
     """
-    Get the encoding on the layover shadow mask.
+    Get the encoding of the layover shadow mask.
 
     Returns
     -------
