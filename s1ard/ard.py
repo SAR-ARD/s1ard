@@ -501,37 +501,46 @@ def append_metadata(config, prod_meta, src_ids, assets, compression,
 
 def get_datasets(scenes, sar_dir, extent, epsg, processor_name):
     """
-    Collect processing output for a list of scenes.
-    Reads metadata from all source SLC/GRD scenes, finds matching output files in `sar_dir`
-    and filters both lists depending on the actual overlap of each SLC/GRD valid data coverage
-    with the current MGRS tile geometry. If no output is found for any scene the function will raise an error.
-    To obtain the extent of valid data coverage, first a binary
-    mask raster file is created with the name `datamask.tif`, which is stored in the same folder as
-    the processing output as found by :func:`~s1ard.snap.find_datasets`. Then, the boundary of this
-    binary mask is computed and stored as `datamask.gpkg` (see function :func:`spatialist.vector.boundary`).
-    If the provided `extent` does not overlap with this boundary, the output is discarded. This scenario
-    might occur when the scene's geometry read from its metadata overlaps with the tile but the actual
-    extent of data does not.
+    Collect processing output for a list of scenes. Reads metadata from all
+    source SLC/GRD scenes, finds matching output files in `sar_dir` and
+    filters both lists depending on the actual overlap of each SLC/GRD valid
+    data coverage with the current MGRS tile geometry. If no output is found
+    for any scene the function will raise an error.
+    To obtain the extent of valid data coverage, first a binary mask raster
+    file is created with the name `datamask.tif`, which is stored in the same
+    folder as the processing output as found by :func:`~s1ard.snap.find_datasets`.
+    Then, the boundary of this binary mask is computed and stored as `datamask.gpkg`
+    (see function :func:`spatialist.vector.boundary`).
+    If the provided `extent` does not overlap with this boundary, the output is
+    discarded. This scenario might occur when the scene's geometry read from its
+    metadata overlaps with the tile but the actual extent of data does not.
 
     Parameters
     ----------
     scenes: list[str]
-        List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
+        List of scenes to process. Either an individual scene or multiple,
+        matching scenes (consecutive acquisitions).
     sar_dir: str
-        The directory containing the SAR datasets processed from the source scenes using pyroSAR.
-        The function will raise an error if the processing output cannot be found for all scenes in `sar_dir`.
+        The directory containing the SAR datasets processed from the source
+        scenes using pyroSAR. The function will raise an error if the processing
+        output cannot be found for all scenes in `sar_dir`.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a
+        :class:`~spatialist.vector.Vector` object.
     epsg: int
         The coordinate reference system as an EPSG code.
+    processor_name: str
+        The name of the used SAR processor. The function `find_datasets` of the
+        respective processor module is used.
 
     Returns
     -------
     tuple[List]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS
-        tile and a list of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
-        The format of the latter is a list of dictionaries per scene with keys as described by e.g.
-        :func:`s1ard.snap.find_datasets`.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes
+        that overlap with the current MGRS tile and a list of SAR processing output
+        files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
+        The format of the latter is a list of dictionaries per scene with keys as
+        described by e.g. :func:`s1ard.snap.find_datasets`.
     
     See Also
     --------
@@ -570,12 +579,14 @@ def get_datasets(scenes, sar_dir, extent, epsg, processor_name):
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
-            raise RuntimeError(f'cannot find processing output for scene {base} and CRS EPSG:{epsg}')
+            msg = f'cannot find processing output for scene {base} and CRS EPSG:{epsg}'
+            raise RuntimeError(msg)
     
     i = 0
     while i < len(datasets):
         log.debug(f'checking tile overlap for scene {os.path.basename(ids[i].scene)}')
-        measurements = [datasets[i][x] for x in datasets[i].keys() if re.search('[gs]-lin', x)]
+        measurements = [datasets[i][x] for x in datasets[i].keys()
+                        if re.search('[gs]-lin', x)]
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         dm_vec = datamask(measurement=measurements[0], dm_ras=dm_ras, dm_vec=dm_vec)
