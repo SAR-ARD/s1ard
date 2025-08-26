@@ -5,7 +5,7 @@ import importlib.resources
 from importlib import import_module
 from datetime import datetime, timedelta
 import configparser
-import dateutil.parser
+from dateutil.parser import parse as dateparse
 from osgeo import gdal
 
 
@@ -140,6 +140,19 @@ def _get_config_processing(parser, **kwargs):
         'logfile': 'None',
         'parquet': 'None'
     }
+    processing_options = {
+        'acq_mode': ['IW', 'EW', 'SM'],
+        'annotation': ['dm', 'ei', 'em', 'id', 'lc',
+                       'ld', 'li', 'np', 'ratio', 'wm'],
+        'dem_type': ['Copernicus 10m EEA DEM',
+                     'Copernicus 30m Global DEM',
+                     'Copernicus 30m Global DEM II',
+                     'GETASSE30'],
+        'measurement': ['gamma', 'sigma'],
+        'mode': ['sar', 'nrb', 'orb'],
+        'product': ['GRD', 'SLC'],
+        'sensor': ['S1A', 'S1B', 'S1C', 'S1D']}
+    
     if 'etad' not in proc_sec.keys():
         proc_sec['etad'] = 'False'
         proc_sec['etad_dir'] = 'None'
@@ -165,7 +178,7 @@ def _get_config_processing(parser, **kwargs):
         if k in ['annotation', 'aoi_tiles', 'data_take', 'mode', 'stac_collections']:
             v = proc_sec.get_list(k)
         
-        _validate_value(k, v)
+        validate_value(k, v)
         
         if k == 'mindate':
             v = proc_sec.get_datetime(k)
@@ -200,7 +213,7 @@ def _get_config_processing(parser, **kwargs):
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
         
-        _validate_options(k, v)
+        validate_options(k, v, options=processing_options)
         out[k] = v
     
     # check that a valid scene search option is set
@@ -294,7 +307,7 @@ def init(target, source=None, overwrite=False, **kwargs):
 def _parse_datetime(s):
     """Custom converter for configparser:
     https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    return dateutil.parser.parse(s)
+    return dateparse(s)
 
 
 def _parse_list(s):
@@ -331,29 +344,48 @@ def keyval_check(key, val, allowed_keys):
     return val
 
 
-def _validate_options(k, v):
-    options = {'acq_mode': ['IW', 'EW', 'SM'],
-               'annotation': ['dm', 'ei', 'em', 'id', 'lc',
-                              'ld', 'li', 'np', 'ratio', 'wm'],
-               'dem_type': ['Copernicus 10m EEA DEM',
-                            'Copernicus 30m Global DEM',
-                            'Copernicus 30m Global DEM II',
-                            'GETASSE30'],
-               'measurement': ['gamma', 'sigma'],
-               'mode': ['sar', 'nrb', 'orb'],
-               'product': ['GRD', 'SLC'],
-               'sensor': ['S1A', 'S1B', 'S1C', 'S1D']}
+def validate_options(k, v, options):
+    """
+    Validate a configuration option against a set of allowed options.
+    
+    Parameters
+    ----------
+    k: str
+        the configuration key
+    v: str
+        the configuration value
+    options: dict[str, list[str]]
+        the configuration options
+
+    Returns
+    -------
+
+    """
     if k not in options:
         return
     if isinstance(v, list):
         for item in v:
-            _validate_options(k, item)
+            validate_options(k, item, options)
     else:
         msg = "Parameter '{}': expected value(s) to be one of {}; got '{}' instead"
         assert v in options[k], msg.format(k, options[k], v)
 
 
-def _validate_value(k, v):
+def validate_value(k, v):
+    """
+    Validate the value of a configuration option.
+    
+    Parameters
+    ----------
+    k: str
+        the configuration key
+    v: Any
+        the configuration value
+
+    Returns
+    -------
+
+    """
     def val_aoi_geometry(x):
         return x is None or os.path.isfile(x)
     
@@ -373,7 +405,7 @@ def _validate_value(k, v):
         return
     if isinstance(v, list):
         for item in v:
-            _validate_value(k, item)
+            validate_value(k, item)
     else:
         validator, condition = validators[k]
         if not validator(v):

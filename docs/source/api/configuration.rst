@@ -13,4 +13,6 @@ Configuration
         get_config
         init
         keyval_check
+        validate_options
+        validate_value
         write
