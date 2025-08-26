@@ -12,4 +12,5 @@ Configuration
         gdal_conf
         get_config
         init
+        keyval_check
         write

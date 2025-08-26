@@ -160,7 +160,7 @@ def _get_config_processing(parser, **kwargs):
     out = {}
     for k, v in proc_sec.items():
         # check if key is allowed and convert 'None|none|' strings to None
-        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        v = keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         
         if k in ['annotation', 'aoi_tiles', 'data_take', 'mode', 'stac_collections']:
             v = proc_sec.get_list(k)
@@ -242,7 +242,7 @@ def _get_config_metadata(parser, **kwargs):
     
     out = {}
     for k, v in meta_sec.items():
-        v = _keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        v = keyval_check(key=k, val=v, allowed_keys=allowed_keys)
         if k == 'format':
             v = meta_sec.get_list(k)
         if k == 'copy_original':
@@ -306,10 +306,23 @@ def _parse_list(s):
         return [x.strip() for x in s.split(',')]
 
 
-def _keyval_check(key, val, allowed_keys):
-    """Helper function to check and clean up key,value pairs while parsing a config file."""
+def keyval_check(key, val, allowed_keys):
+    """
+    Check and clean up key,value pairs while parsing a config file.
+    
+    Parameters
+    ----------
+    key: str
+    val: str
+    allowed_keys: List[str]
+
+    Returns
+    -------
+
+    """
     if key not in allowed_keys:
-        raise ValueError("Parameter '{}' is not allowed; should be one of {}".format(key, allowed_keys))
+        msg = f"Parameter '{key}' is not allowed; should be one of {allowed_keys}"
+        raise ValueError(msg)
     
     val = val.replace('"', '').replace("'", "")
     if val in ['None', 'none', '']:
