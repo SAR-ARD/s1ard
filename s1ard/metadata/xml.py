@@ -66,7 +66,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         outname = os.path.join(metadir, '{}.xml'.format(scene))
         if os.path.isfile(outname) and exist_ok:
             continue
-        log.info(f'creating {outname}')
+        log.info(f'creating {os.path.relpath(outname, target)}')
         timeStart = meta['source'][uid]['timeStart'].isoformat()
         timeStop = meta['source'][uid]['timeStop'].isoformat()
         
@@ -225,7 +225,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     outname = os.path.join(target, '{}.xml'.format(scene_id))
     if os.path.isfile(outname) and exist_ok:
         return
-    log.info(f'creating {outname}')
+    log.info(f'creating {os.path.relpath(outname, target)}')
     timeCreated = meta['prod']['timeCreated'].isoformat()
     timeStart = meta['prod']['timeStart'].isoformat()
     timeStop = meta['prod']['timeStop'].isoformat()

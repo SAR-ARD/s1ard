@@ -9,7 +9,7 @@ from lxml import etree
 from dateutil.parser import parse as dateparse
 from datetime import timezone
 import numpy as np
-from statistics import median
+from importlib import import_module
 from spatialist import Raster
 from spatialist.auxil import gdalwarp, crsConvert
 from spatialist.ancillary import finder, dissolve
@@ -19,7 +19,6 @@ from osgeo import gdal, ogr
 import s1ard
 from s1ard.metadata.mapping import (LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
                                     ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
-from s1ard import snap
 from s1ard.ancillary import get_tmp_name
 
 gdal.UseExceptions()
@@ -63,7 +62,8 @@ def meta_dict(config, prod_meta, src_ids, compression):
     np_tifs = finder(prod_meta['dir_ard'], ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(prod_meta['dir_ard'], ['-ei.tif$'], regex=True)
     prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
-                                   sar_dir=config['processing']['sar_dir']))
+                                   sar_dir=config['processing']['sar_dir'],
+                                   processor_name=config['processing']['processor']))
     op_mode = prod_meta['mode']
     
     # COMMON metadata (sorted alphabetically)
@@ -352,7 +352,7 @@ def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
         meta['prod']['windNormReferenceType'] = None
 
 
-def get_prod_meta(tif, src_ids, sar_dir):
+def get_prod_meta(tif, src_ids, sar_dir, processor_name):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -366,12 +366,15 @@ def get_prod_meta(tif, src_ids, sar_dir):
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
     sar_dir: str
         A path pointing to the processed SAR datasets of the product.
+    processor_name: str
+        The name of the SAR processor. Needed for reading processing metadata.
     
     Returns
     -------
     dict
         A dictionary containing metadata for the product scene.
     """
+    processor = import_module(f's1ard.{processor_name}')
     out = dict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
@@ -394,16 +397,9 @@ def get_prod_meta(tif, src_ids, sar_dir):
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
     
-    src_xml = get_src_meta(sid=src_ids[0])
-    az_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
-                                      pattern='.//azimuthProcessing/numberOfLooks',
-                                      out_type='int')
-    rg_num_looks = find_in_annotation(annotation_dict=src_xml['annotation'],
-                                      pattern='.//rangeProcessing/numberOfLooks',
-                                      out_type='int')
-    proc_meta = snap.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
-    out['ML_nRgLooks'] = proc_meta['rlks'] * median(rg_num_looks.values())
-    out['ML_nAzLooks'] = proc_meta['azlks'] * median(az_num_looks.values())
+    proc_meta = processor.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
+    out['ML_nRgLooks'] = proc_meta['rlks']
+    out['ML_nAzLooks'] = proc_meta['azlks']
     return out
 
 

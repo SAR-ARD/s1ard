@@ -167,9 +167,8 @@ def aoi_from_scene(scene, multi=True, percent=1):
     for each UTM zone group:
     
     - the extent in WGS84 coordinates (key `extent`)
+    - the extent in UTM coordinates (key `extent_utm`)
     - the EPSG code of the UTM zone (key `epsg`)
-    - the Easting coordinate for pixel alignment (key `align_x`)
-    - the Northing coordinate for pixel alignment (key `align_y`)
     
     A minimum overlap of the AOIs with the SAR scene is ensured by buffering
     the AOIs if necessary. The minimum overlap can be controlled with
@@ -191,8 +190,7 @@ def aoi_from_scene(scene, multi=True, percent=1):
     Returns
     -------
     list[dict]
-        a list of dictionaries with keys `extent`, `epsg`, `align_x`,
-        `align_y`
+        a list of dictionaries with keys `extent`, `extent_utm`, `epsg`
     """
     out = []
     if multi:
@@ -209,23 +207,22 @@ def aoi_from_scene(scene, multi=True, percent=1):
             # get UTM EPSG code
             epsg = geometries[0].getProjection(type='epsg')
             # get maximum extent of tile group
-            ext = get_max_ext(geometries=geometries)
-            # determine corner coordinate for alignment
-            align_x = ext['xmin']
-            align_y = ext['ymax']
+            ext_utm = get_max_ext(geometries=geometries)
             del geometries
-            # convert extent to EPSG:4326
-            with bbox(coordinates=ext, crs=epsg) as geom:
-                geom.reproject(projection=4326)
-                ext = geom.extent
-            # ensure a minimum overlap between AOI and pre-processed scene
-            with bbox(ext, 4326) as geom1:
+            with bbox(ext_utm, epsg) as geom1:
+                # ensure a minimum overlap between AOI and pre-processed scene
                 with scene.geometry() as geom2:
+                    geom2.reproject(epsg)
+                    # 60 m to keep aligned to MGRS tile size and overlaps
+                    # see ancillary.check_spacing
                     with buffer_min_overlap(geom1=geom1, geom2=geom2,
-                                            percent=percent) as buffered:
-                        ext = buffered.extent
+                                            percent=percent, step=60) as buffered:
+                        ext_utm = buffered.extent
+                # convert extent to EPSG:4326
+                geom1.reproject(projection=4326)
+                ext = geom1.extent
             out.append({'extent': ext, 'epsg': epsg,
-                        'align_x': align_x, 'align_y': align_y})
+                        'extent_utm': ext_utm})
     else:
         with scene.bbox() as geom:
             ext = geom.extent
@@ -234,13 +231,10 @@ def aoi_from_scene(scene, multi=True, percent=1):
             # get all tiles, reprojected to the target UTM zone if necessary
             tiles = tile_from_aoi(vector=geom, epsg=epsg,
                                   return_geometries=True, strict=False)
-        # determine corner coordinate for alignment
-        ext_utm = tiles[0].extent
-        align_x = ext_utm['xmin']
-        align_y = ext_utm['ymax']
+        ext_utm = get_max_ext(geometries=tiles)
         del tiles
         out.append({'extent': ext, 'epsg': epsg,
-                    'align_x': align_x, 'align_y': align_y})
+                    'extent_utm': ext_utm})
     return out
 
 

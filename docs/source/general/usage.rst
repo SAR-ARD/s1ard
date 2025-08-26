@@ -6,7 +6,8 @@ configuration file but can also be modified via the command line.
 
 The configuration file follows the INI format, which uses plain text to store properties as key-value pairs.
 INI files can be created and opened with any text editor.
-The `config.ini` file used with the `s1ard` package has two sections: ``PROCESSING`` and ``METADATA``.
+The `config.ini` file used with the `s1ard` package requires three sections: ``PROCESSING`` and ``METADATA``
+and a section for the SAR processor, e.g. ``SNAP``.
 An example `config.ini` file for the `s1ard` package can be found here:
 
 https://github.com/SAR-ARD/s1ard/blob/main/s1ard/resources/config.ini
@@ -17,7 +18,7 @@ Two different types of product were intended when developing the processor, Norm
 and Ocean Radar Backscatter (ORB). However, the processor does not strictly separate between them and products can be created that
 conform to both types.
 
-To create an NRB product as defined by the CEOS ARD specification, the following configuration would be necessary:
+To create an NRB product as defined by the CEOS-ARD specification, the following configuration would be necessary:
 
 .. code-block:: ini
 
@@ -76,12 +77,13 @@ Just like with ``work_dir``, all configuration parameters can be modified via th
 
     s1rb init -c config.ini --work_dir /path/to/work_dir --acq_mode IW --annotation dm,id
 
-The argument ``snap_gpt_args`` is known to require an additional modification so that the ``-`` characters in the value are not mistaken for argument key identifiers.
-In the example, SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
+Command line arguments passed to the SAR processor may contain ``-`` characters in the value, which are mistaken for argument key identifiers.
+An example is the SNAP ``gpt_args`` parameter.
+In the example below, SNAP is instructed to use a maximum of 32GB memory, 20GB cache size and 16 threads.
 
 ::
 
-    s1rb init -c config.ini -- --snap_gpt_args "-J-Xmx32G -c 20G -x -q 16"
+    s1rb init -c config.ini -- --gpt_args "-J-Xmx32G -c 20G -x -q 16"
 
 Once a configuration file has been created and all of its parameters have been properly defined,
 it can be used to start the processor using the ``s1rb process`` CLI tool.
@@ -333,3 +335,43 @@ The metadata files created for each ARD product contain some fields that should 
 arbitrary values. Instead, they can be accessed here in order to more easily generate a complete set of metadata. These
 fields are mostly relevant if you want to produce ARD products systematically and make them available for others.
 If you don't see a need for them you can just leave the fields empty, use the default 'None' or delete this entire section.
+
+SNAP Section
+^^^^^^^^^^^^
+
+Depending on the configuration of the `processor` parameter in the `PROCESSING` section, this section may be used or not.
+
+allow_res_osv
++++++++++++++
+
+Allow usage of RES orbit files (or only POE)?
+
+clean_edges
++++++++++++
+
+Perform additional edge cleaning to remove artifacts?
+
+clean_edges_pixels
+++++++++++++++++++
+
+The number of pixels to erode when `clean_edges` is True.
+
+cleanup
++++++++
+
+Remove intermediate files after processing?
+
+dem_resampling_method
++++++++++++++++++++++
+
+The DEM resampling method.
+
+gpt_args
+++++++++
+
+SNAP GPT command line arguments.
+
+img_resampling_method
++++++++++++++++++++++
+
+The image resampling method.

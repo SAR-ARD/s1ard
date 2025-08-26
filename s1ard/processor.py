@@ -1,12 +1,13 @@
 import os
 import time
+import inspect
+from importlib import import_module
 from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from pyroSAR.ancillary import Lock
-from s1ard import etad, dem, ard, snap
-from s1ard.config import get_config, snap_conf, gdal_conf
+from s1ard import etad, dem, ard
+from s1ard.config import get_config, gdal_conf
 import s1ard.ancillary as anc
 import s1ard.tile_extraction as tile_ex
 from s1ard import search
@@ -30,12 +31,17 @@ def main(config_file=None, debug=False, **kwargs):
     """
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
-    config_proc = config['processing']
     log = anc.set_logging(config=config, debug=debug)
-    geocode_prms = snap_conf(config=config)
+    config_proc = config['processing']
+    processor_name = config_proc['processor']
+    processor = import_module(f's1ard.{processor_name}')
+    config_sar = config[processor_name]
     gdal_prms = gdal_conf(config=config)
     
-    anc.check_spacing(geocode_prms['spacing'])
+    spacings = {'IW': 10, 'SM': 10, 'EW': 30}
+    config_sar['spacing'] = spacings[config_proc['acq_mode']]
+    
+    anc.check_spacing(config_sar['spacing'])
     
     sar_flag = 'sar' in config_proc['mode']
     nrb_flag = 'nrb' in config_proc['mode']
@@ -120,7 +126,7 @@ def main(config_file=None, debug=False, **kwargs):
                     if slice_numbers[i] != slice_numbers[i - 1] + 1:
                         raise RuntimeError(f"nonconsecutive scene group, "
                                            f"slice numbers: {slice_numbers}")
-        ####################################################################################################################
+    ####################################################################################################################
     # Get neighboring GRD scenes to add a buffer to the geocoded scenes.
     # Otherwise, there will be a gap between final geocoded images.
     # Buffering is only possible if the product composition is 'Sliced'
@@ -171,23 +177,8 @@ def main(config_file=None, debug=False, **kwargs):
     # annotation layer selection
     annotation = config_proc['annotation']
     measurement = config_proc['measurement']
-    export_extra = None
-    lookup = {'dm': 'layoverShadowMask',
-              'ei': 'incidenceAngleFromEllipsoid',
-              'lc': 'scatteringArea',
-              'ld': 'lookDirection',
-              'li': 'localIncidenceAngle',
-              'np': 'NESZ',
-              'gs': 'gammaSigmaRatio',
-              'sg': 'sigmaGammaRatio'}
-    
-    if annotation is not None:
-        annotation = ['gs' if x == 'ratio' and measurement == 'gamma' else 'sg' if x == 'ratio'
-        else x for x in annotation]
-        export_extra = []
-        for layer in annotation:
-            if layer in lookup:
-                export_extra.append(lookup[layer])
+    export_extra = processor.translate_annotation(annotation=annotation,
+                                                  measurement=measurement)
     ####################################################################################################################
     # main SAR processing
     if sar_flag:
@@ -207,23 +198,14 @@ def main(config_file=None, debug=False, **kwargs):
                     os.makedirs(tmp_dir_scene, exist_ok=True)
                 ########################################################################################################
                 # Preparation of DEM for SAR processing
-                dem_type_lookup = {'Copernicus 10m EEA DEM': 'EEA10',
-                                   'Copernicus 30m Global DEM II': 'GLO30II',
-                                   'Copernicus 30m Global DEM': 'GLO30',
-                                   'GETASSE30': 'GETASSE30'}
-                dem_type_short = dem_type_lookup[config_proc['dem_type']]
-                fname_base_dem = scene_base + f'_DEM_{dem_type_short}.tif'
-                fname_dem = os.path.join(tmp_dir_scene, fname_base_dem)
-                os.makedirs(tmp_dir_scene, exist_ok=True)
-                with Lock(fname_dem):
-                    if not os.path.isfile(fname_dem):
-                        log.info('creating scene-specific DEM mosaic')
-                        with scene.bbox() as geom:
-                            dem.mosaic(geometry=geom, outname=fname_dem,
-                                       dem_type=config_proc['dem_type'],
-                                       username=username, password=password)
-                    else:
-                        log.info(f'found scene-specific DEM mosaic: {fname_dem}')
+                dem_prepare_mode = config_sar['dem_prepare_mode']
+                if dem_prepare_mode is not None:
+                    fname_dem = dem.prepare(scene=scene, dem_type=config_proc['dem_type'],
+                                            dir_out=tmp_dir_scene, username=username,
+                                            password=password, mode=dem_prepare_mode,
+                                            tr=(config_sar['spacing'], config_sar['spacing']))
+                else:
+                    fname_dem = None
                 ########################################################################################################
                 # ETAD correction
                 if config_proc['etad']:
@@ -236,33 +218,39 @@ def main(config_file=None, debug=False, **kwargs):
                     rlks = {'IW': 5,
                             'SM': 6,
                             'EW': 3}[config_proc['acq_mode']]
-                    rlks *= int(geocode_prms['spacing'] / 10)
+                    rlks *= int(config_sar['spacing'] / 10)
                     azlks = {'IW': 1,
                              'SM': 6,
                              'EW': 1}[config_proc['acq_mode']]
-                    azlks *= int(geocode_prms['spacing'] / 10)
+                    azlks *= int(config_sar['spacing'] / 10)
                 else:
                     rlks = azlks = None
                 ########################################################################################################
                 # main processing routine
                 start_time = time.time()
                 try:
-                    log.info('starting SNAP processing')
-                    snap.process(scene=scene.scene, outdir=config_proc['sar_dir'],
-                                 measurement=measurement,
-                                 tmpdir=config_proc['tmp_dir'],
-                                 dem=fname_dem, neighbors=neighbors[h][i],
-                                 export_extra=export_extra,
-                                 gpt_args=config_proc['snap_gpt_args'],
-                                 rlks=rlks, azlks=azlks, **geocode_prms)
+                    log.info('starting SAR processing')
+                    proc_args = {'scene': scene.scene,
+                                 'outdir': config_proc['sar_dir'],
+                                 'measurement': measurement,
+                                 'tmpdir': config_proc['tmp_dir'],
+                                 'dem': fname_dem,
+                                 'neighbors': neighbors[h][i],
+                                 'export_extra': export_extra,
+                                 'rlks': rlks, 'azlks': azlks}
+                    proc_args.update(config_sar)
+                    sig = inspect.signature(processor.process)
+                    accepted_params = set(sig.parameters.keys())
+                    proc_args = {k: v for k, v in proc_args.items() if k in accepted_params}
+                    processor.process(**proc_args)
                     t = round((time.time() - start_time), 2)
-                    log.info(f'SNAP processing finished in {t} seconds')
+                    log.info(f'SAR processing finished in {t} seconds')
                 except Exception as e:
                     log.error(msg=e)
                     raise
     ####################################################################################################################
     # OCN preparation
-    if len(scenes_ocn) > 0:
+    if sum(len(x) for x in scenes_ocn) > 0:
         log.info('extracting OCN products')
         for scenes in scenes_ocn:
             for scene in scenes:
@@ -287,11 +275,11 @@ def main(config_file=None, debug=False, **kwargs):
             vec = [x.geometry() for x in scenes]
             extent = anc.get_max_ext(geometries=vec)
             with bbox(coordinates=extent, crs=4326) as box:
-                dem.prepare(vector=box, threads=gdal_prms['threads'],
-                            dem_dir=None, wbm_dir=config_proc['wbm_dir'],
-                            dem_type=config_proc['dem_type'],
-                            tilenames=aoi_tiles, username=username, password=password,
-                            dem_strict=True)
+                dem.retile(vector=box, threads=gdal_prms['threads'],
+                           dem_dir=None, wbm_dir=config_proc['wbm_dir'],
+                           dem_type=config_proc['dem_type'],
+                           tilenames=aoi_tiles, username=username, password=password,
+                           dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,

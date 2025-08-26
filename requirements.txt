@@ -16,5 +16,5 @@ requests
 s1etad>=0.5.3
 s1etad_tools>=0.8.1
 scipy
-spatialist>=0.15.2
 shapely
+spatialist>=0.16.0

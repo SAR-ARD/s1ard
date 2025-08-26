@@ -42,10 +42,10 @@ def init(ctx, config_file, overwrite=False, config_source=None):
     
     s1rb init -c config.ini -s config_source.ini --acq_mode IW --annotation dm,id
 
-    The snap_gpt_args argument can be provided by using a dedicated argument
-    separator and quotes:
+    SAR processor command line arguments (like SNAP gpt_args) can be provided
+    by using a dedicated argument separator and quotes:
 
-    s1rb init -c config.ini -- --snap_gpt_args "-J-Xmx100G -c 75G -q 30"
+    s1rb init -c config.ini -- --gpt_args "-J-Xmx100G -c 75G -q 30"
 
     \b
     The following defaults are set:
@@ -56,7 +56,6 @@ def init(ctx, config_file, overwrite=False, config_source=None):
     - etad:              False
     - etad_dir:          None
     - gdal_threads:      4
-    - snap_gpt_args:     None
     - measurement:       gamma
     - ard_dir:           ARD
     - sar_dir:           SAR
