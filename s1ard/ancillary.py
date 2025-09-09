@@ -1,9 +1,11 @@
 import os
+import io
 import sys
 import logging
 import requests
 import hashlib
 import tempfile
+import zipfile
 import dateutil.parser
 from pathlib import Path
 from multiformats import multihash
@@ -466,24 +468,24 @@ def buffer_time(start, stop, as_datetime=False, str_format='%Y%m%dT%H%M%S', **kw
 
 def get_kml():
     """
-    Download the S2 grid KML file to ~/s1ard and return the file path.
-    
+    Download the Sentinel-2 MGRS grid KML file. The target folder is ~/s1ard.
+
     Returns
     -------
     str
         the path to the KML file
     """
-    remote = ('https://sentinel.esa.int/documents/247904/1955685/'
-              'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml')
+    remote = ('https://sentiwiki.copernicus.eu/__attachments/1692737/'
+              'S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.zip')
     local_path = os.path.join(os.path.expanduser('~'), '.s1ard')
     os.makedirs(local_path, exist_ok=True)
-    local = os.path.join(local_path, os.path.basename(remote))
+    local = os.path.join(local_path, os.path.basename(remote).replace('.zip', '.kml'))
     with Lock(local):
         if not os.path.isfile(local):
-            log.info(f'downloading KML file to {local_path}')
+            log.info(f'downloading MGRS grid KML file to {local_path}')
             r = requests.get(remote)
-            with open(local, 'wb') as out:
-                out.write(r.content)
+            with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+                zf.extractall(local_path)
     return local
 
 
