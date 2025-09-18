@@ -1,7 +1,6 @@
 name: s1ard_dev
 channels:
   - conda-forge
-  - defaults
   - s1-etad
   - dharpa
 dependencies:
