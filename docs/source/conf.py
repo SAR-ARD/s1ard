@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'nbsphinx',
-    'sphinx_toolbox.collapse'
+    'sphinx_toolbox.collapse',
+    "sphinx_autodoc_typehints"
 ]
 
 bibtex_bibfiles = ['references.bib']

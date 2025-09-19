@@ -120,20 +120,16 @@ def get_config_section(parser, **kwargs):
     return out
 
 
-def lsm_encoding():
+def lsm_encoding() -> dict[str, int]:
     """
     Get the encoding of the layover shadow mask.
-
-    Returns
-    -------
-    dict
     """
     return {
         'not layover, not shadow': 0,
         'layover': 1,
         'shadow': 2,
         'layover in shadow': 3,
-        'nodata': 255 # dummy value
+        'nodata': 255  # dummy value
     }
 
 
@@ -181,13 +177,12 @@ def translate_annotation(annotation, measurement):
     return export_extra
 
 
-def version_dict():
+def version_dict() -> dict[str, str]:
     """
     Get processor software version information.
     
     Returns
     -------
-    dict[str]
         a dictionary with software components as keys and their versions as values.
     """
     try:

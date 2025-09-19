@@ -2,11 +2,11 @@ import os
 import re
 import copy
 import importlib.resources
-from importlib import import_module
 from datetime import datetime, timedelta
 import configparser
 import dateutil.parser
 from osgeo import gdal
+from s1ard.processors.registry import load_processor
 
 
 def get_keys(section):
@@ -35,11 +35,11 @@ def get_keys(section):
         return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
     else:
         try:
-            module = import_module(f's1ard.{section}')
+            processor = load_processor(section)
         except ModuleNotFoundError:
             raise RuntimeError(f"unknown section: {section}.")
         try:
-            return module.get_config_keys()
+            return processor.get_config_keys()
         except AttributeError:
             raise RuntimeError(f"missing function s1ard.{section}.get_config_keys().")
 
@@ -100,7 +100,7 @@ def get_config(config_file=None, **kwargs):
            'metadata': _get_config_metadata(parser, **kwargs_meta)}
     
     processor_name = out['processing']['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     kwargs_sar = {k: v for k, v in kwargs.items() if k in get_keys(processor_name)}
     out[processor_name] = processor.get_config_section(parser, **kwargs_sar)
     
@@ -441,7 +441,7 @@ def write(config, target, overwrite=False, **kwargs):
             return str(item)
     
     processor_name = config['processing']['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     
     config = copy.deepcopy(config)
     keys_processing = get_keys('processing')

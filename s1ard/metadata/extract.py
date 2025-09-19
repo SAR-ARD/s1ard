@@ -8,8 +8,6 @@ import json
 from lxml import etree
 from datetime import datetime
 import numpy as np
-from importlib import import_module
-from statistics import median
 from spatialist import Raster
 from spatialist.auxil import gdalwarp, crsConvert
 from spatialist.ancillary import finder, dissolve
@@ -20,6 +18,7 @@ import s1ard
 from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
                                     ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
 from s1ard.ancillary import get_tmp_name
+from s1ard.processors.registry import load_processor
 
 gdal.UseExceptions()
 
@@ -371,7 +370,7 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
     dict
         A dictionary containing metadata for the product scene.
     """
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
