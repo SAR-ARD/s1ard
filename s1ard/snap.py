@@ -43,8 +43,10 @@ def config_to_string(config):
     out = {}
     allowed = get_config_keys()
     for k, v in config.items():
+        if k == 'dem_prepare_mode':
+            continue
         if k not in allowed:
-            raise ValueError(f'key {k} not in allowed keys: {allowed}')
+            raise ValueError(f"key '{k}' not in allowed keys: {allowed}")
         if v is None:
             out[k] = 'None'
         elif k in ['allow_res_osv', 'clean_edges',
