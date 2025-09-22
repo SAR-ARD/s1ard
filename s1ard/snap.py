@@ -17,7 +17,7 @@ from pyroSAR import identify, identify_many, examine
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
-from s1ard.config import _keyval_check
+from s1ard.config import keyval_check
 from s1ard.tile_extraction import aoi_from_scene
 from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
@@ -109,7 +109,7 @@ def get_config_section(parser, **kwargs):
             section[k] = v
     
     for k, v in section.items():
-        v = _keyval_check(key=k, val=v, allowed_keys=get_config_keys())
+        v = keyval_check(key=k, val=v, allowed_keys=get_config_keys())
         if k == 'gpt_args':
             if v is not None:
                 v = v.split(' ')
