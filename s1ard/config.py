@@ -312,6 +312,7 @@ def keyval_check(key: str, val: str, allowed_keys: list[str]) -> str | None:
     Check and clean up key,value pairs while parsing a config file.
     
     Parameters
+    ----------
     key:
         the parameter key
     val:
