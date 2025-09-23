@@ -15,10 +15,10 @@ dependencies:
   - pandas
   - pip
   - pyproj
-  - pyroSAR>=0.30.0
+  - pyroSAR>=0.31.0
   - pystac>=1.8.0,<1.11.0
   - pystac-client>=0.7.0
-  - python>=3.8
+  - python>=3.10
   - python-dateutil
   - requests
   - s1etad>=0.5.3
@@ -30,7 +30,7 @@ dependencies:
   - ipython  # for notebook code highlighting
   - nbsphinx
   - pytest  # for unit tests
-  - sphinx<8.0  # https://github.com/readthedocs/sphinx_rtd_theme/issues/1571
+  - sphinx
   - sphinx-toolbox
   - sphinx_rtd_theme>=2.0
   - sphinxcontrib-bibtex>=2.2
