@@ -30,9 +30,14 @@ log = logging.getLogger('s1ard')
 
 
 def product_info(
-        product_type: str, src_ids: list[ID], tile_id: str,
-        extent: dict[str, int | float], epsg: int,
-        dir_out: str, update: bool = False, product_id: str | None = None
+        product_type: str,
+        src_ids: list[ID],
+        tile_id: str,
+        extent: dict[str, int | float],
+        epsg: int,
+        dir_out: str,
+        update: bool = False,
+        product_id: str | None = None
 ) -> dict[str, str | int | datetime]:
     """
     Create ARD product metadata.
@@ -59,7 +64,6 @@ def product_info(
 
     Returns
     -------
-    dict
         ARD product metadata
     """
     # determine processing timestamp and generate unique ID
@@ -138,7 +142,7 @@ def format(
         annotation: list[str] | None = None
 ) -> list[str] | None:
     """
-    Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
+    Create ARD products from the SAR processor output.
     This includes the following:
     
     - Creating all measurement and annotation datasets in Cloud Optimized GeoTIFF (COG) format
@@ -158,7 +162,7 @@ def format(
         cannot be found for any of the scenes.
     sar_assets:
         The SAR processing assets as returned by :func:`get_datasets`.
-    tile: str
+    tile:
         ID of an MGRS tile.
     extent:
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
@@ -467,26 +471,33 @@ def format(
     return ard_assets
 
 
-def append_metadata(config, prod_meta, src_ids, assets, compression,
-                    wm_ref_speed=None, wm_ref_direction=None):
+def append_metadata(
+        config: dict[str, dict[str, int | float | str | list[str]]],
+        prod_meta: dict[str, str | int | datetime],
+        src_ids: list[ID],
+        assets: list[str],
+        compression: str,
+        wm_ref_speed: list[str] | None = None,
+        wm_ref_direction: list[str] | None = None
+) -> None:
     """
     Append metadata files to an ARD product.
     
     Parameters
     ----------
-    config: dict
-        the confiuration dictionary
-    prod_meta: dict
+    config:
+        the configuration dictionary
+    prod_meta:
         the product metadata as returned by :func:`product_info`
-    src_ids: List[pyroSAR.drivers.ID]
+    src_ids:
         the source product objects
-    assets: List[str]
-        a list of assets in the ARD product
-    compression: str
+    assets:
+        a list of assets in the ARD product as returned by :func:`format`.
+    compression:
         the used compression algorithm
-    wm_ref_speed: List[str] or None
+    wm_ref_speed:
         the wind model reference wind speed files
-    wm_ref_direction: List[str] or None
+    wm_ref_direction:
         the wind model reference wind direction files
 
     Returns
@@ -641,43 +652,53 @@ def get_datasets(
     return ids, datasets
 
 
-def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, dtype=None,
-               args=None, options=None, overviews=None, overview_resampling=None):
+def create_vrt(
+        src: str | list[str],
+        dst: str,
+        fun: str,
+        relpaths: bool = False,
+        scale: int | None = None,
+        offset: float | None = None,
+        dtype: str | None = None,
+        args: dict[str, int | float | str] | None = None,
+        options: dict | None = None,
+        overviews: list[int] | None = None,
+        overview_resampling: str | None = None
+) -> None:
     """
-    Creates a VRT file for the specified source dataset(s) and adds a pixel function that should be applied on the fly
-    when opening the VRT file.
+    Create a GDAL VRT file executing an on-the-fly pixel function.
 
     Parameters
     ----------
-    src: str or list[str]
+    src:
         The input dataset(s).
-    dst: str
+    dst:
         The output dataset.
-    fun: str
+    fun:
         A `PixelFunctionType` that should be applied on the fly when opening the VRT file. The function is applied to a
         band that derives its pixel information from the source bands. A list of possible options can be found here:
         https://gdal.org/drivers/raster/vrt.html#default-pixel-functions.
         Furthermore, the option 'decibel' can be specified, which will implement a custom pixel function that uses
         Python code for decibel conversion (10*log10).
-    relpaths: bool
+    relpaths:
         Should all `SourceFilename` XML elements with attribute `@relativeToVRT="0"` be updated to be paths relative to
         the output VRT file? Default is False.
-    scale: int or None
+    scale:
          The scale that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
          Will be ignored if `fun='decibel'`.
-    offset: float or None
+    offset:
         The offset that should be applied when computing “real” pixel values from scaled pixel values on a raster band.
         Will be ignored if `fun='decibel'`.
-    dtype: str or None
+    dtype:
         the data type of the written VRT file; default None: same data type as source data.
         data type notations of GDAL (e.g. `Float32`) and numpy (e.g. `int8`) are supported.
-    args: dict or None
+    args:
         arguments for `fun` passed as `PixelFunctionArguments`. Requires GDAL>=3.5 to be read.
-    options: dict or None
-        Additional parameters passed to `gdal.BuildVRT`.
-    overviews: list[int] or None
+    options:
+        Additional parameters passed to :func:`osgeo.gdal.BuildVRT`.
+    overviews:
         Internal overview levels to be created for each raster file.
-    overview_resampling: str or None
+    overview_resampling:
         Resampling method for overview levels.
 
     Examples
@@ -764,19 +785,24 @@ def create_vrt(src, dst, fun, relpaths=False, scale=None, offset=None, dtype=Non
     tree.write(dst, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
+def create_rgb_vrt(
+        outname: str,
+        infiles: list[str],
+        overviews: list[int],
+        overview_resampling: str
+) -> None:
     """
-    Creation of the color composite VRT file.
+    Creation of the color composite GDAL VRT file.
 
     Parameters
     ----------
-    outname: str
+    outname:
         Full path to the output VRT file.
-    infiles: list[str]
+    infiles:
         A list of paths pointing to the linear scaled measurement backscatter files.
-    overviews: list[int]
+    overviews:
         Internal overview levels to be defined for the created VRT file.
-    overview_resampling: str
+    overview_resampling:
         Resampling method applied to overview pyramids.
     """
     
@@ -875,7 +901,7 @@ def calc_product_start_stop(
     extent:
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
-    epsg: int
+    epsg:
         The coordinate reference system of the extent as an EPSG code.
 
     Returns
@@ -939,42 +965,53 @@ def calc_product_start_stop(
             datetime.fromtimestamp(out[1], tz=timezone.utc))
 
 
-def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, product_type,
-                     lsm_encoding, wbm=None):
+def create_data_mask(
+        outname: str,
+        datasets: list[dict],
+        extent: dict[str, int | float],
+        epsg: int,
+        driver: str,
+        creation_opt: list[str],
+        overviews: list[int],
+        overview_resampling: str,
+        dst_nodata: int | str,
+        product_type: str,
+        lsm_encoding: dict[str, int],
+        wbm: str | None = None
+) -> None:
     """
     Creation of the Data Mask image.
     
     Parameters
     ----------
-    outname: str
+    outname:
         Full path to the output data mask file.
-    datasets: list[dict]
+    datasets:
         List of processed output files that match the source scenes and overlap
         with the current MGRS tile. An error will be thrown if not all datasets
         contain a key `datamask`. The function will return without an error if
         not all datasets contain a key `dm`.
-    extent: dict
+    extent:
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
-    epsg: int
+    epsg:
         The coordinate reference system as an EPSG code.
-    driver: str
+    driver:
         GDAL driver to use for raster file creation.
-    creation_opt: list[str]
+    creation_opt:
         GDAL creation options to use for raster file creation. Should match
         specified GDAL driver.
-    overviews: list[int]
+    overviews:
         Internal overview levels to be created for each raster file.
-    overview_resampling: str
+    overview_resampling:
         Resampling method for overview levels.
-    dst_nodata: int or str
+    dst_nodata:
         Nodata value to write to the output raster.
-    product_type: str
+    product_type:
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
-    lsm_encoding: dict
+    lsm_encoding:
         a dictionary containing the layover shadow mask encoding.
-    wbm: str or None
+    wbm:
         Path to a water body mask file with the dimensions of an MGRS tile.
         Optional if `product_type='NRB', mandatory if `product_type='ORB'`.
     """
@@ -1105,32 +1142,42 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         tile_vec = None
 
 
-def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
-                        epsg, driver, creation_opt, overviews, dst_nodata):
+def create_acq_id_image(
+        outname: str,
+        ref_tif: str,
+        datasets: list[dict],
+        src_ids: list[ID],
+        extent: dict[str, int | float],
+        epsg: int,
+        driver: str,
+        creation_opt: list[str],
+        overviews: list[int],
+        dst_nodata: int | str
+) -> None:
     """
     Creation of the Acquisition ID image.
 
     Parameters
     ----------
-    outname: str
+    outname:
         Full path to the output data mask file.
-    ref_tif: str
+    ref_tif:
         Full path to any GeoTIFF file of the ARD product.
-    datasets: list[dict]
+    datasets:
         List of processed output files that match the source SLC scenes and overlap with the current MGRS tile.
-    src_ids: list[pyroSAR.drivers.ID]
+    src_ids:
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
-    extent: dict
+    extent:
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
-    epsg: int
+    epsg:
         The CRS used for the ARD product; provided as an EPSG code.
-    driver: str
+    driver:
         GDAL driver to use for raster file creation.
-    creation_opt: list[str]
+    creation_opt:
         GDAL creation options to use for raster file creation. Should match specified GDAL driver.
-    overviews: list[int]
+    overviews:
         Internal overview levels to be created for each raster file.
-    dst_nodata: int or str
+    dst_nodata:
         Nodata value to write to the output raster.
     """
     src_scenes = [sid.scene for sid in src_ids]
@@ -1177,43 +1224,54 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
                       overviews=overviews, options=creation_opt)
 
 
-def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds,
-                       epsg, driver, creation_opt, dst_nodata,
-                       multithread, resolution=915):
+def wind_normalization(
+        src: list[str],
+        dst_wm: str,
+        dst_wn: str | None,
+        measurement: str | None,
+        gapfill: bool,
+        bounds: list[float],
+        epsg: int,
+        driver: str,
+        creation_opt: list[str],
+        dst_nodata: float,
+        multithread: bool,
+        resolution: int = 915
+) -> None:
     """
-    Create wind normalization layers. A wind model annotation layer is
+    Create ORB wind normalization layers. A wind model annotation layer is
     created and optionally a wind normalization VRT.
     
     Parameters
     ----------
-    src: list[str]
+    src:
         A list of OCN products as prepared by :func:`s1ard.ocn.extract`
-    dst_wm: str
+    dst_wm:
         The name of the wind model layer in the ARD product
-    dst_wn: str or None
+    dst_wn:
         The name of the wind normalization VRT. If None, no VRT will be created.
         Requires `measurement` to point to a file.
-    measurement: str or None
+    measurement:
         The name of the measurement file used for wind normalization in `dst_wn`.
         If None, no wind normalization VRT will be created.
-    gapfill: bool
+    gapfill:
         Perform additional gap filling (:func:`s1ard.ocn.gapfill`)?
         This is recommended if the Level-1 source product of `measurement` is GRD
         in which case gaps are introduced between subsequently acquired scenes.
-    bounds: list[float]
+    bounds:
         the bounds of the MGRS tile
-    epsg: int
+    epsg:
         The EPSG code of the MGRS tile
-    driver: str
+    driver:
         GDAL driver to use for raster file creation.
-    creation_opt: list[str]
+    creation_opt:
         GDAL creation options to use for raster file creation. Should match
         specified GDAL driver.
-    dst_nodata: float
+    dst_nodata:
         Nodata value to write to the output raster.
-    multithread: bool
+    multithread:
         Should `gdalwarp` use multithreading?
-    resolution: int, optional
+    resolution:
         The target pixel resolution in meters. 915 is chosen as default because
         it is closest to the OCN product resolution (1000) and still fits into
         the MGRS bounds (``109800 % 915 == 0``).
