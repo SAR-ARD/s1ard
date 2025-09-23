@@ -1,6 +1,15 @@
 Changelog
 =========
 
+2.4.0 | 2025-09-23
+------------------
+
+* dem interface modifications (`#263 <https://github.com/SAR-ARD/s1ard/pull/263>`_)
+* MGRS grid KML: changed URL and download procedure (`#270 <https://github.com/SAR-ARD/s1ard/pull/270>`_)
+* processor modularization, DEM improvements, spacing checks (`#261 <https://github.com/SAR-ARD/s1ard/pull/261>`_)
+
+`Full v2.4.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.3.2...v2.4.0>`_
+
 2.3.2 | 2025-08-01
 ------------------
 
