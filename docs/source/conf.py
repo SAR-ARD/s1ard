@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'nbsphinx',
-    'sphinx_toolbox.collapse'
+    'sphinx_toolbox.collapse',
+    "sphinx_autodoc_typehints"
 ]
 
 bibtex_bibfiles = ['references.bib']
@@ -48,12 +49,12 @@ intersphinx_mapping = {
     'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
     'duckdb': ('https://duckdb.org/docs/stable/clients/python/reference', None),
     'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),
-    'osgeo': ('https://gdal.org', None),
+    'osgeo': ('https://gdal.org/en/stable', None),
     'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),
     'pystac': ('https://pystac.readthedocs.io/en/stable', None),
     'pystac-client': ('https://pystac-client.readthedocs.io/en/stable', None),
     'python': ('https://docs.python.org/3', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy', None),
     'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
     'stac-geoparquet': ('https://stac-utils.github.io/stac-geoparquet/latest', None)
 }
@@ -74,7 +75,7 @@ napoleon_use_rtype = True
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {'.rst': 'restructuredtext'}
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'

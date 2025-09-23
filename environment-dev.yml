@@ -1,37 +1,36 @@
 name: s1ard_dev
 channels:
   - conda-forge
-  - defaults
   - s1-etad
   - dharpa
 dependencies:
-  - python>=3.8
-  - python-dateutil
-  - gdal>=3.5.0
-  - click>=7.1.0
-  - lxml
-  - pip
-  - pystac>=1.8.0,<1.11.0
-  - pystac-client>=0.7.0
-  - scipy
-  - pyroSAR>=0.30.0
-  - spatialist>=0.15.2
-  - s1etad>=0.5.3
-  - s1etad_tools>=0.8.1
-  - numpy<2.0
   - asf_search
-  - pyproj
+  - click>=7.1.0
+  - gdal>=3.5.0
+  - geopandas
+  - lxml
   - multiformats>=0.3.1
-  - requests
+  - numpy<2.0
   - packaging
   - pandas
-  - geopandas
+  - pip
+  - pyproj
+  - pyroSAR>=0.31.0
+  - pystac>=1.8.0,<1.11.0
+  - pystac-client>=0.7.0
+  - python>=3.10
+  - python-dateutil
+  - requests
+  - s1etad>=0.5.3
+  - s1etad_tools>=0.8.1
+  - scipy
   - shapely
-  - sphinx<8.0  # https://github.com/readthedocs/sphinx_rtd_theme/issues/1571
-  - sphinxcontrib-bibtex>=2.2
-  - nbsphinx
-  - sphinx_rtd_theme>=2.0
-  - sphinx-toolbox
-  - ipython  # for notebook code highlighting
+  - spatialist>=0.16.0
   - filelock  # needed for sphinx_toolbox.collapse
+  - ipython  # for notebook code highlighting
+  - nbsphinx
   - pytest  # for unit tests
+  - sphinx
+  - sphinx-toolbox
+  - sphinx_rtd_theme>=2.0
+  - sphinxcontrib-bibtex>=2.2

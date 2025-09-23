@@ -13,16 +13,191 @@ from dateutil.parser import parse as dateparse
 from spatialist import Raster
 from spatialist.envi import HDRobject
 from spatialist.ancillary import finder
-from pyroSAR import identify, identify_many
+from pyroSAR import identify, identify_many, examine
 from pyroSAR.snap.auxil import gpt, parse_recipe, parse_node, \
     orb_parametrize, mli_parametrize, geo_parametrize, \
     sub_parametrize, erode_edges
+from s1ard.config import keyval_check
 from s1ard.tile_extraction import aoi_from_scene
 from s1ard.ancillary import datamask
 from pyroSAR.ancillary import Lock, LockCollection
 import logging
 
 log = logging.getLogger('s1ard')
+
+
+def config_to_string(config):
+    """
+    Convert the values of a configuration dictionary to strings.
+
+    Parameters
+    ----------
+    config: dict
+        the configuration as returned by :func:`get_config_section`
+
+    Returns
+    -------
+    dict
+        the dictionary with the same structure but values converted to strings.
+    """
+    out = {}
+    allowed = get_config_keys()
+    for k, v in config.items():
+        if k == 'dem_prepare_mode':
+            continue
+        if k not in allowed:
+            raise ValueError(f"key '{k}' not in allowed keys: {allowed}")
+        if v is None:
+            out[k] = 'None'
+        elif k in ['allow_res_osv', 'clean_edges',
+                   'clean_edges_pixels', 'cleanup']:
+            out[k] = str(v)
+        elif k == 'gpt_args' and isinstance(v, list):
+            out[k] = ' '.join(v)
+        else:
+            out[k] = v
+    return out
+
+
+def get_config_keys():
+    """
+    Get all allowed configuration keys.
+    
+    Returns
+    -------
+    List[str]
+    """
+    return ['allow_res_osv', 'clean_edges', 'clean_edges_pixels', 'cleanup',
+            'dem_resampling_method', 'gpt_args', 'img_resampling_method']
+
+
+def get_config_section(parser, **kwargs):
+    """
+    Get the`config.ini` `SNAP` section content as a dictionary.
+    
+    Parameters
+    ----------
+    parser: configparser.ConfigParser
+    kwargs: dict[str]
+
+    Returns
+    -------
+    dict
+    """
+    out = {}
+    defaults = {
+        'allow_res_osv': 'True',
+        'cleanup': 'True',
+        'clean_edges': 'True',
+        'clean_edges_pixels': '4',
+        'dem_resampling_method': 'BILINEAR_INTERPOLATION',
+        'gpt_args': 'None',
+        'img_resampling_method': 'BILINEAR_INTERPOLATION',
+    }
+    if 'SNAP' in parser.sections():
+        section = parser['SNAP']
+        for k, v in defaults.items():
+            if k not in section and k not in kwargs:
+                section[k] = v
+    else:
+        parser.read_dict({'SNAP': defaults})
+        section = parser['SNAP']
+    
+    kwargs_str = config_to_string(kwargs)
+    for k, v in kwargs_str.items():
+        if k in get_config_keys():
+            section[k] = v
+    
+    for k, v in section.items():
+        v = keyval_check(key=k, val=v, allowed_keys=get_config_keys())
+        if k == 'gpt_args':
+            if v is not None:
+                v = v.split(' ')
+        if k == 'clean_edges_pixels':
+            v = section.getint(k)
+        if k in ['allow_res_osv', 'clean_edges', 'cleanup']:
+            v = section.getboolean(k)
+        out[k] = v
+    out['dem_prepare_mode'] = 'single-4326'
+    return out
+
+
+def lsm_encoding() -> dict[str, int]:
+    """
+    Get the encoding of the layover shadow mask.
+    """
+    return {
+        'not layover, not shadow': 0,
+        'layover': 1,
+        'shadow': 2,
+        'layover in shadow': 3,
+        'nodata': 255  # dummy value
+    }
+
+
+def translate_annotation(annotation, measurement):
+    """
+    Translate s1ard annotation keys to SAR processor naming.
+    
+    Parameters
+    ----------
+    annotation: List[str]
+        the s1ard annotation keys (e.g. ei, gs)
+    measurement: str
+        the SAR backscatter measurement (gamma|sigma)
+
+    Returns
+    -------
+    List[str]
+        the annotation layer keys as required by the SAR processor
+    """
+    export_extra = None
+    lookup = {'dm': 'layoverShadowMask',
+              'ei': 'incidenceAngleFromEllipsoid',
+              'lc': 'scatteringArea',
+              'ld': 'lookDirection',
+              'li': 'localIncidenceAngle',
+              'np': 'NESZ',
+              'gs': 'gammaSigmaRatio',
+              'sg': 'sigmaGammaRatio'}
+    
+    if annotation is not None:
+        annotation = [
+            'gs' if x == 'ratio' and measurement == 'gamma'
+            else 'sg' if x == 'ratio'
+            else x for x in annotation]
+        export_extra = []
+        for layer in annotation:
+            # supported by the SAR processor
+            if layer in lookup:
+                export_extra.append(lookup[layer])
+            # supported by the NRB processor
+            elif layer in ['em', 'id']:
+                continue
+            else:
+                log.warning(f'unsupported annotation layer: {layer}')
+    return export_extra
+
+
+def version_dict() -> dict[str, str]:
+    """
+    Get processor software version information.
+    
+    Returns
+    -------
+        a dictionary with software components as keys and their versions as values.
+    """
+    try:
+        snap_config = examine.ExamineSnap()
+        core = snap_config.get_version('core')
+        microwavetbx = snap_config.get_version('microwavetbx')
+        snap_core = f"{core['version']} | {core['date']}"
+        snap_microwavetbx = f"{microwavetbx['version']} | {microwavetbx['date']}"
+    except RuntimeError:
+        snap_core = 'unknown'
+        snap_microwavetbx = 'unknown'
+    return ({'snap_core': snap_core,
+             'snap_microwavetbx': snap_microwavetbx})
 
 
 def mli(src, dst, workflow, spacing=None, rlks=None, azlks=None, gpt_args=None):
@@ -583,8 +758,8 @@ def process(scene, outdir, measurement, spacing, dem,
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
         
-        - gamma: RTC gamma nought (:math:`\gamma^0_T`)
-        - sigma: RTC sigma nought (:math:`\sigma^0_T`)
+        - gamma: RTC gamma nought (:math:`\\gamma^0_T`)
+        - sigma: RTC sigma nought (:math:`\\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
     dem: str
@@ -604,8 +779,8 @@ def process(scene, outdir, measurement, spacing, dem,
         Options:
         
          - DEM
-         - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
-         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_T`
+         - gammaSigmaRatio: :math:`\\sigma^0_T / \\gamma^0_T`
+         - sigmaGammaRatio: :math:`\\gamma^0_T / \\sigma^0_T`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
@@ -852,8 +1027,8 @@ def process(scene, outdir, measurement, spacing, dem,
     for aoi in aois:
         ext = aoi['extent']
         epsg = aoi['epsg']
-        align_x = aoi['align_x']
-        align_y = aoi['align_y']
+        align_x = aoi['extent_utm']['xmin']
+        align_y = aoi['extent_utm']['ymax']
         run()
     ############################################################################
     # delete intermediate files
@@ -897,14 +1072,15 @@ def postprocess(src, clean_edges=True, clean_edges_pixels=4):
     datadir = src.replace('.dim', '.data')
     hdrfiles = finder(target=datadir, matchlist=['*.hdr'])
     for hdrfile in hdrfiles:
-        with HDRobject(hdrfile) as hdr:
-            hdr.data_ignore_value = 0
-            hdr.write(hdrfile)
+        if not 'layoverShadowMask' in hdrfile:
+            with HDRobject(hdrfile) as hdr:
+                hdr.data_ignore_value = 0
+                hdr.write(hdrfile)
 
 
 def find_datasets(scene, outdir, epsg):
     """
-    Find processed datasets for a scene in a certain Coordinate Reference System (CRS).
+    Find processed datasets for a SAR scene.
     
     Parameters
     ----------
@@ -913,7 +1089,7 @@ def find_datasets(scene, outdir, epsg):
     outdir: str
         the output directory in which to search for results
     epsg: int
-        the EPSG code defining the output projection of the processed scenes.
+        the EPSG code defining the output projection of the processed products.
 
     Returns
     -------
@@ -991,16 +1167,9 @@ def get_metadata(scene, outdir):
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
-    rlks = azlks = 1
-    wf_mli = finder(scenedir, ['*mli.xml'])
-    if len(wf_mli) == 1:
-        wf = parse_recipe(wf_mli[0])
-        if 'Multilook' in wf.operators:
-            rlks = int(wf['Multilook'].parameters['nRgLooks'])
-            azlks = int(wf['Multilook'].parameters['nAzLooks'])
-    elif len(wf_mli) > 1:
-        msg = 'found multiple multi-looking workflows:\n{}'
-        raise RuntimeError(msg.format('\n'.join(wf_mli)))
+    dim = finder(scenedir, ['*.dim'])[0]
+    scene = identify(dim)
+    rlks, azlks = scene.meta['looks']
     return {'azlks': azlks,
             'rlks': rlks}
 

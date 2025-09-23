@@ -23,7 +23,7 @@ from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
 from s1ard.metadata.extract import copy_src_meta
-from s1ard.snap import find_datasets
+from s1ard.processors.registry import load_processor
 import logging
 
 log = logging.getLogger('s1ard')
@@ -115,7 +115,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     t = proc_time.isoformat().encode()
     product_id = generate_unique_id(encoded_str=t)
     
-    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent, epsg=epsg)
+    processor_name = config['processing']['processor']
+    src_ids, datasets_sar = get_datasets(scenes=scenes, datadir=datadir, extent=extent,
+                                         epsg=epsg, processor_name=processor_name)
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
         return
@@ -125,8 +127,9 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         for key in datasets_sar[0]:
             c1 = re.search('[gs]-lin', key)
             c2 = key in annotation
-            c3 = key.startswith('np') and 'np' in annotation
-            if c1 or c2 or c3:
+            c3 = key in ['gs', 'sg'] and 'ratio' in annotation
+            c4 = key.startswith('np') and 'np' in annotation
+            if c1 or c2 or c3 or c4:
                 allowed.append(key)
     else:
         allowed = [key for key in datasets_sar[0].keys() if re.search('[gs]-lin', key)]
@@ -205,7 +208,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         outname = os.path.join(ard_dir, subdir, outname_base)
         
         if not os.path.isfile(outname):
-            log.info(f'creating {outname}')
+            log.info(f"creating {os.path.relpath(outname, ard_dir)}")
             images = [ds[key] for ds in datasets_sar]
             ras = None
             if len(images) > 1:
@@ -240,18 +243,21 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
-            log.info(f'creating {dm_path}')
+            log.info(f'creating {os.path.relpath(dm_path, ard_dir)}')
+            processor = load_processor(processor_name)
+            lsm_encoding = processor.lsm_encoding()
             create_data_mask(outname=dm_path, datasets=datasets_sar, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
                              overviews=overviews, overview_resampling=ovr_resampling,
-                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type)
+                             dst_nodata=dst_nodata_byte, wbm=wbm, product_type=product_type,
+                             lsm_encoding=lsm_encoding)
         datasets_ard['dm'] = dm_path
     
     # create acquisition ID image raster (-id.tif)
     if 'id' in allowed:
         id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
         if not os.path.isfile(id_path):
-            log.info(f'creating {id_path}')
+            log.info(f'creating {os.path.relpath(id_path, ard_dir)}')
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
                                 datasets=datasets_sar, src_ids=src_ids,
                                 extent=extent, epsg=epsg, driver=driver,
@@ -260,10 +266,11 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         datasets_ard['id'] = id_path
     
     # create DEM (-em.tif)
+    # (if not already converted from processor output)
     if dem_type is not None and 'em' in allowed:
         em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
         if not os.path.isfile(em_path):
-            log.info(f'creating {em_path}')
+            log.info(f'creating {os.path.relpath(em_path, ard_dir)}')
             with Raster(ref_tif) as ras:
                 tr = ras.res
             log_pyro = logging.getLogger('pyroSAR')
@@ -280,7 +287,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     if meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
         if not os.path.isfile(cc_path):
-            log.info(f'creating {cc_path}')
+            log.info(f'creating {os.path.relpath(cc_path, ard_dir)}')
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
         key = re.search('cc-[gs]-lin', cc_path).group()
@@ -293,7 +300,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     for item in measure_tifs:
         target = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(target):
-            log.info(f'creating {target}')
+            log.info(f'creating {os.path.relpath(target, ard_dir)}')
             create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
@@ -308,7 +315,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
             
             if not os.path.isfile(sigma0_rtc_lin):
-                log.info(f'creating {sigma0_rtc_lin}')
+                log.info(f'creating {os.path.relpath(sigma0_rtc_lin, ard_dir)}')
                 create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -316,7 +323,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             datasets_ard[key] = sigma0_rtc_lin
             
             if not os.path.isfile(sigma0_rtc_log):
-                log.info(f'creating {sigma0_rtc_log}')
+                log.info(f'creating {os.path.relpath(sigma0_rtc_log, ard_dir)}')
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -333,7 +340,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             gamma0_rtc_log = item.replace('s-lin.tif', 'g-log.vrt')
             
             if not os.path.isfile(gamma0_rtc_lin):
-                log.info(f'creating {gamma0_rtc_lin}')
+                log.info(f'creating {os.path.relpath(gamma0_rtc_lin, ard_dir)}')
                 create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -341,7 +348,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
             datasets_ard[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
-                log.info(f'creating {gamma0_rtc_log}')
+                log.info(f'creating {os.path.relpath(gamma0_rtc_log, ard_dir)}')
                 create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -379,6 +386,10 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         
         gapfill = True if src_ids[0].product == 'GRD' else False
         
+        log.info(f'creating {os.path.relpath(wm_ard, ard_dir)}')
+        if wn_ard is not None:
+            log.info(f'creating {os.path.relpath(wn_ard, ard_dir)}')
+        
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
                            gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver,
                            creation_opt=write_options['wm'],
@@ -393,7 +404,7 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
         schema_in = os.path.join(schema_dir, schema)
         schema_out = os.path.join(ard_dir, 'support', schema)
         if not os.path.isfile(schema_out):
-            log.info(f'creating {schema_out}')
+            log.info(f'creating {os.path.relpath(schema_out, ard_dir)}')
             shutil.copy(schema_in, schema_out)
     
     # create metadata files in XML and STAC JSON formats
@@ -413,49 +424,60 @@ def format(config, product_type, scenes, datadir, outdir, tile, extent, epsg, wb
     return str(round((time.time() - start_time), 2))
 
 
-def get_datasets(scenes, datadir, extent, epsg):
+def get_datasets(scenes, datadir, extent, epsg, processor_name):
     """
-    Collect processing output for a list of scenes.
-    Reads metadata from all source SLC/GRD scenes, finds matching output files in `datadir`
-    and filters both lists depending on the actual overlap of each SLC/GRD valid data coverage
-    with the current MGRS tile geometry. If no output is found for any scene the function will raise an error.
-    To obtain the extent of valid data coverage, first a binary
-    mask raster file is created with the name `datamask.tif`, which is stored in the same folder as
-    the processing output as found by :func:`~s1ard.snap.find_datasets`. Then, the boundary of this
-    binary mask is computed and stored as `datamask.gpkg` (see function :func:`spatialist.vector.boundary`).
-    If the provided `extent` does not overlap with this boundary, the output is discarded. This scenario
-    might occur when the scene's geometry read from its metadata overlaps with the tile but the actual
-    extent of data does not.
+    Collect processing output for a list of scenes. Reads metadata from all
+    source SLC/GRD scenes, finds matching output files in `datadir` and
+    filters both lists depending on the actual overlap of each SLC/GRD valid
+    data coverage with the current MGRS tile geometry. If no output is found
+    for any scene the function will raise an error.
+    To obtain the extent of valid data coverage, first a binary mask raster
+    file is created with the name `datamask.tif`, which is stored in the same
+    folder as the processing output as found by :func:`~s1ard.snap.find_datasets`.
+    Then, the boundary of this binary mask is computed and stored as `datamask.gpkg`
+    (see function :func:`spatialist.vector.boundary`).
+    If the provided `extent` does not overlap with this boundary, the output is
+    discarded. This scenario might occur when the scene's geometry read from its
+    metadata overlaps with the tile but the actual extent of data does not.
 
     Parameters
     ----------
     scenes: list[str]
-        List of scenes to process. Either an individual scene or multiple, matching scenes (consecutive acquisitions).
+        List of scenes to process. Either an individual scene or multiple,
+        matching scenes (consecutive acquisitions).
     datadir: str
-        The directory containing the SAR datasets processed from the source scenes using pyroSAR.
-        The function will raise an error if the processing output cannot be found for all scenes in `datadir`.
+        The directory containing the SAR datasets processed from the source
+        scenes using pyroSAR. The function will raise an error if the processing
+        output cannot be found for all scenes in `datadir`.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a
+        :class:`~spatialist.vector.Vector` object.
     epsg: int
         The coordinate reference system as an EPSG code.
+    processor_name: str
+        The name of the used SAR processor. The function `find_datasets` of the
+        respective processor module is used.
 
     Returns
     -------
     ids: list[:class:`pyroSAR.drivers.ID`]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes that overlap with the current MGRS tile.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes
+        that overlap with the current MGRS tile.
     datasets: list[dict]
-        List of SAR processing output files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
-        The format is a list of dictionaries per scene with keys as described by e.g. :func:`s1ard.snap.find_datasets`.
+        List of SAR processing output files that match each :class:`~pyroSAR.drivers.ID`
+        object of `ids`. The format is a list of dictionaries per scene with keys as
+        described by e.g. :func:`s1ard.snap.find_datasets`.
     
     See Also
     --------
     :func:`s1ard.snap.find_datasets`
     """
+    processor = load_processor(processor_name)
     ids = identify_many(scenes)
     datasets = []
     for i, _id in enumerate(ids):
         log.debug(f'collecting processing output for scene {os.path.basename(_id.scene)}')
-        files = find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
+        files = processor.find_datasets(scene=_id.scene, outdir=datadir, epsg=epsg)
         if files is not None:
             base = os.path.splitext(os.path.basename(_id.scene))[0]
             ocn = re.sub('(?:SLC_|GRD[FHM])_1', 'OCN__2', base)[:-5]
@@ -483,12 +505,14 @@ def get_datasets(scenes, datadir, extent, epsg):
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
-            raise RuntimeError(f'cannot find processing output for scene {base} and CRS EPSG:{epsg}')
+            msg = f'cannot find processing output for scene {base} and CRS EPSG:{epsg}'
+            raise RuntimeError(msg)
     
     i = 0
     while i < len(datasets):
         log.debug(f'checking tile overlap for scene {os.path.basename(ids[i].scene)}')
-        measurements = [datasets[i][x] for x in datasets[i].keys() if re.search('[gs]-lin', x)]
+        measurements = [datasets[i][x] for x in datasets[i].keys()
+                        if re.search('[gs]-lin', x)]
         dm_ras = os.path.join(os.path.dirname(measurements[0]), 'datamask.tif')
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         dm_vec = datamask(measurement=measurements[0], dm_ras=dm_ras, dm_vec=dm_vec)
@@ -813,7 +837,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
-                     overviews, overview_resampling, dst_nodata, product_type, wbm=None):
+                     overviews, overview_resampling, dst_nodata, product_type,
+                     lsm_encoding, wbm=None):
     """
     Creation of the Data Mask image.
     
@@ -822,17 +847,20 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
     outname: str
         Full path to the output data mask file.
     datasets: list[dict]
-        List of processed output files that match the source scenes and overlap with the current MGRS tile.
-        An error will be thrown if not all datasets contain a key `datamask`.
-        The function will return without an error if not all datasets contain a key `dm`.
+        List of processed output files that match the source scenes and overlap
+        with the current MGRS tile. An error will be thrown if not all datasets
+        contain a key `datamask`. The function will return without an error if
+        not all datasets contain a key `dm`.
     extent: dict
-        Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
+        Spatial extent of the MGRS tile, derived from a
+        :class:`~spatialist.vector.Vector` object.
     epsg: int
         The coordinate reference system as an EPSG code.
     driver: str
         GDAL driver to use for raster file creation.
     creation_opt: list[str]
-        GDAL creation options to use for raster file creation. Should match specified GDAL driver.
+        GDAL creation options to use for raster file creation. Should match
+        specified GDAL driver.
     overviews: list[int]
         Internal overview levels to be created for each raster file.
     overview_resampling: str
@@ -841,9 +869,11 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
         Nodata value to write to the output raster.
     product_type: str
         The type of ARD product that is being created. Either 'NRB' or 'ORB'.
+    lsm_encoding: dict
+        a dictionary containing the layover shadow mask encoding.
     wbm: str or None
-        Path to a water body mask file with the dimensions of an MGRS tile. Optional if `product_type='NRB', mandatory
-        if `product_type='ORB'`.
+        Path to a water body mask file with the dimensions of an MGRS tile.
+        Optional if `product_type='NRB', mandatory if `product_type='ORB'`.
     """
     measurement_keys = [x for x in datasets[0].keys() if re.search('[gs]-lin', x)]
     measurement = [scene[measurement_keys[0]] for scene in datasets]
@@ -903,6 +933,12 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             else:
                 del dm_bands[3:]
             
+            c = lsm_encoding['not layover, not shadow']
+            l = lsm_encoding['layover']
+            s = lsm_encoding['shadow']
+            ls = lsm_encoding['layover in shadow']
+            n = lsm_encoding['nodata']
+            
             # Extend the shadow class of the data mask with nodata values
             # from backscatter data and create final array
             with Raster(vrt_valid)[tile_vec] as ras_valid:
@@ -910,10 +946,10 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                     arr_valid = ras_valid.array()
                     arr_measurement = ras_measurement.array()
                     
-                    arr_dm = np.nan_to_num(arr_dm)
+                    arr_dm[~np.isfinite(arr_dm)] = n
                     arr_dm = np.where(((arr_valid == 1) & (np.isnan(arr_measurement))),
-                                      2, arr_dm)
-                    arr_dm[np.isnan(arr_valid)] = dst_nodata
+                                      s, arr_dm)
+                    arr_dm[arr_valid != 1] = n
                     del arr_measurement
                     del arr_valid
         
@@ -930,11 +966,13 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
             
             # not layover, nor shadow
             if i == 0:
-                arr = arr_dm == i
-            # layover | shadow
-            # source value 3: layover and shadow
-            elif i in [1, 2]:
-                arr = (arr_dm == i) | (arr_dm == 3)
+                arr = arr_dm == c
+            # layover | layover in shadow
+            elif i == 1:
+                arr = (arr_dm == l) | (arr_dm == ls)
+            # shadow | layover in shadow
+            elif i == 2:
+                arr = (arr_dm == s) | (arr_dm == ls)
             # ocean
             elif i == 3:
                 arr = arr_wbm == 1
@@ -948,6 +986,7 @@ def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
                 raise ValueError(f'unknown array value: {i}')
             
             arr = arr.astype('uint8')
+            arr[arr_dm == n] = dst_nodata
             band.WriteArray(arr)
             band.SetNoDataValue(dst_nodata)
             band.SetDescription(name)
@@ -1035,8 +1074,8 @@ def create_acq_id_image(outname, ref_tif, datasets, src_ids, extent,
                       overviews=overviews, options=creation_opt)
 
 
-def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver, creation_opt, dst_nodata,
-                       multithread, resolution=915):
+def wind_normalization(src, dst_wm, dst_wn, measurement, gapfill, bounds, epsg, driver,
+                       creation_opt, dst_nodata, multithread, resolution=915):
     """
     Create wind normalization layers. A wind model annotation layer is created and optionally
     a wind normalization VRT.
