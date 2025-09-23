@@ -16,6 +16,7 @@ from spatialist.auxil import gdalwarp, gdalbuildvrt
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many
 from pyroSAR.ancillary import Lock
+from pyroSAR.drivers import ID
 import s1ard
 from s1ard import dem, ocn
 from s1ard.metadata import extract, xml, stac
@@ -28,23 +29,33 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-def product_info(product_type, src_ids, tile_id, extent, epsg,
-                 dir_out, update=False, product_id=None):
+def product_info(
+        product_type: str, src_ids: list[ID], tile_id: str,
+        extent: dict[str, int | float], epsg: int,
+        dir_out: str, update: bool = False, product_id: str | None = None
+) -> dict[str, str | int | datetime]:
     """
     Create ARD product metadata.
     
     Parameters
     ----------
-    product_type: {NRB, ORB}
-        the ARD product type
-    src_ids: list[pyroSAR.drivers.ID]
+    product_type:
+        the ARD product type; options: NRB, ORB
+    src_ids:
         the source product objects
-    tile_id: str
+    tile_id:
         the MGRS tile ID
-    extent: dict
+    extent:
         the extent of the MGRS tile
-    epsg: int
+    epsg:
         the EPSG code of the MGRS tile
+    dir_out:
+        the output directory of the product
+    update:
+        update an existing product (or create a new one)
+    product_id:
+        an existing product ID. Default None: create a new one using
+        function :func:`generate_unique_id`.
 
     Returns
     -------
@@ -111,9 +122,21 @@ def product_info(product_type, src_ids, tile_id, extent, epsg,
     return meta
 
 
-def format(config, prod_meta, src_ids, sar_assets, tile, extent, epsg, wbm=None,
-           dem_type=None, multithread=True, compress=None, overviews=None,
-           annotation=None):
+def format(
+        config: dict[str, dict[str, int | float | str | list[str]]],
+        prod_meta: dict[str, str | int | datetime],
+        src_ids: list[ID],
+        sar_assets: list[dict[str, str]],
+        tile: str,
+        extent: dict[str, int | float],
+        epsg: int,
+        wbm: str | None = None,
+        dem_type: str | None = None,
+        multithread: bool = True,
+        compress: str | None = None,
+        overviews: list[int] | None = None,
+        annotation: list[str] | None = None
+) -> list[str] | None:
     """
     Finalizes the generation of Sentinel-1 Analysis Ready Data (ARD) products after SAR processing has finished.
     This includes the following:
@@ -125,38 +148,36 @@ def format(config, prod_meta, src_ids, sar_assets, tile, extent, epsg, wbm=None,
     
     Parameters
     ----------
-    config: dict
+    config:
         Dictionary of the parsed config parameters for the current process.
-    prod_meta: dict
+    prod_meta:
         Product metadata as returned by :func:`~s1ard.ard.product_info`.
-    scenes: list[str]
+    src_ids:
         List of scenes to process. Either a single scene or multiple, matching scenes (consecutive acquisitions).
         All scenes are expected to overlap with `extent` and an error will be thrown if the processing output
         cannot be found for any of the scenes.
-    dir_sar: str
-        The directory containing the SAR datasets processed from the source scenes using pyroSAR.
-    dir_ard: str
-        The directory to write the final files to.
+    sar_assets:
+        The SAR processing assets as returned by :func:`get_datasets`.
     tile: str
         ID of an MGRS tile.
-    extent: dict
+    extent:
         Spatial extent of the MGRS tile, derived from a :class:`~spatialist.vector.Vector` object.
-    epsg: int
+    epsg:
         The CRS used for the ARD product; provided as an EPSG code.
-    wbm: str or None
+    wbm:
         Path to a water body mask file with the dimensions of an MGRS tile.
-    dem_type: str or None
+    dem_type:
         if defined, a DEM layer will be added to the product. The suffix `em` (elevation model) is used.
         Default `None`: do not add a DEM layer.
-    multithread: bool
+    multithread:
         Should `gdalwarp` use multithreading? Default is True. The number of threads used, can be adjusted in the
         `config.ini` file with the parameter `gdal_threads`.
-    compress: str or None
+    compress:
         Compression algorithm to use. See https://gdal.org/drivers/raster/gtiff.html#creation-options for options.
         Defaults to 'LERC_DEFLATE'.
-    overviews: list[int] or None
+    overviews:
         Internal overview levels to be created for each GeoTIFF file. Defaults to [2, 4, 9, 18, 36]
-    annotation: list[str] or None
+    annotation:
         an optional list to select the annotation layers. Default `None`: create all layers if the
         source products contain the required input layers. Options:
         
@@ -174,7 +195,6 @@ def format(config, prod_meta, src_ids, sar_assets, tile, extent, epsg, wbm=None,
     
     Returns
     -------
-    List[str]
         the ARD product assets
     """
     if compress is None:
@@ -499,7 +519,13 @@ def append_metadata(config, prod_meta, src_ids, assets, compression,
                    assets=assets, exist_ok=True)
 
 
-def get_datasets(scenes, sar_dir, extent, epsg, processor_name):
+def get_datasets(
+        scenes: list[str],
+        sar_dir: str,
+        extent: dict[str, int | float],
+        epsg: int,
+        processor_name: str
+) -> tuple[list[ID], list[dict[str, str]]]:
     """
     Collect processing output for a list of scenes. Reads metadata from all
     source SLC/GRD scenes, finds matching output files in `sar_dir` and
@@ -517,25 +543,24 @@ def get_datasets(scenes, sar_dir, extent, epsg, processor_name):
 
     Parameters
     ----------
-    scenes: list[str]
+    scenes:
         List of scenes to process. Either an individual scene or multiple,
         matching scenes (consecutive acquisitions).
-    sar_dir: str
+    sar_dir:
         The directory containing the SAR datasets processed from the source
         scenes using pyroSAR. The function will raise an error if the processing
         output cannot be found for all scenes in `sar_dir`.
-    extent: dict
+    extent:
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
-    epsg: int
+    epsg:
         The coordinate reference system as an EPSG code.
-    processor_name: str
+    processor_name:
         The name of the used SAR processor. The function `find_datasets` of the
         respective processor module is used.
 
     Returns
     -------
-    tuple[List]
         List of :class:`~pyroSAR.drivers.ID` objects of all source SLC/GRD scenes
         that overlap with the current MGRS tile and a list of SAR processing output
         files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
@@ -828,7 +853,11 @@ def create_rgb_vrt(outname, infiles, overviews, overview_resampling):
     tree.write(outname, pretty_print=True, xml_declaration=False, encoding='utf-8')
 
 
-def calc_product_start_stop(src_ids, extent, epsg):
+def calc_product_start_stop(
+        src_ids: list[ID],
+        extent: dict[str, int | float],
+        epsg: int
+) -> tuple[datetime, datetime]:
     """
     Calculates the start and stop times of the ARD product.
     The geolocation grid points including their azimuth time information are
@@ -840,10 +869,10 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
     Parameters
     ----------
-    src_ids: list[pyroSAR.drivers.ID]
+    src_ids:
         List of :class:`~pyroSAR.drivers.ID` objects of all source products
         that overlap with the current MGRS tile.
-    extent: dict
+    extent:
         Spatial extent of the MGRS tile, derived from a
         :class:`~spatialist.vector.Vector` object.
     epsg: int
@@ -851,7 +880,6 @@ def calc_product_start_stop(src_ids, extent, epsg):
 
     Returns
     -------
-    tuple[datetime.datetime]
         Start and stop time of the ARD product in UTC.
     
     See Also
@@ -907,7 +935,8 @@ def calc_product_start_stop(src_ids, extent, epsg):
         raise RuntimeError('The determined acquisition start is larger '
                            'than or equal to the acquisition end.')
     
-    return (datetime.fromtimestamp(x, tz=timezone.utc) for x in out)
+    return (datetime.fromtimestamp(out[0], tz=timezone.utc),
+            datetime.fromtimestamp(out[1], tz=timezone.utc))
 
 
 def create_data_mask(outname, datasets, extent, epsg, driver, creation_opt,
