@@ -316,7 +316,8 @@ def main(config_file=None, debug=False, **kwargs):
                 try:
                     src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
                                                            sar_dir=config_proc['sar_dir'],
-                                                           extent=extent, epsg=epsg)
+                                                           extent=extent, epsg=epsg,
+                                                           processor_name=processor_name)
                     
                     ard_assets = ard.format(config=config, prod_meta=prod_meta,
                                             src_ids=src_ids, sar_assets=sar_assets,
