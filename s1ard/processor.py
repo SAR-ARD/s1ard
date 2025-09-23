@@ -1,7 +1,6 @@
 import os
 import time
 import inspect
-from importlib import import_module
 from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
@@ -12,6 +11,8 @@ import s1ard.ancillary as anc
 import s1ard.tile_extraction as tile_ex
 from s1ard import search
 from s1ard import ocn
+
+from s1ard.processors.registry import load_processor
 
 gdal.UseExceptions()
 
@@ -34,7 +35,7 @@ def main(config_file=None, debug=False, **kwargs):
     log = anc.set_logging(config=config, debug=debug)
     config_proc = config['processing']
     processor_name = config_proc['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     config_sar = config[processor_name]
     gdal_prms = gdal_conf(config=config)
     

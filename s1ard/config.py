@@ -2,26 +2,26 @@ import os
 import re
 import copy
 import importlib.resources
-from importlib import import_module
 from datetime import datetime, timedelta
 import configparser
 from dateutil.parser import parse as dateparse
 from osgeo import gdal
+from s1ard.processors.registry import load_processor
+from typing import Any
 
 
-def get_keys(section):
+def get_keys(section: str) -> list[str]:
     """
     get all allowed configuration keys for a section
     
     Parameters
     ----------
-    section: str
+    section:
         the configuration section to get the allowed keys for.
         Either 'processing', 'metadata' or the name of a SAR processor plugin e.g. 'snap'.
 
     Returns
     -------
-    list[str]
         a list of keys
     """
     if section == 'processing':
@@ -35,16 +35,16 @@ def get_keys(section):
         return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
     else:
         try:
-            module = import_module(f's1ard.{section}')
+            processor = load_processor(section)
         except ModuleNotFoundError:
             raise RuntimeError(f"unknown section: {section}.")
         try:
-            return module.get_config_keys()
+            return processor.get_config_keys()
         except AttributeError:
             raise RuntimeError(f"missing function s1ard.{section}.get_config_keys().")
 
 
-def read_config_file(config_file=None):
+def read_config_file(config_file: str | None = None) -> configparser.ConfigParser:
     """
     Reads a configuration file and returns a ConfigParser object
     
@@ -56,7 +56,7 @@ def read_config_file(config_file=None):
 
     Returns
     -------
-    configparser.ConfigParser
+        the configuration object
     """
     parser = configparser.ConfigParser(allow_no_value=True,
                                        converters={'_datetime': _parse_datetime,
@@ -74,20 +74,20 @@ def read_config_file(config_file=None):
     return parser
 
 
-def get_config(config_file=None, **kwargs):
+def get_config(config_file: str | None = None, **kwargs: dict[str, str]) \
+        -> dict[str, Any]:
     """
     Returns the content of a `config.ini` file as a dictionary.
     
     Parameters
     ----------
-    config_file: str or None
+    config_file:
         Full path to the config file that should be parsed to a dictionary.
-    kwargs: dict[str]
+    kwargs:
         further keyword arguments overriding configuration found in the config file.
     
     Returns
     -------
-    dict
         Dictionary of the parsed config parameters.
         The keys correspond to the config sections in lowercase letters.
     """
@@ -100,7 +100,7 @@ def get_config(config_file=None, **kwargs):
            'metadata': _get_config_metadata(parser, **kwargs_meta)}
     
     processor_name = out['processing']['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     kwargs_sar = {k: v for k, v in kwargs.items() if k in get_keys(processor_name)}
     out[processor_name] = processor.get_config_section(parser, **kwargs_sar)
     
@@ -267,20 +267,21 @@ def _get_config_metadata(parser, **kwargs):
     return out
 
 
-def init(target, source=None, overwrite=False, **kwargs):
+def init(target: str, source: str | None = None, overwrite: bool = False,
+         **kwargs: dict[str, str]) -> None:
     """
     Initialize a configuration file.
 
     Parameters
     ----------
-    target : str
+    target:
         Path to the target configuration file.
-    source : str, optional
+    source:
         Path to the source file to read the configuration from. If not provided,
         a default configuration file within the package will be used.
-    overwrite : bool, default=False
+    overwrite:
         Overwrite an existing file?
-    kwargs : Any
+    kwargs:
         Additional keyword arguments for overwriting the configuration in `source`.
 
     Returns
@@ -319,19 +320,18 @@ def _parse_list(s):
         return [x.strip() for x in s.split(',')]
 
 
-def keyval_check(key, val, allowed_keys):
+def keyval_check(key: str, val: str, allowed_keys: list[str]) -> str | None:
     """
     Check and clean up key,value pairs while parsing a config file.
     
     Parameters
     ----------
-    key: str
-    val: str
-    allowed_keys: List[str]
-
-    Returns
-    -------
-
+    key:
+        the parameter key
+    val:
+        the parameter value
+    allowed_keys:
+        a list of allowed keys
     """
     if key not in allowed_keys:
         msg = f"Parameter '{key}' is not allowed; should be one of {allowed_keys}"
@@ -340,7 +340,6 @@ def keyval_check(key, val, allowed_keys):
     val = val.replace('"', '').replace("'", "")
     if val in ['None', 'none', '']:
         val = None
-    
     return val
 
 
@@ -486,7 +485,7 @@ def write(config, target, overwrite=False, **kwargs):
             return str(item)
     
     processor_name = config['processing']['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     
     config = copy.deepcopy(config)
     keys_processing = get_keys('processing')

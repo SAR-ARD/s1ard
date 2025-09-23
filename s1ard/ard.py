@@ -8,7 +8,6 @@ import geopandas as gpd
 from lxml import etree
 from time import gmtime, strftime
 from copy import deepcopy
-from importlib import import_module
 from scipy.interpolate import RBFInterpolator
 from osgeo import gdal
 from spatialist.vector import Vector, bbox, intersect
@@ -23,6 +22,7 @@ from s1ard.metadata import extract, xml, stac
 from s1ard.metadata.mapping import LERC_ERR_THRES, ARD_PATTERN
 from s1ard.ancillary import generate_unique_id, vrt_add_overviews, datamask, get_tmp_name, combine_polygons
 from s1ard.metadata.extract import copy_src_meta, meta_dict
+from s1ard.processors.registry import load_processor
 import logging
 
 log = logging.getLogger('s1ard')
@@ -285,7 +285,7 @@ def format(config, prod_meta, src_ids, sar_assets, tile, extent, epsg, wbm=None,
         dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
         if not os.path.isfile(dm_path):
             log.info(f"creating {os.path.relpath(dm_path, prod_meta['dir_ard'])}")
-            processor = import_module(f's1ard.{processor_name}')
+            processor = load_processor(processor_name)
             lsm_encoding = processor.lsm_encoding()
             create_data_mask(outname=dm_path, datasets=sar_assets, extent=extent, epsg=epsg,
                              driver=driver, creation_opt=write_options['dm'],
@@ -546,7 +546,7 @@ def get_datasets(scenes, sar_dir, extent, epsg, processor_name):
     --------
     :func:`s1ard.snap.find_datasets`
     """
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     ids = identify_many(scenes)
     datasets = []
     for i, _id in enumerate(ids):

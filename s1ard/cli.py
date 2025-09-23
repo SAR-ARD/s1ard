@@ -28,7 +28,7 @@ def cli(version):
 @click.pass_context
 def init(ctx, config_file, overwrite=False, config_source=None):
     """
-    Initialize configuration for s1ard processing.
+    Initialize configuration for s1ard radar backscatter processing.
 
     This creates a processor configuration file in a user-defined location.
     The package's default file or a user-defined source file may serve as base.

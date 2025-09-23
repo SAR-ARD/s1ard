@@ -11,7 +11,6 @@ from pathlib import Path
 from multiformats import multihash
 import binascii
 from lxml import etree
-from importlib import import_module
 from datetime import datetime, timedelta, timezone
 from osgeo import gdal, ogr, osr
 import numpy as np
@@ -22,6 +21,7 @@ import pyroSAR
 from pyroSAR.ancillary import Lock, LockCollection
 from pyroSAR import identify_many
 import s1ard
+from s1ard.processors.registry import load_processor
 from collections import defaultdict
 from typing import Callable, List, TypeVar
 
@@ -298,7 +298,7 @@ def _log_process_config(logger, config):
         'python-GDAL': gdal.__version__}
     
     processor_name = config['processing']['processor']
-    processor = import_module(f's1ard.{processor_name}')
+    processor = load_processor(processor_name)
     sw_versions.update(processor.version_dict())
     
     max_len_sw = len(max(sw_versions.keys(), key=len))

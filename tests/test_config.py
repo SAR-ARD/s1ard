@@ -17,7 +17,9 @@ def test_config(tmpdir):
 def test_config_snap(tmpdir):
     config = get_config(work_dir=str(tmpdir), db_file='scenes.db', aoi_tiles='32TNT')
     assert 'snap' in config.keys()
-    assert sorted(config['snap'].keys()) == snap_get_keys()
+    snap_keys = list(config['snap'].keys())
+    del snap_keys[snap_keys.index('dem_prepare_mode')]
+    assert sorted(snap_keys) == snap_get_keys()
     expected = {
         'allow_res_osv': True,
         'cleanup': True,
@@ -35,7 +37,9 @@ def test_config_snap(tmpdir):
     write(config, out)
     config = get_config(config_file=out)
     assert 'snap' in config.keys()
-    assert sorted(config['snap'].keys()) == snap_get_keys()
+    snap_keys = list(config['snap'].keys())
+    del snap_keys[snap_keys.index('dem_prepare_mode')]
+    assert sorted(snap_keys) == snap_get_keys()
     for key, value in expected.items():
         assert config['snap'][key] == value
 

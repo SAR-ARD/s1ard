@@ -43,8 +43,10 @@ def config_to_string(config):
     out = {}
     allowed = get_config_keys()
     for k, v in config.items():
+        if k == 'dem_prepare_mode':
+            continue
         if k not in allowed:
-            raise ValueError(f'key {k} not in allowed keys: {allowed}')
+            raise ValueError(f"key '{k}' not in allowed keys: {allowed}")
         if v is None:
             out[k] = 'None'
         elif k in ['allow_res_osv', 'clean_edges',
@@ -120,20 +122,16 @@ def get_config_section(parser, **kwargs):
     return out
 
 
-def lsm_encoding():
+def lsm_encoding() -> dict[str, int]:
     """
     Get the encoding of the layover shadow mask.
-
-    Returns
-    -------
-    dict
     """
     return {
         'not layover, not shadow': 0,
         'layover': 1,
         'shadow': 2,
         'layover in shadow': 3,
-        'nodata': 255 # dummy value
+        'nodata': 255  # dummy value
     }
 
 
@@ -181,13 +179,12 @@ def translate_annotation(annotation, measurement):
     return export_extra
 
 
-def version_dict():
+def version_dict() -> dict[str, str]:
     """
     Get processor software version information.
     
     Returns
     -------
-    dict[str]
         a dictionary with software components as keys and their versions as values.
     """
     try:
@@ -761,8 +758,8 @@ def process(scene, outdir, measurement, spacing, dem,
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
         
-        - gamma: RTC gamma nought (:math:`\gamma^0_T`)
-        - sigma: RTC sigma nought (:math:`\sigma^0_T`)
+        - gamma: RTC gamma nought (:math:`\\gamma^0_T`)
+        - sigma: RTC sigma nought (:math:`\\sigma^0_T`)
     spacing: int or float
         The output pixel spacing in meters.
     dem: str
@@ -782,8 +779,8 @@ def process(scene, outdir, measurement, spacing, dem,
         Options:
         
          - DEM
-         - gammaSigmaRatio: :math:`\sigma^0_T / \gamma^0_T`
-         - sigmaGammaRatio: :math:`\gamma^0_T / \sigma^0_T`
+         - gammaSigmaRatio: :math:`\\sigma^0_T / \\gamma^0_T`
+         - sigmaGammaRatio: :math:`\\gamma^0_T / \\sigma^0_T`
          - incidenceAngleFromEllipsoid
          - layoverShadowMask
          - localIncidenceAngle
