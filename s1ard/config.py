@@ -180,9 +180,9 @@ def _get_config_processing(parser, **kwargs):
         
         validate_value(k, v)
         
-        if k == 'mindate':
+        if k == 'mindate' and v is not None:
             v = proc_sec.get_datetime(k)
-        if k == 'maxdate':
+        if k == 'maxdate' and v is not None:
             date_short = re.search('^[0-9-]{10}$', v) is not None
             v = proc_sec.get_datetime(k)
             if date_short:
@@ -389,7 +389,7 @@ def validate_value(k, v):
         return x is None or os.path.isfile(x)
     
     def val_aoi_tiles(x):
-        return len(x) == 5
+        return x is None or (isinstance(x, str) and len(x) == 5)
     
     def val_work_dir(x):
         return x is not None and os.path.isdir(v) and os.access(v, os.W_OK)
@@ -397,7 +397,7 @@ def validate_value(k, v):
     validators = {'aoi_geometry': (val_aoi_geometry,
                                    'must be None or an existing file'),
                   'aoi_tiles': (val_aoi_tiles,
-                                'must be of length 5'),
+                                'must be None or a string of length 5'),
                   'work_dir': (val_work_dir,
                                'must be an existing, writable directory')}
     if k not in validators.keys():
