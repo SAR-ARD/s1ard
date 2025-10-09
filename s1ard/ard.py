@@ -1181,21 +1181,6 @@ def create_acq_id_image(
         Nodata value to write to the output raster.
     """
     src_scenes = [sid.scene for sid in src_ids]
-    # If there are two source scenes, make sure that the order of acquisitions in all lists is correct!
-    if len(src_scenes) > 1:
-        if not len(src_scenes) == 2 and len(datasets) == 2:
-            raise RuntimeError('expected lists `src_scenes` and `valid_mask_list` to be of length 2; length is '
-                               '{} and {} respectively'.format(len(src_scenes), len(datasets)))
-        starts_src = [datetime.strptime(identify(f).start, '%Y%m%dT%H%M%S') for f in src_scenes]
-        start_valid = [re.search('[0-9]{8}T[0-9]{6}', os.path.basename(x)).group() for x in src_scenes]
-        start_valid = [datetime.strptime(x, '%Y%m%dT%H%M%S') for x in start_valid]
-        if starts_src[0] > starts_src[1]:
-            src_scenes.reverse()
-            starts_src.reverse()
-        if start_valid[0] != starts_src[0]:
-            datasets.reverse()
-        if start_valid[0] != starts_src[0]:
-            raise RuntimeError('failed to match order of lists `src_scenes` and `valid_mask_list`')
     
     tile_bounds = [extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax']]
     
