@@ -583,7 +583,7 @@ def get_datasets(
     :func:`s1ard.snap.find_datasets`
     """
     processor = load_processor(processor_name)
-    ids = identify_many(scenes)
+    ids = identify_many(scenes, sortkey='start')
     datasets = []
     for i, _id in enumerate(ids):
         log.debug(f'collecting processing output for scene {os.path.basename(_id.scene)}')
