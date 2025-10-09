@@ -667,8 +667,10 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
     wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     if not prod:
-        ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
-        ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate'].isoformat()
+        value = meta['source'][uid]['ascendingNodeDate']
+        if value is not None:
+            ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
+            ascendingNodeDate.text = value.isoformat()
         startTimeFromAscendingNode = etree.SubElement(acquisition, _nsc('eop:startTimeFromAscendingNode', nsmap),
                                                       attrib={'uom': 'ms'})
         startTimeFromAscendingNode.text = meta['source'][uid]['timeStartFromAscendingNode']
