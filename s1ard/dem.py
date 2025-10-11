@@ -161,6 +161,18 @@ def prepare(scene, dem_type, mode, dir_out, tr=None,
         for aoi in aois:
             ext = aoi['extent_utm']
             epsg = aoi['epsg']
+            with scene.bbox() as vec:
+                vec.reproject(epsg)
+                ext_scene = vec.extent
+            # reduce DEM extent to image extent but keep coordinates a multiple of 60
+            # to fit into the MGRS tile boundaries
+            ext2 = {
+                'xmin': ext['xmin'] + abs(ext_scene['xmin'] - ext['xmin']) // 60 * 60,
+                'xmax': ext['xmax'] - abs(ext_scene['xmax'] - ext['xmax']) // 60 * 60 + 60,
+                'ymin': ext['ymin'] + abs(ext_scene['ymin'] - ext['ymin']) // 60 * 60,
+                'ymax': ext['ymax'] - abs(ext_scene['ymax'] - ext['ymax']) // 60 * 60 + 60,
+            }
+            ext = ext2
             fname_base_dem = f'DEM_{dem_type_short}_{epsg}.tif'
             fname_dem_tmp = os.path.join(dir_out, fname_base_dem)
             fname_dem.append(fname_dem_tmp)
