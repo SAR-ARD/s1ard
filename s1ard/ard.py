@@ -295,7 +295,7 @@ def format(
                 ras.close()
         ard_assets[key] = outname
     
-    # define a reference raster from the annotation datasets and list all gamma0/sigma0 backscatter measurement rasters
+    # define a reference raster and list all gamma0/sigma0 backscatter measurement rasters
     measure_tifs = [v for k, v in ard_assets.items() if re.search('[gs]-lin', k)]
     ref_key = list(ard_assets.keys())[0]
     ref_tif = ard_assets[ref_key]
@@ -306,7 +306,8 @@ def format(
             if not config['processing']['dem_type'] == 'GETASSE30' and not os.path.isfile(wbm):
                 raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
         
-        dm_path = ref_tif.replace(f'-{ref_key}.tif', '-dm.tif')
+        dm_path_base = prod_meta["file_base"].format(suffix='dm')
+        dm_path = os.path.join(prod_meta['dir_ard'], 'annotation', dm_path_base)
         if not os.path.isfile(dm_path):
             log.info(f"creating {os.path.relpath(dm_path, prod_meta['dir_ard'])}")
             processor = load_processor(processor_name)
@@ -321,7 +322,8 @@ def format(
     
     # create acquisition ID image raster (-id.tif)
     if 'id' in allowed:
-        id_path = ref_tif.replace(f'-{ref_key}.tif', '-id.tif')
+        id_path_base = prod_meta["file_base"].format(suffix='id')
+        id_path = os.path.join(prod_meta['dir_ard'], 'annotation', id_path_base)
         if not os.path.isfile(id_path):
             log.info(f"creating {os.path.relpath(id_path, prod_meta['dir_ard'])}")
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
@@ -334,7 +336,8 @@ def format(
     # create DEM (-em.tif)
     # (if not already converted from processor output)
     if dem_type is not None and 'em' in allowed:
-        em_path = ref_tif.replace(f'-{ref_key}.tif', '-em.tif')
+        em_path_base = prod_meta["file_base"].format(suffix='em')
+        em_path = os.path.join(prod_meta['dir_ard'], 'annotation', em_path_base)
         if not os.path.isfile(em_path):
             log.info(f"creating {os.path.relpath(em_path, prod_meta['dir_ard'])}")
             with Raster(ref_tif) as ras:
