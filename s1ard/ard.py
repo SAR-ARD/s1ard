@@ -217,6 +217,7 @@ def format(
     
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
+        shutil.rmtree(prod_meta['dir_ard'])
         return
     
     if annotation is not None:
