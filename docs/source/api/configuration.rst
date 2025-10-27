@@ -15,4 +15,6 @@ Configuration
         init
         keyval_check
         read_config_file
+        validate_options
+        validate_value
         write

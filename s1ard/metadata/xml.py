@@ -28,9 +28,11 @@ def parse(meta, target, assets, exist_ok=False):
     exist_ok: bool
         Do not create files if they already exist?
     """
-    key = "s1-{}".format(meta['prod']['productName-short'].lower())
+    platform = meta['common']['platformShortName']
+    pid = {'Sentinel-1': 's1', 'ERS': 'ers', 'ENVISAT': 'env'}[platform]
+    key = f"{pid}-{meta['prod']['productName-short'].lower()}"
     nsmap = deepcopy(NS_MAP)
-    nsmap[key] = nsmap.pop('placeholder')
+    nsmap[key] = nsmap.pop('placeholder').format(meta['common']['constellation'])
     src_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'source')
     prod_url = nsmap[key].replace('spec', key.split('-')[1]).replace('role', 'product')
     
@@ -65,8 +67,8 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         if os.path.isfile(outname) and exist_ok:
             continue
         log.info(f'creating {os.path.relpath(outname, target)}')
-        timeStart = datetime.strftime(meta['source'][uid]['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
-        timeStop = datetime.strftime(meta['source'][uid]['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
+        timeStart = meta['source'][uid]['timeStart'].isoformat()
+        timeStop = meta['source'][uid]['timeStop'].isoformat()
         
         root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                              attrib={_nsc('gml:id', nsmap): scene + '_1'})
@@ -75,7 +77,7 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         observedProperty = etree.SubElement(root, _nsc('om:observedProperty', nsmap),
                                             attrib={'nilReason': 'inapplicable'})
         _om_feature_of_interest(root=root, nsmap=nsmap, scene_id=scene,
-                                extent=meta['source'][uid]['geom_xml_envelop'],
+                                extent=meta['source'][uid]['geom_xml_envelope'],
                                 center=meta['source'][uid]['geom_xml_center'])
         
         ################################################################################################################
@@ -119,71 +121,54 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
         
         processing = etree.SubElement(earthObservationMetaData, _nsc('eop:processing', nsmap))
         processingInformation = etree.SubElement(processing, _nsc('_:ProcessingInformation', nsmap, ard_ns=ard_ns))
-        processingCenter = etree.SubElement(processingInformation, _nsc('eop:processingCenter', nsmap),
-                                            attrib={'codeSpace': 'urn:esa:eop:Sentinel1:facility'})
-        processingCenter.text = meta['source'][uid]['processingCenter']
-        processingDate = etree.SubElement(processingInformation, _nsc('eop:processingDate', nsmap))
-        processingDate.text = meta['source'][uid]['processingDate']
-        processorName = etree.SubElement(processingInformation, _nsc('eop:processorName', nsmap))
-        processorName.text = meta['source'][uid]['processorName']
-        processorVersion = etree.SubElement(processingInformation, _nsc('eop:processorVersion', nsmap))
-        processorVersion.text = meta['source'][uid]['processorVersion']
-        processingMode = etree.SubElement(processingInformation, _nsc('eop:processingMode', nsmap))
-        processingMode.text = meta['source'][uid]['processingMode']
+        
+        fields = [(processingInformation, 'eop:processingCenter', {'codeSpace': 'urn:esa:eop:Sentinel1:facility'}, 'processingCenter'),
+                  (processingInformation, 'eop:processingDate', None, 'processingDate'),
+                  (processingInformation, 'eop:processorName', None, 'processorName'),
+                  (processingInformation, 'eop:processorVersion', None, 'processorVersion'),
+                  (processingInformation, 'eop:processingMode', None, 'processingMode'),
+                  (processingInformation, '_:orbitDataSource', None, 'orbitDataSource'),
+                  (processingInformation, '_:orbitStateVector', {'access': meta['source'][uid]['orbitDataAccess']}, 'orbitStateVector'),
+                  (processingInformation, '_:lutApplied', None, 'lutApplied'),
+                  (earthObservationMetaData, '_:productType', {'codeSpace': 'urn:esa:eop:Sentinel1:class'}, 'productType'),
+                  (earthObservationMetaData, '_:dataGeometry', None, 'dataGeometry'),
+                  (earthObservationMetaData, '_:azimuthPixelSpacing', {'uom': 'm'}, 'azimuthPixelSpacing'),
+                  (earthObservationMetaData, '_:rangePixelSpacing', {'uom': 'm'}, 'rangePixelSpacing'),
+                  (earthObservationMetaData, '_:meanFaradayRotationAngle', {'uom': 'deg'}, 'faradayMeanRotationAngle'),
+                  (earthObservationMetaData, '_:referenceFaradayRotation', {_nsc('xlink:href', nsmap): str(meta['source'][uid]['faradayRotationReference'])}, None),
+                  (earthObservationMetaData, '_:ionosphereIndicator', None, 'ionosphereIndicator')]
+        
+        for parent, field_dst, attrib, field_src in fields:
+            element = etree.SubElement(_parent=parent,
+                                       _tag=_nsc(text=field_dst, nsmap=nsmap, ard_ns=ard_ns),
+                                       attrib=attrib)
+            if field_src is not None:
+                value = meta['source'][uid][field_src]
+                if field_src == 'processingDate':
+                    value = value.isoformat()
+                if field_src == 'orbitDataSource':
+                    value = value.upper()
+                if field_src in ['azimuthPixelSpacing', 'rangePixelSpacing']:
+                    value = str(mean(value.values()))
+                element.text = value
+        
         processingLevel = etree.SubElement(processingInformation, _nsc('_:processingLevel', nsmap, ard_ns=ard_ns))
         processingLevel.text = meta['common']['processingLevel']
-        orbitDataSource = etree.SubElement(processingInformation, _nsc('_:orbitDataSource', nsmap, ard_ns=ard_ns))
-        orbitDataSource.text = meta['source'][uid]['orbitDataSource'].upper()
-        orbitStateVector = etree.SubElement(processingInformation, _nsc('_:orbitStateVector', nsmap, ard_ns=ard_ns),
-                                            attrib={'access': meta['source'][uid]['orbitDataAccess']})
-        orbitStateVector.text = meta['source'][uid]['orbitStateVector']
-        for swath in meta['source'][uid]['swaths']:
-            azimuthLookBandwidth = etree.SubElement(processingInformation, _nsc('_:azimuthLookBandwidth', nsmap,
-                                                                                ard_ns=ard_ns),
-                                                    attrib={'uom': 'Hz', 'beam': swath})
-            azimuthLookBandwidth.text = str(meta['source'][uid]['azimuthLookBandwidth'][swath])
-        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
-            rangeLookBandwidth = etree.SubElement(processingInformation, _nsc('_:rangeLookBandwidth', nsmap,
-                                                                              ard_ns=ard_ns),
-                                                  attrib={'uom': 'Hz', 'beam': swath})
-            rangeLookBandwidth.text = str(meta['source'][uid]['rangeLookBandwidth'][swath])
-        lutApplied = etree.SubElement(processingInformation, _nsc('_:lutApplied', nsmap, ard_ns=ard_ns))
-        lutApplied.text = meta['source'][uid]['lutApplied']
         
-        productType = etree.SubElement(earthObservationMetaData, _nsc('_:productType', nsmap, ard_ns=ard_ns),
-                                       attrib={'codeSpace': 'urn:esa:eop:Sentinel1:class'})
-        productType.text = meta['source'][uid]['productType']
-        dataGeometry = etree.SubElement(earthObservationMetaData,
-                                        _nsc('_:dataGeometry', nsmap, ard_ns=ard_ns))
-        dataGeometry.text = meta['source'][uid]['dataGeometry']
         for swath in meta['source'][uid]['swaths']:
-            azimuthNumberOfLooks = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('_:azimuthNumberOfLooks', nsmap, ard_ns=ard_ns),
-                                                    attrib={'beam': swath})
-            azimuthNumberOfLooks.text = str(meta['source'][uid]['azimuthNumberOfLooks'][swath])
-        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
-            rangeNumberOfLooks = etree.SubElement(earthObservationMetaData,
-                                                  _nsc('_:rangeNumberOfLooks', nsmap, ard_ns=ard_ns),
-                                                  attrib={'beam': swath})
-            rangeNumberOfLooks.text = str(meta['source'][uid]['rangeNumberOfLooks'][swath])
-        for swath in meta['source'][uid]['swaths']:
-            azimuthResolution = etree.SubElement(earthObservationMetaData,
-                                                 _nsc('_:azimuthResolution', nsmap, ard_ns=ard_ns),
-                                                 attrib={'uom': 'm', 'beam': swath})
-            azimuthResolution.text = str(meta['source'][uid]['azimuthResolution'][swath])
-        for swath in meta['source'][uid]['swaths']:  # removal will change order in output file
-            rangeResolution = etree.SubElement(earthObservationMetaData,
-                                               _nsc('_:rangeResolution', nsmap, ard_ns=ard_ns),
-                                               attrib={'uom': 'm', 'beam': swath})
-            rangeResolution.text = str(meta['source'][uid]['rangeResolution'][swath])
-        azimuthPixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:azimuthPixelSpacing', nsmap,
-                                                                              ard_ns=ard_ns),
-                                               attrib={'uom': 'm'})
-        azimuthPixelSpacing.text = str(mean(meta['source'][uid]['azimuthPixelSpacing'].values()))
-        rangePixelSpacing = etree.SubElement(earthObservationMetaData, _nsc('_:rangePixelSpacing', nsmap,
-                                                                            ard_ns=ard_ns),
-                                             attrib={'uom': 'm'})
-        rangePixelSpacing.text = str(mean(meta['source'][uid]['rangePixelSpacing'].values()))
+            fields = [(processingInformation, '_:azimuthLookBandwidth', {'uom': 'Hz', 'beam': swath}, 'azimuthLookBandwidth'),
+                      (processingInformation, '_:rangeLookBandwidth', {'uom': 'Hz', 'beam': swath}, 'rangeLookBandwidth'),
+                      (earthObservationMetaData, '_:azimuthNumberOfLooks', {'beam': swath}, 'azimuthNumberOfLooks'),
+                      (earthObservationMetaData, '_:rangeNumberOfLooks', {'beam': swath}, 'rangeNumberOfLooks'),
+                      (earthObservationMetaData, '_:azimuthResolution', {'uom': 'm', 'beam': swath}, 'azimuthResolution'),
+                      (earthObservationMetaData, '_:rangeResolution', {'uom': 'm', 'beam': swath}, 'rangeResolution')]
+            
+            for parent, field_dst, attrib, field_src in fields:
+                if hasattr(meta['source'][uid], field_src):
+                    element = etree.SubElement(_parent=parent,
+                                               _tag=_nsc(field_dst, nsmap, ard_ns=ard_ns),
+                                               attrib=attrib)
+                    element.text = str(meta['source'][uid][field_src][swath])
         
         performance = etree.SubElement(earthObservationMetaData, _nsc('_:performance', nsmap, ard_ns=ard_ns))
         performanceIndicators = etree.SubElement(performance, _nsc('_:PerformanceIndicators', nsmap, ard_ns=ard_ns))
@@ -191,42 +176,26 @@ def source_xml(meta, target, nsmap, ard_ns, exist_ok=False):
                                                         _nsc('_:noiseEquivalentIntensityType', nsmap, ard_ns=ard_ns),
                                                         attrib={'uom': 'dB'})
         noiseEquivalentIntensityType.text = str(meta['source'][uid]['perfNoiseEquivalentIntensityType'])
+        
         for pol in meta['common']['polarisationChannels']:
-            estimatesMin = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
-                                            attrib={'pol': pol, 'type': 'minimum'})
-            estimatesMin.text = str(meta['source'][uid]['perfEstimates'][pol]['minimum'])
-            estimatesMax = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
-                                            attrib={'pol': pol, 'type': 'maximum'})
-            estimatesMax.text = str(meta['source'][uid]['perfEstimates'][pol]['maximum'])
-            estimatesMean = etree.SubElement(performanceIndicators, _nsc('_:estimates', nsmap, ard_ns=ard_ns),
-                                             attrib={'pol': pol, 'type': 'mean'})
-            estimatesMean.text = str(meta['source'][uid]['perfEstimates'][pol]['mean'])
-        equivalentNumberOfLooks = etree.SubElement(performanceIndicators, _nsc('_:equivalentNumberOfLooks', nsmap,
-                                                                               ard_ns=ard_ns))
-        equivalentNumberOfLooks.text = str(meta['source'][uid]['perfEquivalentNumberOfLooks'])
-        peakSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('_:peakSideLobeRatio', nsmap, ard_ns=ard_ns),
-                                             attrib={'uom': 'dB'})
-        peakSideLobeRatio.text = str(meta['source'][uid]['perfPeakSideLobeRatio'])
-        integratedSideLobeRatio = etree.SubElement(performanceIndicators, _nsc('_:integratedSideLobeRatio', nsmap,
-                                                                               ard_ns=ard_ns),
-                                                   attrib={'uom': 'dB'})
-        integratedSideLobeRatio.text = str(meta['source'][uid]['perfIntegratedSideLobeRatio'])
+            for type in ['minimum', 'mean', 'maximum']:
+                estimate =  etree.SubElement(_parent=performanceIndicators,
+                                             _tag=_nsc('_:estimates', nsmap, ard_ns=ard_ns),
+                                            attrib={'pol': pol, 'type': type})
+                estimate.text = str(meta['source'][uid]['perfEstimates'][pol][type])
+        
+        fields = [(performanceIndicators, '_:equivalentNumberOfLooks', 'perfEquivalentNumberOfLooks'),
+                  (performanceIndicators, '_:peakSideLobeRatio', 'perfPeakSideLobeRatio'),
+                  (performanceIndicators, '_:integratedSideLobeRatio', 'perfIntegratedSideLobeRatio')]
+        
+        for parent, field_dst, field_src in fields:
+            element = etree.SubElement(parent,
+                                       _nsc(field_dst, nsmap, ard_ns=ard_ns))
+            element.text = str(meta['source'][uid][field_src])
         
         polCalMatrices = etree.SubElement(earthObservationMetaData, _nsc('_:polCalMatrices', nsmap, ard_ns=ard_ns),
                                           attrib={
                                               _nsc('xlink:href', nsmap): str(meta['source'][uid]['polCalMatrices'])})
-        meanFaradayRotationAngle = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('_:meanFaradayRotationAngle', nsmap, ard_ns=ard_ns),
-                                                    attrib={'uom': 'deg'})
-        meanFaradayRotationAngle.text = meta['source'][uid]['faradayMeanRotationAngle']
-        faraday_ref = str(meta['source'][uid]['faradayRotationReference'])
-        referenceFaradayRotation = etree.SubElement(earthObservationMetaData,
-                                                    _nsc('_:referenceFaradayRotation', nsmap, ard_ns=ard_ns),
-                                                    attrib={_nsc('xlink:href', nsmap): faraday_ref})
-        ionosphereIndicator = etree.SubElement(earthObservationMetaData, _nsc('_:ionosphereIndicator', nsmap,
-                                                                              ard_ns=ard_ns))
-        ionosphereIndicator.text = meta['source'][uid]['ionosphereIndicator']
-        
         ################################################################################################################
         etree.indent(root)
         tree = etree.ElementTree(root)
@@ -257,9 +226,9 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     if os.path.isfile(outname) and exist_ok:
         return
     log.info(f'creating {os.path.relpath(outname, target)}')
-    timeCreated = datetime.strftime(meta['prod']['timeCreated'], '%Y-%m-%dT%H:%M:%S.%f')
-    timeStart = datetime.strftime(meta['prod']['timeStart'], '%Y-%m-%dT%H:%M:%S.%f')
-    timeStop = datetime.strftime(meta['prod']['timeStop'], '%Y-%m-%dT%H:%M:%S.%f')
+    timeCreated = meta['prod']['timeCreated'].isoformat()
+    timeStart = meta['prod']['timeStart'].isoformat()
+    timeStop = meta['prod']['timeStop'].isoformat()
     
     root = etree.Element(_nsc('_:EarthObservation', nsmap, ard_ns=ard_ns), nsmap=nsmap,
                          attrib={_nsc('gml:id', nsmap): scene_id + '_1'})
@@ -339,21 +308,19 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
             compressionzError.text = z_error
         
         if 'annotation' in asset:
-            key = re.search('-[a-z]{2}(?:-[a-z]{2}|).tif', asset).group()
-            np_pat = '-np-[vh]{2}.tif'
-            if re.search(np_pat, key) is not None:
-                key = np_pat
+            pattern = '(dm|ei|em|lc|ld|li|gs|id|np-[vh]{2}|sg|wm).tif'
+            key = re.search(pattern, asset).groups()[0][:2]
             
             sampleType = etree.SubElement(productInformation, _nsc('_:sampleType', nsmap, ard_ns=ard_ns),
                                           attrib={'uom': 'unitless' if ASSET_MAP[key]['unit'] is None else
                                           ASSET_MAP[key]['unit']})
             sampleType.text = ASSET_MAP[key]['type']
             
-            if key in ['-dm.tif', '-id.tif']:
+            if key in ['dm', 'id']:
                 dataType.text = 'UINT'
                 bitsPerSample.text = '8'
                 
-                if key == '-dm.tif':
+                if key == 'dm':
                     with Raster(asset) as dm_ras:
                         band_descr = [dm_ras.raster.GetRasterBand(band).GetDescription() for band in
                                       range(1, dm_ras.bands + 1)]
@@ -363,7 +330,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                                                     attrib={'band': str(i + 1),
                                                             'name': sample})
                         bitValue.text = '1'
-                else:  # key == '-id.tif'
+                else:  # key == 'id'
                     src_list = list(meta['source'].keys())
                     src_target = [os.path.basename(meta['source'][src]['filename']).replace('.SAFE',
                                                                                             '').replace('.zip', '')
@@ -373,7 +340,7 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
                                                     attrib={'band': '1', 'name': s})
                         bitValue.text = str(i + 1)
             
-            if key == '-ei.tif':
+            if key == 'ei':
                 ellipsoidalHeight = etree.SubElement(productInformation, _nsc('_:ellipsoidalHeight', nsmap,
                                                                               ard_ns=ard_ns),
                                                      attrib={'uom': 'm'})
@@ -439,7 +406,8 @@ def product_xml(meta, target, assets, nsmap, ard_ns, exist_ok=False):
     if meta['prod']['RTCAlgorithm'] is not None:
         rtcAlgorithm = etree.SubElement(processingInformation, _nsc('_:RTCAlgorithm', nsmap, ard_ns=ard_ns),
                                         attrib={_nsc('xlink:href', nsmap): meta['prod']['RTCAlgorithm']})
-    if meta['prod']['windNormBackscatterMeasurement'] is not None:
+    key = 'windNormBackscatterMeasurement'
+    if hasattr(meta['prod'], key) and meta['prod'][key] is not None:
         windNormBackscatterMeasurement = etree.SubElement(processingInformation,
                                                           _nsc('_:windNormBackscatterMeasurement',
                                                                nsmap, ard_ns=ard_ns))
@@ -699,8 +667,10 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
                                         attrib={'codeSpace': 'urn:esa:eop:Sentinel1:relativeOrbits'})
     wrsLongitudeGrid.text = meta['common']['wrsLongitudeGrid']
     if not prod:
-        ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
-        ascendingNodeDate.text = meta['source'][uid]['ascendingNodeDate']
+        value = meta['source'][uid]['ascendingNodeDate']
+        if value is not None:
+            ascendingNodeDate = etree.SubElement(acquisition, _nsc('eop:ascendingNodeDate', nsmap))
+            ascendingNodeDate.text = value.isoformat()
         startTimeFromAscendingNode = etree.SubElement(acquisition, _nsc('eop:startTimeFromAscendingNode', nsmap),
                                                       attrib={'uom': 'ms'})
         startTimeFromAscendingNode.text = meta['source'][uid]['timeStartFromAscendingNode']
@@ -730,8 +700,9 @@ def _om_procedure(root, nsmap, ard_ns, scene_id, meta, uid=None, prod=True):
         orbitMeanAltitude = etree.SubElement(acquisition, _nsc('_:orbitMeanAltitude', nsmap, ard_ns=ard_ns),
                                              attrib={'uom': 'm'})
         orbitMeanAltitude.text = meta['common']['orbitMeanAltitude']
-        dataTakeID = etree.SubElement(acquisition, _nsc('_:dataTakeID', nsmap, ard_ns=ard_ns))
-        dataTakeID.text = meta['source'][uid]['datatakeID']
+        if meta['common']['platformShortName'] == 'Sentinel':
+            dataTakeID = etree.SubElement(acquisition, _nsc('_:dataTakeID', nsmap, ard_ns=ard_ns))
+            dataTakeID.text = meta['source'][uid]['datatakeID']
         majorCycleID = etree.SubElement(acquisition, _nsc('_:majorCycleID', nsmap, ard_ns=ard_ns))
         majorCycleID.text = meta['source'][uid]['majorCycleID']
 

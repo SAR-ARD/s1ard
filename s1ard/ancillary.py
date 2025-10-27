@@ -85,26 +85,35 @@ def check_spacing(spacing):
                            f'with MGRS tile size and overlaps.\nOptions: {options}')
 
 
-def generate_unique_id(encoded_str):
+def generate_unique_id(encoded_str, length=4):
     """
     
     Returns a unique product identifier as a hexadecimal string.
-    The CRC-16 algorithm used to compute the unique identifier is CRC-CCITT (0xFFFF).
+    The CRC-16 algorithm used to compute the unique identifier is
+    CRC-CCITT (0xFFFF). The resulting CRC value is truncated to
+    the number of hexadecimal characters specified by the `length`
+    argument.
     
     Parameters
     ----------
     encoded_str: bytes
-        A string that should be used to generate a unique id from. The string needs to be encoded; e.g.:
-        ``'abc'.encode()``
+        A string that should be used to generate a unique id from.
+        The string needs to be encoded; e.g.: `'abc'.encode()`.
+    length: int, optional
+        The desired length of the output string in hexadecimal
+        characters (max: 4). Values higher than 4 will be capped
+        at 4, since CRC-16 only produces 16 bits.
     
     Returns
     -------
     p_id: str
-        The unique product identifier.
+        The unique product identifier (upper-case hexadecimal string).
     """
     crc = binascii.crc_hqx(encoded_str, 0xffff)
-    p_id = '{:04X}'.format(crc & 0xffff)
-    
+    max_length = 4  # Max characters for 16-bit CRC
+    length = max(1, min(length, max_length))  # Clamp between 1 and 4
+    mask = (1 << (length * 4)) - 1  # Each hex digit = 4 bits
+    p_id = f'{crc & mask:0{length}X}'
     return p_id
 
 

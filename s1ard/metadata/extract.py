@@ -6,7 +6,8 @@ import math
 from statistics import mean
 import json
 from lxml import etree
-from datetime import datetime
+from dateutil.parser import parse as dateparse
+from datetime import timezone
 import numpy as np
 from spatialist import Raster
 from spatialist.auxil import gdalwarp, crsConvert
@@ -15,7 +16,7 @@ from spatialist.raster import rasterize
 from spatialist.vector import Vector
 from osgeo import gdal, ogr
 import s1ard
-from s1ard.metadata.mapping import (ARD_PATTERN, LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
+from s1ard.metadata.mapping import (LERC_ERR_THRES, RES_MAP_SLC, RES_MAP_GRD,
                                     ENL_MAP_GRD, OSV_MAP, DEM_MAP, SLC_ACC_MAP, URL)
 from s1ard.ancillary import get_tmp_name
 from s1ard.processors.registry import load_processor
@@ -23,8 +24,7 @@ from s1ard.processors.registry import load_processor
 gdal.UseExceptions()
 
 
-def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
-              compression, product_type, wm_ref_files=None):
+def meta_dict(config, prod_meta, src_ids, compression):
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
@@ -35,24 +35,12 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     ----------
     config: dict
         Dictionary of the parsed config parameters for the current process.
-    target: str
-        A path pointing to the current ARD product directory.
+    prod_meta: dict
+        a metadata dictionary as returned by :func:`s1ard.ard.product_info`
     src_ids: list[pyroSAR.drivers.ID]
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    sar_dir: str
-        The SAR processing output directory.
-    proc_time: datetime.datetime
-        The processing time object used to generate the unique product identifier.
-    start: datetime.datetime
-        The product start time.
-    stop: datetime.datetime
-        The product stop time.
     compression: str
         The compression type applied to raster files of the product.
-    product_type: str
-        The type of ARD product that is being created. Either 'NRB' or 'ORB'.
-    wm_ref_files: list[str], optional
-        A list of paths pointing to wind model reference files. Default is None.
     
     Returns
     -------
@@ -69,20 +57,14 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         src_sid[uid] = sid
         src_xml[uid] = get_src_meta(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
-    swath_id = re.search('_(IW|EW|S[1-6])_', os.path.basename(sid0.file)).group().replace('_', '')
     
-    ref_tif = finder(target, ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
-    ratio_tif = finder(target, ['[hv]{2}-[gs]-lin.vrt$'], regex=True)
-    np_tifs = finder(target, ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tif = finder(target, ['-ei.tif$'], regex=True)
-    product_id = os.path.basename(target)
-    prod_meta = get_prod_meta(product_id=product_id, tif=ref_tif,
-                              src_ids=src_ids, sar_dir=sar_dir,
-                              processor_name=config['processing']['processor'])
+    ref_tif = finder(prod_meta['dir_ard'], ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
+    np_tifs = finder(prod_meta['dir_ard'], ['-np-[hv]{2}.tif$'], regex=True)
+    ei_tif = finder(prod_meta['dir_ard'], ['-ei.tif$'], regex=True)
+    prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
+                                   sar_dir=config['processing']['sar_dir'],
+                                   processor_name=config['processing']['processor']))
     op_mode = prod_meta['mode']
-    
-    tups = [(key, LERC_ERR_THRES[key]) for key in LERC_ERR_THRES.keys()]
-    z_err_dict = dict(tups)
     
     # COMMON metadata (sorted alphabetically)
     meta['common']['antennaLookDirection'] = 'RIGHT'
@@ -93,32 +75,22 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
     meta['common']['orbitNumber_abs'] = sid0.meta['orbitNumber_abs']
     meta['common']['orbitNumber_rel'] = sid0.meta['orbitNumber_rel']
-    pid_lookup = {'S1A': '1A', 'S1B': '1B', 'S1C': '1C', 'S1D': '1D'}
+    pid_lookup = {'S1A': 'A', 'S1B': 'B', 'S1C': 'C', 'S1D': 'D'}
     meta['common']['platformIdentifier'] = pid_lookup[sid0.sensor]
-    meta['common']['platformShortName'] = 'Sentinel'
-    meta['common']['platformFullname'] = '{}-{}'.format(meta['common']['platformShortName'].lower(),
-                                                        meta['common']['platformIdentifier'].lower())
+    meta['common']['platformShortName'] = 'Sentinel-1'
+    meta['common']['platformFullname'] = '{}{}'.format(meta['common']['platformShortName'].lower(),
+                                                       meta['common']['platformIdentifier'].lower())
     meta['common']['platformReference'] = URL['platformReference'][meta['common']['platformFullname']]
     meta['common']['polarisationChannels'] = sid0.polarizations
-    meta['common']['polarisationMode'] = prod_meta['pols'][0]
+    meta['common']['polarisationMode'] = prod_meta['polarization'][0]
     meta['common']['processingLevel'] = 'L1C'
     meta['common']['radarBand'] = 'C'
     meta['common']['radarCenterFreq'] = 5405000000
     meta['common']['sensorType'] = 'RADAR'
-    meta['common']['swathIdentifier'] = swath_id
+    meta['common']['swathIdentifier'] = op_mode
     meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
     
-    # PRODUCT metadata
-    if (len(ei_tif) == 1 and
-            sid0.product == 'SLC' and
-            'copernicus' in config['processing']['dem_type'].lower()):
-        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=swath_id,
-                                                      ei_tif=ei_tif[0],
-                                                      etad=config['processing']['etad'])
-    else:
-        geo_corr_accuracy = None
-    
-    # (sorted alphabetically)
+    # Product metadata (sorted alphabetically)
     meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
     meta['prod']['ancillaryData_KML'] = URL['ancillaryData_KML']
@@ -126,14 +98,14 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
     meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
-    if product_type == 'ORB':
+    if prod_meta['product_type'] == 'ORB':
         meta['prod']['card4l-link'] = URL['card4l_orb']
         meta['prod']['card4l-version'] = '1.0'
     else:
         meta['prod']['card4l-link'] = URL['card4l_nrb']
         meta['prod']['card4l-version'] = '5.5'
     meta['prod']['compression_type'] = compression
-    meta['prod']['compression_zerrors'] = z_err_dict
+    meta['prod']['compression_zerrors'] = LERC_ERR_THRES
     meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
@@ -147,6 +119,15 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['doi'] = config['metadata']['doi']
     meta['prod']['ellipsoidalHeight'] = None
     meta['prod']['equivalentNumberLooks'] = calc_enl(tif=ref_tif)
+    
+    if (len(ei_tif) == 1 and
+            sid0.product == 'SLC' and
+            'copernicus' in config['processing']['dem_type'].lower()):
+        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=op_mode,
+                                                      ei_tif=ei_tif[0],
+                                                      etad=config['processing']['etad'])
+    else:
+        geo_corr_accuracy = None
     meta['prod']['geoCorrAccuracyEasternBias'] = None
     meta['prod']['geoCorrAccuracyEasternSTDev'] = None
     meta['prod']['geoCorrAccuracyNorthernBias'] = None
@@ -160,17 +141,18 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['geoCorrAccuracyReference'] = geo_corr_accuracy_reference
     meta['prod']['geoCorrAccuracyType'] = geo_corr_accuracy_type
     meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
+    
     meta['prod']['geoCorrAlgorithm'] = URL['geoCorrAlgorithm']
     meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
     meta['prod']['geom_stac_bbox_native'] = prod_meta['geom']['bbox_native']
     meta['prod']['geom_stac_bbox_4326'] = prod_meta['geom']['bbox']
     meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
     meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
-    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelop']
+    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelope']
     meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
     meta['prod']['griddingConventionURL'] = URL['griddingConventionURL']
     meta['prod']['licence'] = config['metadata']['licence']
-    meta['prod']['mgrsID'] = prod_meta['mgrsID']
+    meta['prod']['mgrsID'] = prod_meta['tile']
     meta['prod']['noiseRemovalApplied'] = True
     nr_algo = URL['noiseRemovalAlgorithm'] if meta['prod']['noiseRemovalApplied'] else None
     meta['prod']['noiseRemovalAlgorithm'] = nr_algo
@@ -183,38 +165,22 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
     meta['prod']['processorVersion'] = s1ard.__version__
-    meta['prod']['productName'] = f"{'Ocean' if product_type == 'ORB' else 'Normalised'} Radar Backscatter"
-    meta['prod']['productName-short'] = product_type
+    prod_name_prefix = 'Ocean' if prod_meta['product_type'] == 'ORB' else 'Normalised'
+    meta['prod']['productName'] = f"{prod_name_prefix} Radar Backscatter"
+    meta['prod']['productName-short'] = prod_meta['product_type']
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = None
     meta['prod']['radiometricAccuracyRelative'] = None
-    meta['prod']['radiometricAccuracyReference'] = None
+    meta['prod']['radiometricAccuracyReference'] = URL['radiometricAccuracyReference']
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
     meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
-    meta['prod']['timeCreated'] = proc_time
-    meta['prod']['timeStart'] = start
-    meta['prod']['timeStop'] = stop
+    meta['prod']['timeCreated'] = prod_meta['proc_time']
+    meta['prod']['timeStart'] = prod_meta['start']
+    meta['prod']['timeStop'] = prod_meta['stop']
     meta['prod']['transform'] = prod_meta['transform']
-    if wm_ref_files is not None:
-        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_files=wm_ref_files,
-                                                               epsg=prod_meta['epsg'],
-                                                               bounds=prod_meta['geom']['bbox_native'])
-        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
-        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
-        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
-        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
-        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
-        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
-    else:
-        meta['prod']['windNormBackscatterMeasurement'] = None
-        meta['prod']['windNormBackscatterConvention'] = None
-        meta['prod']['windNormReferenceDirection'] = None
-        meta['prod']['windNormReferenceModel'] = None
-        meta['prod']['windNormReferenceSpeed'] = None
-        meta['prod']['windNormReferenceType'] = None
     
     # SOURCE metadata
     for uid in list(src_sid.keys()):
@@ -279,11 +245,13 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
             else:
                 return obj.text
         
-        # (sorted alphabetically)
+        # Source product metadata (sorted alphabetically)
         meta['source'][uid] = {}
         meta['source'][uid]['access'] = URL['source_access']
         meta['source'][uid]['acquisitionType'] = 'NOMINAL'
-        meta['source'][uid]['ascendingNodeDate'] = _read_manifest('.//s1:ascendingNodeTime')
+        asc_node_time = dateparse(_read_manifest('.//s1:ascendingNodeTime'))
+        asc_node_time = asc_node_time.replace(tzinfo=timezone.utc)
+        meta['source'][uid]['ascendingNodeDate'] = asc_node_time
         meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
         meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
@@ -292,12 +260,12 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
         meta['source'][uid]['doi'] = URL['source_doi']
         meta['source'][uid]['faradayMeanRotationAngle'] = None
-        meta['source'][uid]['faradayRotationReference'] = None
+        meta['source'][uid]['faradayRotationReference'] = URL['faradayRotationReference']
         meta['source'][uid]['filename'] = sid.file
         meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
-        meta['source'][uid]['geom_xml_envelop'] = geom['envelop']
+        meta['source'][uid]['geom_xml_envelope'] = geom['envelope']
         meta['source'][uid]['incidenceAngleMax'] = round(np.max(inc_vals), 2)
         meta['source'][uid]['incidenceAngleMin'] = round(np.min(inc_vals), 2)
         meta['source'][uid]['incidenceAngleMidSwath'] = round(np.max(inc_vals) -
@@ -325,7 +293,9 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
         fac_name = _read_manifest('.//safe:facility', attrib='name')
         meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
-        meta['source'][uid]['processingDate'] = _read_manifest('.//safe:processing', attrib='stop')
+        proc_date = dateparse(_read_manifest('.//safe:processing', attrib='stop'))
+        proc_date = proc_date.replace(tzinfo=timezone.utc)
+        meta['source'][uid]['processingDate'] = proc_date
         meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
         meta['source'][uid]['processingMode'] = 'NOMINAL'
         meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
@@ -340,13 +310,49 @@ def meta_dict(config, target, src_ids, sar_dir, proc_time, start, stop,
         meta['source'][uid]['swaths'] = swaths
         meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
         meta['source'][uid]['timeStartFromAscendingNode'] = str(float(_read_manifest('.//s1:startTimeANX')))
-        meta['source'][uid]['timeStart'] = datetime.strptime(sid.start, '%Y%m%dT%H%M%S')
-        meta['source'][uid]['timeStop'] = datetime.strptime(sid.stop, '%Y%m%dT%H%M%S')
-    
+        meta['source'][uid]['timeStart'] = dateparse(sid.start).replace(tzinfo=timezone.utc)
+        meta['source'][uid]['timeStop'] = dateparse(sid.stop).replace(tzinfo=timezone.utc)
     return meta
 
 
-def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
+def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
+    """
+    Update a metadata dictionary with wind model information
+    
+    Parameters
+    ----------
+    meta: dict
+        metadata extracted by :func:`meta_dict`
+    wm_ref_speed: List[str]
+        List of paths pointing to the wind model reference speed files.
+    wm_ref_direction: List[str]
+        List of paths pointing to the wind model reference direction files.
+    
+    Returns
+    -------
+
+    """
+    if wm_ref_speed is not None and wm_ref_direction is not None:
+        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_speed=wm_ref_speed,
+                                                               wm_ref_direction=wm_ref_direction,
+                                                               epsg=meta['prod']['crsEPSG'],
+                                                               bounds=meta['prod']['geom_stac_bbox_native'])
+        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
+        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
+        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
+        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
+        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
+        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
+    else:
+        meta['prod']['windNormBackscatterMeasurement'] = None
+        meta['prod']['windNormBackscatterConvention'] = None
+        meta['prod']['windNormReferenceDirection'] = None
+        meta['prod']['windNormReferenceModel'] = None
+        meta['prod']['windNormReferenceSpeed'] = None
+        meta['prod']['windNormReferenceType'] = None
+
+
+def get_prod_meta(tif, src_ids, sar_dir, processor_name):
     """
     Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
     pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
@@ -354,8 +360,6 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
     
     Parameters
     ----------
-    product_id: str
-        The top-level product folder name.
     tif: str
         The path to a measurement GeoTIFF file of the product scene.
     src_ids: list[pyroSAR.drivers.ID]
@@ -371,7 +375,7 @@ def get_prod_meta(product_id, tif, src_ids, sar_dir, processor_name):
         A dictionary containing metadata for the product scene.
     """
     processor = load_processor(processor_name)
-    out = re.match(re.compile(ARD_PATTERN), product_id).groupdict()
+    out = dict()
     coord_list = [sid.meta['coordinates'] for sid in src_ids]
     
     with Raster(tif) as ras:
@@ -503,7 +507,7 @@ def geometry_from_vec(vectorobject):
     out['center'] = '{} {}'.format(c_y, c_x)
     wkt = geom.ExportToWkt().removeprefix('POLYGON ((').removesuffix('))')
     wkt_list = ['{} {}'.format(x[1], x[0]) for x in [y.split(' ') for y in wkt.split(',')]]
-    out['envelop'] = ' '.join(wkt_list)
+    out['envelope'] = ' '.join(wkt_list)
     
     return out
 
@@ -622,8 +626,8 @@ def calc_enl(tif, block_size=30, return_arr=False, decimals=2):
     if num_blocks_rows == 0 or num_blocks_cols == 0:
         raise ValueError("Block size is too large for the input data dimensions.")
     blocks = arr[:num_blocks_rows * block_size,
-             :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
-                                                    num_blocks_cols, block_size)
+    :num_blocks_cols * block_size].reshape(num_blocks_rows, block_size,
+                                           num_blocks_cols, block_size)
     
     with np.testing.suppress_warnings() as sup:
         sup.filter(RuntimeWarning, "Mean of empty slice")
@@ -774,14 +778,16 @@ def calc_pslr_islr(annotation_dict, decimals=2):
     return pslr, islr
 
 
-def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
+def calc_wm_ref_stats(wm_ref_speed, wm_ref_direction, epsg, bounds, resolution=915):
     """
     Calculates the mean wind model reference speed and direction for the wind model annotation layer.
     
     Parameters
     ----------
-    wm_ref_files: list[str]
-        List of paths pointing to the wind model reference files.
+    wm_ref_speed: list[str]
+        List of paths pointing to the wind model reference speed files.
+    wm_ref_speed: list[str]
+        List of paths pointing to the wind model reference direction files.
     epsg: int
         The EPSG code of the current MGRS tile.
     bounds: list[float]
@@ -797,14 +803,11 @@ def calc_wm_ref_stats(wm_ref_files, epsg, bounds, resolution=915):
         - Mean wind model reference speed.
         - Mean wind model reference direction.
     """
-    files_speed = [f for f in wm_ref_files if f.endswith('Speed.tif')]
-    files_direction = [f for f in wm_ref_files if f.endswith('Direction.tif')]
-    
     ref_speed = get_tmp_name(suffix='.tif')
     ref_direction = get_tmp_name(suffix='.tif')
     
     out = []
-    for src, dst in zip([files_speed, files_direction], [ref_speed, ref_direction]):
+    for src, dst in zip([wm_ref_speed, wm_ref_direction], [ref_speed, ref_direction]):
         gdalwarp(src=src, dst=dst,
                  outputBounds=bounds,
                  dstSRS=f'EPSG:{epsg}',

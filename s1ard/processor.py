@@ -275,7 +275,6 @@ def main(config_file=None, debug=False, **kwargs):
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
             extent = anc.get_max_ext(geometries=vec)
-            del vec
             with bbox(coordinates=extent, crs=4326) as box:
                 dem.retile(vector=box, threads=gdal_prms['threads'],
                            dem_dir=None, wbm_dir=config_proc['wbm_dir'],
@@ -283,7 +282,6 @@ def main(config_file=None, debug=False, **kwargs):
                            tilenames=aoi_tiles, username=username, password=password,
                            dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
-            vec = [x.geometry() for x in scenes]
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
@@ -307,14 +305,30 @@ def main(config_file=None, debug=False, **kwargs):
                 log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
                 try:
-                    msg = ard.format(config=config, product_type=product_type,
-                                     scenes=scenes_sub_fnames, datadir=config_proc['sar_dir'],
-                                     outdir=outdir, tile=tile.mgrs, extent=extent, epsg=epsg,
-                                     wbm=fname_wbm, dem_type=dem_type,
-                                     multithread=gdal_prms['multithread'], annotation=annotation,
-                                     update=update)
-                    if msg == 'Already processed - Skip!':
-                        log.info(msg)
+                    prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
+                                                 tile_id=tile.mgrs, extent=extent, epsg=epsg,
+                                                 dir_out=outdir, update=update)
+                except RuntimeError:
+                    log.info('Already processed - Skip!')
+                    del tiles
+                    return
+                log.info(f'product name: {os.path.join(outdir, prod_meta["product_base"])}')
+                try:
+                    src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
+                                                           sar_dir=config_proc['sar_dir'],
+                                                           extent=extent, epsg=epsg,
+                                                           processor_name=processor_name)
+                    
+                    ard_assets = ard.format(config=config, prod_meta=prod_meta,
+                                            src_ids=src_ids, sar_assets=sar_assets,
+                                            tile=tile.mgrs, extent=extent, epsg=epsg,
+                                            wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
+                                            multithread=gdal_prms['multithread'], annotation=annotation)
+                    
+                    if ard_assets is not None:
+                        ard.append_metadata(config=config, prod_meta=prod_meta,
+                                            src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
+                
                 except Exception as e:
                     log.error(msg=e)
                     raise
