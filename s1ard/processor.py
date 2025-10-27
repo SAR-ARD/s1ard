@@ -325,8 +325,9 @@ def main(config_file=None, debug=False, **kwargs):
                                             wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
                                             multithread=gdal_prms['multithread'], annotation=annotation)
                     
-                    ard.append_metadata(config=config, prod_meta=prod_meta,
-                                        src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
+                    if ard_assets is not None:
+                        ard.append_metadata(config=config, prod_meta=prod_meta,
+                                            src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
                 
                 except Exception as e:
                     log.error(msg=e)
