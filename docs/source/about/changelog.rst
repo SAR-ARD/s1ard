@@ -4,8 +4,8 @@ Changelog
 2.5.0 | 2025-10-27
 ------------------
 
-* `dem.prepare`: reduce UTM DEM extent (`#273 <https://github.com/SAR-ARD/s1ard/pull/273)
-* metadata generalization (`#272 <https://github.com/SAR-ARD/s1ard/pull/272)
+* `dem.prepare`: reduce UTM DEM extent (`#273 <https://github.com/SAR-ARD/s1ard/pull/273>`_)
+* metadata generalization (`#272 <https://github.com/SAR-ARD/s1ard/pull/272>`_)
 
 
 `Full v2.5.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.4.0...v2.5.0>`_
