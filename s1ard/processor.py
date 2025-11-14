@@ -34,7 +34,7 @@ def main(config_file=None, debug=False, **kwargs):
     **kwargs
         extra arguments to override parameters in the config file. E.g. `acq_mode`.
     """
-    update = True  # update existing products? Internal development flag.
+    update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
     log = set_logging(config=config, debug=debug)
     config_proc = config['processing']
@@ -43,7 +43,7 @@ def main(config_file=None, debug=False, **kwargs):
     config_sar = config[processor_name]
     gdal_prms = gdal_conf(config=config)
     
-    spacings = {'IW': 60, 'SM': 60, 'EW': 30}
+    spacings = {'IW': 10, 'SM': 10, 'EW': 30}
     config_sar['spacing'] = spacings[config_proc['acq_mode']]
     
     check_spacing(config_sar['spacing'])
