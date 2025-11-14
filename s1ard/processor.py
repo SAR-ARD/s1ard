@@ -5,12 +5,16 @@ from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from s1ard import etad, dem, ard
+from s1ard import etad, ard
 from s1ard.config import get_config, gdal_conf
-import s1ard.ancillary as anc
-import s1ard.tile_extraction as tile_ex
+from s1ard.ancillary import set_logging
 from s1ard import search
 from s1ard import ocn
+from cesard import dem
+import cesard.tile_extraction as tile_ex
+from cesard.search import scene_select
+from cesard.ancillary import (buffer_time, check_scene_consistency,
+                              check_spacing, get_max_ext, group_by_attr)
 
 from s1ard.processors.registry import load_processor
 
@@ -32,7 +36,7 @@ def main(config_file=None, debug=False, **kwargs):
     """
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
-    log = anc.set_logging(config=config, debug=debug)
+    log = set_logging(config=config, debug=debug)
     config_proc = config['processing']
     processor_name = config_proc['processor']
     processor = load_processor(processor_name)
@@ -42,7 +46,7 @@ def main(config_file=None, debug=False, **kwargs):
     spacings = {'IW': 10, 'SM': 10, 'EW': 30}
     config_sar['spacing'] = spacings[config_proc['acq_mode']]
     
-    anc.check_spacing(config_sar['spacing'])
+    check_spacing(config_sar['spacing'])
     
     sar_flag = 'sar' in config_proc['mode']
     nrb_flag = 'nrb' in config_proc['mode']
@@ -88,8 +92,8 @@ def main(config_file=None, debug=False, **kwargs):
             frame_number = None
         dict_search['frameNumber'] = frame_number
         
-        selection, aoi_tiles = search.scene_select(archive=archive,
-                                                   **dict_search)
+        selection, aoi_tiles = scene_select(archive=archive,
+                                            **dict_search)
         
         if len(selection) == 0:
             log.error('could not find any scenes')
@@ -108,11 +112,11 @@ def main(config_file=None, debug=False, **kwargs):
         aoi_tiles = []
     
     # group scenes by datatake
-    scenes_grouped = anc.group_by_attr(scenes, lambda x: x.meta['frameNumber'])
+    scenes_grouped = group_by_attr(scenes, lambda x: x.meta['frameNumber'])
     
     for scenes in scenes_grouped:
         # check that the scenes can really be grouped together
-        anc.check_scene_consistency(scenes=scenes)
+        check_scene_consistency(scenes=scenes)
         
         # Remove scenes with an invalid (0) slice number if others have a valid one (>0).
         # This ensures that scenes with a valid slice number are preferred.
@@ -155,7 +159,7 @@ def main(config_file=None, debug=False, **kwargs):
         for scenes in scenes_grouped:
             scenes_ocn_group = []
             for scene in scenes:
-                start, stop = anc.buffer_time(scene.start, scene.stop, seconds=2)
+                start, stop = buffer_time(scene.start, scene.stop, seconds=2)
                 result = archive.select(product='OCN', mindate=start,
                                         maxdate=stop, date_strict=True)
                 if len(result) == 1:
@@ -274,7 +278,7 @@ def main(config_file=None, debug=False, **kwargs):
             log.info(f'ARD processing of group {s + 1}/{len(scenes_grouped)}')
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
-            extent = anc.get_max_ext(geometries=vec)
+            extent = get_max_ext(geometries=vec)
             with bbox(coordinates=extent, crs=4326) as box:
                 dem.retile(vector=box, threads=gdal_prms['threads'],
                            dem_dir=None, wbm_dir=config_proc['wbm_dir'],
