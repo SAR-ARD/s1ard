@@ -11,100 +11,35 @@ from cesard.config import keyval_check, validate_options, validate_value
 from typing import Any
 
 
-def get_keys(section: str) -> list[str]:
-    """
-    get all allowed configuration keys for a section
+def _get_config_metadata(parser, **kwargs):
+    # METADATA section
+    allowed_keys = get_keys(section='metadata')
+    if 'METADATA' not in parser.sections():
+        parser.add_section('METADATA')
+    meta_sec = parser['METADATA']
     
-    Parameters
-    ----------
-    section:
-        the configuration section to get the allowed keys for.
-        Either 'processing', 'metadata' or the name of a SAR processor plugin e.g. 'snap'.
-
-    Returns
-    -------
-        a list of keys
-    """
-    if section == 'processing':
-        return ['acq_mode', 'annotation', 'aoi_geometry', 'aoi_tiles',
-                'ard_dir', 'datatake', 'date_strict', 'db_file', 'dem_type',
-                'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
-                'measurement', 'mindate', 'mode', 'parquet', 'processor',
-                'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
-                'stac_catalog', 'stac_collections', 'tmp_dir', 'wbm_dir', 'work_dir']
-    elif section == 'metadata':
-        return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
-    else:
-        try:
-            processor = load_processor(section)
-        except ModuleNotFoundError:
-            raise RuntimeError(f"unknown section: {section}.")
-        try:
-            return processor.get_config_keys()
-        except AttributeError:
-            raise RuntimeError(f"missing function s1ard.{section}.get_config_keys().")
-
-
-def read_config_file(config_file: str | None = None) -> configparser.ConfigParser:
-    """
-    Reads a configuration file and returns a ConfigParser object
+    # override config file parameters
+    for k, v in kwargs.items():
+        if k in allowed_keys:
+            meta_sec[k] = v.strip()
     
-    Parameters
-    ----------
-    config_file: str or None
-        the configuration file name. If None, the default configuration file
-        within the package will be used.
-
-    Returns
-    -------
-        the configuration object
-    """
-    parser = configparser.ConfigParser(allow_no_value=True,
-                                       converters={'_datetime': _parse_datetime,
-                                                   '_list': _parse_list})
+    # set defaults
+    if 'format' not in meta_sec.keys():
+        meta_sec['format'] = 'OGC, STAC'
+    if 'copy_original' not in meta_sec.keys():
+        meta_sec['copy_original'] = 'True'
     
-    if config_file:
-        if not os.path.isfile(config_file):
-            raise FileNotFoundError(f"Config file {config_file} does not exist.")
-    else:
-        with importlib.resources.path(package='s1ard.resources',
-                                      resource='config.ini') as path:
-            config_file = str(path)
-    
-    parser.read(config_file)
-    return parser
-
-
-def get_config(config_file: str | None = None, **kwargs: dict[str, str]) \
-        -> dict[str, Any]:
-    """
-    Returns the content of a `config.ini` file as a dictionary.
-    
-    Parameters
-    ----------
-    config_file:
-        Full path to the config file that should be parsed to a dictionary.
-    kwargs:
-        further keyword arguments overriding configuration found in the config file.
-    
-    Returns
-    -------
-        Dictionary of the parsed config parameters.
-        The keys correspond to the config sections in lowercase letters.
-    """
-    parser = read_config_file(config_file)
-    
-    kwargs_proc = {k: v for k, v in kwargs.items() if k in get_keys('processing')}
-    kwargs_meta = {k: v for k, v in kwargs.items() if k in get_keys('metadata')}
-    
-    out = {'processing': _get_config_processing(parser, **kwargs_proc),
-           'metadata': _get_config_metadata(parser, **kwargs_meta)}
-    
-    processor_name = out['processing']['processor']
-    processor = load_processor(processor_name)
-    kwargs_sar = {k: v for k, v in kwargs.items() if k in get_keys(processor_name)}
-    out[processor_name] = processor.get_config_section(parser, **kwargs_sar)
-    
+    out = {}
+    for k, v in meta_sec.items():
+        v = keyval_check(key=k, val=v, allowed_keys=allowed_keys)
+        if k == 'format':
+            v = meta_sec.get_list(k)
+        if k == 'copy_original':
+            v = meta_sec.getboolean(k)
+        out[k] = v
+    for key in allowed_keys:
+        if key not in out.keys():
+            out[key] = None
     return out
 
 
@@ -236,43 +171,123 @@ def _get_config_processing(parser, **kwargs):
     return out
 
 
-def _get_config_metadata(parser, **kwargs):
-    # METADATA section
-    allowed_keys = get_keys(section='metadata')
-    if 'METADATA' not in parser.sections():
-        parser.add_section('METADATA')
-    meta_sec = parser['METADATA']
+def _parse_datetime(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    return dateparse(s)
+
+
+def _parse_list(s):
+    """Custom converter for configparser:
+    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
+    if s in ['', 'None']:
+        return None
+    else:
+        return [x.strip() for x in s.split(',')]
+
+
+def gdal_conf(config):
+    """
+    Stores GDAL configuration options for the current process.
+
+    Parameters
+    ----------
+    config: dict
+        Dictionary of the parsed config parameters for the current process.
+
+    Returns
+    -------
+    dict
+        Dictionary containing GDAL configuration options for the current process.
+    """
+    threads = config['processing']['gdal_threads']
+    threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
+    if not isinstance(threads, int):
+        raise TypeError("'threads' must be of type int")
+    if threads == 1:
+        multithread = False
+    elif threads > 1:
+        multithread = True
+        gdal.SetConfigOption('GDAL_NUM_THREADS', str(threads))
+    else:
+        raise ValueError("'threads' must be >= 1")
     
-    # override config file parameters
-    for k, v in kwargs.items():
-        if k in allowed_keys:
-            meta_sec[k] = v.strip()
+    return {'threads': threads, 'threads_before': threads_before,
+            'multithread': multithread}
+
+
+def get_config(config_file: str | None = None, **kwargs: dict[str, str]) \
+        -> dict[str, Any]:
+    """
+    Returns the content of a `config.ini` file as a dictionary.
+
+    Parameters
+    ----------
+    config_file:
+        Full path to the config file that should be parsed to a dictionary.
+    kwargs:
+        further keyword arguments overriding configuration found in the config file.
+
+    Returns
+    -------
+        Dictionary of the parsed config parameters.
+        The keys correspond to the config sections in lowercase letters.
+    """
+    parser = read_config_file(config_file)
     
-    # set defaults
-    if 'format' not in meta_sec.keys():
-        meta_sec['format'] = 'OGC, STAC'
-    if 'copy_original' not in meta_sec.keys():
-        meta_sec['copy_original'] = 'True'
+    kwargs_proc = {k: v for k, v in kwargs.items() if k in get_keys('processing')}
+    kwargs_meta = {k: v for k, v in kwargs.items() if k in get_keys('metadata')}
     
-    out = {}
-    for k, v in meta_sec.items():
-        v = keyval_check(key=k, val=v, allowed_keys=allowed_keys)
-        if k == 'format':
-            v = meta_sec.get_list(k)
-        if k == 'copy_original':
-            v = meta_sec.getboolean(k)
-        out[k] = v
-    for key in allowed_keys:
-        if key not in out.keys():
-            out[key] = None
+    out = {'processing': _get_config_processing(parser, **kwargs_proc),
+           'metadata': _get_config_metadata(parser, **kwargs_meta)}
+    
+    processor_name = out['processing']['processor']
+    processor = load_processor(processor_name)
+    kwargs_sar = {k: v for k, v in kwargs.items() if k in get_keys(processor_name)}
+    out[processor_name] = processor.get_config_section(parser, **kwargs_sar)
+    
     return out
+
+
+def get_keys(section: str) -> list[str]:
+    """
+    get all allowed configuration keys for a section
+    
+    Parameters
+    ----------
+    section:
+        the configuration section to get the allowed keys for.
+        Either 'processing', 'metadata' or the name of a SAR processor plugin e.g. 'snap'.
+
+    Returns
+    -------
+        a list of keys
+    """
+    if section == 'processing':
+        return ['acq_mode', 'annotation', 'aoi_geometry', 'aoi_tiles',
+                'ard_dir', 'datatake', 'date_strict', 'db_file', 'dem_type',
+                'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
+                'measurement', 'mindate', 'mode', 'parquet', 'processor',
+                'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
+                'stac_catalog', 'stac_collections', 'tmp_dir', 'wbm_dir', 'work_dir']
+    elif section == 'metadata':
+        return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
+    else:
+        try:
+            processor = load_processor(section)
+        except ModuleNotFoundError:
+            raise RuntimeError(f"unknown section: {section}.")
+        try:
+            return processor.get_config_keys()
+        except AttributeError:
+            raise RuntimeError(f"missing function s1ard.{section}.get_config_keys().")
 
 
 def init(
         target: str,
         source: str | None = None,
         overwrite: bool = False,
-         **kwargs
+        **kwargs
 ) -> None:
     """
     Initialize a configuration file.
@@ -307,49 +322,34 @@ def init(
     write(config=config, target=target, overwrite=overwrite)
 
 
-def _parse_datetime(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    return dateparse(s)
-
-
-def _parse_list(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    if s in ['', 'None']:
-        return None
-    else:
-        return [x.strip() for x in s.split(',')]
-
-
-def gdal_conf(config):
+def read_config_file(config_file: str | None = None) -> configparser.ConfigParser:
     """
-    Stores GDAL configuration options for the current process.
+    Reads a configuration file and returns a ConfigParser object
     
     Parameters
     ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
-    
+    config_file: str or None
+        the configuration file name. If None, the default configuration file
+        within the package will be used.
+
     Returns
     -------
-    dict
-        Dictionary containing GDAL configuration options for the current process.
+        the configuration object
     """
-    threads = config['processing']['gdal_threads']
-    threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
-    if not isinstance(threads, int):
-        raise TypeError("'threads' must be of type int")
-    if threads == 1:
-        multithread = False
-    elif threads > 1:
-        multithread = True
-        gdal.SetConfigOption('GDAL_NUM_THREADS', str(threads))
-    else:
-        raise ValueError("'threads' must be >= 1")
+    parser = configparser.ConfigParser(allow_no_value=True,
+                                       converters={'_datetime': _parse_datetime,
+                                                   '_list': _parse_list})
     
-    return {'threads': threads, 'threads_before': threads_before,
-            'multithread': multithread}
+    if config_file:
+        if not os.path.isfile(config_file):
+            raise FileNotFoundError(f"Config file {config_file} does not exist.")
+    else:
+        with importlib.resources.path(package='s1ard.resources',
+                                      resource='config.ini') as path:
+            config_file = str(path)
+    
+    parser.read(config_file)
+    return parser
 
 
 def write(config, target, overwrite=False, **kwargs):
