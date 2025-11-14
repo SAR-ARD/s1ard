@@ -6,7 +6,6 @@ API Documentation
 
     configuration
     processing
-    tile_extraction
     ancillary_functions
     search
     metadata

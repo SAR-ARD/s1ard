@@ -201,12 +201,12 @@ Default if not defined: ``None``.
 search option I: db_file & scene_dir
 ++++++++++++++++++++++++++++++++++++
 
-Metadata is queried from an SQLite database created by :class:`pyrosar.drivers.Archive`.
+Metadata is queried from an SQLite database created by :class:`pyroSAR.drivers.Archive`.
 With ``db_file`` either a full path to an existing database can be provided or it will be created in ``work_dir`` if only
 a filename is provided. E.g., ``db_file = scenes.db`` will automatically create the database file ``/<work_dir>/scenes.db``.
 ``scene_dir`` can optionally be provided as full path to an existing directory.
 It will be searched recursively for any Sentinel-1 scenes using the regular expression ``'^S1[AB].*(SAFE|zip)$'``.
-All scenes found are then inserted into ``db_file`` using method :meth:`pyrosar.drivers.Archive.insert`.
+All scenes found are then inserted into ``db_file`` using method :meth:`pyroSAR.drivers.Archive.insert`.
 
 search option II: stac_catalog & stac_collections
 +++++++++++++++++++++++++++++++++++++++++++++++++

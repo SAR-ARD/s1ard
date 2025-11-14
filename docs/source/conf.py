@@ -46,6 +46,7 @@ bibtex_bibfiles = ['references.bib']
 autosummary_generate = True
 
 intersphinx_mapping = {
+    'cesard': ('https://cesard.readthedocs.io/en/latest', None),
     'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
     'duckdb': ('https://duckdb.org/docs/stable/clients/python/reference', None),
     'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),

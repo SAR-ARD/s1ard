@@ -46,17 +46,17 @@ With ``date_strict`` we ensure that only scenes that were completely acquired in
     scene_dir = path/to/scenes
     db_file = scenes.db
 
-Search with s1ard.search
-------------------------
+Search with cesard.search
+-------------------------
 
-In the background the :py:mod:`s1ard.search` module is used to do the scene search.
+In the background the :py:mod:`cesard.search` module is used to do the scene search.
 This module contains various tools for searching Sentinel-1 scenes from multiple sources.
 
-For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`s1ard.search.scene_select` and class :class:`pyroSAR.drivers.Archive` are used for finding this scene and its neighbors:
+For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`cesard.search.scene_select` and class :class:`pyroSAR.drivers.Archive` are used for finding this scene and its neighbors:
 
 .. code-block:: python
 
-    from s1ard.search import scene_select
+    from cesard.search import scene_select
     from pyroSAR.drivers import Archive
     from spatialist.ancillary import finder
 
@@ -190,11 +190,11 @@ See :meth:`s1ard.search.STACParquetArchive.select`.
 ASF
 ^^^
 
-See :meth:`s1ard.search.ASFArchive.select`.
+See :meth:`cesard.search.ASFArchive.select`.
 
 .. code-block:: python
 
-    from s1ard.search import ASFArchive
+    from cesard.search import ASFArchive
 
     with ASFArchive() as archive:
         selection = archive.select(sensor='S1A', acquisition_mode='IW',

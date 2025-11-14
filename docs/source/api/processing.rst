@@ -31,14 +31,11 @@ SNAP
         :nosignatures:
 
         config_to_string
-        find_datasets
         get_config_keys
         get_config_section
         get_metadata
-        lsm_encoding
         process
         translate_annotation
-        version_dict
 
 
     .. rubric:: processor-specific functions
@@ -46,16 +43,10 @@ SNAP
     .. autosummary::
         :nosignatures:
 
-        geo
         grd_buffer
-        gsr
         look_direction
-        mli
         nrt_slice_num
-        postprocess
         pre
-        rtc
-        sgr
 
 ARD
 ^^^
@@ -89,23 +80,6 @@ ETAD
         :nosignatures:
 
         process
-
-DEM
-^^^
-
-.. automodule:: s1ard.dem
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        authenticate
-        mosaic
-        prepare
-        retile
-        to_mgrs
 
 OCN
 ^^^

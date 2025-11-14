@@ -12,33 +12,16 @@ Extraction
     .. autosummary::
         :nosignatures:
 
-        calc_enl
+        append_wind_norm
         calc_geolocation_accuracy
-        calc_performance_estimates
         calc_pslr_islr
+        calc_wm_ref_stats
         copy_src_meta
         find_in_annotation
-        geometry_from_vec
-        get_header_size
         get_osv_info
         get_prod_meta
         get_src_meta
         meta_dict
-
-XML
-^^^
-
-.. automodule:: s1ard.metadata.xml
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        parse
-        product_xml
-        source_xml
 
 STAC
 ^^^^
@@ -51,7 +34,4 @@ STAC
     .. autosummary::
         :nosignatures:
 
-        parse
-        product_json
-        source_json
         make_catalog
