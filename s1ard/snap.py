@@ -29,6 +29,8 @@ import logging
 log = logging.getLogger('s1ard')
 
 
+# main interface
+
 def config_to_string(config):
     """
     Convert the values of a configuration dictionary to strings.
@@ -125,229 +127,28 @@ def get_config_section(parser, **kwargs):
     return out
 
 
-def translate_annotation(annotation, measurement):
+def get_metadata(scene, outdir):
     """
-    Translate s1ard annotation keys to SAR processor naming.
-    
-    Parameters
-    ----------
-    annotation: List[str]
-        the s1ard annotation keys (e.g. ei, gs)
-    measurement: str
-        the SAR backscatter measurement (gamma|sigma)
-
-    Returns
-    -------
-    List[str]
-        the annotation layer keys as required by the SAR processor
-    """
-    export_extra = None
-    lookup = {'dm': 'layoverShadowMask',
-              'ei': 'incidenceAngleFromEllipsoid',
-              'lc': 'scatteringArea',
-              'ld': 'lookDirection',
-              'li': 'localIncidenceAngle',
-              'np': 'NESZ',
-              'gs': 'gammaSigmaRatio',
-              'sg': 'sigmaGammaRatio'}
-    
-    if annotation is not None:
-        annotation = [
-            'gs' if x == 'ratio' and measurement == 'gamma'
-            else 'sg' if x == 'ratio'
-            else x for x in annotation]
-        export_extra = []
-        for layer in annotation:
-            # supported by the SAR processor
-            if layer in lookup:
-                export_extra.append(lookup[layer])
-            # supported by the NRB processor
-            elif layer in ['em', 'id']:
-                continue
-            else:
-                log.warning(f'unsupported annotation layer: {layer}')
-    return export_extra
-
-
-def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
-        output_noise=True, output_beta0=True, output_sigma0=True,
-        output_gamma0=False, add_slice_num=True, gpt_args=None):
-    """
-    General SAR preprocessing. The following operators are used (optional steps in brackets):
-    Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
+    Get processing metadata needed for ARD product metadata.
 
     Parameters
     ----------
-    src: str
-        the file name of the source scene
-    dst: str
-        the file name of the target scene. Format is BEAM-DIMAP.
-    workflow: str
-        the output SNAP XML workflow filename.
-    allow_res_osv: bool
-        Also allow the less accurate RES orbit files to be used?
-    osv_continue_on_fail: bool
-        Continue processing if no OSV file can be downloaded or raise an error?
-    output_noise: bool
-        output the noise power images?
-    output_beta0: bool
-        output beta nought backscatter needed for RTC?
-    output_sigma0: bool
-        output sigma nought backscatter needed for NESZ?
-    output_gamma0: bool
-        output gamma nought backscatter needed?
-    add_slice_num: bool
-        determine a slice number and add it to the product's metadata?
-        This is only necessary if GRD buffering is intended.
-        See :func:`~s1ard.snap.nrt_slice_num`.
-    gpt_args: list[str] or None
-        a list of additional arguments to be passed to the gpt call
-        
-        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
-    
+    scene: str
+        the name of the SAR scene
+    outdir: str
+        the directory to search for processing output
+
     Returns
     -------
-
-    See Also
-    --------
-    pyroSAR.snap.auxil.orb_parametrize
+    dict
     """
-    scene = identify(src)
-    if not os.path.isfile(workflow):
-        polarizations = scene.polarizations
-        wf = parse_recipe('blank')
-        ############################################
-        read = parse_node('Read')
-        read.parameters['file'] = scene.scene
-        wf.insert_node(read)
-        ############################################
-        orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
-                              allow_RES_OSV=allow_res_osv,
-                              continueOnFail=osv_continue_on_fail)
-        wf.insert_node(orb, before=read.id)
-        last = orb
-        ############################################
-        if re.search('S1[A-Z]', scene.sensor) and scene.product == 'GRD':
-            bn = parse_node('Remove-GRD-Border-Noise')
-            wf.insert_node(bn, before=last.id)
-            bn.parameters['selectedPolarisations'] = polarizations
-            last = bn
-        ############################################
-        cal = parse_node('Calibration')
-        wf.insert_node(cal, before=last.id)
-        cal.parameters['selectedPolarisations'] = polarizations
-        cal.parameters['outputBetaBand'] = output_beta0
-        cal.parameters['outputSigmaBand'] = output_sigma0
-        cal.parameters['outputGammaBand'] = output_gamma0
-        ############################################
-        tnr = parse_node('ThermalNoiseRemoval')
-        wf.insert_node(tnr, before=cal.id)
-        tnr.parameters['outputNoise'] = output_noise
-        last = tnr
-        ############################################
-        if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
-            deb = parse_node('TOPSAR-Deburst')
-            wf.insert_node(deb, before=last.id)
-            last = deb
-        ############################################
-        write = parse_node('Write')
-        wf.insert_node(write, before=last.id)
-        write.parameters['file'] = dst
-        write.parameters['formatName'] = 'BEAM-DIMAP'
-        ############################################
-        wf.write(workflow)
-    if not os.path.isfile(dst):
-        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
-            gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
-        if scene.product == 'GRD' and add_slice_num:
-            try:
-                nrt_slice_num(dim=dst)
-            except RuntimeError:
-                raise RuntimeError('cannot obtain slice number')
-
-
-def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
-    """
-    GRD extent buffering.
-    GRDs, unlike SLCs, do not overlap in azimuth.
-    With this function, a GRD can be buffered using the neighboring acquisitions.
-    First, all images are mosaicked using the `SliceAssembly` operator
-    and then subsetted to the extent of the main scene including a buffer.
-    The `SliceAssembly` operator needs info about the slice number (i.e., the
-    ID/position inside the data take). If the value in the metadata is 0 (which
-    can be the case in NRT slicing mode), the slice number is determined using
-    function :func:`~s1ard.snap.nrt_slice_num`. If this fails, the function will
-    raise an error.
-    
-    Parameters
-    ----------
-    src: str
-        the file name of the source scene in BEAM-DIMAP format.
-    dst: str
-        the file name of the target scene. Format is BEAM-DIMAP.
-    workflow: str
-        the output SNAP XML workflow filename.
-    neighbors: list[str]
-        the file names of neighboring scenes
-    buffer: int
-        the buffer size in meters
-    gpt_args: list[str] or None
-        a list of additional arguments to be passed to the gpt call
-        
-        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size
-          and intermediate clearing
-    
-    Raises
-    ------
-    RuntimeError
-        if the slice number of a scene is 0, and it could not be determined
-        from the acquisition time
-    
-    Returns
-    -------
-
-    """
-    if len(neighbors) == 0:
-        raise RuntimeError("the list of 'neighbors' is empty")
-    
-    scenes = identify_many([src] + neighbors, sortkey='start')
-    wf = parse_recipe('blank')
-    ############################################
-    read_ids = []
-    for scene in scenes:
-        read = parse_node('Read')
-        read.parameters['file'] = scene.scene
-        wf.insert_node(read)
-        read_ids.append(read.id)
-    ############################################
-    asm = parse_node('SliceAssembly')
-    wf.insert_node(asm, before=read_ids)
-    ############################################
-    id_main = [x.scene for x in scenes].index(src)
-    buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
-    xmin = 0
-    width = scenes[id_main].samples
-    if id_main == 0:
-        ymin = 0
-        height = scenes[id_main].lines + buffer_px
-    else:
-        ymin = scenes[0].lines - buffer_px
-        factor = 1 if id_main == len(scenes) - 1 else 2
-        height = scenes[id_main].lines + buffer_px * factor
-    sub = parse_node('Subset')
-    sub.parameters['region'] = [xmin, ymin, width, height]
-    sub.parameters['geoRegion'] = ''
-    sub.parameters['copyMetadata'] = True
-    wf.insert_node(sub, before=asm.id)
-    ############################################
-    write = parse_node('Write')
-    wf.insert_node(write, before=sub.id)
-    write.parameters['file'] = dst
-    write.parameters['formatName'] = 'BEAM-DIMAP'
-    ############################################
-    wf.write(workflow)
-    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
-        gpt_args=gpt_args)
+    basename = os.path.splitext(os.path.basename(scene))[0]
+    scenedir = os.path.join(outdir, basename)
+    dim = finder(scenedir, ['*.dim'])[0]
+    scene = identify(dim)
+    rlks, azlks = scene.meta['looks']
+    return {'azlks': azlks,
+            'rlks': rlks}
 
 
 def process(scene, outdir, measurement, spacing, dem,
@@ -358,7 +159,7 @@ def process(scene, outdir, measurement, spacing, dem,
             neighbors=None, gpt_args=None, cleanup=True):
     """
     Main function for SAR processing with SNAP.
-    
+
     Parameters
     ----------
     scene: str
@@ -367,7 +168,7 @@ def process(scene, outdir, measurement, spacing, dem,
         The output directory for storing the final results.
     measurement: {'sigma', 'gamma'}
         the backscatter measurement convention:
-        
+
         - gamma: RTC gamma nought (:math:`\\gamma^0_T`)
         - sigma: RTC sigma nought (:math:`\\sigma^0_T`)
     spacing: int or float
@@ -387,7 +188,7 @@ def process(scene, outdir, measurement, spacing, dem,
     export_extra: list[str] or None
         A list of ancillary layers to create. Default None: do not create any ancillary layers.
         Options:
-        
+
          - DEM
          - gammaSigmaRatio: :math:`\\sigma^0_T / \\gamma^0_T`
          - sigmaGammaRatio: :math:`\\gamma^0_T / \\sigma^0_T`
@@ -413,7 +214,7 @@ def process(scene, outdir, measurement, spacing, dem,
         buffering is skipped.
     gpt_args: list[str] or None
         a list of additional arguments to be passed to the gpt call
-        
+
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
     cleanup: bool
         Delete intermediate files after successful process termination?
@@ -660,92 +461,148 @@ def process(scene, outdir, measurement, spacing, dem,
             shutil.rmtree(tmpdir_scene)
 
 
-def get_metadata(scene, outdir):
+def translate_annotation(annotation, measurement):
     """
-    Get processing metadata needed for ARD product metadata.
+    Translate s1ard annotation keys to SAR processor naming.
     
     Parameters
     ----------
-    scene: str
-        the name of the SAR scene
-    outdir: str
-        the directory to search for processing output
+    annotation: List[str]
+        the s1ard annotation keys (e.g. ei, gs)
+    measurement: str
+        the SAR backscatter measurement (gamma|sigma)
 
     Returns
     -------
-    dict
+    List[str]
+        the annotation layer keys as required by the SAR processor
     """
-    basename = os.path.splitext(os.path.basename(scene))[0]
-    scenedir = os.path.join(outdir, basename)
-    dim = finder(scenedir, ['*.dim'])[0]
-    scene = identify(dim)
-    rlks, azlks = scene.meta['looks']
-    return {'azlks': azlks,
-            'rlks': rlks}
-
-
-def nrt_slice_num(dim):
-    """
-    Check whether a product has a non-zero slice number and add it if not.
-    In NRT Slicing mode, both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
-    `sliceNumber` is however needed in function :func:`~s1ard.snap.grd_buffer` for
-    the SNAP operator `SliceAssembly`.
-    The time from `segmentStartTime` to `last_line_time` is divided by
-    the acquisition duration (`last_line_time` - `first_line_time`).
-    `totalSlices` is set to 100, which is expected to exceed the maximum possible value.
+    export_extra = None
+    lookup = {'dm': 'layoverShadowMask',
+              'ei': 'incidenceAngleFromEllipsoid',
+              'lc': 'scatteringArea',
+              'ld': 'lookDirection',
+              'li': 'localIncidenceAngle',
+              'np': 'NESZ',
+              'gs': 'gammaSigmaRatio',
+              'sg': 'sigmaGammaRatio'}
     
+    if annotation is not None:
+        annotation = [
+            'gs' if x == 'ratio' and measurement == 'gamma'
+            else 'sg' if x == 'ratio'
+            else x for x in annotation]
+        export_extra = []
+        for layer in annotation:
+            # supported by the SAR processor
+            if layer in lookup:
+                export_extra.append(lookup[layer])
+            # supported by the NRB processor
+            elif layer in ['em', 'id']:
+                continue
+            else:
+                log.warning(f'unsupported annotation layer: {layer}')
+    return export_extra
+
+
+# processor-specific functions
+
+def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
+    """
+    GRD extent buffering.
+    GRDs, unlike SLCs, do not overlap in azimuth.
+    With this function, a GRD can be buffered using the neighboring acquisitions.
+    First, all images are mosaicked using the `SliceAssembly` operator
+    and then subsetted to the extent of the main scene including a buffer.
+    The `SliceAssembly` operator needs info about the slice number (i.e., the
+    ID/position inside the data take). If the value in the metadata is 0 (which
+    can be the case in NRT slicing mode), the slice number is determined using
+    function :func:`~s1ard.snap.nrt_slice_num`. If this fails, the function will
+    raise an error.
+
     Parameters
     ----------
-    dim: str
-        the scene in BEAM-DIMAP format
-    
+    src: str
+        the file name of the source scene in BEAM-DIMAP format.
+    dst: str
+        the file name of the target scene. Format is BEAM-DIMAP.
+    workflow: str
+        the output SNAP XML workflow filename.
+    neighbors: list[str]
+        the file names of neighboring scenes
+    buffer: int
+        the buffer size in meters
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size
+          and intermediate clearing
+
     Raises
     ------
     RuntimeError
-        if the slice number is 0, and it cannot be computed because
-        the segment start time cannot be read from the metadata
-    
+        if the slice number of a scene is 0, and it could not be determined
+        from the acquisition time
+
     Returns
     -------
 
     """
-    with open(dim, 'rb') as f:
-        root = etree.fromstring(f.read())
-    abstract = root.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
-    slice_num = abstract.xpath("./MDATTR[@name='slice_num']")[0]
-    if slice_num.text == '0':
-        flt = dateparse(abstract.xpath("./MDATTR[@name='first_line_time']")[0].text)
-        llt = dateparse(abstract.xpath("./MDATTR[@name='last_line_time']")[0].text)
-        try:
-            sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
-        except IndexError:
-            raise RuntimeError('could not determine slice number '
-                               'due to missing segment start time')
-        aqd = llt - flt
-        slice_num_new = str(int(round((llt - sst) / aqd)))
-        slice_num.text = slice_num_new
-        for item in root.xpath("//MDATTR[@name='sliceNumber']"):
-            item.text = slice_num_new
-        for item in root.xpath("//MDATTR[@name='totalSlices']"):
-            item.text = '100'
-        etree.indent(root, space='    ')
-        tree = etree.ElementTree(root)
-        tree.write(dim, pretty_print=True, xml_declaration=True,
-                   encoding='utf-8')
+    if len(neighbors) == 0:
+        raise RuntimeError("the list of 'neighbors' is empty")
+    
+    scenes = identify_many([src] + neighbors, sortkey='start')
+    wf = parse_recipe('blank')
+    ############################################
+    read_ids = []
+    for scene in scenes:
+        read = parse_node('Read')
+        read.parameters['file'] = scene.scene
+        wf.insert_node(read)
+        read_ids.append(read.id)
+    ############################################
+    asm = parse_node('SliceAssembly')
+    wf.insert_node(asm, before=read_ids)
+    ############################################
+    id_main = [x.scene for x in scenes].index(src)
+    buffer_px = int(ceil(buffer / scenes[0].spacing[1]))
+    xmin = 0
+    width = scenes[id_main].samples
+    if id_main == 0:
+        ymin = 0
+        height = scenes[id_main].lines + buffer_px
+    else:
+        ymin = scenes[0].lines - buffer_px
+        factor = 1 if id_main == len(scenes) - 1 else 2
+        height = scenes[id_main].lines + buffer_px * factor
+    sub = parse_node('Subset')
+    sub.parameters['region'] = [xmin, ymin, width, height]
+    sub.parameters['geoRegion'] = ''
+    sub.parameters['copyMetadata'] = True
+    wf.insert_node(sub, before=asm.id)
+    ############################################
+    write = parse_node('Write')
+    wf.insert_node(write, before=sub.id)
+    write.parameters['file'] = dst
+    write.parameters['formatName'] = 'BEAM-DIMAP'
+    ############################################
+    wf.write(workflow)
+    gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+        gpt_args=gpt_args)
 
 
 def look_direction(dim):
     """
     Compute the per-pixel range look direction angle.
     This adds a new layer to an existing BEAM-DIMAP product.
-    
+
     Steps performed:
-    
+
     - read geolocation grid points
     - limit grid point list to those relevant to the image
     - for each point, compute the range direction angle to the next point in range direction.
     - interpolate the grid to the full image dimensions
-    
+
     Notes
     -----
     - The interpolation depends on the location of the grid points relative to the image.
@@ -932,3 +789,150 @@ def look_direction(dim):
         metadata(dim=dim)
     else:
         log.info('look direction has already been computed')
+
+
+def nrt_slice_num(dim):
+    """
+    Check whether a product has a non-zero slice number and add it if not.
+    In NRT Slicing mode, both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
+    `sliceNumber` is however needed in function :func:`~s1ard.snap.grd_buffer` for
+    the SNAP operator `SliceAssembly`.
+    The time from `segmentStartTime` to `last_line_time` is divided by
+    the acquisition duration (`last_line_time` - `first_line_time`).
+    `totalSlices` is set to 100, which is expected to exceed the maximum possible value.
+
+    Parameters
+    ----------
+    dim: str
+        the scene in BEAM-DIMAP format
+
+    Raises
+    ------
+    RuntimeError
+        if the slice number is 0, and it cannot be computed because
+        the segment start time cannot be read from the metadata
+
+    Returns
+    -------
+
+    """
+    with open(dim, 'rb') as f:
+        root = etree.fromstring(f.read())
+    abstract = root.xpath("//MDElem[@name='Abstracted_Metadata']")[0]
+    slice_num = abstract.xpath("./MDATTR[@name='slice_num']")[0]
+    if slice_num.text == '0':
+        flt = dateparse(abstract.xpath("./MDATTR[@name='first_line_time']")[0].text)
+        llt = dateparse(abstract.xpath("./MDATTR[@name='last_line_time']")[0].text)
+        try:
+            sst = dateparse(root.xpath("//MDATTR[@name='segmentStartTime']")[0].text)
+        except IndexError:
+            raise RuntimeError('could not determine slice number '
+                               'due to missing segment start time')
+        aqd = llt - flt
+        slice_num_new = str(int(round((llt - sst) / aqd)))
+        slice_num.text = slice_num_new
+        for item in root.xpath("//MDATTR[@name='sliceNumber']"):
+            item.text = slice_num_new
+        for item in root.xpath("//MDATTR[@name='totalSlices']"):
+            item.text = '100'
+        etree.indent(root, space='    ')
+        tree = etree.ElementTree(root)
+        tree.write(dim, pretty_print=True, xml_declaration=True,
+                   encoding='utf-8')
+
+
+def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
+        output_noise=True, output_beta0=True, output_sigma0=True,
+        output_gamma0=False, add_slice_num=True, gpt_args=None):
+    """
+    General SAR preprocessing. The following operators are used (optional steps in brackets):
+    Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
+
+    Parameters
+    ----------
+    src: str
+        the file name of the source scene
+    dst: str
+        the file name of the target scene. Format is BEAM-DIMAP.
+    workflow: str
+        the output SNAP XML workflow filename.
+    allow_res_osv: bool
+        Also allow the less accurate RES orbit files to be used?
+    osv_continue_on_fail: bool
+        Continue processing if no OSV file can be downloaded or raise an error?
+    output_noise: bool
+        output the noise power images?
+    output_beta0: bool
+        output beta nought backscatter needed for RTC?
+    output_sigma0: bool
+        output sigma nought backscatter needed for NESZ?
+    output_gamma0: bool
+        output gamma nought backscatter needed?
+    add_slice_num: bool
+        determine a slice number and add it to the product's metadata?
+        This is only necessary if GRD buffering is intended.
+        See :func:`~s1ard.snap.nrt_slice_num`.
+    gpt_args: list[str] or None
+        a list of additional arguments to be passed to the gpt call
+        
+        - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
+    
+    Returns
+    -------
+
+    See Also
+    --------
+    pyroSAR.snap.auxil.orb_parametrize
+    """
+    scene = identify(src)
+    if not os.path.isfile(workflow):
+        polarizations = scene.polarizations
+        wf = parse_recipe('blank')
+        ############################################
+        read = parse_node('Read')
+        read.parameters['file'] = scene.scene
+        wf.insert_node(read)
+        ############################################
+        orb = orb_parametrize(scene=scene, formatName='SENTINEL-1',
+                              allow_RES_OSV=allow_res_osv,
+                              continueOnFail=osv_continue_on_fail)
+        wf.insert_node(orb, before=read.id)
+        last = orb
+        ############################################
+        if re.search('S1[A-Z]', scene.sensor) and scene.product == 'GRD':
+            bn = parse_node('Remove-GRD-Border-Noise')
+            wf.insert_node(bn, before=last.id)
+            bn.parameters['selectedPolarisations'] = polarizations
+            last = bn
+        ############################################
+        cal = parse_node('Calibration')
+        wf.insert_node(cal, before=last.id)
+        cal.parameters['selectedPolarisations'] = polarizations
+        cal.parameters['outputBetaBand'] = output_beta0
+        cal.parameters['outputSigmaBand'] = output_sigma0
+        cal.parameters['outputGammaBand'] = output_gamma0
+        ############################################
+        tnr = parse_node('ThermalNoiseRemoval')
+        wf.insert_node(tnr, before=cal.id)
+        tnr.parameters['outputNoise'] = output_noise
+        last = tnr
+        ############################################
+        if scene.product == 'SLC' and scene.acquisition_mode in ['EW', 'IW']:
+            deb = parse_node('TOPSAR-Deburst')
+            wf.insert_node(deb, before=last.id)
+            last = deb
+        ############################################
+        write = parse_node('Write')
+        wf.insert_node(write, before=last.id)
+        write.parameters['file'] = dst
+        write.parameters['formatName'] = 'BEAM-DIMAP'
+        ############################################
+        wf.write(workflow)
+    if not os.path.isfile(dst):
+        gpt(xmlfile=workflow, tmpdir=os.path.dirname(dst),
+            gpt_args=gpt_args, removeS1BorderNoiseMethod='ESA')
+        if scene.product == 'GRD' and add_slice_num:
+            try:
+                nrt_slice_num(dim=dst)
+            except RuntimeError:
+                raise RuntimeError('cannot obtain slice number')
