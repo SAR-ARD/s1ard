@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.6.1 | 2025-11-25
+------------------
+
+* ard.product_info: bug fix, renamed par dir_out to dir_ard (`#279 <https://github.com/SAR-ARD/s1ard/pull/279>`_)
+
+
+`Full v2.6.1 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.6.0...v2.6.1>`_
+
 2.6.0 | 2025-11-24
 ------------------
 
