@@ -479,9 +479,9 @@ def meta_dict(config, prod_meta, src_ids, compression):
         src_xml[uid] = get_src_meta(sid=sid)
     sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
     
-    ref_tif = finder(prod_meta['dir_ard'], ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
-    np_tifs = finder(prod_meta['dir_ard'], ['-np-[hv]{2}.tif$'], regex=True)
-    ei_tif = finder(prod_meta['dir_ard'], ['-ei.tif$'], regex=True)
+    ref_tif = finder(prod_meta['dir_ard_product'], ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
+    np_tifs = finder(prod_meta['dir_ard_product'], ['-np-[hv]{2}.tif$'], regex=True)
+    ei_tif = finder(prod_meta['dir_ard_product'], ['-ei.tif$'], regex=True)
     prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
                                    sar_dir=config['processing']['sar_dir'],
                                    processor_name=config['processing']['processor']))
