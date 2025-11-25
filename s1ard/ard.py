@@ -33,7 +33,7 @@ def product_info(
         tile_id: str,
         extent: dict[str, int | float],
         epsg: int,
-        dir_out: str,
+        dir_ard: str,
         update: bool = False,
         product_id: str | None = None
 ) -> dict[str, str | int | datetime]:
@@ -52,8 +52,8 @@ def product_info(
         the extent of the MGRS tile
     epsg:
         the EPSG code of the MGRS tile
-    dir_out:
-        the output directory of the product
+    dir_ard:
+        the ARD output directory
     update:
         update an existing product (or create a new one)
     product_id:
@@ -97,28 +97,30 @@ def product_info(
     skeleton_files = '{mission}-{mode}-{product_type}-{start}-{orbitnumber:06}-{datatake:0>6}-{tile}'
     
     meta['product_base'] = skeleton_dir.format(**meta_name)
-    meta['dir_ard'] = os.path.join(dir_out, tile_id, meta['product_base'])
+    dir_ard_tile = os.path.join(dir_ard, tile_id)
+    os.makedirs(dir_ard_tile, exist_ok=True)
+    meta['dir_ard_product'] = os.path.join(dir_ard_tile, meta['product_base'])
     meta['file_base'] = skeleton_files.format(**meta_name_lower) + '-{suffix}.tif'
     
     # check existence of products
     msg = 'Already processed - Skip!'
     pattern = meta['product_base'].replace(product_id, '*')
-    existing = finder(dir_out, [pattern], foldermode=2)
+    existing = finder(dir_ard_tile, [pattern], foldermode=2)
     if len(existing) > 0:
         if not update:
             raise RuntimeError(msg)
         else:
-            if existing[0] != meta['dir_ard']:
+            if existing[0] != meta['dir_ard_product']:
                 existing_meta = re.search(ARD_PATTERN, os.path.basename(existing[0])).groupdict()
                 return product_info(product_type=product_type, src_ids=src_ids,
                                     tile_id=tile_id, extent=extent, epsg=epsg,
-                                    dir_out=dir_out, update=update,
+                                    dir_ard=dir_ard, update=update,
                                     product_id=existing_meta['ID'])
             else:
                 return meta
     else:
         try:
-            os.makedirs(meta['dir_ard'], exist_ok=False)
+            os.makedirs(meta['dir_ard_product'], exist_ok=False)
         except OSError:
             raise RuntimeError(msg)
     return meta
@@ -215,7 +217,7 @@ def format(
     
     if len(src_ids) == 0:
         log.error(f'None of the processed scenes overlap with the current tile {tile}')
-        shutil.rmtree(prod_meta['dir_ard'])
+        shutil.rmtree(prod_meta['dir_ard_product'])
         return
     
     if annotation is not None:
@@ -239,7 +241,7 @@ def format(
     
     subdirectories = ['measurement', 'annotation', 'source', 'support']
     for subdirectory in subdirectories:
-        os.makedirs(os.path.join(prod_meta['dir_ard'], subdirectory), exist_ok=True)
+        os.makedirs(os.path.join(prod_meta['dir_ard_product'], subdirectory), exist_ok=True)
     
     # prepare raster write options; https://gdal.org/drivers/raster/cog.html
     write_options_base = ['BLOCKSIZE={}'.format(blocksize),
@@ -269,10 +271,10 @@ def format(
             subdir = 'measurement'
         else:
             subdir = 'annotation'
-        outname = os.path.join(prod_meta['dir_ard'], subdir, outname_base)
+        outname = os.path.join(prod_meta['dir_ard_product'], subdir, outname_base)
         
         if not os.path.isfile(outname):
-            log.info(f"creating {os.path.relpath(outname, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(outname, prod_meta['dir_ard_product'])}")
             images = [ds[key] for ds in sar_assets]
             ras = None
             if len(images) > 1:
@@ -306,9 +308,9 @@ def format(
                 raise FileNotFoundError('External water body mask could not be found: {}'.format(wbm))
         
         dm_path_base = prod_meta["file_base"].format(suffix='dm')
-        dm_path = os.path.join(prod_meta['dir_ard'], 'annotation', dm_path_base)
+        dm_path = os.path.join(prod_meta['dir_ard_product'], 'annotation', dm_path_base)
         if not os.path.isfile(dm_path):
-            log.info(f"creating {os.path.relpath(dm_path, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(dm_path, prod_meta['dir_ard_product'])}")
             processor = load_processor(processor_name)
             lsm_encoding = processor.lsm_encoding()
             create_data_mask(outname=dm_path, datasets=sar_assets, extent=extent, epsg=epsg,
@@ -322,9 +324,9 @@ def format(
     # create acquisition ID image raster (-id.tif)
     if 'id' in allowed:
         id_path_base = prod_meta["file_base"].format(suffix='id')
-        id_path = os.path.join(prod_meta['dir_ard'], 'annotation', id_path_base)
+        id_path = os.path.join(prod_meta['dir_ard_product'], 'annotation', id_path_base)
         if not os.path.isfile(id_path):
-            log.info(f"creating {os.path.relpath(id_path, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(id_path, prod_meta['dir_ard_product'])}")
             create_acq_id_image(outname=id_path, ref_tif=ref_tif,
                                 datasets=sar_assets, src_ids=src_ids,
                                 extent=extent, epsg=epsg, driver=driver,
@@ -336,9 +338,9 @@ def format(
     # (if not already converted from processor output)
     if dem_type is not None and 'em' in allowed:
         em_path_base = prod_meta["file_base"].format(suffix='em')
-        em_path = os.path.join(prod_meta['dir_ard'], 'annotation', em_path_base)
+        em_path = os.path.join(prod_meta['dir_ard_product'], 'annotation', em_path_base)
         if not os.path.isfile(em_path):
-            log.info(f"creating {os.path.relpath(em_path, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(em_path, prod_meta['dir_ard_product'])}")
             with Raster(ref_tif) as ras:
                 tr = ras.res
             log_pyro = logging.getLogger('pyroSAR')
@@ -355,7 +357,7 @@ def format(
     if prod_meta['polarization'] in ['DH', 'DV'] and len(measure_tifs) == 2:
         cc_path = re.sub('[hv]{2}', 'cc', measure_tifs[0]).replace('.tif', '.vrt')
         if not os.path.isfile(cc_path):
-            log.info(f"creating {os.path.relpath(cc_path, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(cc_path, prod_meta['dir_ard_product'])}")
             create_rgb_vrt(outname=cc_path, infiles=measure_tifs,
                            overviews=overviews, overview_resampling=ovr_resampling)
         key = re.search('cc-[gs]-lin', cc_path).group()
@@ -368,7 +370,7 @@ def format(
     for item in measure_tifs:
         target = item.replace('lin.tif', 'log.vrt')
         if not os.path.isfile(target):
-            log.info(f"creating {os.path.relpath(target, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(target, prod_meta['dir_ard_product'])}")
             create_vrt(src=item, dst=target, fun=fun, scale=scale,
                        args=args, options=vrt_options, overviews=overviews,
                        overview_resampling=ovr_resampling)
@@ -383,7 +385,7 @@ def format(
             sigma0_rtc_log = item.replace('g-lin.tif', 's-log.vrt')
             
             if not os.path.isfile(sigma0_rtc_lin):
-                log.info(f"creating {os.path.relpath(sigma0_rtc_lin, prod_meta['dir_ard'])}")
+                log.info(f"creating {os.path.relpath(sigma0_rtc_lin, prod_meta['dir_ard_product'])}")
                 create_vrt(src=[item, gs_path], dst=sigma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -391,7 +393,7 @@ def format(
             ard_assets[key] = sigma0_rtc_lin
             
             if not os.path.isfile(sigma0_rtc_log):
-                log.info(f"creating {os.path.relpath(sigma0_rtc_log, prod_meta['dir_ard'])}")
+                log.info(f"creating {os.path.relpath(sigma0_rtc_log, prod_meta['dir_ard_product'])}")
                 create_vrt(src=sigma0_rtc_lin, dst=sigma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -408,7 +410,7 @@ def format(
             gamma0_rtc_log = item.replace('s-lin.tif', 'g-log.vrt')
             
             if not os.path.isfile(gamma0_rtc_lin):
-                log.info(f"creating {os.path.relpath(gamma0_rtc_lin, prod_meta['dir_ard'])}")
+                log.info(f"creating {os.path.relpath(gamma0_rtc_lin, prod_meta['dir_ard_product'])}")
                 create_vrt(src=[item, sg_path], dst=gamma0_rtc_lin, fun='mul',
                            relpaths=True, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling)
@@ -416,7 +418,7 @@ def format(
             ard_assets[key] = gamma0_rtc_lin
             
             if not os.path.isfile(gamma0_rtc_log):
-                log.info(f"creating {os.path.relpath(gamma0_rtc_log, prod_meta['dir_ard'])}")
+                log.info(f"creating {os.path.relpath(gamma0_rtc_log, prod_meta['dir_ard_product'])}")
                 create_vrt(src=gamma0_rtc_lin, dst=gamma0_rtc_log, fun=fun,
                            scale=scale, options=vrt_options, overviews=overviews,
                            overview_resampling=ovr_resampling, args=args)
@@ -452,13 +454,13 @@ def format(
             wn_ard = None
         
         outname_base = prod_meta["file_base"].format(suffix='wm')
-        wm_ard = os.path.join(prod_meta['dir_ard'], 'annotation', outname_base)
+        wm_ard = os.path.join(prod_meta['dir_ard_product'], 'annotation', outname_base)
         
         gapfill = True if src_ids[0].product == 'GRD' else False
         
-        log.info(f"creating {os.path.relpath(wm_ard, prod_meta['dir_ard'])}")
+        log.info(f"creating {os.path.relpath(wm_ard, prod_meta['dir_ard_product'])}")
         if wn_ard is not None:
-            log.info(f"creating {os.path.relpath(wn_ard, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(wn_ard, prod_meta['dir_ard_product'])}")
         
         wind_normalization(src=wm, dst_wm=wm_ard, dst_wn=wn_ard, measurement=copol_sigma0,
                            gapfill=gapfill, bounds=bounds, epsg=epsg, driver=driver,
@@ -517,18 +519,18 @@ def append_metadata(
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(prod_meta['dir_ard'], 'support', schema)
+        schema_out = os.path.join(prod_meta['dir_ard_product'], 'support', schema)
         if not os.path.isfile(schema_out):
-            log.info(f"creating {os.path.relpath(schema_out, prod_meta['dir_ard'])}")
+            log.info(f"creating {os.path.relpath(schema_out, prod_meta['dir_ard_product'])}")
             shutil.copy(schema_in, schema_out)
     
     if config['metadata']['copy_original']:
-        copy_src_meta(ard_dir=prod_meta['dir_ard'], src_ids=src_ids)
+        copy_src_meta(ard_dir=prod_meta['dir_ard_product'], src_ids=src_ids)
     if 'OGC' in config['metadata']['format']:
-        xml.parse(meta=meta, target=prod_meta['dir_ard'],
+        xml.parse(meta=meta, target=prod_meta['dir_ard_product'],
                   assets=assets, exist_ok=True)
     if 'STAC' in config['metadata']['format']:
-        stac.parse(meta=meta, target=prod_meta['dir_ard'],
+        stac.parse(meta=meta, target=prod_meta['dir_ard_product'],
                    assets=assets, exist_ok=True)
 
 

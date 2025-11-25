@@ -295,8 +295,6 @@ def main(config_file=None, debug=False, **kwargs):
                 # select all scenes from the group whose footprint overlaps with the current tile
                 scenes_sub = [x for x in scenes if intersect(tile, x.geometry())]
                 scenes_sub_fnames = [x.scene for x in scenes_sub]
-                outdir = os.path.join(config_proc['ard_dir'], tile.mgrs)
-                os.makedirs(outdir, exist_ok=True)
                 fname_wbm = os.path.join(config_proc['wbm_dir'],
                                          config_proc['dem_type'],
                                          '{}_WBM.tif'.format(tile.mgrs))
@@ -311,12 +309,12 @@ def main(config_file=None, debug=False, **kwargs):
                 try:
                     prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
                                                  tile_id=tile.mgrs, extent=extent, epsg=epsg,
-                                                 dir_out=outdir, update=update)
+                                                 dir_ard=config_proc['ard_dir'], update=update)
                 except RuntimeError:
                     log.info('Already processed - Skip!')
                     del tiles
                     return
-                log.info(f'product name: {os.path.join(outdir, prod_meta["product_base"])}')
+                log.info(f'product name: {prod_meta['dir_ard_product']}')
                 try:
                     src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
                                                            sar_dir=config_proc['sar_dir'],
