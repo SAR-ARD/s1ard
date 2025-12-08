@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.6.2 | 2025-12-08
+------------------
+
+* typing: do not compare lxml.ElementTree using | but with Union (`#281 <https://github.com/SAR-ARD/s1ard/pull/281>`_)
+
+
+`Full v2.6.2 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.6.1...v2.6.2>`_
+
 2.6.1 | 2025-11-25
 ------------------
 
