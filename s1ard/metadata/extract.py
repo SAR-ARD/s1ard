@@ -3,6 +3,7 @@ import re
 import shutil
 import zipfile
 import math
+from typing import Union
 from statistics import mean
 from lxml import etree
 from dateutil.parser import parse as dateparse
@@ -410,19 +411,26 @@ def get_prod_meta(tif, src_ids, sar_dir, processor_name):
     return out
 
 
-def get_src_meta(sid: ID) -> dict[str, etree.ElementTree | dict[str, etree.ElementTree]]:
+# ElementTree is a cython class, which may behave like a function and may
+# thus not define __or__, which is needed for the | typing operator.
+# Using Union instead.
+def get_src_meta(
+        sid: ID
+) -> dict[str, Union[etree.ElementTree, dict[str, etree.ElementTree]]]:
     """
-    Retrieve the manifest and annotation XML data of a scene as a dictionary using an :class:`pyroSAR.drivers.ID`
-    object.
+    Retrieve the manifest and annotation XML data of a scene as a dictionary
+    using an :class:`pyroSAR.drivers.ID` object.
 
     Parameters
     ----------
     sid:
-        A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with e.g. :func:`pyroSAR.drivers.identify`.
+        A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with e.g.
+        :func:`pyroSAR.drivers.identify`.
 
     Returns
     -------
-        A dictionary containing the parsed `etree.ElementTree` objects for the manifest and annotation XML files.
+        A dictionary containing the parsed `etree.ElementTree` objects for
+        the manifest and annotation XML files.
     """
     files = sid.findfiles(r'^s1[abcd].*-[vh]{2}-.*\.xml$')
     pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
