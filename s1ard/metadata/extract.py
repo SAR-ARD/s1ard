@@ -161,8 +161,8 @@ def calc_pslr_islr(annotation_dict, decimals=2):
         islr_mean[swath] = np.nanmean(islr_dict[swath])
     
     # Mean value for all swaths
-    pslr = np.round(np.nanmean(list(pslr_mean.values())), decimals)
-    islr = np.round(np.nanmean(list(islr_mean.values())), decimals)
+    pslr = round(np.nanmean(list(pslr_mean.values())).item(), decimals)
+    islr = round(np.nanmean(list(islr_mean.values())).item(), decimals)
     return pslr, islr
 
 
@@ -696,10 +696,10 @@ def meta_dict(config, prod_meta, src_ids, compression):
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
         meta['source'][uid]['geom_xml_envelope'] = geom['envelope']
-        meta['source'][uid]['incidenceAngleMax'] = round(np.max(inc_vals), 2)
-        meta['source'][uid]['incidenceAngleMin'] = round(np.min(inc_vals), 2)
-        meta['source'][uid]['incidenceAngleMidSwath'] = round(np.max(inc_vals) -
-                                                              ((np.max(inc_vals) - np.min(inc_vals)) / 2), 2)
+        meta['source'][uid]['incidenceAngleMax'] = round(max(inc_vals), 2)
+        meta['source'][uid]['incidenceAngleMin'] = round(min(inc_vals), 2)
+        inc_mid_swath = round(max(inc_vals) - ((max(inc_vals) - min(inc_vals)) / 2), 2)
+        meta['source'][uid]['incidenceAngleMidSwath'] = inc_mid_swath
         meta['source'][uid]['instrumentAzimuthAngle'] = round(sid.meta['heading'], 2)
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
