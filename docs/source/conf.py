@@ -49,6 +49,7 @@ intersphinx_mapping = {
     'cesard': ('https://cesard.readthedocs.io/en/latest', None),
     'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
     'duckdb': ('https://duckdb.org/docs/stable/clients/python/reference', None),
+    'lxml': ('https://lxml.de/apidoc', None),
     'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),
     'osgeo': ('https://gdal.org/en/stable', None),
     'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),

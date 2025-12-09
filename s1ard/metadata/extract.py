@@ -3,7 +3,7 @@ import re
 import shutil
 import zipfile
 import math
-from typing import Union
+from typing import Union, Literal
 from statistics import mean
 from lxml import etree
 from dateutil.parser import parse as dateparse
@@ -129,29 +129,37 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
     return round(rmse_planar, decimals)
 
 
-def calc_pslr_islr(annotation_dict, decimals=2):
+def calc_pslr_islr(
+        annotation_dict: dict[str, etree.ElementTree],
+        decimals: int = 2
+) -> tuple[float, float]:
     """
-    Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated Side Lobe Ratio (ISLR) from the annotation
-    metadata of a scene and calculates the mean value for all swaths.
+    Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated
+    Side Lobe Ratio (ISLR) from the annotation metadata of a scene and
+    calculates the mean value for all swaths.
 
     Parameters
     ----------
-    annotation_dict: dict
-        A dictionary of annotation files in the form: {'swath ID':`lxml.etree._Element` object}
-    decimals: int, optional
+    annotation_dict:
+        A dictionary of Sentinel-1 annotation file XML objects
+        (key `annotation` of the dictionary returned by :func:`get_src_meta`).
+    decimals:
         Number of decimal places to round the calculated values to. Default is 2.
 
     Returns
     -------
-    tuple[float]
         a tuple with the following values:
 
         - pslr: Mean PSLR value for all swaths of the scene.
         - islr: Mean ISLR value for all swaths of the scene.
     """
     swaths = list(annotation_dict.keys())
-    pslr_dict = find_in_annotation(annotation_dict=annotation_dict, pattern='.//crossCorrelationPslr', out_type='float')
-    islr_dict = find_in_annotation(annotation_dict=annotation_dict, pattern='.//crossCorrelationIslr', out_type='float')
+    pslr_dict = find_in_annotation(annotation_dict=annotation_dict,
+                                   pattern='.//crossCorrelationPslr',
+                                   out_type='float')
+    islr_dict = find_in_annotation(annotation_dict=annotation_dict,
+                                   pattern='.//crossCorrelationIslr',
+                                   out_type='float')
     
     # Mean values per swath
     pslr_mean = {}
@@ -161,8 +169,8 @@ def calc_pslr_islr(annotation_dict, decimals=2):
         islr_mean[swath] = np.nanmean(islr_dict[swath])
     
     # Mean value for all swaths
-    pslr = np.round(np.nanmean(list(pslr_mean.values())), decimals)
-    islr = np.round(np.nanmean(list(islr_mean.values())), decimals)
+    pslr = round(np.nanmean(list(pslr_mean.values())).item(), decimals)
+    islr = round(np.nanmean(list(islr_mean.values())).item(), decimals)
     return pslr, islr
 
 
@@ -248,31 +256,33 @@ def copy_src_meta(ard_dir, src_ids):
                             dirs_exist_ok=True)
 
 
-def find_in_annotation(annotation_dict: dict[str, etree.ElementTree], pattern, single=False, out_type='str'):
+def find_in_annotation(
+        annotation_dict: dict[str, etree.ElementTree],
+        pattern: str,
+        single: bool = False,
+        out_type: Literal["int", "float", "str"] = "str"
+) -> dict[str, list[int | float | str] | int | float | str] | list[int | float | str] | int | float | str:
     """
-    Search for a pattern in all XML annotation files provided and return a dictionary of results.
+    Search for a pattern in all XML annotation files provided and return the results.
 
     Parameters
     ----------
-    annotation_dict: dict
-        A dict of annotation files in the form: {'swath ID': `lxml.etree._Element` object}
-    pattern: str
+    annotation_dict:
+        A dictionary of Sentinel-1 annotation file XML objects
+        (key `annotation` of the dictionary returned by :func:`get_src_meta`).
+    pattern:
         The pattern to search for in each annotation file.
-    single: bool
-        If True, the results found in each annotation file are expected to be the same and therefore only a single
-        value will be returned instead of a dict. If the results differ, an error is raised. Default is False.
-    out_type: str
-        Output type to convert the results to. Can be one of the following:
-
-        - 'str' (default)
-        - 'float'
-        - 'int'
+    single:
+        If True, the results found in each annotation file are expected to be
+        the same and therefore only a single value will be returned instead of
+        a dictionary. If the results differ, an error is raised.
+    out_type:
+        Output type to convert the results to.
 
     Returns
     -------
-    out: dict
-        A dictionary of the results containing a list for each of the annotation files. E.g.,
-        {'swath ID': list[str or float or int]}
+        Either a dictionary with results per annotation file (swath) or a single
+        result, which is identical across annotation files.
     """
     out = {}
     for s, a in annotation_dict.items():
@@ -288,18 +298,24 @@ def find_in_annotation(annotation_dict: dict[str, etree.ElementTree], pattern, s
             if len(out[s]) == 1:
                 out[s] = out[s][0]
     
-    def _convert(obj, type):
+    def _convert(
+            obj: dict[str, list[str] | str] | list[str] | str,
+            out_type: str
+    ):
+        if isinstance(obj, dict):
+            return {k: _convert(v, out_type) for k, v in obj.items()}
         if isinstance(obj, list):
-            return [_convert(x, type) for x in obj]
+            return [_convert(x, out_type) for x in obj]
         elif isinstance(obj, str):
-            if type == 'float':
+            if out_type == 'float':
                 return float(obj)
-            if type == 'int':
+            if out_type == 'int':
                 return int(obj)
+        else:
+            raise TypeError(f'got an unexpected type: {type(obj)}')
     
     if out_type != 'str':
-        for k, v in list(out.items()):
-            out[k] = _convert(v, out_type)
+        out = _convert(out, out_type)
     
     err_msg = 'Search result for pattern "{}" expected to be the same in all annotation files.'
     if single:
@@ -307,10 +323,7 @@ def find_in_annotation(annotation_dict: dict[str, etree.ElementTree], pattern, s
         for k in out:
             if out[k] != val:
                 raise RuntimeError(err_msg.format(pattern))
-        if out_type != 'str':
-            return _convert(val, out_type)
-        else:
-            return val
+        return val
     else:
         return out
 
@@ -416,7 +429,7 @@ def get_prod_meta(tif, src_ids, sar_dir, processor_name):
 # Using Union instead.
 def get_src_meta(
         sid: ID
-) -> dict[str, Union[etree.ElementTree, dict[str, etree.ElementTree]]]:
+) -> dict[Literal["manifest", "annotation"], Union[etree.ElementTree, dict[str, etree.ElementTree]]]:
     """
     Retrieve the manifest and annotation XML data of a scene as a dictionary
     using an :class:`pyroSAR.drivers.ID` object.
@@ -696,10 +709,10 @@ def meta_dict(config, prod_meta, src_ids, compression):
         meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
         meta['source'][uid]['geom_xml_center'] = geom['center']
         meta['source'][uid]['geom_xml_envelope'] = geom['envelope']
-        meta['source'][uid]['incidenceAngleMax'] = round(np.max(inc_vals), 2)
-        meta['source'][uid]['incidenceAngleMin'] = round(np.min(inc_vals), 2)
-        meta['source'][uid]['incidenceAngleMidSwath'] = round(np.max(inc_vals) -
-                                                              ((np.max(inc_vals) - np.min(inc_vals)) / 2), 2)
+        meta['source'][uid]['incidenceAngleMax'] = round(max(inc_vals), 2)
+        meta['source'][uid]['incidenceAngleMin'] = round(min(inc_vals), 2)
+        inc_mid_swath = round(max(inc_vals) - ((max(inc_vals) - min(inc_vals)) / 2), 2)
+        meta['source'][uid]['incidenceAngleMidSwath'] = inc_mid_swath
         meta['source'][uid]['instrumentAzimuthAngle'] = round(sid.meta['heading'], 2)
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied

@@ -1,5 +1,5 @@
 asf_search
-cesard>=1.0.2
+cesard>=1.0.3
 click>=7.1.0
 gdal>=3.5.0
 geopandas
