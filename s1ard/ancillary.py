@@ -3,11 +3,7 @@ import sys
 import logging
 from typing import Any
 from datetime import datetime
-from osgeo import gdal
-import spatialist
-import pyroSAR
-import s1ard
-from s1ard.processors.registry import load_processor
+from s1ard.config import version_dict
 
 log = logging.getLogger('s1ard')
 
@@ -69,28 +65,24 @@ def set_logging(
     return logger
 
 
-def _log_process_config(logger, config):
+def _log_process_config(
+        logger: logging.Logger,
+        config: dict[str, Any]
+) -> None:
     """
     Adds a header to the logfile, which includes information about
     the current processing configuration.
     
     Parameters
     ----------
-    logger: logging.Logger
+    logger:
         The logger to which the header is added to.
-    config: dict
+    config:
         Dictionary of the parsed config parameters for the current process.
     """
-    sw_versions = {
-        's1ard': s1ard.__version__,
-        'python': sys.version,
-        'python-pyroSAR': pyroSAR.__version__,
-        'python-spatialist': spatialist.__version__,
-        'python-GDAL': gdal.__version__}
-    
     processor_name = config['processing']['processor']
-    processor = load_processor(processor_name)
-    sw_versions.update(processor.version_dict())
+    
+    sw_versions = version_dict(processor_name=processor_name)
     
     max_len_sw = len(max(sw_versions.keys(), key=len))
     max_len_main = len(max(config['processing'].keys(), key=len))
