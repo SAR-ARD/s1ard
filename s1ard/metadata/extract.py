@@ -16,19 +16,15 @@ from spatialist.raster import rasterize
 from pyroSAR.drivers import ID
 from osgeo import gdal
 import s1ard
-from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD,
-                                    ENL_MAP_GRD, OSV_MAP, SLC_ACC_MAP,
-                                    URL as URL_PACKAGE)
+from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD,
+                                    OSV_MAP, SLC_ACC_MAP, URL)
 from s1ard.processors.registry import load_processor
 from cesard.ancillary import get_tmp_name
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
                                      geometry_from_vec, vec_from_srccoords)
-from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES, URL as URL_BASE
+from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
 
 gdal.UseExceptions()
-
-URL = URL_BASE
-URL.update(URL_PACKAGE)
 
 
 def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
