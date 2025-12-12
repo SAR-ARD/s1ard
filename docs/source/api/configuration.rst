@@ -14,4 +14,5 @@ Configuration
         get_keys
         init
         read_config_file
+        version_dict
         write
