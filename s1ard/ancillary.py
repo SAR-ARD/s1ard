@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from typing import Any
 from datetime import datetime
 from osgeo import gdal
 import spatialist
@@ -11,7 +12,10 @@ from s1ard.processors.registry import load_processor
 log = logging.getLogger('s1ard')
 
 
-def set_logging(config, debug=False):
+def set_logging(
+        config: dict[str, Any],
+        debug: bool = False
+) -> logging.Logger:
     """
     Set logging for the current process.
     
