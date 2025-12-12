@@ -7,7 +7,8 @@ import configparser
 from dateutil.parser import parse as dateparse
 from osgeo import gdal
 from s1ard.processors.registry import load_processor
-from cesard.config import keyval_check, validate_options, validate_value
+from cesard.config import (keyval_check, validate_options, validate_value,
+                           version_dict as cesard_version_dict)
 from typing import Any
 
 
@@ -216,8 +217,10 @@ def gdal_conf(config):
             'multithread': multithread}
 
 
-def get_config(config_file: str | None = None, **kwargs: dict[str, str]) \
-        -> dict[str, Any]:
+def get_config(
+        config_file: str | None = None,
+        **kwargs: dict[str, str]
+) -> dict[str, Any]:
     """
     Returns the content of a `config.ini` file as a dictionary.
 
@@ -350,6 +353,27 @@ def read_config_file(config_file: str | None = None) -> configparser.ConfigParse
     
     parser.read(config_file)
     return parser
+
+
+def version_dict(processor_name: str) -> dict[str, str]:
+    """
+    Get the versions of used packages
+    
+    Parameters
+    ----------
+    processor_name
+        the name of the used SAR processor (e.g. SNAP)
+    Returns
+    -------
+        a dictionary containing the versions of relevant python packages and
+        the return of the `version_dict` function of the used SAR processor.
+    """
+    import s1ard
+    out = cesard_version_dict()
+    out['s1ard'] = s1ard.__version__
+    processor = load_processor(processor_name)
+    out.update(processor.version_dict())
+    return out
 
 
 def write(config, target, overwrite=False, **kwargs):
