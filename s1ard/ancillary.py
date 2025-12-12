@@ -57,6 +57,11 @@ def set_logging(config, debug=False):
     log_pyro.setLevel(level)
     log_pyro.addHandler(handler)
     
+    # add cesard logger
+    log_cesard = logging.getLogger('cesard')
+    log_cesard.setLevel(level)
+    log_cesard.addHandler(handler)
+    
     return logger
 
 
