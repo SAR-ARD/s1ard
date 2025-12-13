@@ -5,6 +5,8 @@ from s1ard.metadata.mapping import URL
 
 def url_recursive(key, dictionary, parent_key=None):
     key_info = f"{parent_key}.{key}" if parent_key else key
+    if dictionary[key] is None:
+        return
     if isinstance(dictionary[key], dict):
         for k, v in dictionary[key].items():
             url_recursive(k, dictionary[key], key_info)
