@@ -1,4 +1,5 @@
 import s1ard
+from cesard.metadata.mapping import URL
 from packaging.version import parse, Version
 
 ARD_PATTERN = r'^(?P<sensor>S1[ABCD])_' \
@@ -191,17 +192,17 @@ def get_release_version(version_str: str) -> str:
     return version_str
 
 
-URL = {
+URL.update({
     'faradayRotationReference': None,
     'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'
                                 f'v{get_release_version(s1ard.__version__)}/general/geoaccuracy.html',
-    'geoCorrAlgorithm': 'https://sentinel.esa.int/documents/247904/1653442/Guide-to-Sentinel-1-Geocoding.pdf',
-    'noiseRemovalAlgorithm': 'https://sentinel.esa.int/documents/247904/2142675/Thermal-Denoising-of-Products-Generated-by-Sentinel-1-IPF',
+    'geoCorrAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/1673968/UZH-S1-GC-AD%20-%20Guide%20to%20Sentinel-1%20Geocoding%202022%20-%201.12.pdf?inst-v=1d5d1a47-ceec-4a48-8345-fc161fc5e777',
+    'noiseRemovalAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/1673968/DI-MPC-TN-MPC-0392%20-%20Thermal%20Denoising%20of%20Products%20Generated%20by%20Sentinel-1%20IPF%202024%20-%202.3.pdf',
     'orbitDataAccess': 'https://step.esa.int/auxdata/orbits/Sentinel-1',
     'radiometricAccuracyReference': None,
     'RTCAlgorithm': 'https://doi.org/10.1109/Tgrs.2011.2120616',
-    'sensorCalibration': 'https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/sar-instrument/calibration',
+    'sensorCalibration': 'https://sentinels.copernicus.eu/documents/247904/685163/S1-Radiometric-Calibration-V1.0.pdf',
     'source_access': 'https://dataspace.copernicus.eu',
-    'source_doi': 'https://sentinel.esa.int/documents/247904/1877131/Sentinel-1-Product-Specification',
+    'source_doi': 'https://sentiwiki.copernicus.eu/web/s1-documents',
     'windNormReferenceModel': "https://www.ecmwf.int/sites/default/files/3.1.pdf"
-}
+})
