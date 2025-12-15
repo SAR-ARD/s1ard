@@ -15,7 +15,7 @@ from spatialist.ancillary import finder, dissolve
 from spatialist.raster import rasterize
 from pyroSAR.drivers import ID
 from osgeo import gdal
-import s1ard
+from s1ard.config import version_dict
 from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD,
                                     OSV_MAP, SLC_ACC_MAP, URL)
 from s1ard.processors.registry import load_processor
@@ -603,7 +603,8 @@ def meta_dict(config, prod_meta, src_ids, compression):
     meta['prod']['processingCenter'] = processing_center
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
-    meta['prod']['processorVersion'] = s1ard.__version__
+    sw_versions = version_dict(processor_name=config['processing']['processor'])
+    meta['prod']['processorVersion'] = sw_versions
     prod_name_prefix = 'Ocean' if prod_meta['product_type'] == 'ORB' else 'Normalised'
     meta['prod']['productName'] = f"{prod_name_prefix} Radar Backscatter"
     meta['prod']['productName-short'] = prod_meta['product_type']
@@ -737,8 +738,10 @@ def meta_dict(config, prod_meta, src_ids, compression):
         meta['source'][uid]['processingDate'] = proc_date
         meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
         meta['source'][uid]['processingMode'] = 'NOMINAL'
-        meta['source'][uid]['processorName'] = _read_manifest('.//safe:software', attrib='name')
-        meta['source'][uid]['processorVersion'] = _read_manifest('.//safe:software', attrib='version')
+        proc_version = _read_manifest('.//safe:software', attrib='version')
+        proc_name = _read_manifest('.//safe:software', attrib='name')
+        meta['source'][uid]['processorName'] = proc_name
+        meta['source'][uid]['processorVersion'] = {proc_name: proc_version}
         meta['source'][uid]['productType'] = product_type
         meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
         meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
