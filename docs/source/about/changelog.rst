@@ -1,6 +1,17 @@
 Changelog
 =========
 
+2.7.0 | 2025-12-15
+------------------
+
+* metadata.extract: ensure allowed types (`#283 <https://github.com/SAR-ARD/s1ard/pull/283>`_)
+* add cesard log messages to logs (`#284 <https://github.com/SAR-ARD/s1ard/pull/284>`_)
+* updated metadata URLs and improved internal handling (`#286 <https://github.com/SAR-ARD/s1ard/pull/286>`_)
+* software version tracking (`#285 <https://github.com/SAR-ARD/s1ard/pull/285>`_)
+
+
+`Full v2.7.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.6.2...v2.7.0>`_
+
 2.6.2 | 2025-12-08
 ------------------
 
