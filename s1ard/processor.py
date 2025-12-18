@@ -312,8 +312,7 @@ def main(config_file=None, debug=False, **kwargs):
                                                  dir_ard=config_proc['ard_dir'], update=update)
                 except RuntimeError:
                     log.info('Already processed - Skip!')
-                    del tiles
-                    return
+                    continue
                 log.info(f'product name: {prod_meta['dir_ard_product']}')
                 try:
                     src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
@@ -330,7 +329,6 @@ def main(config_file=None, debug=False, **kwargs):
                     if ard_assets is not None:
                         ard.append_metadata(config=config, prod_meta=prod_meta,
                                             src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
-                
                 except Exception as e:
                     log.error(msg=e)
                     raise
