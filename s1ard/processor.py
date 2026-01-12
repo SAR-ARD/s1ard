@@ -102,7 +102,6 @@ def main(config_file=None, debug=False, **kwargs):
         
         log.info(f'found {len(selection)} scene(s)')
         scenes = identify_many(selection, sortkey='start')
-        search.check_acquisition_completeness(scenes=scenes, archive=archive)
     else:
         if config_proc['mode'] != ['sar']:
             raise RuntimeError("if argument 'scene' is set, the processing mode must be 'sar'")
@@ -110,6 +109,7 @@ def main(config_file=None, debug=False, **kwargs):
         config_proc['acq_mode'] = scenes[0].acquisition_mode
         config_proc['product'] = scenes[0].product
         aoi_tiles = []
+    search.check_acquisition_completeness(scenes=scenes, archive=archive)
     
     # group scenes by datatake
     scenes_grouped = group_by_attr(scenes, lambda x: x.meta['frameNumber'])
