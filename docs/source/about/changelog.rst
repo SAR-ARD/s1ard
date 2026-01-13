@@ -1,6 +1,16 @@
 Changelog
 =========
 
+2.8.0 | 2026-01-13
+------------------
+
+* [processor] continue if ARD product exists (don't return) (`#288 <https://github.com/SAR-ARD/s1ard/pull/288>`_)
+* [processor] run 'check_acquisition_completeness' also when 'scene' is set (`#289 <https://github.com/SAR-ARD/s1ard/pull/289>`_)
+* [STACParquetArchive] added return values 'slice_number' and 'total_slices' (`#290 <https://github.com/SAR-ARD/s1ard/pull/290>`_)
+
+
+`Full v2.8.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.7.0...v2.8.0>`_
+
 2.7.0 | 2025-12-15
 ------------------
 
