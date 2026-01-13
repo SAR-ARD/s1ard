@@ -361,6 +361,8 @@ class STACParquetArchive(object):
             - product: the product type, e.g., SLC, GRD
             - scene: the scene's storage location path (default)
             - sensor: the satellite platform, e.g., S1A or S1B
+            - slice_number: the slice number (position) in the datatake
+            - total_slices: the number of slices (products) in the datatake
 
         Returns
         -------
@@ -396,7 +398,9 @@ class STACParquetArchive(object):
                   'mindate': 'start_datetime',
                   'maxdate': 'end_datetime',
                   'sensor': 'platform',
-                  'frameNumber': 's1:datatake'}
+                  'frameNumber': 's1:datatake',
+                  'slice_number': 's1:slice_number',
+                  'total_slices': 's1:total_slices'}
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b',
                            'S1C': 'sentinel-1c',
