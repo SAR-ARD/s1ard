@@ -528,7 +528,10 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
         predecessor = neighbors[start_diff.index(min(start_diff))]
         successor = neighbors[stop_diff.index(min(stop_diff))]
         neighbors = [predecessor, successor]
-    return [x[0] for x in neighbors]
+    neighbors = [x[0] for x in neighbors]
+    for i, neighbor in enumerate(neighbors):
+        log.debug(f'neighbor {i}/{len(neighbors)}: {neighbor}')
+    return neighbors
 
 
 def check_acquisition_completeness(archive, scenes):
