@@ -363,6 +363,7 @@ class STACParquetArchive(object):
             - sensor: the satellite platform, e.g., S1A or S1B
             - slice_number: the slice number (position) in the datatake
             - total_slices: the number of slices (products) in the datatake
+            - processing_date: the processing datetime in UTC formatted as YYYYmmddTHHMMSS
 
         Returns
         -------
@@ -402,14 +403,17 @@ class STACParquetArchive(object):
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
         
-        lookup = {'product': 'sar:product_type',
-                  'acquisition_mode': 'sar:instrument_mode',
-                  'mindate': 'start_datetime',
-                  'maxdate': 'end_datetime',
-                  'sensor': 'platform',
-                  'frameNumber': 's1:datatake',
-                  'slice_number': 's1:slice_number',
-                  'total_slices': 's1:total_slices'}
+        lookup = {
+            'product': 'sar:product_type',
+            'acquisition_mode': 'sar:instrument_mode',
+            'mindate': 'start_datetime',
+            'maxdate': 'end_datetime',
+            'sensor': 'platform',
+            'frameNumber': 's1:datatake',
+            'slice_number': 's1:slice_number',
+            'total_slices': 's1:total_slices',
+            'processing_date': 's1:processing_date'
+        }
         lookup_platform = {'S1A': 'sentinel-1a',
                            'S1B': 'sentinel-1b',
                            'S1C': 'sentinel-1c',
