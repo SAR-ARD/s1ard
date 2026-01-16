@@ -383,11 +383,11 @@ class STACParquetArchive(object):
         del pars['date_strict']
         del pars['return_value']
         
-        def filter_antimeridian(selection, index):
+        def filter_antimeridian(df):
             # The geometry of scenes crossing the antimeridian is stored as multipolygon.
-            out = [x for x in selection if x[index].startswith('POLYGON')]
-            if len(out) < len(selection):
-                log.debug(f'removed {len(selection) - len(out)} '
+            out = df[df["geometry_wkt"].str.startswith("POLYGON")]
+            if len(out) < len(df):
+                log.debug(f'removed {len(df) - len(out)} '
                           f'scene(s) crossing the antimeridian')
             return out
         
@@ -484,32 +484,27 @@ class STACParquetArchive(object):
                     subterm = f'"{lookup[key]}" IN {tuple(val_format)}'
                 terms.append(subterm)
         sql_where = ' AND '.join(terms)
-        sql_return_value = ', '.join([return_value_mapping[x] for x in return_values_search])
+        sql_return_value = ", ".join([f'{return_value_mapping[x]} as {x}'
+                                      for x in return_values_search])
         sql_query = f"""
         SELECT {sql_return_value}
         FROM '{self.files}' WHERE {sql_where}
         """
-        result = duckdb.query(sql_query).fetchall()
+        result = duckdb.query(sql_query).df()
+        lookup_platform_rev = {value: key for key, value in lookup_platform.items()}
+        result.replace(to_replace={'sensor': lookup_platform_rev},
+                       inplace=True)
         
-        rv_geom_key = return_values_search.index('geometry_wkt')
-        result = filter_antimeridian(result, index=rv_geom_key)
-        
-        # convert the sensor value to a standardized value
-        if 'sensor' in return_values_search:
-            lookup_platform_reverse = {value: key for key, value in lookup_platform.items()}
-            sensor_index = return_values_search.index('sensor')
-            for i, item in enumerate(result):
-                item_new = list(item)
-                item_new[sensor_index] = lookup_platform_reverse[item[sensor_index]]
-                result[i] = tuple(item_new)
+        result = filter_antimeridian(result)
         
         # reduce the return values to those defined by the user
-        indices = [i for i, key in enumerate(return_values_search) if key in return_values]
-        if len(indices) == 1:
-            result = [scene[indices[0]] for scene in result]
+        result = result[return_values]
+        
+        # return the result
+        if len(return_values) == 1:
+            return list(result.iloc[:, 0])
         else:
-            result = [tuple(scene[i] for i in indices) for scene in result]
-        return sorted(result)
+            return list(result.itertuples(index=False, name=None))
 
 
 def collect_neighbors(archive, scene, stac_check_exist=True):
