@@ -310,12 +310,22 @@ class STACParquetArchive(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         return
     
+    @staticmethod
+    def _filter_antimeridian(df):
+        # The geometry of scenes crossing the antimeridian is stored as multipolygon.
+        out = df[df["geometry_wkt"].str.startswith("POLYGON")]
+        if len(out) < len(df):
+            log.debug(f'removed {len(df) - len(out)} '
+                      f'scene(s) crossing the antimeridian')
+        return out
+    
     def close(self):
         pass
     
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True, return_value='scene'):
+               vectorobject=None, date_strict=True, return_value='scene',
+               filter_antimeridian=True):
         """
         Select scenes from a STAC catalog's geoparquet dump. Used STAC property keys:
 
@@ -364,6 +374,8 @@ class STACParquetArchive(object):
             - slice_number: the slice number (position) in the datatake
             - total_slices: the number of slices (products) in the datatake
             - processing_date: the processing datetime in UTC formatted as YYYYmmddTHHMMSS
+        filter_antimeridian: bool
+            remove scenes crossing the antimeridian
 
         Returns
         -------
@@ -382,14 +394,6 @@ class STACParquetArchive(object):
         del pars['self']
         del pars['date_strict']
         del pars['return_value']
-        
-        def filter_antimeridian(df):
-            # The geometry of scenes crossing the antimeridian is stored as multipolygon.
-            out = df[df["geometry_wkt"].str.startswith("POLYGON")]
-            if len(out) < len(df):
-                log.debug(f'removed {len(df) - len(out)} '
-                          f'scene(s) crossing the antimeridian')
-            return out
         
         try:
             import duckdb
@@ -495,7 +499,8 @@ class STACParquetArchive(object):
         result.replace(to_replace={'sensor': lookup_platform_rev},
                        inplace=True)
         
-        result = filter_antimeridian(result)
+        if filter_antimeridian:
+            result = self._filter_antimeridian(result)
         
         # reduce the return values to those defined by the user
         result = result[return_values]
