@@ -112,11 +112,11 @@ class STACArchive(object):
         Parameters
         ----------
         sensor: str or list[str] or None
-            S1A or S1B
+            S1A | S1B | S1C | S1D
         product: str or list[str] or None
-            GRD or SLC
+            GRD | SLC
         acquisition_mode: str or list[str] or None
-            IW, EW or SM
+            IW | EW | SM
         mindate: str or datetime.datetime or None
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
@@ -531,11 +531,11 @@ class STACParquetArchive(object):
         Parameters
         ----------
         sensor: str or list[str] or None
-            S1A or S1B
+            S1A | S1B | S1C | S1D
         product: str or list[str] or None
-            GRD or SLC
+            GRD | SLC
         acquisition_mode: str or list[str] or None
-            IW, EW or SM
+            IW | EW | SM
         mindate: str or datetime.datetime or None
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate: str or datetime.datetime or None
