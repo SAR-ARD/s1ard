@@ -1,5 +1,6 @@
 import os
 import re
+import pandas as pd
 from pathlib import Path
 from dateutil.parser import parse as dateparse
 from packaging.version import Version
@@ -318,6 +319,194 @@ class STACParquetArchive(object):
             log.debug(f'removed {len(df) - len(out)} '
                       f'scene(s) crossing the antimeridian')
         return out
+        
+    @staticmethod
+    def _filter_duplicates(values: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter duplicate entries from the search result based on slicing semantics,
+        product type and processing history.
+
+        The filtering logic distinguishes between three different slicing regimes
+        for applying deduplication:
+
+        1. Unsliced datatakes
+           - `slice_number` is missing / NA
+           - These datatakes are treated as single, indivisible units.
+           - No deduplication is currently applied (future logic may use
+             acquisition-time overlap instead).
+           - example: S1C_003EAB 2025-04-19
+
+        2. NRT slicing (near–real-time slicing)
+           - `slice_number == 0` and `total_slices == 0`
+           - NRT products are kept unless the same datatake is later processed
+             with proper slicing, in which case obsolete NRT products are removed.
+
+        3. Regular slicing
+           - `slice_number` is defined and not part of the NRT case
+           - True slicing where each slice is a distinct logical product.
+           - If multiple products exist for the same slice, the one having
+             the dominant product type and processed last is kept.
+
+        Parameters
+        ----------
+        values:
+            Search result table containing at least the following columns:
+            - sensor
+            - frameNumber
+            - slice_number
+            - total_slices
+            - processing_date
+
+        Returns
+        -------
+            Filtered DataFrame with obsolete duplicate rows removed.
+        """
+        dt_dtype = values["processing_date"].dtype
+        
+        #######################################################################
+        # add the product type as separate column, e.g. 'S1A_IW_GRDH_1SDV'
+        # it can happen that multiple product types are present in a datatake:
+        # e.g. S1A_IW_GRDH_1SDV and S1A_IW_GRDH_1SVH in S1A_03250 (2014-10-12)
+        def product_type(scene: pd.Series) -> pd.Series:
+            return scene.map(lambda s: Path(s).name[:16])
+        
+        values["_product_type"] = product_type(values["scene"])
+        #######################################################################
+        # Classify each row into one of the slicing regimes.
+        nrt_sliced = (values["slice_number"] == 0) & (values["total_slices"] == 0)
+        unsliced = values["slice_number"].isna()  # Example: S1C 03EAB (2025-04-19)
+        sliced = ~(nrt_sliced | unsliced)
+        #######################################################################
+        # Define grouping keys:
+        # - datatake_keys: Identify a datatake independent of slicing
+        # - dup_keys: Identify a specific slice of a datatake
+        datatake_keys = ["sensor", "frameNumber"]
+        dup_keys = ["sensor", "frameNumber", "slice_number", "total_slices"]
+        
+        # total_slices is included as deduplication key because some datatakes
+        # are split and slice_number and total_slices reset at the split.
+        # Example: S1C 05429 (2025-05-28)
+        #######################################################################
+        # determine the dominant product type
+        values["_dominant_product_type"] = (
+            values.loc[sliced]
+            .groupby(datatake_keys)["_product_type"]
+            .transform(lambda s: s.value_counts().idxmax())
+        )
+        
+        # is the product type compatible with the dominant one?
+        type_compatible = (
+                values["_product_type"] == values["_dominant_product_type"]
+        )
+        #######################################################################
+        # Determine whether a datatake ever has proper slicing.
+        # This is used to decide whether NRT products should be considered
+        # obsolete (i.e. superseded by later properly sliced processing).
+        # The result is a boolean Series aligned to the full DataFrame index.
+        has_proper_slices = (
+            values.assign(_sliced=sliced)
+            .groupby(datatake_keys)["_sliced"]
+            .transform("any")
+            .reindex(values.index)
+        )
+        #######################################################################
+        # For datatakes with proper slicing, compute the most recent
+        # processing date of any sliced product belonging to that datatake.
+        # This is later used to decide whether an NRT product is obsolete
+        # relative to a newer sliced processing.
+        # Preallocating the Series with the correct datetime dtype avoids
+        # timezone-related assignment issues.
+        latest_sliced_per_dt = pd.Series(pd.NaT, index=values.index, dtype=dt_dtype)
+        latest_sliced_per_dt.loc[sliced] = (
+            values.loc[sliced]
+            .groupby(datatake_keys)["processing_date"]
+            .transform("max")
+        )
+        #######################################################################
+        # Identify NRT products to drop.
+        # An NRT product is dropped if:
+        #   - it is an NRT slice
+        #   - the same datatake also has proper slicing
+        #
+        # Note: it can be that the NRT slicing was processed last. In this case the
+        # products with the regular slicing are kept. Example: S1A_031E00.
+        drop_nrt = nrt_sliced & has_proper_slices
+        #######################################################################
+        # Prepare helper Series for deduplicating properly sliced data.
+        # - `latest`: Holds the most recent processing date per slice
+        # - `has_duplicate`: Flags slice groups that appear more than once
+        # Both Series are preallocated to the full index to guarantee
+        # alignment-safe boolean logic.
+        latest = pd.Series(pd.NaT, index=values.index, dtype=dt_dtype)
+        has_duplicate = pd.Series(False, index=values.index)
+        
+        #######################################################################
+        # For properly sliced data, compute the most recent processing
+        # date per (sensor, frameNumber, slice_number).
+        latest.loc[sliced] = (
+            values.loc[sliced]
+            .groupby(dup_keys)["processing_date"]
+            .transform("max")
+        )
+        #######################################################################
+        # Identify slice groups that actually contain duplicates.
+        # Only slices that appear more than once are candidates for
+        # deduplication; unique slices are always kept.
+        has_duplicate.loc[sliced] = (
+            values.loc[sliced]
+            .groupby(dup_keys)["processing_date"]
+            .transform("size")
+            .gt(1)
+        )
+        #######################################################################
+        # Drop sliced products where:
+        #   - the product is properly sliced
+        #   - the slice has duplicates
+        #   - the processing is NOT the most recent one for that slice
+        #   - the product type is not the dominant one
+        best_idx = (
+            values.loc[sliced & type_compatible]
+            .sort_values("processing_date")
+            .groupby(dup_keys)
+            .tail(1)
+            .index
+        )
+        
+        drop_sliced = (
+                sliced &
+                has_duplicate &
+                ~values.index.isin(best_idx)
+        )
+        #######################################################################
+        # Summary logging
+        
+        # Datatakes affected by obsolete NRT products
+        nrt_affected = (
+            values.loc[drop_nrt, datatake_keys]
+            .drop_duplicates()
+        )
+        nrt_affected = [f"{r.sensor}_{r.frameNumber}"
+                        for r in nrt_affected.itertuples(index=False)]
+        if len(nrt_affected) > 0:
+            log.debug(f'datatakes affected by NRT slicing: {nrt_affected}')
+        
+        # Datatakes affected by slice deduplication
+        sliced_affected = (
+            values.loc[drop_sliced, datatake_keys]
+            .drop_duplicates()
+        )
+        sliced_affected = [f"{r.sensor}_{r.frameNumber}"
+                           for r in sliced_affected.itertuples(index=False)]
+        if len(sliced_affected) > 0:
+            print('regularly sliced datatakes affected by duplication:', sliced_affected)
+        #######################################################################
+        # Combine both deletion rules (obsolete NRT + slice duplicates)
+        # and remove all marked rows in one bulk operation.
+        to_drop = values.index[drop_nrt | drop_sliced]
+        out = values.drop(index=to_drop)
+        
+        log.debug(f"removed {len(to_drop)} duplicate(s)")
+        return out
     
     def close(self):
         pass
@@ -325,7 +514,7 @@ class STACParquetArchive(object):
     def select(self, sensor=None, product=None, acquisition_mode=None,
                mindate=None, maxdate=None, frameNumber=None,
                vectorobject=None, date_strict=True, return_value='scene',
-               filter_antimeridian=True):
+               filter_antimeridian=True, filter_duplicates=True):
         """
         Select scenes from a STAC catalog's geoparquet dump. Used STAC property keys:
 
@@ -335,6 +524,9 @@ class STACParquetArchive(object):
         - sar:instrument_mode
         - sar:product_type
         - s1:datatake (custom)
+        - s1:slice_number (custom)
+        - s1:total_slices (custom)
+        - s1:processing_date (custom)
 
         Parameters
         ----------
@@ -376,6 +568,8 @@ class STACParquetArchive(object):
             - processing_date: the processing datetime in UTC formatted as YYYYmmddTHHMMSS
         filter_antimeridian: bool
             remove scenes crossing the antimeridian
+        filter_duplicates: bool
+            Sentinel-1 scenes are often reprocessed. With this, duplicates can be filtered out.
 
         Returns
         -------
@@ -440,7 +634,8 @@ class STACParquetArchive(object):
                                  f"supported options: {list(return_value_mapping.keys())}")
         
         return_values_search = return_values.copy()
-        for key in ['geometry_wkt']:
+        for key in ['geometry_wkt', 'processing_date', 'slice_number',
+                    'total_slices', 'sensor', 'frameNumber', 'scene']:
             if key not in return_values:
                 return_values_search.append(key)
         
@@ -499,8 +694,14 @@ class STACParquetArchive(object):
         result.replace(to_replace={'sensor': lookup_platform_rev},
                        inplace=True)
         
+        # Ensure `processing_date` is a proper datetime dtype.
+        result["processing_date"] = pd.to_datetime(result["processing_date"])
+        
         if filter_antimeridian:
             result = self._filter_antimeridian(result)
+        
+        if filter_duplicates:
+            result = self._filter_duplicates(result)
         
         # reduce the return values to those defined by the user
         result = result[return_values]
