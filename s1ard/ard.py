@@ -617,8 +617,8 @@ def get_datasets(
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
-            msg = f'cannot find processing output for scene {base} and CRS EPSG:{epsg}'
-            raise RuntimeError(msg)
+            log.info(f'cannot find processing output for scene {base} and CRS EPSG:{epsg}')
+            return [], []
     
     i = 0
     while i < len(datasets):
