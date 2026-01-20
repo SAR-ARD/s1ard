@@ -315,6 +315,8 @@ def find_in_annotation(
                 return float(obj)
             if out_type == 'int':
                 return int(obj)
+            else:
+                raise ValueError(f"unknown output type: {out_type}")
         elif obj is None:
             return obj
         else:
