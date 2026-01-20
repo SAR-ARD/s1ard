@@ -1,5 +1,6 @@
 import os
 import time
+import shutil
 import inspect
 from osgeo import gdal
 from spatialist import bbox, intersect
@@ -315,20 +316,28 @@ def main(config_file=None, debug=False, **kwargs):
                     continue
                 log.info(f'product name: {prod_meta['dir_ard_product']}')
                 try:
-                    src_ids, sar_assets = ard.get_datasets(scenes=scenes_sub_fnames,
-                                                           sar_dir=config_proc['sar_dir'],
-                                                           extent=extent, epsg=epsg,
-                                                           processor_name=processor_name)
-                    
-                    ard_assets = ard.format(config=config, prod_meta=prod_meta,
-                                            src_ids=src_ids, sar_assets=sar_assets,
-                                            tile=tile.mgrs, extent=extent, epsg=epsg,
-                                            wbm=fname_wbm, dem_type=dem_type, compress='LERC_ZSTD',
-                                            multithread=gdal_prms['multithread'], annotation=annotation)
-                    
-                    if ard_assets is not None:
+                    src_ids, sar_assets = ard.get_datasets(
+                        scenes=scenes_sub_fnames,
+                        sar_dir=config_proc['sar_dir'],
+                        extent=extent, epsg=epsg,
+                        processor_name=processor_name
+                    )
+                    if len(src_ids) > 0:
+                        ard_assets = ard.format(
+                            config=config, prod_meta=prod_meta,
+                            src_ids=src_ids, sar_assets=sar_assets,
+                            tile=tile.mgrs, extent=extent, epsg=epsg,
+                            wbm=fname_wbm, dem_type=dem_type,
+                            compress='LERC_ZSTD',
+                            multithread=gdal_prms['multithread'],
+                            annotation=annotation
+                        )
                         ard.append_metadata(config=config, prod_meta=prod_meta,
-                                            src_ids=src_ids, assets=ard_assets, compression='LERC_ZSTD')
+                                            src_ids=src_ids, assets=ard_assets,
+                                            compression='LERC_ZSTD')
+                    else:
+                        log.info(f'Could not find processor output for tile {tile}')
+                        shutil.rmtree(prod_meta['dir_ard_product'])
                 except Exception as e:
                     log.error(msg=e)
                     raise
