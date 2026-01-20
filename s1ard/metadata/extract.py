@@ -4,6 +4,7 @@ import shutil
 import zipfile
 import math
 from typing import Union, Literal
+from collections import defaultdict
 from statistics import mean
 from lxml import etree
 from dateutil.parser import parse as dateparse
@@ -19,7 +20,7 @@ from s1ard.config import version_dict
 from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD,
                                     OSV_MAP, SLC_ACC_MAP, URL)
 from s1ard.processors.registry import load_processor
-from cesard.ancillary import get_tmp_name
+from cesard.ancillary import get_tmp_name, defaultdict_to_dict
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
                                      geometry_from_vec, vec_from_srccoords)
 from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
@@ -126,9 +127,9 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
 
 
 def calc_pslr_islr(
-        annotation_dict: dict[str, etree.ElementTree],
+        annotation_dict: dict[str, dict[str, etree.ElementTree]],
         decimals: int = 2
-) -> tuple[float, float]:
+) -> tuple[float | None, float | None]:
     """
     Extracts all values for Peak Side Lobe Ratio (PSLR) and Integrated
     Side Lobe Ratio (ISLR) from the annotation metadata of a scene and
@@ -144,30 +145,26 @@ def calc_pslr_islr(
 
     Returns
     -------
-        a tuple with the following values:
+        a tuple with the following values. Each can be set to None if not found in
+        the metadata.
 
         - pslr: Mean PSLR value for all swaths of the scene.
         - islr: Mean ISLR value for all swaths of the scene.
     """
-    swaths = list(annotation_dict.keys())
-    pslr_dict = find_in_annotation(annotation_dict=annotation_dict,
-                                   pattern='.//crossCorrelationPslr',
-                                   out_type='float')
-    islr_dict = find_in_annotation(annotation_dict=annotation_dict,
-                                   pattern='.//crossCorrelationIslr',
-                                   out_type='float')
-    
-    # Mean values per swath
-    pslr_mean = {}
-    islr_mean = {}
-    for swath in swaths:
-        pslr_mean[swath] = np.nanmean(pslr_dict[swath])
-        islr_mean[swath] = np.nanmean(islr_dict[swath])
-    
-    # Mean value for all swaths
-    pslr = round(np.nanmean(list(pslr_mean.values())).item(), decimals)
-    islr = round(np.nanmean(list(islr_mean.values())).item(), decimals)
-    return pslr, islr
+    out = []
+    for key in ['crossCorrelationPslr', 'crossCorrelationIslr']:
+        slr_dict = find_in_annotation(annotation_dict=annotation_dict,
+                                      pattern=f'.//{key}',
+                                      out_type='float',
+                                      per_pol=True)
+        # Mean values per swath
+        slr_mean = [np.nanmean(v) for inner in slr_dict.values()
+                    for v in inner.values() if v is not None]
+        
+        # Mean value for all swaths
+        slr = round(np.nanmean(slr_mean).item(), decimals) if len(slr_mean) > 0 else None
+        out.append(slr)
+    return tuple(out)
 
 
 def calc_wm_ref_stats(wm_ref_speed, wm_ref_direction, epsg, bounds, resolution=915):
@@ -253,11 +250,12 @@ def copy_src_meta(ard_dir, src_ids):
 
 
 def find_in_annotation(
-        annotation_dict: dict[str, etree.ElementTree],
+        annotation_dict: dict[str, dict[str, etree.ElementTree]],
         pattern: str,
         single: bool = False,
+        per_pol: bool = False,
         out_type: Literal["int", "float", "str"] = "str"
-) -> dict[str, list[int | float | str] | int | float | str] | list[int | float | str] | int | float | str:
+) -> dict[str, dict[str, list[int | float | str] | int | float | str | None]] | list[int | float | str] | int | float | str | None:
     """
     Search for a pattern in all XML annotation files provided and return the results.
 
@@ -272,27 +270,37 @@ def find_in_annotation(
         If True, the results found in each annotation file are expected to be
         the same and therefore only a single value will be returned instead of
         a dictionary. If the results differ, an error is raised.
+    per_pol:
+        group the results per polarization? In this case, the dictionary becomes
+        nested with the outer dict having the swaths as keys and the inner the
+        polarizations.
     out_type:
         Output type to convert the results to.
 
     Returns
     -------
-        Either a dictionary with results per annotation file (swath) or a single
-        result, which is identical across annotation files.
+        Either a dictionary with results per annotation file (swath, polarization)
+        or a single result, which is identical across annotation files. None is
+        set if the value is not found.
     """
-    out = {}
-    for s, a in annotation_dict.items():
-        swaths = [x.text for x in a.findall('.//swathProcParams/swath')]
-        items = a.findall(pattern)
-        
-        parent = items[0].getparent().tag
-        if parent in ['azimuthProcessing', 'rangeProcessing']:
-            for i, val in enumerate(items):
-                out[swaths[i]] = val.text
-        else:
-            out[s] = [x.text for x in items]
-            if len(out[s]) == 1:
-                out[s] = out[s][0]
+    out = defaultdict(defaultdict)
+    for swath in annotation_dict.keys():
+        for pol in annotation_dict[swath].keys():
+            sub = annotation_dict[swath][pol]
+            swaths = [x.text for x in sub.findall('.//swathProcParams/swath')]
+            items = sub.findall(pattern)
+            if len(items) > 0:
+                parent = items[0].getparent().tag
+                if parent in ['azimuthProcessing', 'rangeProcessing']:
+                    for i, val in enumerate(items):
+                        out[swaths[i]][pol] = val.text
+                else:
+                    out[swath][pol] = [x.text for x in items]
+                    if len(out[swath][pol]) == 1:
+                        out[swath][pol] = out[swath][pol][0]
+            else:
+                out[swath][pol] = None
+    out = defaultdict_to_dict(out)
     
     def _convert(
             obj: dict[str, list[str] | str] | list[str] | str,
@@ -307,6 +315,8 @@ def find_in_annotation(
                 return float(obj)
             if out_type == 'int':
                 return int(obj)
+        elif obj is None:
+            return obj
         else:
             raise TypeError(f'got an unexpected type: {type(obj)}')
     
@@ -315,13 +325,21 @@ def find_in_annotation(
     
     err_msg = 'Search result for pattern "{}" expected to be the same in all annotation files.'
     if single:
-        val = list(out.values())[0]
-        for k in out:
-            if out[k] != val:
-                raise RuntimeError(err_msg.format(pattern))
-        return val
-    else:
-        return out
+        vals = [x for inner in out.values() for x in inner.values()]
+        all_same = all(x == vals[0] for x in vals)
+        if not all_same:
+            raise RuntimeError(err_msg.format(pattern))
+        return vals[0]
+    
+    err_msg = 'Search result for pattern "{}" expected to be the same for all polarizations.'
+    if not per_pol:
+        vals = [[x for x in inner.values()] for inner in out.values()]
+        all_same = all(all(x == sub[0] for x in sub) for sub in vals)
+        if not all_same:
+            raise RuntimeError(err_msg.format(pattern))
+        out = {k: inner[next(iter(inner))] for k, inner in out.items()}
+    
+    return out
 
 
 def get_osv_info(sid):
@@ -425,7 +443,7 @@ def get_prod_meta(tif, src_ids, sar_dir, processor_name):
 # Using Union instead.
 def get_src_meta(
         sid: ID
-) -> dict[Literal["manifest", "annotation"], Union[etree.ElementTree, dict[str, etree.ElementTree]]]:
+) -> dict[Literal["manifest", "annotation"], Union[etree.ElementTree, dict[str, dict[str, etree.ElementTree]]]]:
     """
     Retrieve the manifest and annotation XML data of a scene as a dictionary
     using an :class:`pyroSAR.drivers.ID` object.
@@ -441,22 +459,21 @@ def get_src_meta(
         A dictionary containing the parsed `etree.ElementTree` objects for
         the manifest and annotation XML files.
     """
-    files = sid.findfiles(r'^s1[abcd].*-[vh]{2}-.*\.xml$')
-    pols = list(set([re.search('[vh]{2}', os.path.basename(a)).group() for a in files]))
-    annotation_files = list(filter(re.compile(pols[0]).search, files))
+    annotation_files = sid.findfiles(r'^s1[abcd].*-[vh]{2}-.*\.xml$')
     
-    a_files_base = [os.path.basename(a) for a in annotation_files]
-    swaths = [re.search('-(iw[1-3]*|ew[1-5]*|s[1-6])', a).group(1) for a in a_files_base]
-    
-    annotation_dict = {}
-    for s, a in zip(swaths, annotation_files):
-        annotation_dict[s.upper()] = etree.fromstring(sid.getFileObj(a).getvalue())
+    annotation = defaultdict(defaultdict)
+    for file in annotation_files:
+        base = os.path.basename(file)
+        pol = re.search('[vh]{2}', base).group()
+        swath = re.search('-(iw[1-3]*|ew[1-5]*|s[1-6])', base).group(1)
+        content = etree.fromstring(sid.getFileObj(file).getvalue())
+        annotation[swath.upper()][pol.upper()] = content
     
     with sid.getFileObj(sid.findfiles('manifest.safe')[0]) as input_man:
         manifest = etree.fromstring(input_man.getvalue())
     
     return {'manifest': manifest,
-            'annotation': annotation_dict}
+            'annotation': defaultdict_to_dict(annotation)}
 
 
 def meta_dict(config, prod_meta, src_ids, compression):
