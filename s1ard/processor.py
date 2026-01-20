@@ -308,9 +308,11 @@ def main(config_file=None, debug=False, **kwargs):
                 log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
                 try:
-                    prod_meta = ard.product_info(product_type=product_type, src_ids=scenes_sub,
-                                                 tile_id=tile.mgrs, extent=extent, epsg=epsg,
-                                                 dir_ard=config_proc['ard_dir'], update=update)
+                    prod_meta = ard.product_info(
+                        product_type=product_type, src_ids=scenes_sub,
+                        tile_id=tile.mgrs, extent=extent, epsg=epsg,
+                        dir_ard=config_proc['ard_dir'], update=update
+                    )
                 except RuntimeError:
                     log.info('Already processed - Skip!')
                     continue
@@ -332,9 +334,11 @@ def main(config_file=None, debug=False, **kwargs):
                             multithread=gdal_prms['multithread'],
                             annotation=annotation
                         )
-                        ard.append_metadata(config=config, prod_meta=prod_meta,
-                                            src_ids=src_ids, assets=ard_assets,
-                                            compression='LERC_ZSTD')
+                        ard.append_metadata(
+                            config=config, prod_meta=prod_meta,
+                            src_ids=src_ids, assets=ard_assets,
+                            compression='LERC_ZSTD'
+                        )
                     else:
                         log.info(f'Could not find processor output for tile {tile}')
                         shutil.rmtree(prod_meta['dir_ard_product'])
