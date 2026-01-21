@@ -140,7 +140,7 @@ def format(
         compress: str | None = None,
         overviews: list[int] | None = None,
         annotation: list[str] | None = None
-) -> list[str] | None:
+) -> list[str]:
     """
     Create ARD products from the SAR processor output.
     This includes the following:
@@ -216,9 +216,7 @@ def format(
     processor_name = config['processing']['processor']
     
     if len(src_ids) == 0:
-        log.error(f'None of the processed scenes overlap with the current tile {tile}')
-        shutil.rmtree(prod_meta['dir_ard_product'])
-        return
+        raise RuntimeError("got an empty list for 'src_ids'")
     
     if annotation is not None:
         allowed = []
@@ -619,8 +617,8 @@ def get_datasets(
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
-            msg = f'cannot find processing output for scene {base} and CRS EPSG:{epsg}'
-            raise RuntimeError(msg)
+            log.info(f'cannot find processing output for scene {base} and CRS EPSG:{epsg}')
+            return [], []
     
     i = 0
     while i < len(datasets):
