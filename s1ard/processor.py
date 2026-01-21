@@ -340,7 +340,6 @@ def main(config_file=None, debug=False, **kwargs):
                             compression='LERC_ZSTD'
                         )
                     else:
-                        log.info(f'Could not find processor output for tile {tile}')
                         shutil.rmtree(prod_meta['dir_ard_product'])
                 except Exception as e:
                     log.error(msg=e)
