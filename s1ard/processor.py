@@ -307,16 +307,16 @@ def main(config_file=None, debug=False, **kwargs):
                 epsg = tile.getProjection('epsg')
                 log.info(f'creating product {t + 1}/{t_total}')
                 log.info(f'selected scene(s): {scenes_sub_fnames}')
-                try:
-                    prod_meta = ard.product_info(
-                        product_type=product_type, src_ids=scenes_sub,
-                        tile_id=tile.mgrs, extent=extent, epsg=epsg,
-                        dir_ard=config_proc['ard_dir'], update=update
-                    )
-                except RuntimeError:
-                    log.info('Already processed - Skip!')
+                
+                prod_meta = ard.product_info(
+                    product_type=product_type, src_ids=scenes_sub,
+                    tile_id=tile.mgrs, extent=extent, epsg=epsg,
+                    dir_ard=config_proc['ard_dir'], update=update
+                )
+                if prod_meta is None:
                     continue
                 log.info(f'product name: {prod_meta['dir_ard_product']}')
+                
                 try:
                     src_ids, sar_assets = ard.get_datasets(
                         scenes=scenes_sub_fnames,
