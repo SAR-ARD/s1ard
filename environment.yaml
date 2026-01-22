@@ -16,7 +16,7 @@ dependencies:
   - pandas
   - pip
   - pyproj
-  - pyroSAR>=0.31.0
+  - pyroSAR>=0.33.2
   - pystac>=1.8.0,<1.11.0
   - pystac-client>=0.7.0
   - python>=3.10
