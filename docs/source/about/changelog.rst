@@ -1,6 +1,19 @@
 Changelog
 =========
 
+2.9.0 | 2026-01-22
+------------------
+
+* [collect_neighbors] add neighbor names to debug logging (`#292 <https://github.com/SAR-ARD/s1ard/pull/292>`_)
+* STACParquetSearch: antimeridian and duplicate filtering (`#293 <https://github.com/SAR-ARD/s1ard/pull/293>`_)
+* adjust behavior when no SAR products could be found (`#295 <https://github.com/SAR-ARD/s1ard/pull/295>`_)
+* [ard.product_info] improved behavior when product exists (`#296 <https://github.com/SAR-ARD/s1ard/pull/296>`_)
+* require pyroSAR>=0.33.2 (`#297 <https://github.com/SAR-ARD/s1ard/pull/297>`_)
+* [extract] annotation reading modifications (`#294 <https://github.com/SAR-ARD/s1ard/pull/294>`_)
+
+
+`Full v2.9.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.8.0...v2.9.0>`_
+
 2.8.0 | 2026-01-13
 ------------------
 
