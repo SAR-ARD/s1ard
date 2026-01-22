@@ -36,9 +36,9 @@ def product_info(
         dir_ard: str,
         update: bool = False,
         product_id: str | None = None
-) -> dict[str, str | int | datetime]:
+) -> dict[str, str | int | datetime] | None:
     """
-    Create ARD product metadata.
+    Create initial ARD product metadata and create the product's target directory.
     
     Parameters
     ----------
@@ -62,7 +62,7 @@ def product_info(
 
     Returns
     -------
-        ARD product metadata
+        ARD product metadata or `None` if the product already exists
     """
     # determine processing timestamp and generate unique ID
     proc_time = datetime.now(timezone.utc)
@@ -103,12 +103,13 @@ def product_info(
     meta['file_base'] = skeleton_files.format(**meta_name_lower) + '-{suffix}.tif'
     
     # check existence of products
-    msg = 'Already processed - Skip!'
+    msg = 'Already processed: {}'
     pattern = meta['product_base'].replace(product_id, '*')
     existing = finder(dir_ard_tile, [pattern], foldermode=2)
     if len(existing) > 0:
         if not update:
-            raise RuntimeError(msg)
+            log.info(msg.format(existing[0]))
+            return None
         else:
             if existing[0] != meta['dir_ard_product']:
                 existing_meta = re.search(ARD_PATTERN, os.path.basename(existing[0])).groupdict()
@@ -119,10 +120,12 @@ def product_info(
             else:
                 return meta
     else:
-        try:
-            os.makedirs(meta['dir_ard_product'], exist_ok=False)
-        except OSError:
-            raise RuntimeError(msg)
+        with Lock(meta['dir_ard_product']):
+            if not os.path.isdir(meta['dir_ard_product']):
+                os.makedirs(meta['dir_ard_product'])
+            else:
+                log.info(msg.format(meta['dir_ard_product']))
+                return None
     return meta
 
 
@@ -140,7 +143,7 @@ def format(
         compress: str | None = None,
         overviews: list[int] | None = None,
         annotation: list[str] | None = None
-) -> list[str] | None:
+) -> list[str]:
     """
     Create ARD products from the SAR processor output.
     This includes the following:
@@ -216,9 +219,7 @@ def format(
     processor_name = config['processing']['processor']
     
     if len(src_ids) == 0:
-        log.error(f'None of the processed scenes overlap with the current tile {tile}')
-        shutil.rmtree(prod_meta['dir_ard_product'])
-        return
+        raise RuntimeError("got an empty list for 'src_ids'")
     
     if annotation is not None:
         allowed = []
@@ -619,8 +620,8 @@ def get_datasets(
             datasets.append(files)
         else:
             base = os.path.basename(_id.scene)
-            msg = f'cannot find processing output for scene {base} and CRS EPSG:{epsg}'
-            raise RuntimeError(msg)
+            log.info(f'cannot find processing output for scene {base} and CRS EPSG:{epsg}')
+            return [], []
     
     i = 0
     while i < len(datasets):
