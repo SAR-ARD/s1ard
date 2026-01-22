@@ -588,6 +588,8 @@ class STACParquetArchive(object):
         del pars['self']
         del pars['date_strict']
         del pars['return_value']
+        del pars['filter_antimeridian']
+        del pars['filter_duplicates']
         
         try:
             import duckdb
