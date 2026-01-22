@@ -11,7 +11,11 @@ def url_recursive(key, dictionary, parent_key=None):
         for k, v in dictionary[key].items():
             url_recursive(k, dictionary[key], key_info)
     else:
-        response = requests.get(dictionary[key])
+        response = requests.get(
+            url=dictionary[key],
+            headers={"User-Agent": "Mozilla/5.0"},
+            allow_redirects=True
+        )
         assert response.status_code in [200, 418]
 
 
