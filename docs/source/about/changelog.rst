@@ -10,6 +10,7 @@ Changelog
 * [ard.product_info] improved behavior when product exists (`#296 <https://github.com/SAR-ARD/s1ard/pull/296>`_)
 * require pyroSAR>=0.33.2 (`#297 <https://github.com/SAR-ARD/s1ard/pull/297>`_)
 * [extract] annotation reading modifications (`#294 <https://github.com/SAR-ARD/s1ard/pull/294>`_)
+* scene search bug fixes and test updates (`#298 <https://github.com/SAR-ARD/s1ard/pull/298>`_)
 
 
 `Full v2.9.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.8.0...v2.9.0>`_
