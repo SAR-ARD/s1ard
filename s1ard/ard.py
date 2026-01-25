@@ -640,6 +640,8 @@ def get_datasets(
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         dm_vec = datamask(measurement=measurements[0], dm_ras=dm_ras, dm_vec=dm_vec)
         if dm_vec is None:
+            # image only contains NaN
+            log.debug('no overlap, removing scene')
             del ids[i], datasets[i]
             continue
         with Lock(dm_vec, soft=True):
@@ -654,8 +656,7 @@ def get_datasets(
                             inter = None
                     if inter is None:
                         log.debug('no overlap, removing scene')
-                        del ids[i]
-                        del datasets[i]
+                        del ids[i], datasets[i]
                     else:
                         log.debug('overlap detected')
                         # Add dm_ras to the datasets if it overlaps with the current tile
