@@ -9,5 +9,5 @@ Ancillary Functions
     .. autosummary::
         :nosignatures:
 
-        grd_overlap_lines
+        grd_diff_lines
         set_logging

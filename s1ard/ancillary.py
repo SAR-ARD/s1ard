@@ -10,9 +10,9 @@ from s1ard.config import version_dict
 log = logging.getLogger('s1ard')
 
 
-def grd_overlap_lines(scene1: ID, scene2: ID) -> float:
+def grd_diff_lines(scene1: ID, scene2: ID) -> float:
     """
-    Determine the number of lines of overlap between two GRD scenes.
+    Determine the number of lines of overlap/gap between two GRD scenes.
 
     Parameters
     ----------
