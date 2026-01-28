@@ -3,9 +3,36 @@ import sys
 import logging
 from typing import Any
 from datetime import datetime
+from dateutil.parser import parse as dateparse
+from pyroSAR import ID
 from s1ard.config import version_dict
 
 log = logging.getLogger('s1ard')
+
+
+def grd_diff_lines(scene1: ID, scene2: ID) -> float:
+    """
+    Determine the number of lines of overlap/gap between two GRD scenes.
+
+    Parameters
+    ----------
+    scene1:
+        the first scene
+    scene2:
+        the second scene (must be acquired after `scene1`)
+
+    Returns
+    -------
+        the number of lines difference between the two scenes.
+        Positive numbers indicate overlap, negative ones a gap.
+    """
+    start1 = dateparse(scene1.meta['acquisition_time']['start'])
+    stop1 = dateparse(scene1.meta['acquisition_time']['stop'])
+    start2 = dateparse(scene2.meta['acquisition_time']['start'])
+    if start1 >= start2:
+        raise ValueError('scene1 start time must be before scene2 start time')
+    t_line = ((stop1 - start1) / scene1.lines)
+    return (((start2 - stop1) / t_line) - 1) * -1
 
 
 def set_logging(
