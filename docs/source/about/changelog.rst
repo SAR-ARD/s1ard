@@ -1,6 +1,15 @@
 Changelog
 =========
 
+2.10.0 | 2026-01-28
+-------------------
+
+* [grd_diff_lines] new function (`#301 <https://github.com/SAR-ARD/s1ard/pull/301>`_)
+* [ard.product_info] return None if product time range is not valid (`#300 <https://github.com/SAR-ARD/s1ard/pull/300>`_)
+
+
+`Full v2.10.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.9.0...v2.10.0>`_
+
 2.9.0 | 2026-01-22
 ------------------
 
