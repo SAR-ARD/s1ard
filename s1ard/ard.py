@@ -62,7 +62,8 @@ def product_info(
 
     Returns
     -------
-        ARD product metadata or `None` if the product already exists
+        ARD product metadata or `None` if the determined product's time range
+        is outside the valid acquisition time range or the product already exists.
     """
     # determine processing timestamp and generate unique ID
     proc_time = datetime.now(timezone.utc)
@@ -70,7 +71,14 @@ def product_info(
         t = proc_time.isoformat().encode()
         product_id = generate_unique_id(encoded_str=t)
     
-    ard_start, ard_stop = calc_product_start_stop(src_ids=src_ids, extent=extent, epsg=epsg)
+    try:
+        ard_start, ard_stop = calc_product_start_stop(
+            src_ids=src_ids, extent=extent, epsg=epsg
+        )
+    except RuntimeError:
+        log.info('The determined acquisition time range is outside the valid range.')
+        return None
+    
     pol_str = '_'.join(sorted(src_ids[0].polarizations))
     meta = {'mission': src_ids[0].sensor,
             'mode': src_ids[0].meta['acquisition_mode'],
@@ -632,6 +640,8 @@ def get_datasets(
         dm_vec = dm_ras.replace('.tif', '.gpkg')
         dm_vec = datamask(measurement=measurements[0], dm_ras=dm_ras, dm_vec=dm_vec)
         if dm_vec is None:
+            # image only contains NaN
+            log.debug('no overlap, removing scene')
             del ids[i], datasets[i]
             continue
         with Lock(dm_vec, soft=True):
@@ -646,8 +656,7 @@ def get_datasets(
                             inter = None
                     if inter is None:
                         log.debug('no overlap, removing scene')
-                        del ids[i]
-                        del datasets[i]
+                        del ids[i], datasets[i]
                     else:
                         log.debug('overlap detected')
                         # Add dm_ras to the datasets if it overlaps with the current tile
