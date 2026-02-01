@@ -432,7 +432,7 @@ def get_prod_meta(tif, src_ids, sar_dir, processor_name):
         with vec_from_srccoords(coord_list=coord_list, crs=4326) as srcvec:
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
             arr_srcvec = ras_srcvec.array()
-            out['nodata_borderpx'] = np.count_nonzero(np.isnan(arr_srcvec))
+            out['nodata_borderpx'] = int(np.count_nonzero(np.isnan(arr_srcvec)))
     
     proc_meta = processor.get_metadata(scene=src_ids[0].scene, outdir=sar_dir)
     out['ML_nRgLooks'] = proc_meta['rlks']
