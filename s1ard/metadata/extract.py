@@ -24,6 +24,7 @@ from cesard.ancillary import get_tmp_name, defaultdict_to_dict
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
                                      geometry_from_vec, vec_from_srccoords)
 from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
+from typing import Any
 
 gdal.UseExceptions()
 
@@ -255,7 +256,8 @@ def find_in_annotation(
         single: bool = False,
         per_pol: bool = False,
         out_type: Literal["int", "float", "str"] = "str"
-) -> dict[str, dict[str, list[int | float | str] | int | float | str | None]] | list[int | float | str] | int | float | str | None:
+) -> (dict[str, dict[str, list[int | float | str] | int | float | str | None]] |
+      list[int | float | str] | int | float | str | None):
     """
     Search for a pattern in all XML annotation files provided and return the results.
 
@@ -389,26 +391,32 @@ def get_osv_info(sid):
     return osv, osv_descr
 
 
-def get_prod_meta(tif, src_ids, sar_dir, processor_name):
+def get_prod_meta(
+        tif: str,
+        src_ids: list[ID],
+        sar_dir: str,
+        processor_name: str
+) -> dict[str, Any]:
     """
-    Returns a metadata dictionary, which is generated from the name of a product scene using a regular expression
-    pattern and from a measurement GeoTIFF file of the same product scene using the :class:`~spatialist.raster.Raster`
-    class.
+    Get ARD product metadata.
+    Returns a metadata dictionary, which is generated from a measurement
+    GeoTIFF file of the ARD product and function `get_metadata` of the SAR
+    processor.
 
     Parameters
     ----------
-    tif: str
-        The path to a measurement GeoTIFF file of the product scene.
-    src_ids: list[pyroSAR.drivers.ID]
-        List of :class:`~pyroSAR.drivers.ID` objects of all source SLC scenes that overlap with the current MGRS tile.
-    sar_dir: str
+    tif:
+        The path to a measurement GeoTIFF file of the ARD product.
+    src_ids:
+        List of objects of all source products.
+    sar_dir:
         A path pointing to the processed SAR datasets of the product.
-    processor_name: str
-        The name of the SAR processor. Needed for reading processing metadata.
+    processor_name:
+        The name of the SAR processor. Needed for reading processing metadata,
+        e.g. :func:`s1ard.snap.get_metadata`.
 
     Returns
     -------
-    dict
         A dictionary containing metadata for the product scene.
     """
     processor = load_processor(processor_name)
@@ -428,9 +436,11 @@ def get_prod_meta(tif, src_ids, sar_dir, processor_name):
                             geo['rotation_y'], geo['yres'], geo['ymax']]
         out['geom'] = geometry_from_vec(vectorobject=vec)
         
-        # Calculate number of nodata border pixels based on source scene(s) footprint
+        # Calculate the number of nodata border pixels based on the footprint
+        # of the source product(s)
         with vec_from_srccoords(coord_list=coord_list, crs=4326) as srcvec:
-            ras_srcvec = rasterize(vectorobject=srcvec, reference=ras, burn_values=[1])
+            ras_srcvec = rasterize(vectorobject=srcvec, reference=ras,
+                                   burn_values=[1])
             arr_srcvec = ras_srcvec.array()
             out['nodata_borderpx'] = int(np.count_nonzero(np.isnan(arr_srcvec)))
     
