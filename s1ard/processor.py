@@ -44,7 +44,8 @@ def main(config_file=None, debug=False, **kwargs):
     config_sar = config[processor_name]
     gdal_prms = gdal_conf(config=config)
     
-    spacings = {'IW': 10, 'SM': 10, 'EW': 30}
+    spacings = {am: config_proc[f'spacing_{am.lower()}']
+                for am in ['IW', 'SM', 'EW']}
     config_sar['spacing'] = spacings[config_proc['acq_mode']]
     
     check_spacing(config_sar['spacing'])

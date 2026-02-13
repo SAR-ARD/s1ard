@@ -154,7 +154,7 @@ whose acquisition period overlaps with the defined limit.
 sensor
 ++++++
 
-Options: ``S1A | S1B``
+Options: ``S1A | S1B | S1C | S1D``
 
 The Sentinel-1 sensor/platform.
 
@@ -164,6 +164,18 @@ acq_mode
 Options: ``IW | EW | SM``
 
 The acquisition mode of the source scenes that should be processed.
+
+spacing_(iw|ew|sm)
+++++++++++++++++++
+
+Define the output spacing for each acquisition mode.
+The following conditions must be met to fit resulting images into the S2-MGRS tiles:
+
+ + 109800 % spacing == 0 (tile size)
+ + 9780 % spacing == 0 (tile overlap I)
+ + 9840 % spacing == 0 (tile overlap II)
+
+This is internally checked by function :func:`cesard.ancillary.check_spacing`.
 
 product
 +++++++
