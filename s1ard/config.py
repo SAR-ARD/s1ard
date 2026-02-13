@@ -75,7 +75,10 @@ def _get_config_processing(parser, **kwargs):
         'measurement': 'gamma',
         'annotation': 'dm,ei,id,lc,li,np,ratio',
         'logfile': 'None',
-        'parquet': 'None'
+        'parquet': 'None',
+        'spacing_iw': '10',
+        'spacing_sm': '10',
+        'spacing_ew': '30',
     }
     processing_options = {
         'acq_mode': ['IW', 'EW', 'SM'],
@@ -145,7 +148,7 @@ def _get_config_processing(parser, **kwargs):
         if k in ['db_file', 'logfile'] and v is not None:
             if not os.path.isabs(v):
                 v = os.path.join(proc_sec['work_dir'], v)
-        if k == 'gdal_threads':
+        if k in ['gdal_threads', 'spacing_iw', 'spacing_sm', 'spacing_ew']:
             v = int(v)
         if k in ['etad', 'date_strict']:
             v = proc_sec.getboolean(k)
@@ -272,6 +275,7 @@ def get_keys(section: str) -> list[str]:
                 'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
                 'measurement', 'mindate', 'mode', 'parquet', 'processor',
                 'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
+                'spacing_ew', 'spacing_iw', 'spacing_sm',
                 'stac_catalog', 'stac_collections', 'tmp_dir', 'wbm_dir', 'work_dir']
     elif section == 'metadata':
         return ['access_url', 'copy_original', 'doi', 'format', 'licence', 'processing_center']
