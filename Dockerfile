@@ -8,9 +8,11 @@ RUN apt update && \
     apt upgrade -y && \
     apt install -y \
         git \
-        python3-pip \
         wget \
-        libgdal-dev \
+        libxext-dev \
+        libxrender1 \
+        libxtst6 \
+        libxi6 \
     && apt clean
 
 ### ----------------------------------------------- ###
@@ -27,7 +29,6 @@ RUN conda env create --yes --file /app/environment.yaml
 RUN conda run -n s1ard python -m pip install .
 
 # Set up general environment
-ENV PROJ_DATA=/usr/local/envs/s1ard/share/proj
 ENV CONDA_DEFAULT_ENV=s1ard
 ENV PATH=/opt/conda/envs/s1ard/bin:$PATH
 
@@ -38,7 +39,7 @@ FROM s1ard-base AS s1ard-snap
 
 # Set desired SNAP version
 ENV SNAP_VERSION=13.0
-ENV TARGET_DIR=~/SNAP${SNAP_VERSION}
+ENV TARGET_DIR=/usr/local/bin/SNAP${SNAP_VERSION}
 
 # Download the corresponding SNAP installer
 WORKDIR /tmp
@@ -48,9 +49,6 @@ RUN chmod +x esa-snap_sentinel_linux-${SNAP_VERSION}.0.sh
 
 # Install SNAP
 RUN /tmp/esa-snap_sentinel_linux-${SNAP_VERSION}.0.sh -q /tmp/varfile esa-snap.varfile
-
-# Add SNAP location to the PATH environment variable in the .bashrc file
-RUN echo PATH=$PATH:${TARGET_DIR}/bin >> ~/.bashrc
 
 # Update SNAP (see https://senbox.atlassian.net/wiki/spaces/SNAP/pages/30539785/Update+SNAP+from+the+command+line)
 SHELL ["/bin/bash", "-c"]
