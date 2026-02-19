@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.10.1 | 2026-02-01
+-------------------
+
+* extract.get_prod_meta: make sure 'nodata_borderpx' is int, not np.int64 (`#304 <https://github.com/SAR-ARD/s1ard/pull/304>`_)
+
+
+`Full v2.10.1 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.10.0...v2.10.1>`_
+
 2.10.0 | 2026-01-28
 -------------------
 
