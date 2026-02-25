@@ -316,7 +316,7 @@ def main(config_file=None, debug=False, **kwargs):
                 )
                 if prod_meta is None:
                     continue
-                log.info(f'product name: {prod_meta['dir_ard_product']}')
+                log.info(f"product name: {prod_meta['dir_ard_product']}")
                 
                 try:
                     src_ids, sar_assets = ard.get_datasets(
