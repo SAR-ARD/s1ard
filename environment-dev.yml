@@ -9,7 +9,7 @@ dependencies:
   - gdal>=3.5.0
   - geopandas
   - lxml
-  - numpy<2.0
+  - numpy
   - packaging
   - pandas
   - pip
