@@ -759,7 +759,7 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
         neighbors = [predecessor, successor]
     neighbors = [x[0] for x in neighbors]
     for i, neighbor in enumerate(neighbors):
-        log.debug(f'neighbor {i}/{len(neighbors)}: {neighbor}')
+        log.debug(f'neighbor {i + 1}/{len(neighbors)}: {neighbor}')
     return neighbors
 
 

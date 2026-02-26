@@ -2,7 +2,6 @@ name: s1ard_dev
 channels:
   - conda-forge
   - s1-etad
-  - dharpa
 dependencies:
   - asf_search
   - cesard>=1.2.1
@@ -10,8 +9,7 @@ dependencies:
   - gdal>=3.5.0
   - geopandas
   - lxml
-  - multiformats>=0.3.1
-  - numpy<2.0
+  - numpy
   - packaging
   - pandas
   - pip
