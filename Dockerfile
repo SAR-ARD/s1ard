@@ -27,10 +27,13 @@ WORKDIR /app
 # Create conda environment and install s1ard
 RUN conda env create --yes --file /app/environment.yaml
 RUN conda run -n s1ard python -m pip install .
+RUN conda run -n s1ard conda install --yes duckdb
 
 # Set up general environment
 ENV CONDA_DEFAULT_ENV=s1ard
-ENV PATH=/opt/conda/envs/s1ard/bin:$PATH
+RUN sed -i 's/conda activate base/conda activate s1ard/g' ~/.bashrc
+RUN echo "PATH=/opt/conda/envs/s1ard/bin:$PATH" >> ~/.bashrc
+ENV PROJ_DATA=/opt/conda/envs/s1ard/share/proj
 
 ### ---------------------------------------------------- ###
 ### --             s1ard with SNAP image              -- ###
