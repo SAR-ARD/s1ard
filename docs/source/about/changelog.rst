@@ -1,6 +1,16 @@
 Changelog
 =========
 
+2.11.0 | 2026-02-27
+-------------------
+
+* [docs] updated SNAP installation instructions (`#306 <https://github.com/SAR-ARD/s1ard/pull/306>`_)
+* new config parameters: spacing_ew, spacing_iw, spacing_sm (`#307 <https://github.com/SAR-ARD/s1ard/pull/307>`_)
+* removed numpy version constraint; bug fixes (`#308 <https://github.com/SAR-ARD/s1ard/pull/308>`_)
+
+`Full v2.11.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.10.1...v2.11.0>`_
+
+
 2.10.1 | 2026-02-01
 -------------------
 
