@@ -33,3 +33,4 @@ dependencies:
   - sphinx-toolbox
   - sphinx_rtd_theme>=2.0
   - sphinxcontrib-bibtex>=2.2
+  - flake8
