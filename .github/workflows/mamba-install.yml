@@ -1,0 +1,41 @@
+name: conda build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, reopened, synchronize ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: micromamba-shell {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # fetch all history
+          fetch-tags: true # make sure tags are fetched
+      - name: Set up python environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment-dev.yml
+          cache-environment: true
+          init-shell: bash
+          generate-run-shell: true
+          post-cleanup: 'all'
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Install package
+        run: |
+          pip install .
+      - name: Test import
+        run: |
+          python -c "import s1ard"
