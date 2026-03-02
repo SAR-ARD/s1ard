@@ -13,8 +13,6 @@ pystac>=1.8.0,<1.11.0
 pystac-client>=0.7.0
 python-dateutil
 requests
-s1etad>=0.5.3
-s1etad_tools>=0.8.1
 scipy
 shapely
 spatialist>=0.16.0

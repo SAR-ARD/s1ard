@@ -1,7 +1,6 @@
 name: s1ard
 channels:
   - conda-forge
-  - s1-etad
 dependencies:
   - asf_search
   - cesard>=1.2.1
@@ -20,8 +19,6 @@ dependencies:
   - python>=3.10
   - python-dateutil
   - requests
-  - s1etad>=0.5.3
-  - s1etad_tools>=0.8.1
   - scipy
   - shapely
   - spatialist>=0.16.0

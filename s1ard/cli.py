@@ -53,8 +53,6 @@ def init(ctx, config_file, overwrite=False, config_source=None):
     - annotation:        dm,ei,id,lc,li,np,ratio
     - dem_type:          Copernicus 30m Global DEM
     - date_strict:       True
-    - etad:              False
-    - etad_dir:          None
     - gdal_threads:      4
     - measurement:       gamma
     - ard_dir:           ARD
@@ -109,8 +107,6 @@ def process(ctx, config_file, debug):
     - annotation:        dm,ei,id,lc,li,np,ratio
     - dem_type:          Copernicus 30m Global DEM
     - date_strict:       True
-    - etad:              False
-    - etad_dir:          None
     - gdal_threads:      4
     - snap_gpt_args:     None
     - measurement:       gamma

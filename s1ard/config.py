@@ -58,7 +58,7 @@ def _get_config_processing(parser, **kwargs):
             proc_sec[k] = v.strip()
     
     # make all relevant paths absolute
-    for k in ['work_dir', 'scene_dir', 'scene', 'etad_dir']:
+    for k in ['work_dir', 'scene_dir', 'scene']:
         v = proc_sec[k]
         proc_sec[k] = 'None' if v in ['', 'None'] else os.path.abspath(v)
     
@@ -93,9 +93,6 @@ def _get_config_processing(parser, **kwargs):
         'product': ['GRD', 'SLC'],
         'sensor': ['S1A', 'S1B', 'S1C', 'S1D']}
     
-    if 'etad' not in proc_sec.keys():
-        proc_sec['etad'] = 'False'
-        proc_sec['etad_dir'] = 'None'
     for k, v in processing_defaults.items():
         if k not in proc_sec.keys():
             proc_sec[k] = v
@@ -128,8 +125,6 @@ def _get_config_processing(parser, **kwargs):
             if date_short:
                 v += timedelta(days=1, microseconds=-1)
         dir_ignore = ['work_dir']
-        if proc_sec['etad'] == 'False':
-            dir_ignore.append('etad_dir')
         if k == 'scene_dir' and v is None:
             dir_ignore.append(k)
         if k.endswith('_dir') and k not in dir_ignore:
@@ -150,7 +145,7 @@ def _get_config_processing(parser, **kwargs):
                 v = os.path.join(proc_sec['work_dir'], v)
         if k in ['gdal_threads', 'spacing_iw', 'spacing_sm', 'spacing_ew']:
             v = int(v)
-        if k in ['etad', 'date_strict']:
+        if k in ['date_strict']:
             v = proc_sec.getboolean(k)
         
         validate_options(k, v, options=processing_options)
@@ -272,7 +267,7 @@ def get_keys(section: str) -> list[str]:
     if section == 'processing':
         return ['acq_mode', 'annotation', 'aoi_geometry', 'aoi_tiles',
                 'ard_dir', 'datatake', 'date_strict', 'db_file', 'dem_type',
-                'etad', 'etad_dir', 'gdal_threads', 'logfile', 'maxdate',
+                'gdal_threads', 'logfile', 'maxdate',
                 'measurement', 'mindate', 'mode', 'parquet', 'processor',
                 'product', 'sar_dir', 'scene', 'scene_dir', 'sensor',
                 'spacing_ew', 'spacing_iw', 'spacing_sm',

@@ -68,9 +68,9 @@ def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
 
 def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
     """
-    Calculates the radial root mean square error, which is a target requirement of the CARD4L NRB specification
+    Calculates the radial root-mean-square error, which is a target requirement of the CARD4L NRB specification
     (Item 4.3). For more information see: https://s1ard.readthedocs.io/en/latest/general/geoaccuracy.html.
-    Currently only the Copernicus DEM is supported.
+    Currently, only the Copernicus DEM is supported.
 
     Parameters
     ----------
@@ -592,7 +592,7 @@ def meta_dict(config, prod_meta, src_ids, compression):
             'copernicus' in config['processing']['dem_type'].lower()):
         geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=op_mode,
                                                       ei_tif=ei_tif[0],
-                                                      etad=config['processing']['etad'])
+                                                      etad=False)
     else:
         geo_corr_accuracy = None
     meta['prod']['geoCorrAccuracyEasternBias'] = dummy_num

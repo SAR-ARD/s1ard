@@ -6,7 +6,6 @@ from osgeo import gdal
 from spatialist import bbox, intersect
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from s1ard import etad, ard
 from s1ard.config import get_config, gdal_conf
 from s1ard.ancillary import set_logging
 from s1ard import search
@@ -213,12 +212,6 @@ def main(config_file=None, debug=False, **kwargs):
                                             tr=(config_sar['spacing'], config_sar['spacing']))
                 else:
                     fname_dem = None
-                ########################################################################################################
-                # ETAD correction
-                if config_proc['etad']:
-                    log.info('ETAD correction')
-                    scene = etad.process(scene=scene, etad_dir=config_proc['etad_dir'],
-                                         out_dir=tmp_dir_scene)
                 ########################################################################################################
                 # determination of look factors
                 if scene.product == 'SLC':

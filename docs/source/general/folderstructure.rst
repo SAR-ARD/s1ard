@@ -71,7 +71,7 @@ Folders are highlighted in bold.
                                             .. note::
 
                                                 This folder contains the metadata of the source product(s). Two files per source
-                                                scene contain a subset of the source product metadta in STAC and OGC EO XML format.
+                                                scene contain a subset of the source product metadata in STAC and OGC EO XML format.
                                                 The subfolder(s) named after the UID of the source scene(s) further contains all
                                                 unaltered metadata found in the source product.
 
@@ -162,14 +162,11 @@ Folders are highlighted in bold.
                         Intermediate non-geocoded SAR processor files per scene.
 
                         - scene-specific DEM mosaic and intermediate (SNAP) processor files
-                        - unpacked ETAD files (\*_ETA_\*)
-                        - SLC_etad subfolder: ETAD-corrected SLC
 
                     .. collapse:: <b>S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12</b>
 
                         .. pull-quote::
 
-                            | **S1A_IW_ETA__AXDV_20200103T170700_20200103T170727_030639_0382D5_256B.SAFE**
                             | **S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_gsr.data**
                             | **S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_mli.data**
                             | **S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_pre.data**
@@ -185,12 +182,6 @@ Folders are highlighted in bold.
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.dim
                             | S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12_rtc.xml
                             | ...
-
-                            .. collapse:: <b>SLC_etad</b>
-
-                                .. pull-quote::
-
-                                    **S1A_IW_SLC__1SDV_20200103T170700_20200103T170727_030639_0382D5_6A12.SAFE**
 
                     ...
 

@@ -68,19 +68,6 @@ ARD
         get_datasets
         wind_normalization
 
-ETAD
-^^^^
-
-.. automodule:: s1ard.etad
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-    .. autosummary::
-        :nosignatures:
-
-        process
-
 OCN
 ^^^
 
