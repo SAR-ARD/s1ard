@@ -314,14 +314,6 @@ Supported options:
    The OCN products and corresponding Level-1 products must be searchable in the same way via the two search options described above.
    If a sigma naught output layer exists (via ``measurement = sigma`` or `annotation` layer `ratio`), a co-polarization wind normalization ratio VRT is created by dividing the measurement by the wind-modelled backscatter.
 
-etad & etad_dir
-+++++++++++++++
-
-Determines if the `Extended Timing Annotation Dataset (ETAD) correction <https://sentinel.esa.int/web/sentinel/missions/sentinel-1/data-products/etad-dataset>`_
-should be performed or not. If ``etad=True``, ``etad_dir`` is searched for ETAD products matching the respective input SLC
-and a new SLC is created in ``tmp_dir``, which is then used for all other processing steps. If ``etad=False``, ``etad_dir``
-will be ignored.
-
 Metadata Section
 ^^^^^^^^^^^^^^^^
 
