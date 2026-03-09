@@ -320,8 +320,6 @@ class STACParquetArchive(SceneArchive):
     """
     Search for scenes in STAC geoparquet dump.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
-    :class:`~s1ard.search.STACArchive` and :class:`pyroSAR.drivers.Archive`.
 
     Parameters
     ----------
