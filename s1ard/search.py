@@ -1,16 +1,23 @@
+from __future__ import annotations
+
 import os
 import re
 import pandas as pd
 from pathlib import Path
+from datetime import datetime
 from dateutil.parser import parse as dateparse
 from packaging.version import Version
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector
 from shapely.geometry import shape
-from pyroSAR import identify_many
+from pyroSAR import ID, identify_many, Archive
 from cesard.ancillary import date_to_utc, buffer_time
-from cesard.search import asf_select
+from cesard.search import asf_select, ASFArchive
+
+from types import TracebackType
+from typing import Any
+
 import logging
 
 log = logging.getLogger('s1ard')
@@ -20,19 +27,18 @@ class STACArchive(object):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
-    The interface is kept consistent with :class:`~s1ard.search.ASFArchive`,
-    :class:`~s1ard.search.STACParquetArchive` and :class:`pyroSAR.drivers.Archive`.
     
     Parameters
     ----------
-    url: str
+    url:
         the catalog URL
-    collections: str or list[str]
+    collections:
         the catalog collection(s) to be searched
-    timeout: int
+    timeout:
         the allowed timeout in seconds
-    max_retries: int or None
-        the number of times to retry requests. Set to None to disable retries.
+    max_retries:
+        the number of times to retry requests.
+        Set to `None` to disable retries.
     
     See Also
     --------
@@ -40,7 +46,13 @@ class STACArchive(object):
     pystac_client.stac_api_io.StacApiIO
     """
     
-    def __init__(self, url, collections, timeout=60, max_retries=20):
+    def __init__(
+            self,
+            url: str,
+            collections: str | list[str],
+            timeout: int = 60,
+            max_retries: int | None = 20
+    ) -> None:
         self.url = url
         self.timeout = timeout
         self.max_tries = max_retries
@@ -52,13 +64,19 @@ class STACArchive(object):
         else:
             raise TypeError("'collections' must be of type str or list")
     
-    def __enter__(self):
+    def __enter__(self) -> STACArchive:
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None
+    ) -> None:
         self.close()
     
-    def _filter_duplicates(self, values):
+    @staticmethod
+    def _filter_duplicates(values: list[Any]) -> list[Any]:
         tmp = sorted(values, key=lambda x: os.path.basename(x[-2]))
         pattern = '([0-9A-Z_]{16})_([0-9T]{15})_([0-9T]{15})'
         keep = []
@@ -84,19 +102,28 @@ class STACArchive(object):
             i = j
         return keep
     
-    def _open_catalog(self):
+    def _open_catalog(self) -> None:
         stac_api_io = StacApiIO(max_retries=self.max_tries)
         self.catalog = Client.open(url=self.url,
                                    stac_io=stac_api_io,
                                    timeout=self.timeout)
     
-    def close(self):
+    def close(self) -> None:
         del self.catalog
     
-    def select(self, sensor=None, product=None, acquisition_mode=None,
-               mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True, check_exist=True,
-               return_value="scene"):
+    def select(
+            self,
+            sensor: str | list[str] | None = None,
+            product: str | list[str] | None = None,
+            acquisition_mode: str | list[str] | None = None,
+            mindate: str | datetime | None = None,
+            maxdate: str | datetime | None = None,
+            frameNumber: int | str | list[int | str] | None = None,
+            vectorobject: Vector | None = None,
+            date_strict: bool = True,
+            check_exist: bool = True,
+            return_value: str | list[str] = "scene"
+    ) -> list[str | bytes] | list[tuple[str | bytes]]:
         """
         Select scenes from the catalog. Duplicates (same acquisition time) are filtered
         by returning only the last processed product. Used STAC property keys:
@@ -111,30 +138,30 @@ class STACArchive(object):
 
         Parameters
         ----------
-        sensor: str or list[str] or None
+        sensor:
             S1A | S1B | S1C | S1D
-        product: str or list[str] or None
+        product:
             GRD | SLC
-        acquisition_mode: str or list[str] or None
+        acquisition_mode:
             IW | EW | SM
-        mindate: str or datetime.datetime or None
+        mindate:
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
-        maxdate: str or datetime.datetime or None
+        maxdate:
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber: int or str or list[int or str] or None
+        frameNumber:
             the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
-        vectorobject: spatialist.vector.Vector or None
+        vectorobject:
             a geometry with which the scenes need to overlap. The object may only contain one feature.
-        date_strict: bool
+        date_strict:
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        check_exist: bool
+        check_exist:
             check whether found files exist locally?
-        return_value: str or List[str]
+        return_value:
             the query return value(s). Options:
             
             - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
@@ -149,7 +176,6 @@ class STACArchive(object):
 
         Returns
         -------
-        list or list[tuple]
             If a single return_value is specified: list of values
             If multiple return_values are specified: list of tuples containing the requested values
 
@@ -178,7 +204,7 @@ class STACArchive(object):
             'S1A': 'sentinel-1a',
             'S1B': 'sentinel-1b',
             'S1C': 'sentinel-1c',
-            'S1D': 'sentinel-1Dd'
+            'S1D': 'sentinel-1d'
         }
         lookup_platform_reverse = {value: key for key, value
                                    in lookup_platform.items()}
@@ -298,28 +324,33 @@ class STACParquetArchive(object):
 
     Parameters
     ----------
-    files: str
+    files:
         the file search pattern, e.g. `/path/to/*parquet`
     """
     
-    def __init__(self, files):
+    def __init__(self, files: str) -> None:
         self.files = files
     
-    def __enter__(self):
+    def __enter__(self) -> STACParquetArchive:
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None
+    ) -> None:
         return
     
     @staticmethod
-    def _filter_antimeridian(df):
+    def _filter_antimeridian(df: pd.DataFrame) -> pd.DataFrame:
         # The geometry of scenes crossing the antimeridian is stored as multipolygon.
         out = df[df["geometry_wkt"].str.startswith("POLYGON")]
         if len(out) < len(df):
             log.debug(f'removed {len(df) - len(out)} '
                       f'scene(s) crossing the antimeridian')
         return out
-        
+    
     @staticmethod
     def _filter_duplicates(values: pd.DataFrame) -> pd.DataFrame:
         """
@@ -508,13 +539,23 @@ class STACParquetArchive(object):
         log.debug(f"removed {len(to_drop)} duplicate(s)")
         return out
     
-    def close(self):
+    def close(self) -> None:
         pass
     
-    def select(self, sensor=None, product=None, acquisition_mode=None,
-               mindate=None, maxdate=None, frameNumber=None,
-               vectorobject=None, date_strict=True, return_value='scene',
-               filter_antimeridian=True, filter_duplicates=True):
+    def select(
+            self,
+            sensor: str | list[str] | None = None,
+            product: str | list[str] | None = None,
+            acquisition_mode: str | list[str] | None = None,
+            mindate: str | datetime | None = None,
+            maxdate: str | datetime | None = None,
+            frameNumber: int | str | list[int | str] | None = None,
+            vectorobject: Vector | None = None,
+            date_strict: bool = True,
+            return_value: str | list[str] = 'scene',
+            filter_antimeridian: bool = True,
+            filter_duplicates: bool = True
+    ) -> list[str | bytes] | list[tuple[str | bytes]]:
         """
         Select scenes from a STAC catalog's geoparquet dump. Used STAC property keys:
 
@@ -530,28 +571,28 @@ class STACParquetArchive(object):
 
         Parameters
         ----------
-        sensor: str or list[str] or None
+        sensor:
             S1A | S1B | S1C | S1D
-        product: str or list[str] or None
+        product:
             GRD | SLC
-        acquisition_mode: str or list[str] or None
+        acquisition_mode:
             IW | EW | SM
-        mindate: str or datetime.datetime or None
+        mindate:
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
-        maxdate: str or datetime.datetime or None
+        maxdate:
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber: int or str or list[int or str] or None
+        frameNumber:
             the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
-        vectorobject: spatialist.vector.Vector or None
+        vectorobject:
             a geometry with which the scenes need to overlap
-        date_strict: bool
+        date_strict:
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        return_value: str or List[str]
+        return_value:
             the query return value(s). Options:
             
             - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
@@ -566,14 +607,13 @@ class STACParquetArchive(object):
             - slice_number: the slice number (position) in the datatake
             - total_slices: the number of slices (products) in the datatake
             - processing_date: the processing datetime in UTC formatted as YYYYmmddTHHMMSS
-        filter_antimeridian: bool
+        filter_antimeridian:
             remove scenes crossing the antimeridian
-        filter_duplicates: bool
+        filter_duplicates:
             Sentinel-1 scenes are often reprocessed. With this, duplicates can be filtered out.
 
         Returns
         -------
-        List[str] or List[tuple[str]]
             the selected return value(s). Depending on whether a single or multiple
             values have been defined for `return_value`, the returned list will
             contain strings or tuples.
@@ -715,22 +755,28 @@ class STACParquetArchive(object):
             return list(result.itertuples(index=False, name=None))
 
 
-def collect_neighbors(archive, scene, stac_check_exist=True):
+SceneArchive = Archive | STACArchive | STACParquetArchive | ASFArchive
+
+
+def collect_neighbors(
+        archive: SceneArchive,
+        scene: ID,
+        stac_check_exist: bool = True
+) -> list[str]:
     """
     Collect a scene's neighboring acquisitions in a data take.
     
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive or STACParquetArchive or ASFArchive
+    archive:
         an open scene archive connection
-    scene: pyroSAR.drivers.ID
+    scene:
         the Sentinel-1 scene to be checked
-    stac_check_exist: bool
+    stac_check_exist:
         if `archive` is of type :class:`STACArchive`, check the local existence of the scenes?
 
     Returns
     -------
-    list[str]
         the filenames/URLs of the neighboring scenes
     """
     start, stop = buffer_time(scene.start, scene.stop, seconds=2)
@@ -763,7 +809,10 @@ def collect_neighbors(archive, scene, stac_check_exist=True):
     return neighbors
 
 
-def check_acquisition_completeness(archive, scenes):
+def check_acquisition_completeness(
+        archive: SceneArchive,
+        scenes: list[ID]
+) -> None:
     """
     Check presence of neighboring acquisitions.
     Check that for each scene a predecessor and successor can be queried
@@ -777,13 +826,10 @@ def check_acquisition_completeness(archive, scenes):
 
     Parameters
     ----------
-    archive: pyroSAR.drivers.Archive or STACArchive
+    archive:
         an open scene archive connection
-    scenes: list[pyroSAR.drivers.ID]
+    scenes:
         a list of scenes
-
-    Returns
-    -------
 
     Raises
     ------
