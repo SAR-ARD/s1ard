@@ -11,9 +11,10 @@ from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector
 from shapely.geometry import shape
-from pyroSAR import ID, identify_many, Archive
+from pyroSAR import ID, identify_many
+from pyroSAR.archive import SceneArchive
 from cesard.ancillary import date_to_utc, buffer_time
-from cesard.search import asf_select, ASFArchive
+from cesard.search import asf_select
 
 from types import TracebackType
 from typing import Any
@@ -23,7 +24,7 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-class STACArchive(object):
+class STACArchive(SceneArchive):
     """
     Search for scenes in a SpatioTemporal Asset Catalog.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
@@ -118,11 +119,11 @@ class STACArchive(object):
             acquisition_mode: str | list[str] | None = None,
             mindate: str | datetime | None = None,
             maxdate: str | datetime | None = None,
-            frameNumber: int | str | list[int | str] | None = None,
             vectorobject: Vector | None = None,
             date_strict: bool = True,
+            return_value: str | list[str] = "scene",
+            frameNumber: int | str | list[int | str] | None = None,
             check_exist: bool = True,
-            return_value: str | list[str] = "scene"
     ) -> list[str | bytes] | list[tuple[str | bytes]]:
         """
         Select scenes from the catalog. Duplicates (same acquisition time) are filtered
@@ -148,9 +149,6 @@ class STACArchive(object):
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate:
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber:
-            the data take ID in decimal (int) or hexadecimal (str) representation.
-            Requires custom STAC key `s1:datatake`.
         vectorobject:
             a geometry with which the scenes need to overlap. The object may only contain one feature.
         date_strict:
@@ -159,8 +157,6 @@ class STACArchive(object):
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        check_exist:
-            check whether found files exist locally?
         return_value:
             the query return value(s). Options:
             
@@ -173,7 +169,12 @@ class STACArchive(object):
             - product: the product type, e.g., SLC, GRD
             - scene: the scene's storage location path (default)
             - sensor: the satellite platform, e.g., S1A or S1B
-
+        frameNumber:
+            the data take ID in decimal (int) or hexadecimal (str) representation.
+            Requires custom STAC key `s1:datatake`.
+        check_exist:
+            check whether found files exist locally?
+        
         Returns
         -------
             If a single return_value is specified: list of values
@@ -315,7 +316,7 @@ class STACArchive(object):
         return out
 
 
-class STACParquetArchive(object):
+class STACParquetArchive(SceneArchive):
     """
     Search for scenes in STAC geoparquet dump.
     Scenes are expected to be unpacked with a folder suffix .SAFE.
@@ -549,10 +550,10 @@ class STACParquetArchive(object):
             acquisition_mode: str | list[str] | None = None,
             mindate: str | datetime | None = None,
             maxdate: str | datetime | None = None,
-            frameNumber: int | str | list[int | str] | None = None,
             vectorobject: Vector | None = None,
             date_strict: bool = True,
             return_value: str | list[str] = 'scene',
+            frameNumber: int | str | list[int | str] | None = None,
             filter_antimeridian: bool = True,
             filter_duplicates: bool = True
     ) -> list[str | bytes] | list[tuple[str | bytes]]:
@@ -581,9 +582,6 @@ class STACParquetArchive(object):
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
         maxdate:
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        frameNumber:
-            the data take ID in decimal (int) or hexadecimal (str) representation.
-            Requires custom STAC key `s1:datatake`.
         vectorobject:
             a geometry with which the scenes need to overlap
         date_strict:
@@ -607,6 +605,9 @@ class STACParquetArchive(object):
             - slice_number: the slice number (position) in the datatake
             - total_slices: the number of slices (products) in the datatake
             - processing_date: the processing datetime in UTC formatted as YYYYmmddTHHMMSS
+        frameNumber:
+            the data take ID in decimal (int) or hexadecimal (str) representation.
+            Requires custom STAC key `s1:datatake`.
         filter_antimeridian:
             remove scenes crossing the antimeridian
         filter_duplicates:
@@ -753,9 +754,6 @@ class STACParquetArchive(object):
             return list(result.iloc[:, 0])
         else:
             return list(result.itertuples(index=False, name=None))
-
-
-SceneArchive = Archive | STACArchive | STACParquetArchive | ASFArchive
 
 
 def collect_neighbors(
