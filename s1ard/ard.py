@@ -512,10 +512,6 @@ def append_metadata(
         the wind model reference wind speed files
     wm_ref_direction:
         the wind model reference wind direction files
-
-    Returns
-    -------
-
     """
     meta = meta_dict(config=config, prod_meta=prod_meta,
                      src_ids=src_ids, compression=compression)
@@ -589,11 +585,11 @@ def get_datasets(
         that overlap with the current MGRS tile and a list of SAR processing output
         files that match each :class:`~pyroSAR.drivers.ID` object of `ids`.
         The format of the latter is a list of dictionaries per scene with keys as
-        described by e.g. :func:`s1ard.snap.find_datasets`.
+        described by e.g. :func:`cesard.snap.find_datasets`.
     
     See Also
     --------
-    :func:`s1ard.snap.find_datasets`
+    :func:`cesard.snap.find_datasets`
     """
     processor = load_processor(processor_name)
     ids = identify_many(scenes, sortkey='start')
@@ -717,10 +713,6 @@ def wind_normalization(
         The target pixel resolution in meters. 915 is chosen as default because
         it is closest to the OCN product resolution (1000) and still fits into
         the MGRS bounds (``109800 % 915 == 0``).
-    
-    Returns
-    -------
-    
     """
     if len(src) > 1:
         cmod_mosaic = get_tmp_name(suffix='.tif')
