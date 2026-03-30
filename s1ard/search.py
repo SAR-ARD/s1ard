@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 import re
+import duckdb
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from dateutil.parser import parse as dateparse
-from packaging.version import Version
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector
@@ -629,15 +629,6 @@ class STACParquetArchive(SceneArchive):
         del pars['return_value']
         del pars['filter_antimeridian']
         del pars['filter_duplicates']
-        
-        try:
-            import duckdb
-        except ImportError:
-            raise ImportError("this method requires 'duckdb>=1.1.1' to be installed")
-        ddb_version = Version(duckdb.__version__)
-        ddb_version_req = Version('1.1.1')
-        if ddb_version < ddb_version_req:
-            raise ImportError("duckdb version must be >= 1.1.1")
         
         duckdb.install_extension('spatial')
         duckdb.load_extension('spatial')
