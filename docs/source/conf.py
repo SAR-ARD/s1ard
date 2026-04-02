@@ -48,7 +48,7 @@ autosummary_generate = True
 intersphinx_mapping = {
     'cesard': ('https://cesard.readthedocs.io/en/latest', None),
     'dateutil': ('https://dateutil.readthedocs.io/en/stable', None),
-    'duckdb': ('https://duckdb.org/docs/stable/clients/python/reference', None),
+    'duckdb': ('https://duckdb.org/docs/current/clients/python/reference', None),
     'lxml': ('https://lxml.de/apidoc', None),
     'osgeo': ('https://gdal.org/en/stable', None),
     'pyroSAR': ('https://pyrosar.readthedocs.io/en/latest', None),
@@ -57,7 +57,6 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'scipy': ('https://docs.scipy.org/doc/scipy', None),
     'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
-    'stac-geoparquet': ('https://stac-utils.github.io/stac-geoparquet/latest', None)
 }
 
 napoleon_google_docstring = False
