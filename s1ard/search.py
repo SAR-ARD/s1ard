@@ -619,7 +619,6 @@ class STACParquetArchive(SceneArchive):
         
         See Also
         --------
-        stac_geoparquet.arrow.to_parquet
         duckdb.query
         """
         pars = locals()
@@ -824,7 +823,7 @@ def check_acquisition_completeness(
 
     See Also
     --------
-    s1ard.search.asf_select
+    cesard.search.asf_select
     """
     messages = []
     for scene in scenes:
