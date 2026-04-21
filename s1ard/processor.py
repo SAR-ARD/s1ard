@@ -78,7 +78,7 @@ def main(config_file=None, debug=False, **kwargs):
     elif parquet_set:
         archive = search.STACParquetArchive(files=config_proc['parquet'])
     else:
-        raise RuntimeError('could not select a search option. Please check your configuration.')
+        raise RuntimeError('Could not select a search option. Please check your configuration.')
     
     if config_proc['scene'] is None:
         attr_search = ['sensor', 'product', 'mindate', 'maxdate',
@@ -242,8 +242,8 @@ def main(config_file=None, debug=False, **kwargs):
                     accepted_params = set(sig.parameters.keys())
                     proc_args = {k: v for k, v in proc_args.items() if k in accepted_params}
                     processor.process(**proc_args)
-                    t = round((time.time() - start_time), 2)
-                    log.info(f'SAR processing finished in {t} seconds')
+                    t = time.time() - start_time
+                    log.info(f'SAR processing finished in {t:.2f} seconds')
                 except Exception as e:
                     log.error(msg=e)
                     raise
@@ -266,10 +266,11 @@ def main(config_file=None, debug=False, **kwargs):
     # ARD - final product generation
     if nrb_flag or orb_flag:
         product_type = 'NRB' if nrb_flag else 'ORB'
-        log.info(f'starting {product_type} production')
+        log.info(f'starting {product_type} conversion')
+        start_time = time.time()
         
         for s, scenes in enumerate(scenes_grouped):
-            log.info(f'ARD processing of group {s + 1}/{len(scenes_grouped)}')
+            log.info(f'ARD conversion of scene group {s + 1}/{len(scenes_grouped)}')
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
             extent = get_max_ext(geometries=vec)
@@ -284,6 +285,9 @@ def main(config_file=None, debug=False, **kwargs):
                                           return_geometries=True,
                                           tilenames=aoi_tiles)
             del vec
+            if len(tiles) == 0:
+                log.info('no overlapping tiles, nothing to do')
+                continue
             t_total = len(tiles)
             for t, tile in enumerate(tiles):
                 # select all scenes from the group whose footprint overlaps with the current tile
@@ -338,4 +342,6 @@ def main(config_file=None, debug=False, **kwargs):
                     log.error(msg=e)
                     raise
             del tiles
+        t = time.time() - start_time
+        log.info(f'ARD conversion finished in {t:.2f} seconds')
         gdal.SetConfigOption('GDAL_NUM_THREADS', gdal_prms['threads_before'])
