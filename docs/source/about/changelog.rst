@@ -1,6 +1,25 @@
 Changelog
 =========
 
+2.12.0 | 2026-04-21
+-------------------
+
+* remove etad processing (`#311 <https://github.com/SAR-ARD/s1ard/pull/311>`_)
+* Update Docker procedures and add build script (`#303 <https://github.com/SAR-ARD/s1ard/pull/303>`_)
+* inherit pyroSAR SceneArchive interfacing protocol, bug fixes (`#312 <https://github.com/SAR-ARD/s1ard/pull/312>`_)
+* require duckdb>=1.1.1 (`#313 <https://github.com/SAR-ARD/s1ard/pull/313>`_)
+* [docs] updated some links (`#314 <https://github.com/SAR-ARD/s1ard/pull/314>`_)
+* [processor] improved log messages (`#315 <https://github.com/SAR-ARD/s1ard/pull/315>`_)
+
+`Full v2.12.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.11.1...v2.12.0>`_
+
+2.11.1 | 2026-03-02
+-------------------
+
+* cicd: add mamba install workflow, fetch history and tags for pypi publish (`#310 <https://github.com/SAR-ARD/s1ard/pull/310>`_)
+
+`Full v2.11.1 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.11.0...v2.11.1>`_
+
 2.11.0 | 2026-02-27
 -------------------
 
