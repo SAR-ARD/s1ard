@@ -552,7 +552,7 @@ class STACParquetArchive(SceneArchive):
             date_strict: bool = True,
             return_value: str | list[str] = 'scene',
             frameNumber: int | str | list[int | str] | None = None,
-            filter_antimeridian: bool = True,
+            filter_antimeridian: bool = False,
             filter_duplicates: bool = True
     ) -> list[str | bytes] | list[tuple[str | bytes]]:
         """
