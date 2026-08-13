@@ -13,7 +13,7 @@ from cesard import dem
 import cesard.tile_extraction as tile_ex
 from cesard.search import scene_select
 from cesard.ancillary import (buffer_time, check_scene_consistency,
-                              check_spacing, get_max_ext, group_by_attr)
+                              check_spacing, combine_polygons, group_by_attr)
 
 from s1ard.processors.registry import load_processor
 
@@ -273,13 +273,13 @@ def main(config_file=None, debug=False, **kwargs):
             log.info(f'ARD conversion of scene group {s + 1}/{len(scenes_grouped)}')
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
-            extent = get_max_ext(geometries=vec)
-            with bbox(coordinates=extent, crs=4326) as box:
-                dem.retile(vector=box, threads=gdal_prms['threads'],
-                           dem_dir=None, wbm_dir=config_proc['wbm_dir'],
-                           dem_type=config_proc['dem_type'],
-                           tilenames=aoi_tiles, username=username, password=password,
-                           dem_strict=True)
+            with combine_polygons(vector=vec) as combined:
+                with combined.bbox() as box:
+                    dem.retile(vector=box, threads=gdal_prms['threads'],
+                               dem_dir=None, wbm_dir=config_proc['wbm_dir'],
+                               dem_type=config_proc['dem_type'],
+                               tilenames=aoi_tiles, username=username, password=password,
+                               dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,
