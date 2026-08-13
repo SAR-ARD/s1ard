@@ -3,7 +3,7 @@ import time
 import shutil
 import inspect
 from osgeo import gdal
-from spatialist import bbox, intersect
+from spatialist.vector import intersect, combine_polygons
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
 from s1ard.config import get_config, gdal_conf
@@ -13,7 +13,7 @@ from cesard import dem
 import cesard.tile_extraction as tile_ex
 from cesard.search import scene_select
 from cesard.ancillary import (buffer_time, check_scene_consistency,
-                              check_spacing, combine_polygons, group_by_attr)
+                              check_spacing, group_by_attr)
 
 from s1ard.processors.registry import load_processor
 
