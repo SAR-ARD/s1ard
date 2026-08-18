@@ -15,6 +15,7 @@ from spatialist.auxil import gdalwarp
 from spatialist.ancillary import finder, dissolve
 from spatialist.raster import rasterize
 from pyroSAR.drivers import ID
+from pyroSAR.ancillary import get_geometry
 from osgeo import gdal
 from s1ard.config import version_dict
 from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD,
@@ -22,7 +23,7 @@ from s1ard.metadata.mapping import (RES_MAP_SLC, RES_MAP_GRD, ENL_MAP_GRD,
 from s1ard.processors.registry import load_processor
 from cesard.ancillary import get_tmp_name, defaultdict_to_dict
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
-                                     geometry_from_vec, vec_from_srccoords)
+                                     geometry_from_vec)
 from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
 from typing import Any
 
@@ -438,7 +439,7 @@ def get_prod_meta(
         
         # Calculate the number of nodata border pixels based on the footprint
         # of the source product(s)
-        with vec_from_srccoords(coord_list=coord_list, crs=4326) as srcvec:
+        with get_geometry(coordinates=coord_list, crs=4326) as srcvec:
             ras_srcvec = rasterize(vectorobject=srcvec, reference=ras,
                                    burn_values=[1])
             arr_srcvec = ras_srcvec.array()
