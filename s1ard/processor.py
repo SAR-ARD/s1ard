@@ -206,6 +206,9 @@ def main(config_file=None, debug=False, **kwargs):
                 else:
                     os.makedirs(out_dir_scene, exist_ok=True)
                     os.makedirs(tmp_dir_scene, exist_ok=True)
+                
+                # unpack the scene if it is compressed (e.g. zip/tar.gz)
+                scene.unpack(directory=tmp_dir_scene, exist_ok=True)
                 ########################################################################################################
                 # Preparation of DEM for SAR processing
                 dem_prepare_mode = config_sar['dem_prepare_mode']
