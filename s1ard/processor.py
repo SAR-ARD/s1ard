@@ -36,6 +36,11 @@ def main(config_file=None, debug=False, **kwargs):
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
     log = set_logging(config=config, debug=debug)
+    if debug:
+        # turn on Python's fault handler to get info on segmentation
+        # faults from lxml, GDAL, etc.
+        import faulthandler as fh
+        fh.enable()
     config_proc = config['processing']
     processor_name = config_proc['processor']
     processor = load_processor(processor_name)

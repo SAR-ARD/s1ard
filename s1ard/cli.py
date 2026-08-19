@@ -83,7 +83,7 @@ def init(ctx, config_file, overwrite=False, config_source=None):
               help="Full path to an INI-style configuration text file. "
                    "If not defined, the package's default file will be used.")
 @click.option('--debug', is_flag=True,
-              help='Print debugging information for pyroSAR modules.')
+              help="Turn on Python's fault handler and print debugging log messages.")
 @click.pass_context
 def process(ctx, config_file, debug):
     """
