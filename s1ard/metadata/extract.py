@@ -422,7 +422,11 @@ def get_prod_meta(
     """
     processor = load_processor(processor_name)
     out = dict()
-    coord_list = [sid.meta['coordinates'] for sid in src_ids]
+    coord_list = [
+        coordinate
+        for sid in src_ids
+        for coordinate in sid.meta["coordinates"]
+    ]
     
     with Raster(tif) as ras:
         vec = ras.bbox()
