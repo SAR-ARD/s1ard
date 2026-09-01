@@ -4,21 +4,24 @@ import logging
 from typing import Any
 from datetime import datetime
 from dateutil.parser import parse as dateparse
-from pyroSAR import ID
+from pyroSAR.drivers import ID
 from s1ard.config import version_dict
 
 log = logging.getLogger('s1ard')
 
 
-def grd_diff_lines(scene1: ID, scene2: ID) -> float:
+def grd_diff_lines(
+        scene1: ID,
+        scene2: ID
+) -> float:
     """
     Determine the number of lines of overlap/gap between two GRD scenes.
 
     Parameters
     ----------
-    scene1:
+    scene1
         the first scene
-    scene2:
+    scene2
         the second scene (must be acquired after `scene1`)
 
     Returns
@@ -44,14 +47,13 @@ def set_logging(
     
     Parameters
     ----------
-    config: dict
+    config
         Dictionary of the parsed config parameters for the current process.
-    debug: bool
+    debug
         Set logging level to DEBUG?
     
     Returns
     -------
-    logging.Logger
         The log handler for the current process.
     """
     level = logging.DEBUG if debug else logging.INFO

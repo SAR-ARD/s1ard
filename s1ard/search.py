@@ -11,7 +11,7 @@ from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from spatialist.vector import Vector
 from shapely.geometry import shape
-from pyroSAR import ID, identify_many
+from pyroSAR.drivers import ID, identify_many
 from pyroSAR.archive import SceneArchive
 from cesard.ancillary import date_to_utc, buffer_time
 from cesard.search import asf_select
@@ -77,7 +77,9 @@ class STACArchive(SceneArchive):
         self.close()
     
     @staticmethod
-    def _filter_duplicates(values: list[Any]) -> list[Any]:
+    def _filter_duplicates(
+            values: list[Any]
+    ) -> list[Any]:
         tmp = sorted(values, key=lambda x: os.path.basename(x[-2]))
         pattern = '([0-9A-Z_]{16})_([0-9T]{15})_([0-9T]{15})'
         keep = []
@@ -139,25 +141,25 @@ class STACArchive(SceneArchive):
 
         Parameters
         ----------
-        sensor:
+        sensor
             S1A | S1B | S1C | S1D
-        product:
+        product
             GRD | SLC
-        acquisition_mode:
+        acquisition_mode
             IW | EW | SM
-        mindate:
+        mindate
             the minimum acquisition date; timezone-unaware dates are interpreted as UTC.
-        maxdate:
+        maxdate
             the maximum acquisition date; timezone-unaware dates are interpreted as UTC.
-        vectorobject:
+        vectorobject
             a geometry with which the scenes need to overlap. The object may only contain one feature.
-        date_strict:
+        date_strict
             treat dates as strict limits or also allow flexible limits to incorporate scenes
             whose acquisition period overlaps with the defined limit?
 
             - strict: start >= mindate & stop <= maxdate
             - not strict: stop >= mindate & start <= maxdate
-        return_value:
+        return_value
             the query return value(s). Options:
             
             - acquisition_mode: the sensor's acquisition mode, e.g., IW, EW, SM
@@ -169,10 +171,10 @@ class STACArchive(SceneArchive):
             - product: the product type, e.g., SLC, GRD
             - scene: the scene's storage location path (default)
             - sensor: the satellite platform, e.g., S1A or S1B
-        frameNumber:
+        frameNumber
             the data take ID in decimal (int) or hexadecimal (str) representation.
             Requires custom STAC key `s1:datatake`.
-        check_exist:
+        check_exist
             check whether found files exist locally?
         
         Returns

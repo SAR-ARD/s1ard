@@ -3,14 +3,14 @@ import os
 import datetime
 from importlib.metadata import version as get_version
 
+# -- Project information -----------------------------------------------------
+
 project = 's1ard'
 authors = 'the s1ard developers'
 year = datetime.datetime.now().year
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('..'))
+# General information about the project.
+copyright = ' (c) 2021-{}, {}'.format(year, authors)
 
 # The full version, including alpha/beta/rc tags.
 version_full = get_version(project)
@@ -19,7 +19,12 @@ version = '.'.join(version_full.split('.')[:2])
 # release is automatically added to the latex document title and header
 release = version
 
-autodoc_mock_imports = ['osgeo', 'pyproj']
+# -- General Sphinx configuration -------------------------------------------
+
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.insert(0, os.path.abspath('..'))
 
 # If your documentation needs a minimal Sphinx version, state it here.
 needs_sphinx = '1.6'
@@ -29,21 +34,65 @@ needs_sphinx = '1.6'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.coverage',
+    # 'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.viewcode',
+    # 'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'nbsphinx',
     'sphinx_toolbox.collapse',
     "sphinx_autodoc_typehints"
 ]
 
-bibtex_bibfiles = ['references.bib']
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
+
+# The suffix of source filenames.
+source_suffix = {'.rst': 'restructuredtext'}
+
+# The master toctree document.
+master_doc = 'index'
+
+# List of patterns, relative to source directory, that match files and
+# directories to ignore when looking for source files.
+exclude_patterns = ['_build']
+
+# The name of the Pygments (syntax highlighting) style to use.
+pygments_style = 'sphinx'
+
+# Warn about references where the target cannot be found.
+nitpicky = True
+
+# -- sphinx.ext.autodoc ------------------------------------------------------
+
+autodoc_mock_imports = ['osgeo', 'pyproj', 'cesard', 'spatialist', 'pyroSAR', 'pystac', 'dateutil', 'numpy', 'lxml', 'duckdb', 'pandas', 'pystac_client', 'shapely', 'scipy']
+
+# Let sphinx-autodoc-typehints do all type rendering.
+autodoc_typehints = 'none'
 
 # autodoc_default_flags = ['members']
+
+
+# -- sphinx.ext.napoleon -----------------------------------------------------
+
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = False
+
+# -- sphinx.ext.autosummary --------------------------------------------------
+
 autosummary_generate = True
+
+# -- sphinx.ext.intersphinx --------------------------------------------------
 
 intersphinx_mapping = {
     'cesard': ('https://cesard.readthedocs.io/en/latest', None),
@@ -59,32 +108,23 @@ intersphinx_mapping = {
     'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
 }
 
-napoleon_google_docstring = False
-napoleon_numpy_docstring = True
-napoleon_include_init_with_doc = False
-napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = True
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
-napoleon_use_ivar = False
-napoleon_use_param = True
-napoleon_use_rtype = True
+# -- sphinx_autodoc_typehints -----------------------------------------------
 
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+# True (the extension default): render return types as a separate :rtype: block.
+# False: render the type inline with the return description.
+typehints_use_rtype = False
+typehints_use_signature = False
+typehints_use_signature_return = False
+typehints_fully_qualified = False
 
-# The suffix of source filenames.
-source_suffix = {'.rst': 'restructuredtext'}
+# -- sphinxcontrib.bibtex ----------------------------------------------------
+
+bibtex_bibfiles = ['references.bib']
+
+# -- Other optional Sphinx settings -----------------------------------------
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
-
-# The master toctree document.
-master_doc = 'index'
-
-# General information about the project.
-copyright = ' (c) 2021-{}, {}'.format(year, authors)
 
 # The language for content autogenerated by Sphinx. Refer to documentation
 # for a list of supported languages.
@@ -95,10 +135,6 @@ copyright = ' (c) 2021-{}, {}'.format(year, authors)
 # today = ''
 # Else, today_fmt is used as the format for a strftime call.
 # today_fmt = '%B %d, %Y'
-
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-exclude_patterns = ['_build']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -114,9 +150,6 @@ exclude_patterns = ['_build']
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
 # show_authors = False
-
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -282,7 +315,7 @@ man_pages = [
 # -- Options for Texinfo output -------------------------------------------
 
 # Grouping the document tree into Texinfo files. List of tuples
-# (source start file, target name, title, author,
+# (source start file, name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
     ('index',

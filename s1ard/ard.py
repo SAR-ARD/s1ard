@@ -58,7 +58,7 @@ def product_info(
         update an existing product (or create a new one)
     product_id:
         an existing product ID. Default None: create a new one using
-        function :func:`generate_unique_id`.
+        function :func:`cesard.ancillary.generate_unique_id`.
 
     Returns
     -------
@@ -552,11 +552,10 @@ def get_datasets(
     filters both lists depending on the actual overlap of each SLC/GRD valid
     data coverage with the current MGRS tile geometry. If no output is found
     for any scene the function will raise an error.
-    To obtain the extent of valid data coverage, first a binary mask raster
-    file is created with the name `datamask.tif`, which is stored in the same
-    folder as the processing output as found by :func:`~s1ard.snap.find_datasets`.
-    Then, the boundary of this binary mask is computed and stored as `datamask.gpkg`
-    (see function :func:`spatialist.vector.boundary`).
+    To obtain the extent of valid data coverage, two data mask files,
+    `datamask.tif` and `datamask.gpkg`, are created using
+    :func:`cesard.ancillary.datamask` are stored in the same
+    folder as the processing output as found by :func:`cesard.snap.find_datasets`.
     If the provided `extent` does not overlap with this boundary, the output is
     discarded. This scenario might occur when the scene's geometry read from its
     metadata overlaps with the tile but the actual extent of data does not.

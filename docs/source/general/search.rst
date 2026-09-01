@@ -52,7 +52,7 @@ Search with cesard.search
 In the background the :py:mod:`cesard.search` module is used to do the scene search.
 This module contains various tools for searching Sentinel-1 scenes from multiple sources.
 
-For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`cesard.search.scene_select` and class :class:`pyroSAR.drivers.Archive` are used for finding this scene and its neighbors:
+For the scene search option above (via ``scene_dir`` and ``db_file``), the function :func:`cesard.search.scene_select` and class :class:`pyroSAR.archive.Archive` are used for finding this scene and its neighbors:
 
 .. code-block:: python
 
@@ -106,7 +106,7 @@ In the `config.ini`, the parameters ``scene_dir`` and ``db_file`` need to be rep
     stac_catalog = https://stac.terrabyte.lrz.de/public/api
     stac_collections = sentinel-1-grd
 
-Internally, the search interface class :class:`s1ard.search.STACArchive` is used instead of :class:`pyroSAR.drivers.Archive` as in the example above:
+Internally, the search interface class :class:`s1ard.search.STACArchive` is used instead of :class:`pyroSAR.archive.Archive` as in the example above:
 
 .. code-block:: python
 
@@ -126,7 +126,7 @@ Simple scene search (without selecting neighbors and MGRS tiles) can be done wit
 pyroSAR
 ^^^^^^^
 
-See :meth:`pyroSAR.drivers.Archive.select`.
+See :meth:`pyroSAR.archive.Archive.select`.
 
 .. code-block:: python
 
