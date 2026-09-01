@@ -59,13 +59,10 @@ ARD
     .. autosummary::
         :nosignatures:
 
-        calc_product_start_stop
-        create_acq_id_image
-        create_data_mask
-        create_rgb_vrt
-        create_vrt
+        append_metadata
         format
         get_datasets
+        product_info
         wind_normalization
 
 OCN
