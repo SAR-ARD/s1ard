@@ -34,11 +34,11 @@ needs_sphinx = '1.6'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.coverage',
+    # 'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.viewcode',
+    # 'sphinx.ext.viewcode',
     'sphinxcontrib.bibtex',
     'nbsphinx',
     'sphinx_toolbox.collapse',
@@ -61,9 +61,15 @@ exclude_patterns = ['_build']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+# Warn about references where the target cannot be found.
+nitpicky = True
+
 # -- sphinx.ext.autodoc ------------------------------------------------------
 
-autodoc_mock_imports = ['osgeo', 'pyproj']
+autodoc_mock_imports = ['osgeo', 'pyproj', 'cesard', 'spatialist', 'pyroSAR', 'pystac', 'dateutil', 'numpy', 'lxml', 'duckdb', 'pandas', 'pystac_client', 'shapely', 'scipy']
+
+# Let sphinx-autodoc-typehints do all type rendering.
+autodoc_typehints = 'none'
 
 # autodoc_default_flags = ['members']
 
@@ -80,7 +86,7 @@ napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
-napoleon_use_rtype = True
+napoleon_use_rtype = False
 
 # -- sphinx.ext.autosummary --------------------------------------------------
 
@@ -101,6 +107,15 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy', None),
     'spatialist': ('https://spatialist.readthedocs.io/en/latest', None),
 }
+
+# -- sphinx_autodoc_typehints -----------------------------------------------
+
+# True (the extension default): render return types as a separate :rtype: block.
+# False: render the type inline with the return description.
+typehints_use_rtype = False
+typehints_use_signature = False
+typehints_use_signature_return = False
+typehints_fully_qualified = False
 
 # -- sphinxcontrib.bibtex ----------------------------------------------------
 

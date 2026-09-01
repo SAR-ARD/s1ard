@@ -29,28 +29,30 @@ from typing import Any
 gdal.UseExceptions()
 
 
-def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
+def append_wind_norm(
+        meta: dict[str, Any],
+        wm_ref_speed: list[str],
+        wm_ref_direction: list[str]
+) -> None:
     """
     Update a metadata dictionary with wind model information
 
     Parameters
     ----------
-    meta: dict
+    meta
         metadata extracted by :func:`meta_dict`
-    wm_ref_speed: List[str]
+    wm_ref_speed
         List of paths pointing to the wind model reference speed files.
-    wm_ref_direction: List[str]
+    wm_ref_direction
         List of paths pointing to the wind model reference direction files.
-
-    Returns
-    -------
-
     """
     if wm_ref_speed is not None and wm_ref_direction is not None:
-        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(wm_ref_speed=wm_ref_speed,
-                                                               wm_ref_direction=wm_ref_direction,
-                                                               epsg=meta['prod']['crsEPSG'],
-                                                               bounds=meta['prod']['geom_stac_bbox_native'])
+        wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(
+            wm_ref_speed=wm_ref_speed,
+            wm_ref_direction=wm_ref_direction,
+            epsg=meta['prod']['crsEPSG'],
+            bounds=meta['prod']['geom_stac_bbox_native']
+        )
         meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
         meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
         meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
@@ -66,7 +68,12 @@ def append_wind_norm(meta, wm_ref_speed, wm_ref_direction):
         meta['prod']['windNormReferenceType'] = None
 
 
-def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
+def calc_geolocation_accuracy(
+        swath_identifier: str,
+        ei_tif: str,
+        etad: bool,
+        decimals: int=2
+) -> float | None:
     """
     Calculates the radial root-mean-square error, which is a target requirement of the CARD4L NRB specification
     (Item 4.3). For more information see: https://s1ard.readthedocs.io/en/latest/general/geoaccuracy.html.
@@ -74,18 +81,17 @@ def calc_geolocation_accuracy(swath_identifier, ei_tif, etad, decimals=2):
 
     Parameters
     ----------
-    swath_identifier: str
+    swath_identifier
         Swath identifier dependent on acquisition mode.
-    ei_tif: str
+    ei_tif
         Path to the annotation GeoTIFF layer 'Ellipsoidal Incident Angle' of the current product.
-    etad: bool
+    etad
         Was the ETAD correction applied?
-    decimals: int, optional
+    decimals
         Number of decimal places to round the calculated rRMSE value to. Default is 2.
 
     Returns
     -------
-    rmse_planar: float or None
         The calculated rRMSE value rounded to two decimal places or None if a DEM other than Copernicus is used.
     """
     if etad:
@@ -138,10 +144,10 @@ def calc_pslr_islr(
 
     Parameters
     ----------
-    annotation_dict:
+    annotation_dict
         A dictionary of Sentinel-1 annotation file XML objects
         (key `annotation` of the dictionary returned by :func:`get_src_meta`).
-    decimals:
+    decimals
         Number of decimal places to round the calculated values to. Default is 2.
 
     Returns
@@ -168,26 +174,31 @@ def calc_pslr_islr(
     return tuple(out)
 
 
-def calc_wm_ref_stats(wm_ref_speed, wm_ref_direction, epsg, bounds, resolution=915):
+def calc_wm_ref_stats(
+        wm_ref_speed: list[str],
+        wm_ref_direction: list[str],
+        epsg: int,
+        bounds: list[int | float],
+        resolution: int=915
+) -> tuple[float, float]:
     """
     Calculates the mean wind model reference speed and direction for the wind model annotation layer.
 
     Parameters
     ----------
-    wm_ref_speed: list[str]
+    wm_ref_speed
         List of paths pointing to the wind model reference speed files.
-    wm_ref_speed: list[str]
+    wm_ref_speed
         List of paths pointing to the wind model reference direction files.
-    epsg: int
+    epsg
         The EPSG code of the current MGRS tile.
-    bounds: list[float]
+    bounds
         The bounds of the current MGRS tile.
-    resolution: int, optional
+    resolution
         The resolution of the wind model reference files in meters. Default is 915.
 
     Returns
     -------
-    tuple[float]
         a tuple with the following values in the following order:
 
         - Mean wind model reference speed.
@@ -211,21 +222,20 @@ def calc_wm_ref_stats(wm_ref_speed, wm_ref_direction, epsg, bounds, resolution=9
     return tuple(out)
 
 
-def copy_src_meta(ard_dir, src_ids):
+def copy_src_meta(
+        ard_dir: str,
+        src_ids: list[ID]
+) -> None:
     """
     Copies the original metadata of the source scenes to the ARD product
     directory.
 
     Parameters
     ----------
-    ard_dir: str
+    ard_dir
         A path pointing to the current ARD product directory.
-    src_ids: list[pyroSAR.drivers.ID]
+    src_ids
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-
-    Returns
-    -------
-    None
     """
     for src_id in src_ids:
         source_dir = os.path.join(ard_dir, 'source')
@@ -263,20 +273,20 @@ def find_in_annotation(
 
     Parameters
     ----------
-    annotation_dict:
+    annotation_dict
         A dictionary of Sentinel-1 annotation file XML objects
         (key `annotation` of the dictionary returned by :func:`get_src_meta`).
-    pattern:
+    pattern
         The pattern to search for in each annotation file.
-    single:
+    single
         If True, the results found in each annotation file are expected to be
         the same and therefore only a single value will be returned instead of
         a dictionary. If the results differ, an error is raised.
-    per_pol:
+    per_pol
         group the results per polarization? In this case, the dictionary becomes
         nested with the outer dict having the swaths as keys and the inner the
         polarizations.
-    out_type:
+    out_type
         Output type to convert the results to.
 
     Returns
@@ -346,7 +356,9 @@ def find_in_annotation(
     return out
 
 
-def get_osv_info(sid):
+def get_osv_info(
+        sid: ID
+) -> tuple[str, str] | tuple[None, None]:
     """
     Get information about the used OSV file.
     First, this function attempts to find an auxiliary OSV file matching the scene.
@@ -357,12 +369,11 @@ def get_osv_info(sid):
 
     Parameters
     ----------
-    sid: pyroSAR.drivers.ID
+    sid
         The pyroSAR scene ID object
 
     Returns
     -------
-    tuple[str or None]
         the OSV file's basename and the OSV type description.
         None is returned if no OSV file is found.
 
@@ -405,13 +416,13 @@ def get_prod_meta(
 
     Parameters
     ----------
-    tif:
+    tif
         The path to a measurement GeoTIFF file of the ARD product.
-    src_ids:
+    src_ids
         List of objects of all source products.
-    sar_dir:
+    sar_dir
         A path pointing to the processed SAR datasets of the product.
-    processor_name:
+    processor_name
         The name of the SAR processor. Needed for reading processing metadata,
         e.g. :func:`s1ard.snap.get_metadata`.
 
@@ -462,7 +473,7 @@ def get_src_meta(
 
     Parameters
     ----------
-    sid:
+    sid
         A pyroSAR :class:`~pyroSAR.drivers.ID` object generated with e.g.
         :func:`pyroSAR.drivers.identify`.
 
@@ -488,27 +499,31 @@ def get_src_meta(
             'annotation': defaultdict_to_dict(annotation)}
 
 
-def meta_dict(config, prod_meta, src_ids, compression):
+def meta_dict(
+        config: dict[str, Any],
+        prod_meta: dict[str, Any],
+        src_ids: list[ID],
+        compression: str
+) -> dict[str, Any]:
     """
     Creates a dictionary containing metadata for a product scene, as well
     as its source scenes. The dictionary can then be used
-    by :func:`~s1ard.metadata.xml.parse` and :func:`~s1ard.metadata.stac.parse`
+    by :func:`cesard.metadata.xml.parse` and :func:`cesard.metadata.stac.parse`
     to generate OGC XML and STAC JSON metadata files, respectively.
     
     Parameters
     ----------
-    config: dict
+    config
         Dictionary of the parsed config parameters for the current process.
-    prod_meta: dict
+    prod_meta
         a metadata dictionary as returned by :func:`s1ard.ard.product_info`
-    src_ids: list[pyroSAR.drivers.ID]
+    src_ids
         List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
-    compression: str
+    compression
         The compression type applied to raster files of the product.
     
     Returns
     -------
-    meta: dict
         A dictionary containing a collection of metadata for product as well as source scenes.
     """
     dummy_num = -99999

@@ -24,6 +24,11 @@ from cesard.snap import geo, gsr, mli, rtc, sgr, postprocess
 # do not remove, needed for interface
 from cesard.snap import find_datasets, lsm_encoding, version_dict
 
+from typing import Literal, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from configparser import ConfigParser
+
 import logging
 
 log = logging.getLogger('s1ard')
@@ -31,18 +36,19 @@ log = logging.getLogger('s1ard')
 
 # main interface
 
-def config_to_string(config):
+def config_to_string(
+        config: dict[str, Any]
+) -> dict[str, Any]:
     """
     Convert the values of a configuration dictionary to strings.
 
     Parameters
     ----------
-    config: dict
+    config
         the configuration as returned by :func:`get_config_section`
 
     Returns
     -------
-    dict
         the dictionary with the same structure but values converted to strings.
     """
     out = {}
@@ -64,30 +70,37 @@ def config_to_string(config):
     return out
 
 
-def get_config_keys():
+def get_config_keys() -> list[str]:
     """
     Get all allowed configuration keys.
     
     Returns
     -------
-    List[str]
+        The allowed configuration keys.
     """
     return ['allow_res_osv', 'clean_edges', 'clean_edges_pixels', 'cleanup',
             'dem_resampling_method', 'gpt_args', 'img_resampling_method']
 
 
-def get_config_section(parser, **kwargs):
+def get_config_section(
+        parser: ConfigParser,
+        **kwargs: dict[str, Any]
+) -> dict[str, Any]:
     """
     Get the`config.ini` `SNAP` section content as a dictionary.
     
     Parameters
     ----------
-    parser: configparser.ConfigParser
-    kwargs: dict[str]
+    parser
+        the configuration object
+    **kwargs
+        configuration parameters to override the values in the
+        configuration object
+    
 
     Returns
     -------
-    dict
+        The configuration as dictionary.
     """
     out = {}
     defaults = {
@@ -127,20 +140,23 @@ def get_config_section(parser, **kwargs):
     return out
 
 
-def get_metadata(scene, outdir):
+def get_metadata(
+        scene: str,
+        outdir: str
+) -> dict[str, Any]:
     """
     Get processing metadata needed for ARD product metadata.
 
     Parameters
     ----------
-    scene: str
+    scene
         the name of the SAR scene
-    outdir: str
+    outdir
         the directory to search for processing output
 
     Returns
     -------
-    dict
+        The processing metadata as dictionary.
     """
     basename = os.path.splitext(os.path.basename(scene))[0]
     scenedir = os.path.join(outdir, basename)
@@ -151,41 +167,54 @@ def get_metadata(scene, outdir):
             'rlks': rlks}
 
 
-def process(scene, outdir, measurement, spacing, dem,
-            dem_resampling_method='BILINEAR_INTERPOLATION',
-            img_resampling_method='BILINEAR_INTERPOLATION',
-            rlks=None, azlks=None, tmpdir=None, export_extra=None,
-            allow_res_osv=True, clean_edges=True, clean_edges_pixels=4,
-            neighbors=None, gpt_args=None, cleanup=True):
+def process(
+        scene: str,
+        outdir: str,
+        measurement: Literal['sigma', 'gamma'],
+        spacing: int | float,
+        dem: str,
+        dem_resampling_method: str = 'BILINEAR_INTERPOLATION',
+        img_resampling_method: str = 'BILINEAR_INTERPOLATION',
+        rlks: int | None = None,
+        azlks: int | None = None,
+        tmpdir: str | None = None,
+        export_extra: list[str] | None = None,
+        allow_res_osv: bool = True,
+        clean_edges: bool = True,
+        clean_edges_pixels: int = 4,
+        neighbors: list[str] | None = None,
+        gpt_args: list[str] | None = None,
+        cleanup: bool = True
+) -> None:
     """
     Main function for SAR processing with SNAP.
 
     Parameters
     ----------
-    scene: str
+    scene
         The SAR scene file name.
-    outdir: str
+    outdir
         The output directory for storing the final results.
-    measurement: {'sigma', 'gamma'}
+    measurement
         the backscatter measurement convention:
 
         - gamma: RTC gamma nought (:math:`\\gamma^0_T`)
         - sigma: RTC sigma nought (:math:`\\sigma^0_T`)
-    spacing: int or float
+    spacing
         The output pixel spacing in meters.
-    dem: str
-        The DEM filename. Can be created with :func:`s1ard.dem.mosaic`.
-    dem_resampling_method: str
+    dem
+        The DEM filename. Can be created with :func:`cesard.dem.mosaic`.
+    dem_resampling_method
         The DEM resampling method.
-    img_resampling_method: str
+    img_resampling_method
         The image resampling method.
-    rlks: int or None
+    rlks
         The number of range looks.
-    azlks: int or None
+    azlks
         The number of azimuth looks.
-    tmpdir: str or None
+    tmpdir
         Path to a temporary directory for intermediate products.
-    export_extra: list[str] or None
+    export_extra
         A list of ancillary layers to create. Default None: do not create any ancillary layers.
         Options:
 
@@ -199,28 +228,25 @@ def process(scene, outdir, measurement, spacing, dem,
          - projectedLocalIncidenceAngle
          - scatteringArea
          - lookDirection: range look direction angle
-    allow_res_osv: bool
+    allow_res_osv
         Also allow the less accurate RES orbit files to be used?
-    clean_edges: bool
+    clean_edges
         Erode noisy image edges? See :func:`pyroSAR.snap.auxil.erode_edges`.
         Does not apply to layover-shadow mask.
     clean_edges_pixels: int
         The number of pixels to erode.
-    neighbors: list[str] or None
+    neighbors
         (only applies to GRD) an optional list of neighboring scenes to add
         a buffer around the main scene using function :func:`grd_buffer`.
         If GRDs are processed compeletely independently, gaps are introduced
         due to a missing overlap. If `neighbors` is None or an empty list,
         buffering is skipped.
-    gpt_args: list[str] or None
+    gpt_args
         a list of additional arguments to be passed to the gpt call
 
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
-    cleanup: bool
+    cleanup
         Delete intermediate files after successful process termination?
-
-    Returns
-    -------
 
     Examples
     --------
@@ -461,20 +487,22 @@ def process(scene, outdir, measurement, spacing, dem,
             shutil.rmtree(tmpdir_scene)
 
 
-def translate_annotation(annotation, measurement):
+def translate_annotation(
+        annotation: list[str],
+        measurement: str
+) -> list[str]:
     """
     Translate s1ard annotation keys to SAR processor naming.
     
     Parameters
     ----------
-    annotation: List[str]
+    annotation
         the s1ard annotation keys (e.g. ei, gs)
-    measurement: str
+    measurement
         the SAR backscatter measurement (gamma|sigma)
 
     Returns
     -------
-    List[str]
         the annotation layer keys as required by the SAR processor
     """
     export_extra = None
@@ -507,7 +535,14 @@ def translate_annotation(annotation, measurement):
 
 # processor-specific functions
 
-def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
+def grd_buffer(
+        src: str,
+        dst: str,
+        workflow: str,
+        neighbors: list[str],
+        buffer: int = 100,
+        gpt_args: list[str] | None = None
+) -> None:
     """
     GRD extent buffering.
     GRDs, unlike SLCs, do not overlap in azimuth.
@@ -522,17 +557,17 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
 
     Parameters
     ----------
-    src: str
+    src
         the file name of the source scene in BEAM-DIMAP format.
-    dst: str
+    dst
         the file name of the target scene. Format is BEAM-DIMAP.
-    workflow: str
+    workflow
         the output SNAP XML workflow filename.
-    neighbors: list[str]
+    neighbors
         the file names of neighboring scenes
-    buffer: int
+    buffer
         the buffer size in meters
-    gpt_args: list[str] or None
+    gpt_args
         a list of additional arguments to be passed to the gpt call
 
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size
@@ -543,10 +578,6 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
     RuntimeError
         if the slice number of a scene is 0, and it could not be determined
         from the acquisition time
-
-    Returns
-    -------
-
     """
     if len(neighbors) == 0:
         raise RuntimeError("the list of 'neighbors' is empty")
@@ -591,7 +622,9 @@ def grd_buffer(src, dst, workflow, neighbors, buffer=100, gpt_args=None):
         gpt_args=gpt_args)
 
 
-def look_direction(dim):
+def look_direction(
+        dim: str
+) -> None:
     """
     Compute the per-pixel range look direction angle.
     This adds a new layer to an existing BEAM-DIMAP product.
@@ -615,12 +648,8 @@ def look_direction(dim):
 
     Parameters
     ----------
-    dim: str
+    dim
         a BEAM-DIMAP metadata file (extension .dim)
-
-    Returns
-    -------
-
     """
     
     def interpolate(infile, method='linear'):
@@ -791,7 +820,9 @@ def look_direction(dim):
         log.info('look direction has already been computed')
 
 
-def nrt_slice_num(dim):
+def nrt_slice_num(
+        dim: str
+) -> None:
     """
     Check whether a product has a non-zero slice number and add it if not.
     In NRT Slicing mode, both `sliceNumber` and `totalSlices` are 0 in the manifest.safe file.
@@ -803,7 +834,7 @@ def nrt_slice_num(dim):
 
     Parameters
     ----------
-    dim: str
+    dim
         the scene in BEAM-DIMAP format
 
     Raises
@@ -811,10 +842,6 @@ def nrt_slice_num(dim):
     RuntimeError
         if the slice number is 0, and it cannot be computed because
         the segment start time cannot be read from the metadata
-
-    Returns
-    -------
-
     """
     with open(dim, 'rb') as f:
         root = etree.fromstring(f.read())
@@ -841,48 +868,55 @@ def nrt_slice_num(dim):
                    encoding='utf-8')
 
 
-def pre(src, dst, workflow, allow_res_osv=True, osv_continue_on_fail=False,
-        output_noise=True, output_beta0=True, output_sigma0=True,
-        output_gamma0=False, add_slice_num=True, gpt_args=None):
+def pre(
+        src: str,
+        dst: str,
+        workflow: str,
+        allow_res_osv: bool = True,
+        osv_continue_on_fail: bool = False,
+        output_noise: bool = True,
+        output_beta0: bool = True,
+        output_sigma0: bool = True,
+        output_gamma0: bool = False,
+        add_slice_num: bool = True,
+        gpt_args: list[str] | None = None
+):
     """
     General SAR preprocessing. The following operators are used (optional steps in brackets):
     Apply-Orbit-File(->Remove-GRD-Border-Noise)->Calibration->ThermalNoiseRemoval(->TOPSAR-Deburst)
 
     Parameters
     ----------
-    src: str
+    src
         the file name of the source scene
-    dst: str
+    dst
         the file name of the target scene. Format is BEAM-DIMAP.
-    workflow: str
+    workflow
         the output SNAP XML workflow filename.
-    allow_res_osv: bool
+    allow_res_osv
         Also allow the less accurate RES orbit files to be used?
-    osv_continue_on_fail: bool
+    osv_continue_on_fail
         Continue processing if no OSV file can be downloaded or raise an error?
-    output_noise: bool
+    output_noise
         output the noise power images?
-    output_beta0: bool
+    output_beta0
         output beta nought backscatter needed for RTC?
-    output_sigma0: bool
+    output_sigma0
         output sigma nought backscatter needed for NESZ?
-    output_gamma0: bool
+    output_gamma0
         output gamma nought backscatter needed?
-    add_slice_num: bool
+    add_slice_num
         determine a slice number and add it to the product's metadata?
         This is only necessary if GRD buffering is intended.
         See :func:`~s1ard.snap.nrt_slice_num`.
-    gpt_args: list[str] or None
+    gpt_args
         a list of additional arguments to be passed to the gpt call
         
         - e.g. ``['-x', '-c', '2048M']`` for increased tile cache size and intermediate clearing
-    
-    Returns
-    -------
 
     See Also
     --------
-    pyroSAR.snap.auxil.orb_parametrize
+    :func:`pyroSAR.snap.auxil.orb_parametrize`
     """
     scene = identify(src)
     if not os.path.isfile(workflow):

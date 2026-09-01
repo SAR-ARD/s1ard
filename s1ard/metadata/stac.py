@@ -9,7 +9,12 @@ import logging
 log = logging.getLogger('s1ard')
 
 
-def make_catalog(directory, product_type, recursive=True, silent=False):
+def make_catalog(
+        directory: str,
+        product_type: str,
+        recursive: bool=True,
+        silent:bool=False
+) -> pystac.catalog.Catalog:
     """
     For a given directory of Sentinel-1 ARD products, this function will create a high-level STAC
     :class:`~pystac.catalog.Catalog` object serving as the STAC endpoint and lower-level STAC
@@ -20,19 +25,18 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     
     Parameters
     ----------
-    directory: str
+    directory
         Path to a directory that contains ARD products.
-    product_type: str
+    product_type
         Type of ARD products. Options: 'NRB' or 'ORB'.
-    recursive: bool, optional
+    recursive
         Search `directory` recursively? Default is True.
-    silent: bool, optional
+    silent
         Should the output during directory reorganization be suppressed? Default is False.
     
     Returns
     -------
-    nrb_catalog: pystac.catalog.Catalog
-        STAC Catalog object
+        The STAC Catalog object
     
     Notes
     -----
@@ -115,26 +119,31 @@ def make_catalog(directory, product_type, recursive=True, silent=False):
     return catalog
 
 
-def _reorganize_by_tile(directory, product_type, products=None, recursive=True, silent=False):
+def _reorganize_by_tile(
+        directory: str,
+        product_type: str,
+        products: list[str] | None=None,
+        recursive: bool=True,
+        silent: bool=False
+) -> list[str]:
     """
     Reorganizes a directory containing Sentinel-1 ARD products based on the ARD type and unique MGRS tile IDs.
     
     Parameters
     ----------
-    directory: str
+    directory
         Path to a directory that contains ARD products.
-    product_type: str
+    product_type
         Type of ARD products. Options: 'NRB' or 'ORB'.
-    products: list[str] or None, optional
+    products
         List of ARD product paths. Will be created from `directory` if not provided.
-    recursive: bool, optional
+    recursive
         Search `directory` recursively? Default is True.
-    silent: bool, optional
+    silent
         If False (default), a message for each ARD product is printed if it has been moved to a new location or not.
     
     Returns
     -------
-    products_new: list[str]
         An updated list of ARD product paths.
     """
     if products is None:

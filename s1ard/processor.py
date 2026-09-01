@@ -20,15 +20,19 @@ from s1ard.processors.registry import load_processor
 gdal.UseExceptions()
 
 
-def main(config_file=None, debug=False, **kwargs):
+def main(
+        config_file: str | None = None,
+        debug: bool = False,
+        **kwargs
+) -> None:
     """
     Main function that initiates and controls the processing workflow.
     
     Parameters
     ----------
-    config_file: str or None
+    config_file
         Full path to a `config.ini` file or `None` to use the package's default file.
-    debug: bool
+    debug
         Set logging level to DEBUG? Default is False.
     **kwargs
         extra arguments to override parameters in the config file. E.g. `acq_mode`.
