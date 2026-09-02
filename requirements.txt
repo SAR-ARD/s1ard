@@ -9,11 +9,11 @@ numpy
 packaging
 pandas
 pyproj
-pyroSAR<0.39.0
+pyroSAR>=0.39.0
 pystac>=1.8.0,<1.11.0
 pystac-client>=0.7.0
 python-dateutil
 requests
 scipy
 shapely
-spatialist<0.20.0
+spatialist>=0.20.1
