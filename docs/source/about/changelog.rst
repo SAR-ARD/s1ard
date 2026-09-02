@@ -1,6 +1,14 @@
 Changelog
 =========
 
+2.13.0 | 2026-09-02
+-------------------
+
+* slimmed down RTD build, fixed links, added typing (`#317 <https://github.com/SAR-ARD/s1ard/pull/317>`_)
+* added antimeridian handling capability (`#318 <https://github.com/SAR-ARD/s1ard/pull/318>`_)
+
+`Full v2.13.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.12.0...v2.13.0>`_
+
 2.12.0 | 2026-04-21
 -------------------
 
