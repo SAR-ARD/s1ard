@@ -23,7 +23,14 @@ documentation = "https://s1ard.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 test = ["pytest", "requests"]
-docs = ["sphinx", "sphinxcontrib-bibtex", "nbsphinx", "sphinx_rtd_theme", "sphinx-toolbox", "ipython"]
+docs = [
+    "nbsphinx",
+    "sphinx>=9.0",
+    "sphinx-autodoc-typehints",
+    "sphinx-toolbox>=4.2.0",
+    "sphinx_rtd_theme>=2.0",
+    "sphinxcontrib-bibtex",
+]
 
 [tool.setuptools]
 include-package-data = true

@@ -3,7 +3,7 @@ import time
 import shutil
 import inspect
 from osgeo import gdal
-from spatialist import bbox, intersect
+from spatialist.vector import intersect, combine_polygons
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
 from s1ard.config import get_config, gdal_conf
@@ -13,7 +13,7 @@ from cesard import dem
 import cesard.tile_extraction as tile_ex
 from cesard.search import scene_select
 from cesard.ancillary import (buffer_time, check_scene_consistency,
-                              check_spacing, get_max_ext, group_by_attr)
+                              check_spacing, group_by_attr)
 
 from s1ard.processors.registry import load_processor
 
@@ -40,6 +40,11 @@ def main(
     update = False  # update existing products? Internal development flag.
     config = get_config(config_file=config_file, **kwargs)
     log = set_logging(config=config, debug=debug)
+    if debug:
+        # turn on Python's fault handler to get info on segmentation
+        # faults from lxml, GDAL, etc.
+        import faulthandler as fh
+        fh.enable()
     config_proc = config['processing']
     processor_name = config_proc['processor']
     processor = load_processor(processor_name)
@@ -205,6 +210,9 @@ def main(
                 else:
                     os.makedirs(out_dir_scene, exist_ok=True)
                     os.makedirs(tmp_dir_scene, exist_ok=True)
+                
+                # unpack the scene if it is compressed (e.g. zip/tar.gz)
+                scene.unpack(directory=tmp_dir_scene, exist_ok=True)
                 ########################################################################################################
                 # Preparation of DEM for SAR processing
                 dem_prepare_mode = config_sar['dem_prepare_mode']
@@ -277,13 +285,13 @@ def main(
             log.info(f'ARD conversion of scene group {s + 1}/{len(scenes_grouped)}')
             log.info('preparing WBM tiles')
             vec = [x.geometry() for x in scenes]
-            extent = get_max_ext(geometries=vec)
-            with bbox(coordinates=extent, crs=4326) as box:
-                dem.retile(vector=box, threads=gdal_prms['threads'],
-                           dem_dir=None, wbm_dir=config_proc['wbm_dir'],
-                           dem_type=config_proc['dem_type'],
-                           tilenames=aoi_tiles, username=username, password=password,
-                           dem_strict=True)
+            with combine_polygons(vector=vec) as combined:
+                with combined.bbox() as box:
+                    dem.retile(vector=box, threads=gdal_prms['threads'],
+                               dem_dir=None, wbm_dir=config_proc['wbm_dir'],
+                               dem_type=config_proc['dem_type'],
+                               tilenames=aoi_tiles, username=username, password=password,
+                               dem_strict=True)
             # get the geometries of all tiles that overlap with the current scene group
             tiles = tile_ex.tile_from_aoi(vector=vec,
                                           return_geometries=True,
