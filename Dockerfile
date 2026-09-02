@@ -25,7 +25,7 @@ COPY . /app
 WORKDIR /app
 
 # Create conda environment and install s1ard
-RUN conda env create --yes --file /app/environment.yaml
+RUN conda env create --yes --file /app/environment.yml
 RUN conda run -n s1ard python -m pip install .
 RUN conda run -n s1ard conda install --yes duckdb
 
