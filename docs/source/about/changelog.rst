@@ -1,7 +1,14 @@
 Changelog
 =========
 
-2.13.0 | 2026-09-02
+2.13.1 | 2026-09-03
+-------------------
+
+* various small bug fixes (`#320 <https://github.com/SAR-ARD/s1ard/pull/320>`_)
+
+`Full v2.13.1 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.13.0...v2.13.1>`_
+
+2.13.0 | 2026-09-03
 -------------------
 
 * slimmed down RTD build, fixed links, added typing (`#317 <https://github.com/SAR-ARD/s1ard/pull/317>`_)
