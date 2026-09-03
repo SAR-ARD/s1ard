@@ -196,8 +196,12 @@ URL.update({
     'faradayRotationReference': None,
     'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'
                                 f'v{get_release_version(s1ard.__version__)}/general/geoaccuracy.html',
-    'geoCorrAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/1673968/UZH-S1-GC-AD%20-%20Guide%20to%20Sentinel-1%20Geocoding%202022%20-%201.12.pdf?inst-v=1d5d1a47-ceec-4a48-8345-fc161fc5e777',
-    'noiseRemovalAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/1673968/DI-MPC-TN-MPC-0392%20-%20Thermal%20Denoising%20of%20Products%20Generated%20by%20Sentinel-1%20IPF%202024%20-%202.3.pdf',
+    'geoCorrAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/'
+                        'a_5059b2b5c28fa73b9b3da518fee6c8954a5e3c687d33a2c091764622c81fd741/'
+                        'UZH-S1-GC-AD%20-%20Guide%20to%20Sentinel-1%20Geocoding%202022%20-%201.12.pdf',
+    'noiseRemovalAlgorithm': 'https://sentiwiki.copernicus.eu/__attachments/'
+                             'a_ab979d8ca949ffba50f47622706a34e8ee5e7afef2989b82c9d4d351d45c492d/'
+                             'DI-MPC-TN-MPC-0392%20-%20Thermal%20Denoising%20of%20Products%20Generated%20by%20Sentinel-1%20IPF%202024%20-%202.3.pdf',
     'orbitDataAccess': 'https://step.esa.int/auxdata/orbits/Sentinel-1',
     'radiometricAccuracyReference': None,
     'RTCAlgorithm': 'https://doi.org/10.1109/Tgrs.2011.2120616',
