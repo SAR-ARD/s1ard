@@ -1,6 +1,7 @@
 import re
 import pytest
-from pyroSAR.drivers import identify, Archive
+from pyroSAR.drivers import identify
+from pyroSAR.archive import Archive
 from s1ard.search import STACArchive, STACParquetArchive, collect_neighbors
 from cesard.search import ASFArchive, scene_select
 from shapely import wkt
