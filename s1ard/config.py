@@ -1,7 +1,7 @@
 import os
 import re
 import copy
-import importlib.resources
+from importlib.resources import files
 from datetime import datetime, timedelta
 import configparser
 from dateutil.parser import parse as dateparse
@@ -317,9 +317,7 @@ def init(
 
     """
     if source is None:
-        with importlib.resources.path(package='s1ard.resources',
-                                      resource='config.ini') as path:
-            source = str(path)
+        source = str(files('s1ard.resources') / 'config.ini')
     config = get_config(config_file=source, **kwargs)
     write(config=config, target=target, overwrite=overwrite)
 
@@ -346,9 +344,7 @@ def read_config_file(config_file: str | None = None) -> configparser.ConfigParse
         if not os.path.isfile(config_file):
             raise FileNotFoundError(f"Config file {config_file} does not exist.")
     else:
-        with importlib.resources.path(package='s1ard.resources',
-                                      resource='config.ini') as path:
-            config_file = str(path)
+        config_file = str(files('s1ard.resources') / 'config.ini')
     
     parser.read(config_file)
     return parser

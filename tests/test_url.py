@@ -11,12 +11,24 @@ def url_recursive(key, dictionary, parent_key=None):
         for k, v in dictionary[key].items():
             url_recursive(k, dictionary[key], key_info)
     else:
-        response = requests.get(
-            url=dictionary[key],
-            headers={"User-Agent": "Mozilla/5.0"},
-            allow_redirects=True
+        url = dictionary[key]
+        try:
+            response = requests.get(
+                url=url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                allow_redirects=True,
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            raise AssertionError(
+                f'Could not reach {url}: {exc}'
+            ) from exc
+    
+        assert response.status_code not in (404, 410), (
+            f'URL no longer exists: {url}\n'
+            f'Final URL: {response.url}\n'
+            f'Status: {response.status_code}'
         )
-        assert response.status_code in [200, 418]
 
 
 @pytest.mark.parametrize('url_key', URL.keys())
