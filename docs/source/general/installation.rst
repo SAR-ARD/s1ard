@@ -4,7 +4,8 @@ Installation
 SNAP
 ----
 
-s1ard requires ESA's Sentinels Application Platform (SNAP) software for SAR data processing.
+s1ard offers an interface to plug in various SAR processing software solutions.
+The plugin for ESA's Sentinels Application Platform (SNAP) is directly included in s1ard.
 Downloaders for different operating systems can be obtained from the `official webpage <https://step.esa.int/main/download/snap-download/>`_.
 
 The following code can be used to replicate the software installation on a Linux OS:
@@ -29,8 +30,9 @@ Alternatively, updates for individual modules and versions can be downloaded in 
 s1ard
 ------
 
-The s1ard package is not yet available via conda-forge or other common package distribution channels. For now,
-the following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed.
+The s1ard package is already available via PyPI.
+However, the installation via mamba is currently preferred, in particular due to the GDAL dependency.
+The following shall provide a convenient installation option provided that Anaconda or Miniconda has been installed.
 
 Latest State on Github
 ++++++++++++++++++++++
@@ -39,8 +41,8 @@ Latest State on Github
 
 ::
 
-    conda env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/main/environment.yaml
-    conda activate s1ard
+    mamba env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/main/environment.yml
+    mamba activate s1ard
 
 2. Install the s1ard package into the environment
 
@@ -56,8 +58,9 @@ repository for available versions.
 
 ::
 
-    conda env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/v1.0.0/environment.yaml
-    conda activate s1ard
+    # in older versions the file was called environment.yaml
+    mamba env create --file https://raw.githubusercontent.com/SAR-ARD/s1ard/v1.0.0/environment.yaml
+    mamba activate s1ard
     pip install git+https://github.com/SAR-ARD/s1ard.git@v1.0.0
 
 Docker
