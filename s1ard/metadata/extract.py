@@ -661,7 +661,10 @@ def meta_dict(
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
     meta['prod']['radiometricAccuracyAbsolute'] = dummy_num
     meta['prod']['radiometricAccuracyRelative'] = dummy_num
-    meta['prod']['radiometricAccuracyReference'] = URL['radiometricAccuracyReference']
+    rad_acc_ref_url = URL['radiometricAccuracyReference']
+    if rad_acc_ref_url is None:
+        rad_acc_ref_url = dummy_str
+    meta['prod']['radiometricAccuracyReference'] = rad_acc_ref_url
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
     meta['prod']['speckleFilterApplied'] = None
