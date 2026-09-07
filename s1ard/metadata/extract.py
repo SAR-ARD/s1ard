@@ -648,7 +648,7 @@ def meta_dict(
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     processing_center = config['metadata']['processing_center']
     if processing_center is None:
-        processing_center = 'None'
+        processing_center = dummy_str
     meta['prod']['processingCenter'] = processing_center
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
