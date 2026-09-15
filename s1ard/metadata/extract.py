@@ -580,7 +580,6 @@ def meta_dict(
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = config['metadata']['access_url']
     meta['prod']['acquisitionType'] = 'NOMINAL'
-    meta['prod']['ancillaryData_KML'] = URL['ancillaryData_KML']
     meta['prod']['azimuthNumberOfLooks'] = round(prod_meta['ML_nAzLooks'], 2)
     meta['prod']['backscatterConvention'] = 'linear power'
     meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
@@ -634,8 +633,9 @@ def meta_dict(
     meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
     meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
     meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelope']
-    meta['prod']['griddingConvention'] = 'Military Grid Reference System (MGRS)'
-    meta['prod']['griddingConventionURL'] = URL['griddingConventionURL']
+    meta['prod']['grid_convention'] = 'Military Grid Reference System (MGRS)'
+    meta['prod']['grid_convention_url'] = URL['grid_convention']
+    meta['prod']['grid_definition_url'] = URL['grid_definition']
     meta['prod']['licence'] = config['metadata']['licence']
     meta['prod']['mgrsID'] = prod_meta['tile']
     meta['prod']['noiseRemovalApplied'] = True
