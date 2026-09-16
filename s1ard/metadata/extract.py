@@ -667,7 +667,7 @@ def meta_dict(
     meta['prod']['radiometricAccuracyReference'] = rad_acc_ref_url
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
-    meta['prod']['speckleFilterApplied'] = None
+    meta['prod']['speckleFilterApplied'] = False
     meta['prod']['status'] = 'PLANNED'
     meta['prod']['timeCreated'] = prod_meta['proc_time']
     meta['prod']['timeStart'] = prod_meta['start']
