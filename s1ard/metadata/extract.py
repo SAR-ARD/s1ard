@@ -749,7 +749,7 @@ def meta_dict(
         meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
         meta['source'][uid]['azimuthResolution'] = res_az
         meta['source'][uid]['dataGeometry'] = data_geometry
-        meta['source'][uid]['datatakeID'] = _read_manifest('.//s1sarl1:missionDataTakeID')
+        meta['source'][uid]['datatakeID'] = int(_read_manifest('.//s1sarl1:missionDataTakeID'))
         meta['source'][uid]['doi'] = URL['source_doi']
         meta['source'][uid]['faradayMeanRotationAngle'] = None
         meta['source'][uid]['faradayRotationReference'] = URL['faradayRotationReference']
