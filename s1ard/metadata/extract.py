@@ -32,8 +32,8 @@ gdal.UseExceptions()
 
 def append_wind_norm(
         meta: dict[str, Any],
-        wm_ref_speed: list[str],
-        wm_ref_direction: list[str]
+        wm_ref_speed: list[str] | None,
+        wm_ref_direction: list[str] | None
 ) -> None:
     """
     Update a metadata dictionary with wind model information
