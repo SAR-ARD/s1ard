@@ -25,6 +25,7 @@ from cesard.ancillary import get_tmp_name, defaultdict_to_dict
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
                                      geometry_from_vec)
 from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
+from cesard.metadata.model import NOT_IMPLEMENTED_NUMBER, NOT_IMPLEMENTED_TEXT
 from typing import Any
 
 gdal.UseExceptions()
@@ -73,7 +74,7 @@ def calc_geolocation_accuracy(
         swath_identifier: str,
         ei_tif: str,
         etad: bool,
-        decimals: int=2
+        decimals: int = 2
 ) -> float | None:
     """
     Calculates the radial root-mean-square error, which is a target requirement of the CARD4L NRB specification
@@ -180,7 +181,7 @@ def calc_wm_ref_stats(
         wm_ref_direction: list[str],
         epsg: int,
         bounds: list[int | float],
-        resolution: int=915
+        resolution: int = 915
 ) -> tuple[float, float]:
     """
     Calculates the mean wind model reference speed and direction for the wind model annotation layer.
@@ -531,8 +532,6 @@ def meta_dict(
     -------
         A dictionary containing a collection of metadata for product as well as source scenes.
     """
-    dummy_num = -99999
-    dummy_str = 'TBD'
     
     meta = {'prod': {},
             'source': {},
@@ -603,7 +602,7 @@ def meta_dict(
     meta['prod']['demResamplingMethod'] = 'bilinear'
     meta['prod']['demType'] = DEM_MAP[config['processing']['dem_type']]['type']
     meta['prod']['doi'] = config['metadata']['doi']
-    meta['prod']['ellipsoidalHeight'] = None
+    meta['prod']['ellipsoidalHeight'] = NOT_IMPLEMENTED_NUMBER
     meta['prod']['equivalentNumberOfLooks'] = calc_enl(tif=ref_tif)
     
     if (len(ei_tif) == 1 and
@@ -614,16 +613,16 @@ def meta_dict(
                                                       etad=False)
     else:
         geo_corr_accuracy = None
-    meta['prod']['geoCorrAccuracyEasternBias'] = dummy_num
-    meta['prod']['geoCorrAccuracyEasternSTDev'] = dummy_num
-    meta['prod']['geoCorrAccuracyNorthernBias'] = dummy_num
-    meta['prod']['geoCorrAccuracyNorthernSTDev'] = dummy_num
+    meta['prod']['geoCorrAccuracyEasternBias'] = NOT_IMPLEMENTED_NUMBER
+    meta['prod']['geoCorrAccuracyEasternSTDev'] = NOT_IMPLEMENTED_NUMBER
+    meta['prod']['geoCorrAccuracyNorthernBias'] = NOT_IMPLEMENTED_NUMBER
+    meta['prod']['geoCorrAccuracyNorthernSTDev'] = NOT_IMPLEMENTED_NUMBER
     if geo_corr_accuracy is not None:
         meta['prod']['geoCorrAccuracyReference'] = URL['geoCorrAccuracyReference']
         meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
     else:
-        meta['prod']['geoCorrAccuracyReference'] = dummy_str
-        meta['prod']['geoCorrAccuracy_rRMSE'] = dummy_num
+        meta['prod']['geoCorrAccuracyReference'] = NOT_IMPLEMENTED_TEXT
+        meta['prod']['geoCorrAccuracy_rRMSE'] = NOT_IMPLEMENTED_NUMBER
     meta['prod']['geoCorrAccuracyType'] = 'gtc'  # or slant-range
     
     meta['prod']['geoCorrAlgorithm'] = URL['geoCorrAlgorithm']
@@ -648,7 +647,7 @@ def meta_dict(
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     processing_center = config['metadata']['processing_center']
     if processing_center is None:
-        processing_center = dummy_str
+        processing_center = NOT_IMPLEMENTED_TEXT
     meta['prod']['processingCenter'] = processing_center
     meta['prod']['processingMode'] = 'PROTOTYPE'
     meta['prod']['processorName'] = 's1ard'
@@ -659,11 +658,11 @@ def meta_dict(
     meta['prod']['productName-short'] = prod_meta['product_type']
     meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
     meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
-    meta['prod']['radiometricAccuracyAbsolute'] = dummy_num
-    meta['prod']['radiometricAccuracyRelative'] = dummy_num
+    meta['prod']['radiometricAccuracyAbsolute'] = NOT_IMPLEMENTED_NUMBER
+    meta['prod']['radiometricAccuracyRelative'] = NOT_IMPLEMENTED_NUMBER
     rad_acc_ref_url = URL['radiometricAccuracyReference']
     if rad_acc_ref_url is None:
-        rad_acc_ref_url = dummy_str
+        rad_acc_ref_url = NOT_IMPLEMENTED_TEXT
     meta['prod']['radiometricAccuracyReference'] = rad_acc_ref_url
     meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
     meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
