@@ -558,7 +558,7 @@ def meta_dict(
     meta['common']['instrumentShortName'] = 'C-SAR'
     meta['common']['operationalMode'] = op_mode
     meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
-    meta['common']['orbitMeanAltitude'] = '{:.2e}'.format(693000)
+    meta['common']['orbitMeanAltitude'] = 693000
     meta['common']['orbitNumber_abs'] = sid0.meta['orbitNumber_abs']
     meta['common']['orbitNumber_rel'] = sid0.meta['orbitNumber_rel']
     pid_lookup = {'S1A': 'A', 'S1B': 'B', 'S1C': 'C', 'S1D': 'D'}
@@ -571,10 +571,10 @@ def meta_dict(
     meta['common']['polarisationMode'] = prod_meta['polarization'][0]
     meta['common']['processingLevel'] = 'L1C'
     meta['common']['radarBand'] = 'C'
-    meta['common']['radarCenterFreq'] = 5405000000
+    meta['common']['radarCenterFreq'] = 5405000000.
     meta['common']['sensorType'] = 'RADAR'
     meta['common']['swathIdentifier'] = op_mode
-    meta['common']['wrsLongitudeGrid'] = str(sid0.meta['orbitNumbers_rel']['start'])
+    meta['common']['wrsLongitudeGrid'] = sid0.meta['orbitNumbers_rel']['start']
     
     # Product metadata (sorted alphabetically)
     meta['prod']['access'] = config['metadata']['access_url']
@@ -591,7 +591,7 @@ def meta_dict(
         meta['prod']['card4l-version'] = '5.5'
     meta['prod']['compression_type'] = compression
     meta['prod']['compression_zerrors'] = LERC_ERR_THRES
-    meta['prod']['crsEPSG'] = str(prod_meta['epsg'])
+    meta['prod']['crsEPSG'] = prod_meta['epsg']
     meta['prod']['crsWKT'] = prod_meta['wkt']
     meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
     meta['prod']['demEGMReference'] = DEM_MAP[config['processing']['dem_type']]['egm']
@@ -640,10 +640,10 @@ def meta_dict(
     meta['prod']['noiseRemovalApplied'] = True
     nr_algo = URL['noiseRemovalAlgorithm'] if meta['prod']['noiseRemovalApplied'] else None
     meta['prod']['noiseRemovalAlgorithm'] = nr_algo
-    meta['prod']['numberOfAcquisitions'] = str(len(src_sid))
+    meta['prod']['numberOfAcquisitions'] = len(src_sid)
     meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
-    meta['prod']['numLines'] = str(prod_meta['rows'])
-    meta['prod']['numPixelsPerLine'] = str(prod_meta['cols'])
+    meta['prod']['numLines'] = prod_meta['rows']
+    meta['prod']['numPixelsPerLine'] = prod_meta['cols']
     meta['prod']['pixelCoordinateConvention'] = 'upper-left'
     processing_center = config['metadata']['processing_center']
     if processing_center is None:
@@ -656,8 +656,8 @@ def meta_dict(
     prod_name_prefix = 'Ocean' if prod_meta['product_type'] == 'ORB' else 'Normalised'
     meta['prod']['productName'] = f"{prod_name_prefix} Radar Backscatter"
     meta['prod']['productName-short'] = prod_meta['product_type']
-    meta['prod']['pxSpacingColumn'] = str(prod_meta['res'][0])
-    meta['prod']['pxSpacingRow'] = str(prod_meta['res'][1])
+    meta['prod']['pxSpacingColumn'] = prod_meta['res'][0]
+    meta['prod']['pxSpacingRow'] = prod_meta['res'][1]
     meta['prod']['radiometricAccuracyAbsolute'] = NOT_IMPLEMENTED_NUMBER
     meta['prod']['radiometricAccuracyRelative'] = NOT_IMPLEMENTED_NUMBER
     rad_acc_ref_url = URL['radiometricAccuracyReference']
@@ -764,7 +764,7 @@ def meta_dict(
         meta['source'][uid]['instrumentAzimuthAngle'] = round(sid.meta['heading'], 2)
         meta['source'][uid]['ionosphereIndicator'] = None
         meta['source'][uid]['lutApplied'] = lut_applied
-        meta['source'][uid]['majorCycleID'] = str(sid.meta['cycleNumber'])
+        meta['source'][uid]['majorCycleID'] = sid.meta['cycleNumber']
         meta['source'][uid]['orbitDataAccess'] = URL['orbitDataAccess']
         osv_base, osv_descr = get_osv_info(sid)
         meta['source'][uid]['orbitStateVector'] = osv_base
@@ -801,8 +801,8 @@ def meta_dict(
         meta['source'][uid]['sensorCalibration'] = URL['sensorCalibration']
         meta['source'][uid]['status'] = 'ARCHIVED'
         meta['source'][uid]['swaths'] = swaths
-        meta['source'][uid]['timeCompletionFromAscendingNode'] = str(float(_read_manifest('.//s1:stopTimeANX')))
-        meta['source'][uid]['timeStartFromAscendingNode'] = str(float(_read_manifest('.//s1:startTimeANX')))
+        meta['source'][uid]['timeCompletionFromAscendingNode'] = float(_read_manifest('.//s1:stopTimeANX'))
+        meta['source'][uid]['timeStartFromAscendingNode'] = float(_read_manifest('.//s1:startTimeANX'))
         meta['source'][uid]['timeStart'] = dateparse(sid.start).replace(tzinfo=timezone.utc)
         meta['source'][uid]['timeStop'] = dateparse(sid.stop).replace(tzinfo=timezone.utc)
     return meta
