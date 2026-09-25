@@ -25,24 +25,33 @@ from cesard.ancillary import get_tmp_name, defaultdict_to_dict
 from cesard.metadata.extract import (calc_enl, calc_performance_estimates,
                                      geometry_from_vec)
 from cesard.metadata.mapping import DEM_MAP, LERC_ERR_THRES
-from cesard.metadata.model import NOT_IMPLEMENTED_NUMBER, NOT_IMPLEMENTED_TEXT
+from cesard.metadata.model import (
+    ARDMetadata, AxisAccuracy, BackscatterMetadata, Card4lMetadata,
+    CommonMetadata, CompressionMetadata, DEMMetadata, GeometricAccuracyMetadata,
+    GeometricCorrectionMetadata, GeometryMetadata, GridMetadata,
+    GroundSamplingDistance, IncidenceAngleMetadata, NoiseRemovalMetadata,
+    NOT_IMPLEMENTED_NUMBER, NOT_IMPLEMENTED_TEXT, PerformanceEstimate,
+    ProcessingMetadata, ProductMetadata, RadiometricAccuracyMetadata,
+    SourceMetadata, SourceOrbitMetadata, SourcePerformanceMetadata,
+    SwathAxisMetadata, WindNormalizationMetadata,
+)
 from typing import Any
 
 gdal.UseExceptions()
 
 
 def append_wind_norm(
-        meta: dict[str, Any],
+        meta: ARDMetadata,
         wm_ref_speed: list[str] | None,
         wm_ref_direction: list[str] | None
 ) -> None:
     """
-    Update a metadata dictionary with wind model information
+    Add wind model information to an ARD metadata object.
 
     Parameters
     ----------
     meta
-        metadata extracted by :func:`meta_dict`
+        Metadata extracted by :func:`meta_dict`.
     wm_ref_speed
         List of paths pointing to the wind model reference speed files.
     wm_ref_direction
@@ -52,22 +61,19 @@ def append_wind_norm(
         wm_ref_mean_speed, wm_ref_mean_dir = calc_wm_ref_stats(
             wm_ref_speed=wm_ref_speed,
             wm_ref_direction=wm_ref_direction,
-            epsg=meta['prod']['crsEPSG'],
-            bounds=meta['prod']['geom_stac_bbox_native']
+            epsg=meta.product.grid.epsg,
+            bounds=meta.product.geometry.bbox_native,
         )
-        meta['prod']['windNormBackscatterMeasurement'] = 'sigma0'
-        meta['prod']['windNormBackscatterConvention'] = 'intensity ratio'
-        meta['prod']['windNormReferenceDirection'] = wm_ref_mean_dir
-        meta['prod']['windNormReferenceModel'] = URL['windNormReferenceModel']
-        meta['prod']['windNormReferenceSpeed'] = wm_ref_mean_speed
-        meta['prod']['windNormReferenceType'] = 'sigma0-ref'
+        meta.product.wind_normalization = WindNormalizationMetadata(
+            backscatter_measurement='sigma0',
+            backscatter_convention='intensity ratio',
+            reference_direction=wm_ref_mean_dir,
+            reference_model=URL['windNormReferenceModel'],
+            reference_speed=wm_ref_mean_speed,
+            reference_type='sigma0-ref',
+        )
     else:
-        meta['prod']['windNormBackscatterMeasurement'] = None
-        meta['prod']['windNormBackscatterConvention'] = None
-        meta['prod']['windNormReferenceDirection'] = None
-        meta['prod']['windNormReferenceModel'] = None
-        meta['prod']['windNormReferenceSpeed'] = None
-        meta['prod']['windNormReferenceType'] = None
+        meta.product.wind_normalization = None
 
 
 def calc_geolocation_accuracy(
@@ -510,13 +516,14 @@ def meta_dict(
         prod_meta: dict[str, Any],
         src_ids: list[ID],
         compression: str
-) -> dict[str, Any]:
+) -> ARDMetadata:
     """
-    Creates a dictionary containing metadata for a product scene, as well
-    as its source scenes. The dictionary can then be used
-    by :func:`cesard.metadata.xml.parse` and :func:`cesard.metadata.stac.parse`
-    to generate OGC XML and STAC JSON metadata files, respectively.
-    
+    Creates an :class:`~cesard.metadata.model.ARDMetadata` object containing
+    metadata for a product scene as well as its source scenes. The object can
+    then be used by :func:`cesard.metadata.xml.parse` and
+    :func:`cesard.metadata.stac.parse` to generate OGC XML and STAC JSON
+    metadata files, respectively.
+
     Parameters
     ----------
     config
@@ -524,172 +531,239 @@ def meta_dict(
     prod_meta
         a metadata dictionary as returned by :func:`s1ard.ard.product_info`
     src_ids
-        List of :class:`~pyroSAR.drivers.ID` objects of all source scenes that overlap with the current MGRS tile.
+        List of :class:`~pyroSAR.drivers.ID` objects of all source scenes
+        that overlap with the current MGRS tile.
     compression
         The compression type applied to raster files of the product.
-    
+
     Returns
     -------
-        A dictionary containing a collection of metadata for product as well as source scenes.
+        An :class:`~cesard.metadata.model.ARDMetadata` object containing
+        metadata for the product as well as its source scenes.
     """
-    
-    meta = {'prod': {},
-            'source': {},
-            'common': {}}
     src_sid = {}
     src_xml = {}
-    for i, sid in enumerate(src_ids):
+    for sid in src_ids:
         uid = os.path.basename(sid.scene).split('.')[0][-4:]
         src_sid[uid] = sid
         src_xml[uid] = get_src_meta(sid=sid)
-    sid0 = src_sid[list(src_sid.keys())[0]]  # first key/first file; used to extract some common metadata
+    sid0 = next(iter(src_sid.values()))
     
     ref_tif = finder(prod_meta['dir_ard_product'], ['[hv]{2}-[gs]-lin.tif$'], regex=True)[0]
     np_tifs = finder(prod_meta['dir_ard_product'], ['-np-[hv]{2}.tif$'], regex=True)
     ei_tif = finder(prod_meta['dir_ard_product'], ['-ei.tif$'], regex=True)
-    prod_meta.update(get_prod_meta(tif=ref_tif, src_ids=src_ids,
-                                   sar_dir=config['processing']['sar_dir'],
-                                   processor_name=config['processing']['processor']))
+    prod_meta.update(get_prod_meta(
+        tif=ref_tif,
+        src_ids=src_ids,
+        sar_dir=config['processing']['sar_dir'],
+        processor_name=config['processing']['processor']
+    ))
     op_mode = prod_meta['mode']
     
-    # COMMON metadata (sorted alphabetically)
-    meta['common']['antennaLookDirection'] = 'RIGHT'
-    meta['common']['constellation'] = 'sentinel-1'
-    meta['common']['instrumentShortName'] = 'C-SAR'
-    meta['common']['operationalMode'] = op_mode
-    meta['common']['orbitDirection'] = {'A': 'ascending', 'D': 'descending'}[sid0.orbit]
-    meta['common']['orbitMeanAltitude'] = 693000
-    meta['common']['orbitNumber_abs'] = sid0.meta['orbitNumber_abs']
-    meta['common']['orbitNumber_rel'] = sid0.meta['orbitNumber_rel']
+    # COMMON metadata
     pid_lookup = {'S1A': 'A', 'S1B': 'B', 'S1C': 'C', 'S1D': 'D'}
-    meta['common']['platformIdentifier'] = pid_lookup[sid0.sensor]
-    meta['common']['platformShortName'] = 'Sentinel-1'
-    meta['common']['platformFullname'] = '{}{}'.format(meta['common']['platformShortName'].lower(),
-                                                       meta['common']['platformIdentifier'].lower())
-    meta['common']['platformReference'] = URL['platformReference'][meta['common']['platformFullname']]
-    meta['common']['polarisationChannels'] = sid0.polarizations
-    meta['common']['polarisationMode'] = prod_meta['polarization'][0]
-    meta['common']['processingLevel'] = 'L1C'
-    meta['common']['radarBand'] = 'C'
-    meta['common']['radarCenterFreq'] = 5405000000.
-    meta['common']['sensorType'] = 'RADAR'
-    meta['common']['swathIdentifier'] = op_mode
-    meta['common']['wrsLongitudeGrid'] = sid0.meta['orbitNumbers_rel']['start']
+    platform_identifier = pid_lookup[sid0.sensor]
+    platform_short_name = 'Sentinel-1'
+    platform_full_name = f'{platform_short_name.lower()}{platform_identifier.lower()}'
+    common = CommonMetadata(
+        antenna_look_direction='RIGHT',
+        constellation='sentinel-1',
+        instrument_short_name='C-SAR',
+        operational_mode=op_mode,
+        orbit_direction={'A': 'ascending', 'D': 'descending'}[sid0.orbit],
+        orbit_mean_altitude=693000.0,
+        orbit_number_absolute=sid0.meta['orbitNumber_abs'],
+        orbit_number_relative=sid0.meta['orbitNumber_rel'],
+        platform_full_name=platform_full_name,
+        platform_identifier=platform_identifier,
+        platform_reference=URL['platformReference'][platform_full_name],
+        platform_short_name=platform_short_name,
+        polarizations=tuple(sid0.polarizations),
+        polarization_mode=prod_meta['polarization'][0],
+        processing_level='L1C',
+        radar_band='C',
+        radar_center_frequency=5405000000.0,
+        sensor_type='RADAR',
+        swath_identifier=op_mode,
+        wrs_longitude_grid=sid0.meta['orbitNumbers_rel']['start'],
+    )
     
-    # Product metadata (sorted alphabetically)
-    meta['prod']['access'] = config['metadata']['access_url']
-    meta['prod']['acquisitionType'] = 'NOMINAL'
-    meta['prod']['azimuthNumberOfLooks'] = round(prod_meta['ML_nAzLooks'], 2)
-    meta['prod']['backscatterConvention'] = 'linear power'
-    meta['prod']['backscatterConversionEq'] = '10*log10(DN)'
-    meta['prod']['backscatterMeasurement'] = 'gamma0' if re.search('g-lin', ref_tif) else 'sigma0'
+    # PRODUCT metadata
     if prod_meta['product_type'] == 'ORB':
-        meta['prod']['card4l-link'] = URL['card4l_orb']
-        meta['prod']['card4l-version'] = '1.0'
+        card4l_link = URL['card4l_orb']
+        card4l_version = '1.0'
     else:
-        meta['prod']['card4l-link'] = URL['card4l_nrb']
-        meta['prod']['card4l-version'] = '5.5'
-    meta['prod']['compression_type'] = compression
-    meta['prod']['compression_zerrors'] = LERC_ERR_THRES
-    meta['prod']['crsEPSG'] = prod_meta['epsg']
-    meta['prod']['crsWKT'] = prod_meta['wkt']
-    meta['prod']['demAccess'] = DEM_MAP[config['processing']['dem_type']]['access']
-    meta['prod']['demEGMReference'] = DEM_MAP[config['processing']['dem_type']]['egm']
-    meta['prod']['demEGMResamplingMethod'] = 'bilinear'
-    meta['prod']['demGSD'] = DEM_MAP[config['processing']['dem_type']]['gsd']
-    meta['prod']['demName'] = config['processing']['dem_type'].replace(' II', '')
-    meta['prod']['demReference'] = DEM_MAP[config['processing']['dem_type']]['ref']
-    meta['prod']['demResamplingMethod'] = 'bilinear'
-    meta['prod']['demType'] = DEM_MAP[config['processing']['dem_type']]['type']
-    meta['prod']['doi'] = config['metadata']['doi']
-    meta['prod']['ellipsoidalHeight'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['equivalentNumberOfLooks'] = calc_enl(tif=ref_tif)
+        card4l_link = URL['card4l_nrb']
+        card4l_version = '5.5'
+    
+    dem = DEM_MAP[config['processing']['dem_type']]
+    dem_gsd = dem['gsd']
+    if isinstance(dem_gsd, str):
+        parts = dem_gsd.split()
+        dem_gsd = GroundSamplingDistance(
+            value=float(parts[0]),
+            unit=parts[1] if len(parts) == 2 else 'm',
+        )
+    else:
+        dem_gsd = GroundSamplingDistance(value=float(dem_gsd), unit='m')
     
     if (len(ei_tif) == 1 and
             sid0.product == 'SLC' and
             'copernicus' in config['processing']['dem_type'].lower()):
-        geo_corr_accuracy = calc_geolocation_accuracy(swath_identifier=op_mode,
-                                                      ei_tif=ei_tif[0],
-                                                      etad=False)
+        geo_corr_accuracy = calc_geolocation_accuracy(
+            swath_identifier=op_mode,
+            ei_tif=ei_tif[0],
+            etad=False
+        )
     else:
         geo_corr_accuracy = None
-    meta['prod']['geoCorrAccuracyEasternBias'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['geoCorrAccuracyEasternSTDev'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['geoCorrAccuracyNorthernBias'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['geoCorrAccuracyNorthernSTDev'] = NOT_IMPLEMENTED_NUMBER
-    if geo_corr_accuracy is not None:
-        meta['prod']['geoCorrAccuracyReference'] = URL['geoCorrAccuracyReference']
-        meta['prod']['geoCorrAccuracy_rRMSE'] = geo_corr_accuracy
-    else:
-        meta['prod']['geoCorrAccuracyReference'] = NOT_IMPLEMENTED_TEXT
-        meta['prod']['geoCorrAccuracy_rRMSE'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['geoCorrAccuracyType'] = 'gtc'  # or slant-range
     
-    meta['prod']['geoCorrAlgorithm'] = URL['geoCorrAlgorithm']
-    meta['prod']['geoCorrResamplingMethod'] = 'bilinear'
-    meta['prod']['geom_stac_bbox_native'] = prod_meta['geom']['bbox_native']
-    meta['prod']['geom_stac_bbox_4326'] = prod_meta['geom']['bbox']
-    meta['prod']['geom_stac_geometry_4326'] = prod_meta['geom']['geometry']
-    meta['prod']['geom_xml_center'] = prod_meta['geom']['center']
-    meta['prod']['geom_xml_envelope'] = prod_meta['geom']['envelope']
-    meta['prod']['grid_convention'] = 'Military Grid Reference System (MGRS)'
-    meta['prod']['grid_convention_url'] = URL['grid_convention']
-    meta['prod']['grid_definition_url'] = URL['grid_definition']
-    meta['prod']['licence'] = config['metadata']['licence']
-    meta['prod']['mgrsID'] = prod_meta['tile']
-    meta['prod']['noiseRemovalApplied'] = True
-    nr_algo = URL['noiseRemovalAlgorithm'] if meta['prod']['noiseRemovalApplied'] else None
-    meta['prod']['noiseRemovalAlgorithm'] = nr_algo
-    meta['prod']['numberOfAcquisitions'] = len(src_sid)
-    meta['prod']['numBorderPixels'] = prod_meta['nodata_borderpx']
-    meta['prod']['numLines'] = prod_meta['rows']
-    meta['prod']['numPixelsPerLine'] = prod_meta['cols']
-    meta['prod']['pixelCoordinateConvention'] = 'upper-left'
+    if geo_corr_accuracy is not None:
+        geo_corr_reference = URL['geoCorrAccuracyReference']
+        geo_corr_rmse = geo_corr_accuracy
+    else:
+        geo_corr_reference = NOT_IMPLEMENTED_TEXT
+        geo_corr_rmse = NOT_IMPLEMENTED_NUMBER
+    
     processing_center = config['metadata']['processing_center']
     if processing_center is None:
         processing_center = NOT_IMPLEMENTED_TEXT
-    meta['prod']['processingCenter'] = processing_center
-    meta['prod']['processingMode'] = 'PROTOTYPE'
-    meta['prod']['processorName'] = 's1ard'
-    sw_versions = version_dict(processor_name=config['processing']['processor'])
-    meta['prod']['processorVersion'] = sw_versions
-    prod_name_prefix = 'Ocean' if prod_meta['product_type'] == 'ORB' else 'Normalised'
-    meta['prod']['productName'] = f"{prod_name_prefix} Radar Backscatter"
-    meta['prod']['productName-short'] = prod_meta['product_type']
-    meta['prod']['pxSpacingColumn'] = prod_meta['res'][0]
-    meta['prod']['pxSpacingRow'] = prod_meta['res'][1]
-    meta['prod']['radiometricAccuracyAbsolute'] = NOT_IMPLEMENTED_NUMBER
-    meta['prod']['radiometricAccuracyRelative'] = NOT_IMPLEMENTED_NUMBER
-    rad_acc_ref_url = URL['radiometricAccuracyReference']
-    if rad_acc_ref_url is None:
-        rad_acc_ref_url = NOT_IMPLEMENTED_TEXT
-    meta['prod']['radiometricAccuracyReference'] = rad_acc_ref_url
-    meta['prod']['rangeNumberOfLooks'] = round(prod_meta['ML_nRgLooks'], 2)
-    meta['prod']['RTCAlgorithm'] = URL['RTCAlgorithm']
-    meta['prod']['speckleFilterApplied'] = None
-    meta['prod']['status'] = 'PLANNED'
-    meta['prod']['timeCreated'] = prod_meta['proc_time']
-    meta['prod']['timeStart'] = prod_meta['start']
-    meta['prod']['timeStop'] = prod_meta['stop']
-    meta['prod']['transform'] = prod_meta['transform']
+    
+    rad_acc_reference = URL['radiometricAccuracyReference']
+    if rad_acc_reference is None:
+        rad_acc_reference = NOT_IMPLEMENTED_TEXT
+    
+    product_name = (
+        'Ocean Radar Backscatter'
+        if prod_meta['product_type'] == 'ORB'
+        else 'Normalised Radar Backscatter'
+    )
+    noise_removal_applied = True
+    
+    product = ProductMetadata(
+        name=product_name,
+        product_type=prod_meta['product_type'],
+        acquisition_type='NOMINAL',
+        status='PLANNED',
+        access=config['metadata']['access_url'],
+        doi=config['metadata']['doi'],
+        license=config['metadata']['licence'],
+        time_start=prod_meta['start'],
+        time_stop=prod_meta['stop'],
+        time_created=prod_meta['proc_time'],
+        geometry=GeometryMetadata(
+            bbox=tuple(float(x) for x in prod_meta['geom']['bbox']),
+            bbox_native=tuple(float(x) for x in prod_meta['geom']['bbox_native']),
+            geometry=dict(prod_meta['geom']['geometry']),
+        ),
+        grid=GridMetadata(
+            epsg=prod_meta['epsg'],
+            wkt=prod_meta['wkt'],
+            rows=prod_meta['rows'],
+            columns=prod_meta['cols'],
+            pixel_spacing_row=float(prod_meta['res'][1]),
+            pixel_spacing_column=float(prod_meta['res'][0]),
+            transform=tuple(float(x) for x in prod_meta['transform']),
+            mgrs_id=prod_meta['tile'],
+            pixel_coordinate_convention='upper-left',
+            number_of_border_pixels=prod_meta['nodata_borderpx'],
+            definition_reference=URL['grid_definition'],
+            convention_reference=URL['grid_convention'],
+        ),
+        processing=ProcessingMetadata(
+            facility=processing_center,
+            date=prod_meta['proc_time'],
+            mode='PROTOTYPE',
+            processor='s1ard',
+            software={
+                str(key): str(value)
+                for key, value in version_dict(
+                    processor_name=config['processing']['processor']
+                ).items()
+            },
+        ),
+        card4l=Card4lMetadata(
+            specification=prod_meta['product_type'],
+            version=card4l_version,
+            document=card4l_link,
+        ),
+        compression=CompressionMetadata(
+            type=compression,
+            z_errors=LERC_ERR_THRES,
+        ),
+        dem=DEMMetadata(
+            name=config['processing']['dem_type'].replace(' II', ''),
+            type=dem['type'],
+            reference=dem['ref'],
+            access=dem['access'],
+            gsd=dem_gsd,
+            resampling_method='bilinear',
+            egm_reference=dem['egm'],
+            egm_resampling_method='bilinear',
+        ),
+        backscatter=BackscatterMetadata(
+            measurement='gamma0' if re.search('g-lin', ref_tif) else 'sigma0',
+            convention='linear power',
+            conversion_equation='10*log10(DN)',
+            range_number_of_looks=round(prod_meta['ML_nRgLooks'], 2),
+            azimuth_number_of_looks=round(prod_meta['ML_nAzLooks'], 2),
+            equivalent_number_of_looks=calc_enl(tif=ref_tif),
+        ),
+        geometric_correction=GeometricCorrectionMetadata(
+            algorithm=URL['geoCorrAlgorithm'],
+            resampling_method='bilinear',
+            accuracy=GeometricAccuracyMetadata(
+                type='gtc',
+                eastern=AxisAccuracy(
+                    bias=NOT_IMPLEMENTED_NUMBER,
+                    standard_deviation=NOT_IMPLEMENTED_NUMBER,
+                ),
+                northern=AxisAccuracy(
+                    bias=NOT_IMPLEMENTED_NUMBER,
+                    standard_deviation=NOT_IMPLEMENTED_NUMBER,
+                ),
+                radial_rmse=geo_corr_rmse,
+                reference=geo_corr_reference,
+            ),
+        ),
+        radiometric_accuracy=RadiometricAccuracyMetadata(
+            absolute=NOT_IMPLEMENTED_NUMBER,
+            relative=NOT_IMPLEMENTED_NUMBER,
+            reference=rad_acc_reference,
+        ),
+        noise_removal=NoiseRemovalMetadata(
+            applied=noise_removal_applied,
+            algorithm=URL['noiseRemovalAlgorithm'] if noise_removal_applied else None,
+        ),
+        rtc_algorithm=URL['RTCAlgorithm'],
+        number_of_acquisitions=len(src_sid),
+        speckle_filter_applied=None,
+        ellipsoidal_height=NOT_IMPLEMENTED_NUMBER,
+        wind_normalization=None,
+    )
     
     # SOURCE metadata
-    for uid in list(src_sid.keys()):
-        sid = src_sid[uid]
+    sources = {}
+    for uid, sid in src_sid.items():
         nsmap = src_xml[uid]['manifest'].nsmap
         
-        swath_ids = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                       pattern='.//swathProcParams/swath')
+        swath_ids = find_in_annotation(
+            annotation_dict=src_xml[uid]['annotation'],
+            pattern='.//swathProcParams/swath'
+        )
         swaths = []
         for item in swath_ids.values():
             if isinstance(item, list):
                 swaths.extend(item)
             else:
                 swaths.append(item)
+        
         with sid.geometry() as vec:
             geom = geometry_from_vec(vectorobject=vec)
         
-        res_mode = re.match(re.compile(sid.pattern), os.path.basename(sid.file)).groupdict()['resolution']
+        res_mode = re.match(
+            re.compile(sid.pattern), os.path.basename(sid.file)
+        ).groupdict()['resolution']
         product_type = sid.meta['product'] + (res_mode if res_mode != '_' else '')
         if product_type.startswith('GRD'):
             data_geometry = 'ground-range'
@@ -701,7 +775,7 @@ def meta_dict(
                 res_az = RES_MAP_GRD[res_mode][op_mode]['az']
                 res_rg = RES_MAP_GRD[res_mode][op_mode]['rg']
                 enl = round(mean(ENL_MAP_GRD[res_mode][op_mode]), 2)
-        else:  # SLC
+        else:
             data_geometry = 'slant-range'
             res_az = RES_MAP_SLC[op_mode]['az']
             res_rg = RES_MAP_SLC[op_mode]['rg']
@@ -719,90 +793,136 @@ def meta_dict(
         out_types = ['float', 'float', 'int', 'int', 'float', 'float', 'float']
         results = []
         for pattern, out_type in zip(patterns, out_types):
-            result = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                        pattern=pattern, out_type=out_type)
+            result = find_in_annotation(
+                annotation_dict=src_xml[uid]['annotation'],
+                pattern=pattern,
+                out_type=out_type
+            )
             results.append(result)
-        az_look_bandwidth, rg_look_bandwidth, az_num_looks, rg_num_looks, az_px_spacing, rg_px_spacing, inc = results
+        (az_look_bandwidth, rg_look_bandwidth, az_num_looks, rg_num_looks,
+         az_px_spacing, rg_px_spacing, inc) = results
         
         inc_vals = dissolve(list(inc.values()))
-        lut_applied = find_in_annotation(annotation_dict=src_xml[uid]['annotation'],
-                                         pattern='.//applicationLutId', single=True)
+        lut_applied = find_in_annotation(
+            annotation_dict=src_xml[uid]['annotation'],
+            pattern='.//applicationLutId',
+            single=True
+        )
         pslr, islr = calc_pslr_islr(annotation_dict=src_xml[uid]['annotation'])
         
         def _read_manifest(pattern, attrib=None):
             obj = src_xml[uid]['manifest'].find(pattern, nsmap)
-            if attrib is not None:
-                return obj.attrib[attrib]
-            else:
-                return obj.text
+            return obj.attrib[attrib] if attrib is not None else obj.text
         
-        # Source product metadata (sorted alphabetically)
-        meta['source'][uid] = {}
-        meta['source'][uid]['access'] = URL['source_access']
-        meta['source'][uid]['acquisitionType'] = 'NOMINAL'
-        asc_node_time = dateparse(_read_manifest('.//s1:ascendingNodeTime'))
-        asc_node_time = asc_node_time.replace(tzinfo=timezone.utc)
-        meta['source'][uid]['ascendingNodeDate'] = asc_node_time
-        meta['source'][uid]['azimuthLookBandwidth'] = az_look_bandwidth
-        meta['source'][uid]['azimuthNumberOfLooks'] = az_num_looks
-        meta['source'][uid]['azimuthPixelSpacing'] = az_px_spacing
-        meta['source'][uid]['azimuthResolution'] = res_az
-        meta['source'][uid]['dataGeometry'] = data_geometry
-        meta['source'][uid]['datatakeID'] = int(_read_manifest('.//s1sarl1:missionDataTakeID'))
-        meta['source'][uid]['doi'] = URL['source_doi']
-        meta['source'][uid]['faradayMeanRotationAngle'] = None
-        meta['source'][uid]['faradayRotationReference'] = URL['faradayRotationReference']
-        meta['source'][uid]['filename'] = sid.file
-        meta['source'][uid]['geom_stac_bbox_4326'] = geom['bbox']
-        meta['source'][uid]['geom_stac_geometry_4326'] = geom['geometry']
-        meta['source'][uid]['geom_xml_center'] = geom['center']
-        meta['source'][uid]['geom_xml_envelope'] = geom['envelope']
-        meta['source'][uid]['incidenceAngleMax'] = round(max(inc_vals), 2)
-        meta['source'][uid]['incidenceAngleMin'] = round(min(inc_vals), 2)
-        inc_mid_swath = round(max(inc_vals) - ((max(inc_vals) - min(inc_vals)) / 2), 2)
-        meta['source'][uid]['incidenceAngleMidSwath'] = inc_mid_swath
-        meta['source'][uid]['instrumentAzimuthAngle'] = round(sid.meta['heading'], 2)
-        meta['source'][uid]['ionosphereIndicator'] = None
-        meta['source'][uid]['lutApplied'] = lut_applied
-        meta['source'][uid]['majorCycleID'] = sid.meta['cycleNumber']
-        meta['source'][uid]['orbitDataAccess'] = URL['orbitDataAccess']
-        osv_base, osv_descr = get_osv_info(sid)
-        meta['source'][uid]['orbitStateVector'] = osv_base
-        meta['source'][uid]['orbitDataSource'] = osv_descr
-        if len(np_tifs) > 0:
-            meta['source'][uid]['perfEstimates'] = calc_performance_estimates(files=np_tifs)
-            meta['source'][uid]['perfNoiseEquivalentIntensityType'] = 'sigma0'
-        else:
-            stats = {stat: None for stat in ['minimum', 'mean', 'maximum']}
-            pe = {pol: stats for pol in meta['common']['polarisationChannels']}
-            meta['source'][uid]['perfEstimates'] = pe
-            meta['source'][uid]['perfNoiseEquivalentIntensityType'] = None
-        meta['source'][uid]['perfEquivalentNumberOfLooks'] = enl
-        meta['source'][uid]['perfIntegratedSideLobeRatio'] = islr
-        meta['source'][uid]['perfPeakSideLobeRatio'] = pslr
-        meta['source'][uid]['polCalMatrices'] = None
+        asc_node_time = dateparse(_read_manifest('.//s1:ascendingNodeTime')).replace(
+            tzinfo=timezone.utc
+        )
+        proc_date = dateparse(
+            _read_manifest('.//safe:processing', attrib='stop')
+        ).replace(tzinfo=timezone.utc)
+        proc_name = _read_manifest('.//safe:software', attrib='name')
+        proc_version = _read_manifest('.//safe:software', attrib='version')
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
         fac_name = _read_manifest('.//safe:facility', attrib='name')
-        meta['source'][uid]['processingCenter'] = f"{fac_org} {fac_name}".replace(' -', '')
-        proc_date = dateparse(_read_manifest('.//safe:processing', attrib='stop'))
-        proc_date = proc_date.replace(tzinfo=timezone.utc)
-        meta['source'][uid]['processingDate'] = proc_date
-        meta['source'][uid]['processingLevel'] = _read_manifest('.//safe:processing', attrib='name')
-        meta['source'][uid]['processingMode'] = 'NOMINAL'
-        proc_version = _read_manifest('.//safe:software', attrib='version')
-        proc_name = _read_manifest('.//safe:software', attrib='name')
-        meta['source'][uid]['processorName'] = proc_name
-        meta['source'][uid]['processorVersion'] = {proc_name: proc_version}
-        meta['source'][uid]['productType'] = product_type
-        meta['source'][uid]['rangeLookBandwidth'] = rg_look_bandwidth
-        meta['source'][uid]['rangeNumberOfLooks'] = rg_num_looks
-        meta['source'][uid]['rangePixelSpacing'] = rg_px_spacing
-        meta['source'][uid]['rangeResolution'] = res_rg
-        meta['source'][uid]['sensorCalibration'] = URL['sensorCalibration']
-        meta['source'][uid]['status'] = 'ARCHIVED'
-        meta['source'][uid]['swaths'] = swaths
-        meta['source'][uid]['timeCompletionFromAscendingNode'] = float(_read_manifest('.//s1:stopTimeANX'))
-        meta['source'][uid]['timeStartFromAscendingNode'] = float(_read_manifest('.//s1:startTimeANX'))
-        meta['source'][uid]['timeStart'] = dateparse(sid.start).replace(tzinfo=timezone.utc)
-        meta['source'][uid]['timeStop'] = dateparse(sid.stop).replace(tzinfo=timezone.utc)
-    return meta
+        
+        if len(np_tifs) > 0:
+            performance_estimates = calc_performance_estimates(files=np_tifs)
+            noise_equivalent_intensity_type = 'sigma0'
+        else:
+            performance_estimates = {
+                pol: {'minimum': None, 'mean': None, 'maximum': None}
+                for pol in common.polarizations
+            }
+            noise_equivalent_intensity_type = None
+        
+        def _per_swath(value):
+            return {str(key): float(item) for key, item in value.items()}
+        
+        def _per_swath_optional(value):
+            return {
+                str(key): None if item is None else float(item)
+                for key, item in value.items()
+            }
+        
+        inc_min = round(min(inc_vals), 2)
+        inc_max = round(max(inc_vals), 2)
+        inc_mid = round(inc_max - ((inc_max - inc_min) / 2), 2)
+        osv_base, osv_descr = get_osv_info(sid)
+        
+        sources[uid] = SourceMetadata(
+            filename=sid.file,
+            product_type=product_type,
+            data_geometry=data_geometry,
+            acquisition_type='NOMINAL',
+            status='ARCHIVED',
+            access=URL['source_access'],
+            doi=URL['source_doi'],
+            time_start=dateparse(sid.start).replace(tzinfo=timezone.utc),
+            time_stop=dateparse(sid.stop).replace(tzinfo=timezone.utc),
+            geometry=GeometryMetadata(
+                bbox=tuple(float(x) for x in geom['bbox']),
+                geometry=dict(geom['geometry']),
+            ),
+            processing=ProcessingMetadata(
+                facility=f"{fac_org} {fac_name}".replace(' -', ''),
+                date=proc_date,
+                mode='NOMINAL',
+                processor=proc_name,
+                software={proc_name: proc_version},
+            ),
+            orbit=SourceOrbitMetadata(
+                ascending_node_date=asc_node_time,
+                start_time_from_ascending_node=float(
+                    _read_manifest('.//s1:startTimeANX')
+                ),
+                completion_time_from_ascending_node=float(
+                    _read_manifest('.//s1:stopTimeANX')
+                ),
+                major_cycle_id=sid.meta['cycleNumber'],
+                datatake_id=int(_read_manifest('.//s1sarl1:missionDataTakeID')),
+                data_access=URL['orbitDataAccess'],
+                data_source=osv_descr,
+                state_vector=osv_base,
+            ),
+            swaths=tuple(swaths),
+            azimuth=SwathAxisMetadata(
+                look_bandwidth=_per_swath_optional(az_look_bandwidth),
+                number_of_looks=_per_swath(az_num_looks),
+                pixel_spacing=_per_swath(az_px_spacing),
+                resolution=_per_swath(res_az),
+            ),
+            range=SwathAxisMetadata(
+                look_bandwidth=_per_swath_optional(rg_look_bandwidth),
+                number_of_looks=_per_swath(rg_num_looks),
+                pixel_spacing=_per_swath(rg_px_spacing),
+                resolution=_per_swath(res_rg),
+            ),
+            incidence_angle=IncidenceAngleMetadata(
+                minimum=inc_min,
+                maximum=inc_max,
+                mid_swath=inc_mid,
+            ),
+            instrument_azimuth_angle=round(sid.meta['heading'], 2),
+            lut_applied=lut_applied,
+            sensor_calibration=URL['sensorCalibration'],
+            polarimetric_calibration_matrices=None,
+            faraday_mean_rotation_angle=None,
+            faraday_rotation_reference=URL['faradayRotationReference'],
+            ionosphere_indicator=None,
+            performance=SourcePerformanceMetadata(
+                noise_equivalent_intensity_type=noise_equivalent_intensity_type,
+                estimates={
+                    pol: PerformanceEstimate(**values)
+                    for pol, values in performance_estimates.items()
+                },
+                equivalent_number_of_looks=enl,
+                integrated_side_lobe_ratio=islr,
+                peak_side_lobe_ratio=pslr,
+            ),
+        )
+    
+    return ARDMetadata(
+        common=common,
+        product=product,
+        sources=sources,
+    )
