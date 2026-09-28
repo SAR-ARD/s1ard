@@ -3,16 +3,18 @@ import re
 import copy
 from importlib.resources import files
 from datetime import datetime, timedelta
-import configparser
-from dateutil.parser import parse as dateparse
-from osgeo import gdal
+from configparser import ConfigParser
 from s1ard.processors.registry import load_processor
 from cesard.config import (keyval_check, validate_options, validate_value,
-                           version_dict as cesard_version_dict)
+                           version_dict as cesard_version_dict, parse_datetime,
+                           parse_list)
 from typing import Any
 
 
-def _get_config_metadata(parser, **kwargs):
+def _get_config_metadata(
+        parser: ConfigParser,
+        **kwargs: Any
+) -> dict[str, Any]:
     # METADATA section
     allowed_keys = get_keys(section='metadata')
     if 'METADATA' not in parser.sections():
@@ -44,7 +46,10 @@ def _get_config_metadata(parser, **kwargs):
     return out
 
 
-def _get_config_processing(parser, **kwargs):
+def _get_config_processing(
+        parser: ConfigParser,
+        **kwargs
+) -> dict[str, Any]:
     allowed_keys = get_keys(section='processing')
     try:
         proc_sec = parser['PROCESSING']
@@ -170,51 +175,6 @@ def _get_config_processing(parser, **kwargs):
     return out
 
 
-def _parse_datetime(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    return dateparse(s)
-
-
-def _parse_list(s):
-    """Custom converter for configparser:
-    https://docs.python.org/3/library/configparser.html#customizing-parser-behaviour"""
-    if s in ['', 'None']:
-        return None
-    else:
-        return [x.strip() for x in s.split(',')]
-
-
-def gdal_conf(config):
-    """
-    Stores GDAL configuration options for the current process.
-
-    Parameters
-    ----------
-    config: dict
-        Dictionary of the parsed config parameters for the current process.
-
-    Returns
-    -------
-    dict
-        Dictionary containing GDAL configuration options for the current process.
-    """
-    threads = config['processing']['gdal_threads']
-    threads_before = gdal.GetConfigOption('GDAL_NUM_THREADS')
-    if not isinstance(threads, int):
-        raise TypeError("'threads' must be of type int")
-    if threads == 1:
-        multithread = False
-    elif threads > 1:
-        multithread = True
-        gdal.SetConfigOption('GDAL_NUM_THREADS', str(threads))
-    else:
-        raise ValueError("'threads' must be >= 1")
-    
-    return {'threads': threads, 'threads_before': threads_before,
-            'multithread': multithread}
-
-
 def get_config(
         config_file: str | None = None,
         **kwargs: dict[str, str]
@@ -224,9 +184,9 @@ def get_config(
 
     Parameters
     ----------
-    config_file:
+    config_file
         Full path to the config file that should be parsed to a dictionary.
-    kwargs:
+    **kwargs
         further keyword arguments overriding configuration found in the config file.
 
     Returns
@@ -250,13 +210,15 @@ def get_config(
     return out
 
 
-def get_keys(section: str) -> list[str]:
+def get_keys(
+        section: str
+) -> list[str]:
     """
     get all allowed configuration keys for a section
     
     Parameters
     ----------
-    section:
+    section
         the configuration section to get the allowed keys for.
         Either 'processing', 'metadata' or the name of a SAR processor plugin e.g. 'snap'.
 
@@ -289,21 +251,21 @@ def init(
         target: str,
         source: str | None = None,
         overwrite: bool = False,
-        **kwargs
+        **kwargs: Any
 ) -> None:
     """
     Initialize a configuration file.
 
     Parameters
     ----------
-    target:
+    target
         Path to the target configuration file.
-    source:
+    source
         Path to the source file to read the configuration from. If not provided,
         a default configuration file within the package will be used.
-    overwrite:
+    overwrite
         Overwrite an existing file?
-    kwargs:
+    **kwargs
         Additional keyword arguments for overwriting the configuration in `source`.
 
     Examples
@@ -322,13 +284,15 @@ def init(
     write(config=config, target=target, overwrite=overwrite)
 
 
-def read_config_file(config_file: str | None = None) -> configparser.ConfigParser:
+def read_config_file(
+        config_file: str | None = None
+) -> ConfigParser:
     """
     Reads a configuration file and returns a ConfigParser object
     
     Parameters
     ----------
-    config_file: str or None
+    config_file
         the configuration file name. If None, the default configuration file
         within the package will be used.
 
@@ -336,9 +300,9 @@ def read_config_file(config_file: str | None = None) -> configparser.ConfigParse
     -------
         the configuration object
     """
-    parser = configparser.ConfigParser(allow_no_value=True,
-                                       converters={'_datetime': _parse_datetime,
-                                                   '_list': _parse_list})
+    parser = ConfigParser(allow_no_value=True,
+                          converters={'_datetime': parse_datetime,
+                                      '_list': parse_list})
     
     if config_file:
         if not os.path.isfile(config_file):
@@ -350,7 +314,9 @@ def read_config_file(config_file: str | None = None) -> configparser.ConfigParse
     return parser
 
 
-def version_dict(processor_name: str) -> dict[str, str]:
+def version_dict(
+        processor_name: str
+) -> dict[str, str]:
     """
     Get the versions of used packages
     
@@ -358,6 +324,7 @@ def version_dict(processor_name: str) -> dict[str, str]:
     ----------
     processor_name
         the name of the used SAR processor (e.g. SNAP)
+    
     Returns
     -------
         a dictionary containing the versions of relevant python packages and
@@ -371,24 +338,25 @@ def version_dict(processor_name: str) -> dict[str, str]:
     return out
 
 
-def write(config, target, overwrite=False, **kwargs):
+def write(
+        config: dict[str, Any],
+        target: str,
+        overwrite: bool = False,
+        **kwargs: Any
+) -> None:
     """
     Write configuration options to a config file.
     
     Parameters
     ----------
-    config: dict
+    config
         the configuration as returned by :func:`get_config`
-    target: str
+    target
         the name of the output file
-    overwrite: bool
+    overwrite
         overwrite an existing file if it exists?
-    kwargs
+    **kwargs
         further keyword arguments overriding configuration found in `config`.
-
-    Returns
-    -------
-
     """
     if os.path.isfile(target) and not overwrite:
         raise RuntimeError("target already exists")
@@ -439,7 +407,7 @@ def write(config, target, overwrite=False, **kwargs):
     config['processing'] = to_string(config['processing'])
     config_proc_str = processor.config_to_string(config[processor_name])
     config[processor_name] = config_proc_str
-    parser = configparser.ConfigParser()
+    parser = ConfigParser()
     parser['METADATA'] = config['metadata']
     parser['PROCESSING'] = config['processing']
     parser[processor_name.upper()] = config[processor_name]

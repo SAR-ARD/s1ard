@@ -6,12 +6,13 @@ from osgeo import gdal
 from spatialist.vector import intersect, combine_polygons
 from spatialist.ancillary import finder
 from pyroSAR import identify, identify_many, Archive
-from s1ard.config import get_config, gdal_conf
+from s1ard.config import get_config
 from s1ard.ancillary import set_logging
 from s1ard import ard, ocn, search
 from cesard import dem
 import cesard.tile_extraction as tile_ex
 from cesard.search import scene_select
+from cesard.config import gdal_conf
 from cesard.ancillary import (buffer_time, check_scene_consistency,
                               check_spacing, group_by_attr)
 
