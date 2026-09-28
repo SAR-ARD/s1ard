@@ -148,8 +148,10 @@ def _get_config_processing(
         if k in ['db_file', 'logfile'] and v is not None:
             if not os.path.isabs(v):
                 v = os.path.join(proc_sec['work_dir'], v)
-        if k in ['gdal_threads', 'spacing_iw', 'spacing_sm', 'spacing_ew']:
+        if k in ['gdal_threads']:
             v = int(v)
+        if k in ['spacing_iw', 'spacing_sm', 'spacing_ew']:
+            v = float(v)
         if k in ['date_strict']:
             v = proc_sec.getboolean(k)
         
