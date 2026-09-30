@@ -8,7 +8,7 @@ from collections import defaultdict
 from statistics import mean
 from lxml import etree
 from dateutil.parser import parse as dateparse
-from datetime import timezone
+from datetime import timezone, datetime
 import numpy as np
 from spatialist import Raster
 from spatialist.auxil import gdalwarp
@@ -541,6 +541,14 @@ def meta_dict(
         An :class:`~cesard.metadata.model.ARDMetadata` object containing
         metadata for the product as well as its source scenes.
     """
+    
+    def _as_utc(value: datetime | str) -> datetime:
+        if isinstance(value, str):
+            value = dateparse(value)
+        if value.tzinfo is None or value.utcoffset() is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    
     src_sid = {}
     src_xml = {}
     for sid in src_ids:
@@ -651,9 +659,9 @@ def meta_dict(
         access=config['metadata']['access_url'],
         doi=config['metadata']['doi'],
         license=config['metadata']['licence'],
-        time_start=prod_meta['start'],
-        time_stop=prod_meta['stop'],
-        time_created=prod_meta['proc_time'],
+        time_start=_as_utc(prod_meta['start']),
+        time_stop=_as_utc(prod_meta['stop']),
+        time_created=_as_utc(prod_meta['proc_time']),
         geometry=GeometryMetadata(
             bbox=tuple(float(x) for x in prod_meta['geom']['bbox']),
             bbox_native=tuple(float(x) for x in prod_meta['geom']['bbox_native']),
@@ -675,7 +683,7 @@ def meta_dict(
         ),
         processing=ProcessingMetadata(
             facility=processing_center,
-            date=prod_meta['proc_time'],
+            date=_as_utc(prod_meta['proc_time']),
             mode='PROTOTYPE',
             processor='s1ard',
             software={
@@ -817,12 +825,10 @@ def meta_dict(
             obj = src_xml[uid]['manifest'].find(pattern, nsmap)
             return obj.attrib[attrib] if attrib is not None else obj.text
         
-        asc_node_time = dateparse(_read_manifest('.//s1:ascendingNodeTime')).replace(
-            tzinfo=timezone.utc
-        )
-        proc_date = dateparse(
+        asc_node_time = _as_utc(_read_manifest('.//s1:ascendingNodeTime'))
+        proc_date = _as_utc(
             _read_manifest('.//safe:processing', attrib='stop')
-        ).replace(tzinfo=timezone.utc)
+        )
         proc_name = _read_manifest('.//safe:software', attrib='name')
         proc_version = _read_manifest('.//safe:software', attrib='version')
         fac_org = _read_manifest('.//safe:facility', attrib='organisation')
@@ -851,8 +857,8 @@ def meta_dict(
             status='ARCHIVED',
             access=URL['source_access'],
             doi=URL['source_doi'],
-            time_start=dateparse(sid.start).replace(tzinfo=timezone.utc),
-            time_stop=dateparse(sid.stop).replace(tzinfo=timezone.utc),
+            time_start=_as_utc(sid.start),
+            time_stop=_as_utc(sid.stop),
             geometry=GeometryMetadata(
                 bbox=tuple(float(x) for x in geom['bbox']),
                 geometry=dict(geom['geometry']),
