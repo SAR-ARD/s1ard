@@ -835,15 +835,6 @@ def meta_dict(
             }
             noise_equivalent_intensity_type = None
         
-        def _per_swath(value):
-            return {str(key): float(item) for key, item in value.items()}
-        
-        def _per_swath_optional(value):
-            return {
-                str(key): None if item is None else float(item)
-                for key, item in value.items()
-            }
-        
         inc_min = round(min(inc_vals), 2)
         inc_max = round(max(inc_vals), 2)
         inc_mid = round(inc_max - ((inc_max - inc_min) / 2), 2)
@@ -886,16 +877,16 @@ def meta_dict(
             ),
             swaths=tuple(swaths),
             azimuth=SwathAxisMetadata(
-                look_bandwidth=_per_swath_optional(az_look_bandwidth),
-                number_of_looks=_per_swath(az_num_looks),
-                pixel_spacing=_per_swath(az_px_spacing),
-                resolution=_per_swath(res_az),
+                look_bandwidth=az_look_bandwidth,
+                number_of_looks=az_num_looks,
+                pixel_spacing=az_px_spacing,
+                resolution=res_az,
             ),
             range=SwathAxisMetadata(
-                look_bandwidth=_per_swath_optional(rg_look_bandwidth),
-                number_of_looks=_per_swath(rg_num_looks),
-                pixel_spacing=_per_swath(rg_px_spacing),
-                resolution=_per_swath(res_rg),
+                look_bandwidth=rg_look_bandwidth,
+                number_of_looks=rg_num_looks,
+                pixel_spacing=rg_px_spacing,
+                resolution=res_rg,
             ),
             incidence_angle=IncidenceAngleMetadata(
                 minimum=inc_min,
