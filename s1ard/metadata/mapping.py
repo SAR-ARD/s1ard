@@ -1,5 +1,6 @@
 import s1ard
-from cesard.metadata.mapping import URL
+from copy import deepcopy
+from cesard.metadata.mapping import URL as URL_COMMON
 from packaging.version import parse, Version
 
 ARD_PATTERN = r'^(?P<sensor>S1[ABCD])_' \
@@ -192,6 +193,7 @@ def get_release_version(version_str: str) -> str:
     return version_str
 
 
+URL = deepcopy(URL_COMMON)
 URL.update({
     'faradayRotationReference': None,
     'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'
