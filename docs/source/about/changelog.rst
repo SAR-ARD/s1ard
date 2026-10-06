@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.13.2 | 2026-10-06
+-------------------
+
+* check for file compression before scene.unpack() (`#322 <https://github.com/SAR-ARD/s1ard/pull/322>`_)
+
+`Full v2.13.2 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.13.1...v2.13.2>`_
+
 2.13.1 | 2026-09-03
 -------------------
 
