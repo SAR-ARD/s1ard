@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - asf_search
-  - cesard>=1.3.0
+  - cesard>=1.4.0
   - click>=7.1.0
   - duckdb>=1.1.1
   - gdal>=3.5.0
