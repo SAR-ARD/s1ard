@@ -12,7 +12,7 @@ from pyroSAR.ancillary import Lock
 from pyroSAR.drivers import ID
 import s1ard
 from s1ard import ocn
-from s1ard.metadata.mapping import ARD_PATTERN
+from s1ard.metadata.mapping import ARD_PATTERN, NS_MAP_ARD
 from s1ard.metadata.extract import append_wind_norm, copy_src_meta, meta_dict
 from s1ard.processors.registry import load_processor
 from cesard.ancillary import (generate_unique_id, vrt_add_overviews,
@@ -513,6 +513,8 @@ def append_metadata(
     wm_ref_direction:
         the wind model reference wind direction files
     """
+    target = prod_meta['dir_ard_product']
+    
     meta = meta_dict(config=config, prod_meta=prod_meta,
                      src_ids=src_ids, compression=compression)
     
@@ -524,19 +526,23 @@ def append_metadata(
     schemas = os.listdir(schema_dir)
     for schema in schemas:
         schema_in = os.path.join(schema_dir, schema)
-        schema_out = os.path.join(prod_meta['dir_ard_product'], 'support', schema)
+        schema_out = os.path.join(target, 'support', schema)
         if not os.path.isfile(schema_out):
-            log.info(f"creating {os.path.relpath(schema_out, prod_meta['dir_ard_product'])}")
+            log.info(f"creating {os.path.relpath(schema_out, target)}")
             shutil.copy(schema_in, schema_out)
     
     if config['metadata']['copy_original']:
-        copy_src_meta(ard_dir=prod_meta['dir_ard_product'], src_ids=src_ids)
+        copy_src_meta(ard_dir=target, src_ids=src_ids)
     if 'OGC' in config['metadata']['format']:
-        xml.parse(meta=meta, target=prod_meta['dir_ard_product'],
-                  assets=assets, exist_ok=True)
+        xml.parse(
+            meta=meta, target=target,
+            assets=assets, nsmap_ard=NS_MAP_ARD, exist_ok=True
+        )
     if 'STAC' in config['metadata']['format']:
-        stac.parse(meta=meta, target=prod_meta['dir_ard_product'],
-                   assets=assets, exist_ok=True)
+        stac.parse(
+            meta=meta, target=target,
+            assets=assets, exist_ok=True
+        )
 
 
 def get_datasets(

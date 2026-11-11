@@ -1,5 +1,6 @@
 import s1ard
-from cesard.metadata.mapping import URL
+from copy import deepcopy
+from cesard.metadata.mapping import URL as URL_COMMON
 from packaging.version import parse, Version
 
 ARD_PATTERN = r'^(?P<sensor>S1[ABCD])_' \
@@ -14,6 +15,21 @@ ARD_PATTERN = r'^(?P<sensor>S1[ABCD])_' \
               r'(?P<dataTakeID>[0-9A-F]{6})_' \
               r'(?P<mgrsID>[0-9A-Z]{5})_' \
               r'(?P<ID>[0-9A-Z]{4})'
+
+NS_MAP_ARD = {
+    'sentinel-1': {
+        'NRB': {
+            'key': 's1-nrb',
+            'source': 'http://earth.esa.int/sentinel-1/nrb/source/1.0',
+            'product': 'http://earth.esa.int/sentinel-1/nrb/product/1.0',
+        },
+        'ORB': {
+            'key': 's1-orb',
+            'source': 'http://earth.esa.int/sentinel-1/orb/source/1.0',
+            'product': 'http://earth.esa.int/sentinel-1/orb/product/1.0',
+        }
+    },
+}
 
 # Source data resolution
 # https://sentinels.copernicus.eu/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-algorithms/single-look-complex
@@ -192,6 +208,7 @@ def get_release_version(version_str: str) -> str:
     return version_str
 
 
+URL = deepcopy(URL_COMMON)
 URL.update({
     'faradayRotationReference': None,
     'geoCorrAccuracyReference': f'https://s1ard.readthedocs.io/en/'

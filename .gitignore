@@ -117,6 +117,7 @@ dmypy.json
 .idea/
 out/
 dev_*
+dev/
 
 # OSX tempfiles
 .DS_Store
