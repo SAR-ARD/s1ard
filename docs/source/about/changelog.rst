@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.14.0 | 2026-11-11
+-------------------
+
+* make use of cesard metadata models (`#324 <https://github.com/SAR-ARD/s1ard/pull/324>`_)
+
+`Full v2.14.0 Changelog <https://github.com/SAR-ARD/s1ard/compare/v2.13.2...v2.14.0>`_
+
 2.13.2 | 2026-10-06
 -------------------
 
